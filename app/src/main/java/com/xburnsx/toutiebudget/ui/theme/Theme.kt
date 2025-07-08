@@ -1,20 +1,13 @@
 package com.xburnsx.toutiebudget.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD32F2F),  // Rouge principal
+    primary = Color(0xFFB30000),  // Rouge principal
     secondary = Color(0xFFF44336),  // Rouge clair
     tertiary = Color(0xFFB71C1C),  // Rouge foncé
     background = Color(0xFF121212),  // Noir

@@ -79,6 +79,20 @@ fun ToutieBudgetApp() {
     }
 }
 
+/* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
+/**
+ * A composable function that displays a floating bottom navigation bar with animated items.
+ *
+ * This bottom bar is centered horizontally and positioned above the system navigation bar
+ * using a Box layout. The bar has a dark background with rounded corners, giving it a
+ * "pill" appearance. The bar's items are displayed in a Row, with each item represented
+ * as a `CustomAnimatedBottomBarItem`.
+ *
+ * @param navController The NavHostController used to handle navigation actions for the
+ *                      bottom bar items.
+ */
+
+/* <<<<<<<<<<  03602e6d-4bcb-4a9b-b15a-c1ec3c880821  >>>>>>>>>>> */
 @Composable
 fun FloatingTransformingBottomBar(navController: NavHostController) {
     // Utilisation d'un Box pour centrer horizontalement et ajouter le padding de la barre système
@@ -143,14 +157,14 @@ fun RowScope.CustomAnimatedBottomBarItem(
 
     // Animation de la largeur de l'élément (expansion/contraction)
     val itemWidth by animateDpAsState(
-        targetValue = if (isSelected) 120.dp else 56.dp, // Largeur quand sélectionné vs non sélectionné
+        targetValue = if (isSelected) 160.dp else 56.dp, // Largeur quand sélectionné vs non sélectionné
         animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
         label = "Item Width"
     )
 
     // Animation de la couleur de fond de l'élément
     val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) Color.Red.copy(alpha = 0.8f) else Color.Transparent, // Rouge pour sélectionné, transparent sinon
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color.Transparent, // Couleur du theme quand sélectionné vs non sélectionné
         animationSpec = tween(durationMillis = 300),
         label = "Background Color"
     )
@@ -179,7 +193,7 @@ fun RowScope.CustomAnimatedBottomBarItem(
         ) {
             // Icône
             val iconSize by animateDpAsState(
-                targetValue = if (isSelected) 30.dp else 24.dp, // Icône plus grande si sélectionnée
+                targetValue = if (isSelected) 42.dp else 32.dp, // Icône plus grande si sélectionnée
                 animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
                 label = "Icon Size"
             )
@@ -212,7 +226,7 @@ fun RowScope.CustomAnimatedBottomBarItem(
                 Text(
                     text = screen.title,
                     color = Color.White, // Texte toujours blanc si visible
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     modifier = Modifier.animateContentSize() // Animer la taille du texte si besoin
