@@ -38,6 +38,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.xburnsx.toutiebudget.ui.screens.BudgetScreen
+import com.xburnsx.toutiebudget.ui.screens.ComptesScreen
+import com.xburnsx.toutiebudget.ui.screens.NouvelleTransactionScreen
+import com.xburnsx.toutiebudget.ui.screens.StatistiquesScreen
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 
 // Annotation pour indiquer que nous utilisons des API expérimentales
@@ -231,54 +235,5 @@ sealed class Screen(
 
     companion object {
         val items = listOf(Budget, Comptes, NouvelleTransaction, Statistiques)
-    }
-}
-
-// Écrans de l'application (inchangés)
-@Composable
-fun BudgetScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Écran Budget", color = MaterialTheme.colorScheme.onBackground)
-    }
-}
-
-@Composable
-fun ComptesScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Écran Comptes", color = MaterialTheme.colorScheme.onBackground)
-    }
-}
-
-@Composable
-fun NouvelleTransactionScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Nouvelle Transaction", color = MaterialTheme.colorScheme.onBackground)
-    }
-}
-
-@Composable
-fun StatistiquesScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Statistiques", color = MaterialTheme.colorScheme.onBackground)
     }
 }
