@@ -157,7 +157,7 @@ fun RowScope.CustomAnimatedBottomBarItem(
 
     // Animation de la largeur de l'élément (expansion/contraction)
     val itemWidth by animateDpAsState(
-        targetValue = if (isSelected) 160.dp else 56.dp, // Largeur quand sélectionné vs non sélectionné
+        targetValue = if (isSelected) 140.dp else 56.dp, // Largeur quand sélectionné vs non sélectionné
         animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
         label = "Item Width"
     )
