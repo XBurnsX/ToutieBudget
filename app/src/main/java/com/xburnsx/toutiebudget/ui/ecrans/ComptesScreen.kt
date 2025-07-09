@@ -1,4 +1,4 @@
-package com.xburnsx.toutiebudget.ui.screens
+package com.xburnsx.toutiebudget.ui.ecrans
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,12 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Écran qui permet d'ajouter une nouvelle transaction
+ * Écran qui affiche la liste des comptes de l'utilisateur
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NouvelleTransactionScreen() {
-    // Contenu de l'écran Nouvelle Transaction
+fun ComptesScreen() {
+    // Contenu de l'écran Comptes
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -22,12 +21,12 @@ fun NouvelleTransactionScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Nouvelle Transaction",
+            text = "Comptes",
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Formulaire d'ajout de transaction à venir...",
+            text = "Liste de vos comptes à venir...",
             style = MaterialTheme.typography.bodyLarge
         )
     }

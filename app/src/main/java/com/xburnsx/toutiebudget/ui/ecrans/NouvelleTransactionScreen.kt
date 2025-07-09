@@ -1,4 +1,4 @@
-package com.xburnsx.toutiebudget.ui.screens
+package com.xburnsx.toutiebudget.ui.ecrans
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,11 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Écran qui affiche les statistiques de l'utilisateur
+ * Écran qui permet d'ajouter une nouvelle transaction
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatistiquesScreen() {
-    // Contenu de l'écran Statistiques
+fun NouvelleTransactionScreen() {
+    // Contenu de l'écran Nouvelle Transaction
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -21,12 +22,12 @@ fun StatistiquesScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Statistiques",
+            text = "Nouvelle Transaction",
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Vos statistiques détaillées à venir...",
+            text = "Formulaire d'ajout de transaction à venir...",
             style = MaterialTheme.typography.bodyLarge
         )
     }

@@ -1,4 +1,4 @@
-package com.xburnsx.toutiebudget.ui.screens
+package com.xburnsx.toutiebudget.ui.ecrans
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,11 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Écran principal de l'application qui affiche le budget global
+ * Écran qui affiche les statistiques de l'utilisateur
  */
 @Composable
-fun BudgetScreen() {
-    // Contenu de l'écran Budget
+fun StatistiquesScreen() {
+    // Contenu de l'écran Statistiques
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -21,12 +21,12 @@ fun BudgetScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Budget",
+            text = "Statistiques",
             style = MaterialTheme.typography.headlineMedium
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Contenu de l'écran Budget à venir...",
+            text = "Vos statistiques détaillées à venir...",
             style = MaterialTheme.typography.bodyLarge
         )
     }
