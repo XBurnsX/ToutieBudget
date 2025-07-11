@@ -1,6 +1,9 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
@@ -10,10 +13,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLEncoder
+import java.util.Date
+import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 
 class CategorieRepositoryImpl : CategorieRepository {
     private val client = PocketBaseClient
-    private val gson = Gson().newBuilder()
+    private val gson = com.google.gson.GsonBuilder()
+        .registerTypeAdapter(java.util.Date::class.java, SafeDateAdapter())
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
     private val httpClient = okhttp3.OkHttpClient()

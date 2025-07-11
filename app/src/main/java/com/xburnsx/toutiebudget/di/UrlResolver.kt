@@ -29,12 +29,10 @@ object UrlResolver {
     suspend fun obtenirUrlActive(): String = withContext(Dispatchers.IO) {
         val maintenant = System.currentTimeMillis()
         if (urlActive != null && (maintenant - derniereVerification) < DUREE_CACHE_MS) {
-            println("🔧 UrlResolver: Utilisation de l'URL du cache : $urlActive")
             return@withContext urlActive!!
         }
 
         val typeEnvironnement = DetecteurEmulateur.obtenirTypeEnvironnement()
-        println("🔍 UrlResolver: Détection pour l'environnement : ${typeEnvironnement.name}")
 
         // URLs locales en priorité (sans fallback public)
         val urlsLocales = when (typeEnvironnement) {
@@ -46,30 +44,25 @@ object UrlResolver {
             )
         }
 
-        println("📋 UrlResolver: Test des URLs locales : ${urlsLocales.map { it.first }}")
 
         // Tester d'abord les URLs locales
         for ((url, description) in urlsLocales) {
             if (testerConnexion(url, description)) {
                 urlActive = url
                 derniereVerification = maintenant
-                println("✅ UrlResolver: URL locale sélectionnée : $url ($description)")
                 return@withContext url
             }
         }
 
         // Seulement si aucune URL locale ne fonctionne, tester l'URL publique
-        println("⚠️ UrlResolver: Aucune URL locale accessible, test de l'URL publique...")
         val urlPublique = "http://toutiebudget.duckdns.org:8090"
         if (testerConnexion(urlPublique, "Publique (Fallback)")) {
             urlActive = urlPublique
             derniereVerification = maintenant
-            println("✅ UrlResolver: URL publique sélectionnée : $urlPublique")
             return@withContext urlPublique
         }
 
         // Si absolument rien ne fonctionne
-        println("❌ UrlResolver: Aucune URL n'est accessible. Utilisation de l'URL par défaut : $urlPublique")
         urlActive = urlPublique
         derniereVerification = maintenant
         return@withContext urlPublique
@@ -81,10 +74,8 @@ object UrlResolver {
             val requete = Request.Builder().url("${url.trimEnd('/')}/api/health").get().build()
             clientVerification.newCall(requete).execute().use { reponse ->
                 if (reponse.isSuccessful) {
-                    println("SUCCÈS (${reponse.code})")
                     true
                 } else {
-                    println("ÉCHEC (${reponse.code})")
                     false
                 }
             }
@@ -95,7 +86,6 @@ object UrlResolver {
                 is IOException -> "Erreur réseau"
                 else -> "Erreur inconnue"
             }
-            println("ÉCHEC ($messageErreur)")
             false
         }
     }

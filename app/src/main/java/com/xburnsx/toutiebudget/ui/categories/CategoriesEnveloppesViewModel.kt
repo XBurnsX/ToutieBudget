@@ -28,25 +28,39 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun chargerCategoriesEtEnveloppes() {
+        println("[DEBUG] chargerCategoriesEtEnveloppes appelé")
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
             try {
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
                 
+                println("[DEBUG] Enveloppes récupérées: ${enveloppes.size}")
+                println("[DEBUG] Catégories récupérées: ${categories.size}")
+                
                 // Créer un map pour accéder rapidement aux catégories par ID
                 val categoriesMap = categories.associateBy { it.id }
                 
-                val groupes = enveloppes.filter { !it.estArchive }.groupBy { enveloppe ->
+                // Grouper les enveloppes par catégorie
+                val groupesEnveloppes = enveloppes.filter { !it.estArchive }.groupBy { enveloppe ->
                     val categorie = categoriesMap[enveloppe.categorieId]
                     categorie?.nom ?: "Autre"
                 }
                 
+                // Créer un map complet avec toutes les catégories (même vides)
+                val groupesComplets = categories.associate { categorie ->
+                    categorie.nom to (groupesEnveloppes[categorie.nom] ?: emptyList())
+                }
+                
+                val groupes = groupesComplets
+                
                 println("[DEBUG] Catégories détectées: " + groupes.keys.joinToString())
                 println("[DEBUG] Enveloppes récupérées: " + enveloppes.joinToString { "${it.nom} (cat: ${categoriesMap[it.categorieId]?.nom ?: "Autre"})" })
-                _uiState.update { it.copy(isLoading = false, enveloppesGroupees = groupes) }
+                println("[DEBUG] Groupes finaux: " + groupes.map { "${it.key}: ${it.value.size} enveloppes" })
+                _uiState.update { it.copy(enveloppesGroupees = groupes) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreur = e.message) }
+                println("[DEBUG] Erreur dans chargerCategoriesEtEnveloppes: ${e.message}")
+                e.printStackTrace()
+                _uiState.update { it.copy(erreur = e.message) }
             }
         }
     }
@@ -116,13 +130,30 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun sauvegarderNouvelleEnveloppe() {
+        println("[DEBUG] sauvegarderNouvelleEnveloppe appelé")
         viewModelScope.launch {
             val state = _uiState.value
+            println("[DEBUG] Nom de l'enveloppe: '${state.nomNouvelleEnveloppe}'")
+            println("[DEBUG] Catégorie pour ajout: '${state.categoriePourAjout}'")
+            
+            if (state.nomNouvelleEnveloppe.isBlank()) {
+                println("[DEBUG] Nom vide, annulation")
+                return@launch
+            }
+            
             // Trouver l'ID de la catégorie par son nom
             val categorieId = try {
                 val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
-                categories.find { it.nom == state.categoriePourAjout }?.id ?: "categorie_autre"
+                println("[DEBUG] Toutes les catégories disponibles: ${categories.map { "${it.nom} (${it.id})" }}")
+                println("[DEBUG] Recherche de la catégorie: '${state.categoriePourAjout}'")
+                val categorie = categories.find { it.nom == state.categoriePourAjout }
+                println("[DEBUG] Catégorie trouvée: ${categorie?.nom} (ID: ${categorie?.id})")
+                if (categorie == null) {
+                    println("[DEBUG] Catégorie non trouvée, utilisation de 'categorie_autre'")
+                }
+                categorie?.id ?: "categorie_autre"
             } catch (e: Exception) {
+                println("[DEBUG] Erreur récupération catégories: ${e.message}")
                 "categorie_autre"
             }
             
@@ -135,6 +166,8 @@ class CategoriesEnveloppesViewModel(
                 throw Exception("Impossible de récupérer l'utilisateur connecté")
             }
             
+            println("[DEBUG] Création de l'enveloppe avec categorieId: $categorieId")
+            
             val nouvelleEnveloppe = Enveloppe(
                 id = "", // L'ID sera généré par PocketBase
                 utilisateurId = utilisateurId,
@@ -143,10 +176,15 @@ class CategoriesEnveloppesViewModel(
                 estArchive = false,
                 ordre = (state.enveloppesGroupees.values.flatten().size) + 1
             )
+            
+            println("[DEBUG] Enveloppe à créer: $nouvelleEnveloppe")
+            
             enveloppeRepository.creerEnveloppe(nouvelleEnveloppe).onSuccess {
+                println("[DEBUG] Enveloppe créée avec succès")
                 onFermerDialogues()
                 chargerCategoriesEtEnveloppes()
             }.onFailure { e ->
+                println("[DEBUG] Erreur lors de la création de l'enveloppe: ${e.message}")
                 _uiState.update { it.copy(erreur = e.message) }
             }
         }

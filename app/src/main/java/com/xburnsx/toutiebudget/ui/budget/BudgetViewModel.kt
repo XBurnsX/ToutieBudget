@@ -64,22 +64,23 @@ class BudgetViewModel(
 
                 // Créer les enveloppes UI et les grouper par catégorie
                 val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
-                val categoriesEnveloppes = enveloppesUi
-                    .groupBy { enveloppeUi ->
-                        // Trouver la catégorie de l'enveloppe originale
-                        val enveloppe = enveloppes.find { it.id == enveloppeUi.id }
-                        val categorie = enveloppe?.categorieId?.let { categorieId ->
-                            categories.find { it.id == categorieId }
-                        }
-                        categorie?.nom ?: "Autre"
+                
+                // Grouper les enveloppes par catégorie
+                val groupesEnveloppes = enveloppesUi.groupBy { enveloppeUi ->
+                    val enveloppe = enveloppes.find { it.id == enveloppeUi.id }
+                    val categorie = enveloppe?.categorieId?.let { categorieId ->
+                        categories.find { it.id == categorieId }
                     }
-                    .map { (categorie, enveloppes) ->
-                        CategorieEnveloppesUi(
-                            nomCategorie = categorie,
-                            enveloppes = enveloppes
-                        )
-                    }
-                    .sortedBy { it.nomCategorie }
+                    categorie?.nom ?: "Autre"
+                }
+                
+                // Créer un map complet avec toutes les catégories (même vides)
+                val categoriesEnveloppes = categories.map { categorie ->
+                    CategorieEnveloppesUi(
+                        nomCategorie = categorie.nom,
+                        enveloppes = groupesEnveloppes[categorie.nom] ?: emptyList()
+                    )
+                }.sortedBy { it.nomCategorie }
 
                 _uiState.update {
                     it.copy(

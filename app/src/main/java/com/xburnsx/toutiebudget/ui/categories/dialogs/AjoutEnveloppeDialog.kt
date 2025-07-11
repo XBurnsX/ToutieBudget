@@ -33,7 +33,13 @@ fun AjoutEnveloppeDialog(
             )
         },
         confirmButton = {
-            Button(onClick = onSave, enabled = nomEnveloppe.isNotBlank()) {
+            Button(
+                onClick = {
+                    println("[DEBUG] Bouton Créer Enveloppe cliqué, nom: '$nomEnveloppe'")
+                    onSave()
+                },
+                enabled = nomEnveloppe.isNotBlank()
+            ) {
                 Text("Créer")
             }
         },

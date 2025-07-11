@@ -8,11 +8,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.google.gson.GsonBuilder
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
+import java.util.Date
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.content.Context
+import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 
 /**
  * Client PocketBase personnalisé qui gère automatiquement :
@@ -32,7 +38,8 @@ object PocketBaseClient {
         .retryOnConnectionFailure(true)
         .build()
 
-    private val gson = Gson().newBuilder()
+    private val gson = com.google.gson.GsonBuilder()
+        .registerTypeAdapter(java.util.Date::class.java, SafeDateAdapter())
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
     private var tokenAuthentification: String? = null

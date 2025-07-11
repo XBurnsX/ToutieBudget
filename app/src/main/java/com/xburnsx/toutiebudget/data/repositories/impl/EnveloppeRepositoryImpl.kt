@@ -1,6 +1,10 @@
 // chemin/simule: /data/repositories/impl/EnveloppeRepositoryImpl.kt
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.GsonBuilder
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
@@ -16,11 +20,13 @@ import java.net.URLEncoder
 import java.util.Date
 import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaType
+import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 
 class EnveloppeRepositoryImpl : EnveloppeRepository {
     
     private val client = PocketBaseClient
-    private val gson = Gson().newBuilder()
+    private val gson = com.google.gson.GsonBuilder()
+        .registerTypeAdapter(java.util.Date::class.java, SafeDateAdapter())
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
     private val httpClient = okhttp3.OkHttpClient()
@@ -59,6 +65,7 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             }
 
             val corpsReponse = reponse.body!!.string()
+            println("[DEBUG] JSON reçu de PocketBase: $corpsReponse")
             val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Enveloppe::class.java).type
             val resultatPagine: ListeResultats<Enveloppe> = gson.fromJson(corpsReponse, typeReponse)
 
@@ -134,9 +141,18 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
                 ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé pour la création."))
 
-            // Injecte l'ID de l'utilisateur dans l'objet enveloppe
-            val enveloppeAvecUtilisateur = enveloppe.copy(utilisateurId = utilisateurId)
-            val corpsJson = gson.toJson(enveloppeAvecUtilisateur)
+            // Créer un map avec les champs nécessaires pour PocketBase
+            val dataMap = mapOf(
+                "utilisateur_id" to utilisateurId,
+                "nom" to enveloppe.nom,
+                "categorie_id" to enveloppe.categorieId,
+                "est_archive" to enveloppe.estArchive,
+                "ordre" to enveloppe.ordre
+                // Pas d'objectif par défaut - l'utilisateur le définira plus tard
+            )
+            
+            val corpsJson = gson.toJson(dataMap)
+            println("[DEBUG] JSON envoyé à PocketBase pour enveloppe: $corpsJson")
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
@@ -148,7 +164,9 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             httpClient.newCall(requete).execute().use { reponse ->
                 if (!reponse.isSuccessful) {
-                    return@withContext Result.failure(Exception("Échec de la création: ${reponse.body?.string()}"))
+                    val errorBody = reponse.body?.string()
+                    println("[DEBUG] Réponse d'erreur PocketBase pour enveloppe: $errorBody")
+                    return@withContext Result.failure(Exception("Échec de la création: $errorBody"))
                 }
             }
             Result.success(Unit)

@@ -80,22 +80,18 @@ fun CategoriesEnveloppesScreen(
             modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-                    items(
-                        items = uiState.enveloppesGroupees.keys.toList(),
-                        key = { it }
-                    ) { categorie ->
-                        val enveloppes = uiState.enveloppesGroupees[categorie] ?: emptyList()
-                        CategorieCard(
-                            nomCategorie = categorie,
-                            enveloppes = enveloppes,
-                            onAjouterEnveloppeClick = { viewModel.onOuvrirAjoutEnveloppeDialog(categorie) },
-                            onObjectifClick = { enveloppe -> viewModel.onOuvrirObjectifDialog(enveloppe) }
-                        )
-                    }
+            // Affiche toujours la liste, même si elle est vide pendant le chargement
+            LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+                items(
+                    items = uiState.enveloppesGroupees.entries.toList(),
+                    key = { (categorie, enveloppes) -> "${categorie}_${enveloppes.firstOrNull()?.categorieId ?: "vide"}" }
+                ) { (categorie, enveloppes) ->
+                    CategorieCard(
+                        nomCategorie = categorie,
+                        enveloppes = enveloppes,
+                        onAjouterEnveloppeClick = { viewModel.onOuvrirAjoutEnveloppeDialog(categorie) },
+                        onObjectifClick = { enveloppe -> viewModel.onOuvrirObjectifDialog(enveloppe) }
+                    )
                 }
             }
         }
