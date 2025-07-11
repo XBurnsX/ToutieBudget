@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.login
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.di.PocketBaseClient
@@ -92,7 +93,8 @@ class LoginViewModel : ViewModel() {
         email: String, 
         nom: String?, 
         codeAutorisation: String?,
-        idToken: String? = null
+        idToken: String? = null,
+        context: Context
     ) {
         viewModelScope.launch {
             ajouterLogDebug("🔐 === DÉBUT CONNEXION GOOGLE AVEC COMPTE ===")
@@ -129,7 +131,7 @@ class LoginViewModel : ViewModel() {
                     it.copy(messageChargement = "Connexion à PocketBase...")
                 }
 
-                val resultat = PocketBaseClient.connecterAvecGoogle(codeAutorisation)
+                val resultat = PocketBaseClient.connecterAvecGoogle(codeAutorisation, context)
 
                 resultat.onSuccess {
                     ajouterLogDebug("✅ Connexion PocketBase réussie !")
@@ -200,7 +202,7 @@ class LoginViewModel : ViewModel() {
      * Traite la connexion Google OAuth2 (version legacy)
      * @param codeAutorisation Le code d'autorisation obtenu de Google Sign-In
      */
-    fun gererConnexionGoogle(codeAutorisation: String?) {
+    fun gererConnexionGoogle(codeAutorisation: String?, context: Context) {
         ajouterLogDebug("🔐 === CONNEXION GOOGLE (LEGACY) ===")
         
         if (codeAutorisation == null) {
@@ -215,7 +217,7 @@ class LoginViewModel : ViewModel() {
         }
 
         // Utiliser la nouvelle méthode avec fallback
-        gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", codeAutorisation)
+        gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", codeAutorisation, null, context)
     }
 
     /**
@@ -229,8 +231,9 @@ class LoginViewModel : ViewModel() {
     /**
      * Vérifie si l'utilisateur est déjà connecté
      */
-    fun verifierConnexionExistante() {
+    fun verifierConnexionExistante(context: Context) {
         ajouterLogDebug("🔍 Vérification de connexion existante...")
+        PocketBaseClient.chargerToken(context)
         if (PocketBaseClient.estConnecte()) {
             ajouterLogDebug("✅ Utilisateur déjà connecté")
             _etatUi.update {
@@ -247,9 +250,9 @@ class LoginViewModel : ViewModel() {
     /**
      * Force une déconnexion complète
      */
-    fun deconnecter() {
+    fun deconnecter(context: Context) {
         ajouterLogDebug("👋 Déconnexion de l'utilisateur")
-        PocketBaseClient.deconnecter()
+        PocketBaseClient.deconnecter(context)
         _etatUi.update {
             EtatLoginUi(modeDebug = true) // Réinitialiser complètement l'état
         }

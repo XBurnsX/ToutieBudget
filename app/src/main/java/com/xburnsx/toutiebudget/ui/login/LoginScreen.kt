@@ -196,33 +196,17 @@ fun LoginScreen(
                     
                     if (codeServeur != null && codeServeur.isNotBlank()) {
                         println("✅ Code serveur disponible - Connexion avec PocketBase")
-                        viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur, idToken)
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur, idToken, contexte)
                     } else if (idToken != null && idToken.isNotBlank()) {
                         println("✅ ID Token disponible - Connexion avec ID Token")
-                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null, idToken)
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null, idToken, contexte)
                     } else {
                         println("❌ Aucun code d'autorisation ni ID token reçu – échec de la connexion sécurisée")
-                        viewModel.gererConnexionGoogle(null)
+                        viewModel.gererConnexionGoogle(null, contexte)
                     }
-
-                } catch (e: ApiException) {
-                    println("❌ Erreur ApiException:")
-                    println("   Status Code: ${e.statusCode}")
-                    println("   Message: ${e.message}")
-                    println("   Localized Message: ${e.localizedMessage}")
-                    println("   Cause: ${e.cause}")
-                    println("   Stack Trace: ${e.stackTrace.joinToString("\n")}")
-                    
-                    // Codes d'erreur Google Sign-In spécifiques
-                    when (e.statusCode) {
-                        10 -> println("   -> DEVELOPER_ERROR: Configuration incorrecte")
-                        12500 -> println("   -> SIGN_IN_REQUIRED: Utilisateur non connecté")
-                        12501 -> println("   -> SIGN_IN_CANCELLED: Connexion annulée")
-                        12502 -> println("   -> SIGN_IN_CURRENTLY_IN_PROGRESS: Connexion en cours")
-                        else -> println("   -> Code d'erreur inconnu: ${e.statusCode}")
-                    }
-                    
-                    viewModel.gererConnexionGoogle(null)
+                } catch (e: Exception) {
+                    println("❌ Erreur lors de la récupération du compte Google: ${e.message}")
+                    viewModel.gererConnexionGoogle(null, contexte)
                 }
             }
             Activity.RESULT_CANCELED -> {
@@ -301,11 +285,11 @@ fun LoginScreen(
                 println("   - Problème de connectivité réseau")
                 println("   - Compte Google non configuré sur l'appareil")
                 
-                viewModel.gererConnexionGoogle(null)
+                viewModel.gererConnexionGoogle(null, contexte)
             }
             else -> {
                 println("❓ Code de résultat inattendu: ${resultat.resultCode}")
-                viewModel.gererConnexionGoogle(null)
+                viewModel.gererConnexionGoogle(null, contexte)
             }
         }
         println("=== FIN DEBUG RETOUR ===")
@@ -383,7 +367,7 @@ fun LoginScreen(
 
     // Vérification de connexion existante au démarrage
     LaunchedEffect(Unit) {
-        viewModel.verifierConnexionExistante()
+        viewModel.verifierConnexionExistante(contexte)
     }
 }
 

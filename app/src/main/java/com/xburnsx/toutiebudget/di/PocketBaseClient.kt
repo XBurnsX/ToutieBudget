@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import android.content.Context
 
 /**
  * Client PocketBase personnalisé qui gère automatiquement :
@@ -34,6 +35,10 @@ object PocketBaseClient {
     private val gson = Gson()
     private var tokenAuthentification: String? = null
     private var utilisateurConnecte: EnregistrementUtilisateur? = null
+
+    private const val PREFS_NAME = "pocketbase_prefs"
+    private const val KEY_TOKEN = "token_auth"
+    private const val KEY_USER = "user_auth"
 
     /**
      * Initialise le client en résolvant l'URL active
@@ -84,7 +89,7 @@ object PocketBaseClient {
      * Connecte l'utilisateur via Google OAuth2
      * @param codeAutorisation Le code d'autorisation obtenu de Google
      */
-    suspend fun connecterAvecGoogle(codeAutorisation: String): Result<Unit> =
+    suspend fun connecterAvecGoogle(codeAutorisation: String, context: Context): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 println("🔐 === AUTHENTIFICATION GOOGLE OAUTH2 ===")
@@ -130,9 +135,9 @@ object PocketBaseClient {
                     println("✅ AUTHENTIFICATION GOOGLE RÉUSSIE !")
                     try {
                         val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
-                        tokenAuthentification = reponseAuth.token
-                        utilisateurConnecte = reponseAuth.record
-                        println("👤 Utilisateur connecté: ${reponseAuth.record.email} | Token: ${reponseAuth.token.take(20)}...")
+                        sauvegarderToken(context, reponseAuth.token)
+                        sauvegarderUtilisateur(context, reponseAuth.record)
+                        println("👤 Utilisateur connecté: "+reponseAuth.record.email+" | Token: "+reponseAuth.token.take(20)+"...")
                         Result.success(Unit)
                     } catch (e: Exception) {
                         println("❌ Erreur de parsing de la réponse JSON: ${e.message}")
@@ -207,9 +212,10 @@ object PocketBaseClient {
     /**
      * Déconnecte l'utilisateur actuel
      */
-    fun deconnecter() {
+    fun deconnecter(context: Context) {
         println("👋 Déconnexion de l'utilisateur")
-        tokenAuthentification = null
+        effacerToken(context)
+        effacerUtilisateur(context)
         utilisateurConnecte = null
     }
 
@@ -239,6 +245,70 @@ object PocketBaseClient {
      */
     fun obtenirToken(): String? {
         return tokenAuthentification
+    }
+
+    /**
+     * Sauvegarde le token d'authentification dans les SharedPreferences
+     */
+    fun sauvegarderToken(context: Context, token: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_TOKEN, token)
+            .apply()
+        tokenAuthentification = token
+    }
+
+    /**
+     * Charge le token d'authentification depuis les SharedPreferences
+     */
+    fun chargerToken(context: Context) {
+        val token = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_TOKEN, null)
+        tokenAuthentification = token
+        chargerUtilisateur(context)
+    }
+
+    /**
+     * Efface le token d'authentification des SharedPreferences
+     */
+    fun effacerToken(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_TOKEN)
+            .apply()
+        tokenAuthentification = null
+    }
+
+    /**
+     * Sauvegarde l'utilisateur connecté dans les SharedPreferences
+     */
+    fun sauvegarderUtilisateur(context: Context, utilisateur: EnregistrementUtilisateur) {
+        val json = gson.toJson(utilisateur)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_USER, json)
+            .apply()
+        utilisateurConnecte = utilisateur
+    }
+
+    /**
+     * Charge l'utilisateur connecté depuis les SharedPreferences
+     */
+    fun chargerUtilisateur(context: Context) {
+        val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_USER, null)
+        utilisateurConnecte = if (json != null) gson.fromJson(json, EnregistrementUtilisateur::class.java) else null
+    }
+
+    /**
+     * Efface l'utilisateur connecté des SharedPreferences
+     */
+    fun effacerUtilisateur(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_USER)
+            .apply()
+        utilisateurConnecte = null
     }
 
     /**
