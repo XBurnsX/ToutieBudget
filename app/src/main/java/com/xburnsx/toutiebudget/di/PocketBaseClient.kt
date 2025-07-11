@@ -98,11 +98,13 @@ object PocketBaseClient {
                 println("🔗 URL OAuth2 complète: $urlOAuth")
 
                 // Données pour l'authentification OAuth2
+                // IMPORTANT : Le redirectURL doit correspondre EXACTEMENT à ce qui est configuré dans Google Cloud Console
+                // On utilise localhost car Google refuse les IPs privées, mais on communique quand même avec l'IP locale
                 val donneesOAuth = JsonObject().apply {
                     addProperty("provider", "google")
                     addProperty("code", codeAutorisation)
                     addProperty("codeVerifier", "") // Standard pour le flux web/mobile
-                    addProperty("redirectUrl", "http://localhost:8090") // Requis par PocketBase
+                    addProperty("redirectURL", "http://localhost:8090") // Sans le path complet
                     // createData est optionnel, PocketBase prendra les infos du profil Google
                 }
                 val corpsRequeteString = donneesOAuth.toString()
@@ -175,6 +177,8 @@ object PocketBaseClient {
         return when (code) {
             400 -> {
                 when {
+                    corpsReponse.contains("invalid_grant", ignoreCase = true) -> 
+                        "Code d'autorisation Google invalide ou expiré. Réessayez la connexion."
                     corpsReponse.contains("invalid_code", ignoreCase = true) -> 
                         "Code d'autorisation Google invalide. Vérifiez votre configuration Google."
                     corpsReponse.contains("invalid_provider", ignoreCase = true) -> 
@@ -185,6 +189,8 @@ object PocketBaseClient {
                         "Configuration OAuth2 incomplète. Vérifiez la configuration PocketBase."
                     corpsReponse.contains("validation_required", ignoreCase = true) -> 
                         "Données de requête invalides. Vérifiez la configuration OAuth2."
+                    corpsReponse.contains("Failed to fetch OAuth2 token", ignoreCase = true) ->
+                        "Impossible de récupérer le token Google. Vérifiez que les redirect URLs sont correctement configurées dans Google Cloud Console."
                     else -> "Requête invalide (400). Détails: $corpsReponse"
                 }
             }
