@@ -1,64 +1,219 @@
 // chemin/simule: /data/repositories/impl/EnveloppeRepositoryImpl.kt
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.di.PocketBaseClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLEncoder
 import java.util.Date
 import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaType
 
 class EnveloppeRepositoryImpl : EnveloppeRepository {
-    // Données simulées
-    private val enveloppesSimulees = mutableListOf(
-        Enveloppe("env1", "user1", "Loyer", "Dépense obligatoire", false, 1, TypeObjectif.MENSUEL, 1200.0, null, 1),
-        Enveloppe("env2", "user1", "Épicerie", "Dépense obligatoire", false, 2, TypeObjectif.MENSUEL, 500.0, null, 1),
-        Enveloppe("env3", "user1", "Gaz", "Dépense non obligatoire", false, 3)
-    )
-    private val allocationsSimulees = mutableListOf(
-        AllocationMensuelle("alloc1", "user1", "env1", Date(), 1200.0, 1200.0, 0.0, "cheque1", "comptes_cheque"),
-        AllocationMensuelle("alloc2", "user1", "env2", Date(), 350.25, 500.0, 149.75, "cheque1", "comptes_cheque")
-    )
+    
+    private val client = PocketBaseClient
+    private val gson = Gson()
+    private val httpClient = okhttp3.OkHttpClient()
 
-    override suspend fun recupererToutesLesEnveloppes(): Result<List<Enveloppe>> {
-        return Result.success(enveloppesSimulees.filter { !it.estArchive }.sortedBy { it.ordre })
+    // Noms des collections dans PocketBase
+    private object Collections {
+        const val ENVELOPPES = "enveloppes"
+        const val ALLOCATIONS = "allocations_mensuelles"
     }
 
-    override suspend fun recupererAllocationsPourMois(mois: Date): Result<List<AllocationMensuelle>> {
-        // Pour la simulation, on retourne toutes les allocations
-        return Result.success(allocationsSimulees)
-    }
-
-    override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle): Result<Unit> {
-        val index = allocationsSimulees.indexOfFirst { it.id == allocation.id }
-        if (index != -1) {
-            allocationsSimulees[index] = allocation
+    override suspend fun recupererToutesLesEnveloppes(): Result<List<Enveloppe>> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.success(emptyList())
         }
-        return Result.success(Unit)
-    }
+        
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
 
-    override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Unit> {
-        enveloppesSimulees.add(enveloppe)
-        return Result.success(Unit)
-    }
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
 
-    override suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle> {
-        val allocationExistante = allocationsSimulees.find { it.enveloppeId == enveloppeId }
-        if (allocationExistante != null) {
-            return Result.success(allocationExistante)
+            // Filtre pour ne récupérer que les enregistrements de l'utilisateur connecté
+            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records?filter=$filtreEncode&perPage=100"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération des enveloppes: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Enveloppe::class.java).type
+            val resultatPagine: ListeResultats<Enveloppe> = gson.fromJson(corpsReponse, typeReponse)
+
+            val enveloppes = resultatPagine.items.filter { !it.estArchive }.sortedBy { it.ordre }
+            Result.success(enveloppes)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        val nouvelleAllocation = AllocationMensuelle(
-            id = UUID.randomUUID().toString(),
-            utilisateurId = "user1",
-            enveloppeId = enveloppeId,
-            mois = mois,
-            solde = 0.0,
-            alloue = 0.0,
-            depense = 0.0,
-            compteSourceId = null,
-            collectionCompteSource = null
-        )
-        allocationsSimulees.add(nouvelleAllocation)
-        return Result.success(nouvelleAllocation)
+    }
+
+    override suspend fun recupererAllocationsPourMois(mois: Date): Result<List<AllocationMensuelle>> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.success(emptyList())
+        }
+        
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            // Filtre pour ne récupérer que les allocations de l'utilisateur connecté
+            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
+            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=100"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération des allocations: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, AllocationMensuelle::class.java).type
+            val resultatPagine: ListeResultats<AllocationMensuelle> = gson.fromJson(corpsReponse, typeReponse)
+
+            Result.success(resultatPagine.items)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val corpsJson = gson.toJson(allocation)
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/${Collections.ALLOCATIONS}/records/${allocation.id}")
+                .addHeader("Authorization", "Bearer $token")
+                .patch(corpsJson.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) {
+                    return@withContext Result.failure(Exception("Échec de la mise à jour: ${reponse.body?.string()}"))
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé pour la création."))
+
+            // Injecte l'ID de l'utilisateur dans l'objet enveloppe
+            val enveloppeAvecUtilisateur = enveloppe.copy(utilisateurId = utilisateurId)
+            val corpsJson = gson.toJson(enveloppeAvecUtilisateur)
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/${Collections.ENVELOPPES}/records")
+                .addHeader("Authorization", "Bearer $token")
+                .post(corpsJson.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) {
+                    return@withContext Result.failure(Exception("Échec de la création: ${reponse.body?.string()}"))
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+
+            // D'abord, essayer de récupérer l'allocation existante
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            // Filtre pour trouver l'allocation existante
+            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId' && enveloppe_id = '$enveloppeId'", "UTF-8")
+            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=1"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (reponse.isSuccessful) {
+                val corpsReponse = reponse.body!!.string()
+                val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, AllocationMensuelle::class.java).type
+                val resultatPagine: ListeResultats<AllocationMensuelle> = gson.fromJson(corpsReponse, typeReponse)
+
+                if (resultatPagine.items.isNotEmpty()) {
+                    return@withContext Result.success(resultatPagine.items.first())
+                }
+            }
+
+            // Si aucune allocation n'existe, en créer une nouvelle
+            val nouvelleAllocation = AllocationMensuelle(
+                id = UUID.randomUUID().toString(),
+                utilisateurId = utilisateurId,
+                enveloppeId = enveloppeId,
+                mois = mois,
+                solde = 0.0,
+                alloue = 0.0,
+                depense = 0.0,
+                compteSourceId = null,
+                collectionCompteSource = null
+            )
+
+            val corpsJson = gson.toJson(nouvelleAllocation)
+            val requeteCreation = Request.Builder()
+                .url("$urlBase/api/collections/${Collections.ALLOCATIONS}/records")
+                .addHeader("Authorization", "Bearer $token")
+                .post(corpsJson.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            httpClient.newCall(requeteCreation).execute().use { reponseCreation ->
+                if (!reponseCreation.isSuccessful) {
+                    return@withContext Result.failure(Exception("Échec de la création de l'allocation: ${reponseCreation.body?.string()}"))
+                }
+            }
+
+            Result.success(nouvelleAllocation)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
