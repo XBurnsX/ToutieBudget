@@ -12,7 +12,12 @@
           "package_name": "com.xburnsx.toutiebudget"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDsThhkHOM0ScrN4MSuV2xbjytyl4nXtHQ"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

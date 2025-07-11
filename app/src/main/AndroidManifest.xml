@@ -2,8 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- On demande la permission d'accéder à Internet pour PocketBase -->
+    <!-- Permissions pour accéder à Internet et état réseau -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -14,9 +15,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ToutieBudget"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <!-- C'est cette activité qui sera lancée au démarrage -->
+        <!-- Activité principale de l'application -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -31,15 +31,40 @@ android {
     }
 
     buildTypes {
-        all {
+        debug {
+            // URL PocketBase pour développement
             buildConfigField("String", "POCKETBASE_URL_LOCAL", "\"http://192.168.1.77:8090/\"")
             buildConfigField("String", "POCKETBASE_URL_PUBLIC", "\"http://toutiebudget.duckdns.org:8090/\"")
-            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"127120738889-5l1ermcqm4r4n77sjb0gnlogib7f7cl1.apps.googleusercontent.com\"")
+            buildConfigField("String", "POCKETBASE_URL_EMULATEUR", "\"http://10.0.2.2:8090/\"")
+            buildConfigField("String", "POCKETBASE_URL_EMULATEUR_AVD", "\"http://10.0.2.15:8090/\"")
+
+            // CORRECTION : Client ID pour Android (pas Web)
+            buildConfigField("String", "GOOGLE_ANDROID_CLIENT_ID", "\"127120738889-NOUVEAU_CLIENT_ID_ANDROID.apps.googleusercontent.com\"")
+            // CORRECTION : Utiliser le vrai Client ID de ton JSON
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com\"")
+
+            buildConfigField("boolean", "EST_MODE_DEBUG", "true")
         }
+
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
+
+            // Même config pour release
+            buildConfigField("String", "POCKETBASE_URL_PUBLIC", "\"http://toutiebudget.duckdns.org:8090/\"")
+            buildConfigField("String", "GOOGLE_ANDROID_CLIENT_ID", "\"127120738889-NOUVEAU_CLIENT_ID_ANDROID.apps.googleusercontent.com\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"127120738889-5l1ermcqm4r4n77sjb0gnlogib7f7cl1.apps.googleusercontent.com\"")
+            buildConfigField("boolean", "EST_MODE_DEBUG", "false")
+        }
+
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+
+            // En production, désactiver le mode debug
+            buildConfigField("boolean", "EST_MODE_DEBUG", "false")
         }
     }
 

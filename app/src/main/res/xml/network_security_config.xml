@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Configuration pour le développement (autoriser HTTP) -->
+    <domain-config cleartextTrafficPermitted="true">
+
+        <!-- Serveur local de développement (dispositif physique) -->
+        <domain includeSubdomains="false">192.168.1.77</domain>
+
+        <!-- Serveur externe/public -->
+        <domain includeSubdomains="true">toutiebudget.duckdns.org</domain>
+
+        <!-- Adresses spécifiques émulateur Android -->
+        <domain includeSubdomains="false">10.0.2.2</domain>      <!-- Host machine depuis émulateur -->
+        <domain includeSubdomains="false">10.0.2.15</domain>     <!-- Gateway émulateur -->
+        <domain includeSubdomains="false">10.0.3.2</domain>      <!-- Alternative émulateur -->
+
+        <!-- Localhost et variantes pour tests -->
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+
+        <!-- Adresses de développement communes -->
+        <domain includeSubdomains="false">0.0.0.0</domain>       <!-- Bind all interfaces -->
+
+        <!-- Plages IP privées courantes pour développement -->
+        <domain includeSubdomains="true">192.168.0.0</domain>    <!-- Réseau local 192.168.x.x -->
+        <domain includeSubdomains="true">10.0.0.0</domain>       <!-- Réseau privé 10.x.x.x -->
+        <domain includeSubdomains="true">172.16.0.0</domain>     <!-- Réseau privé 172.16-31.x.x -->
+
+    </domain-config>
+
+    <!-- Configuration de base sécurisée pour production -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Certificats système (production) -->
+            <certificates src="system"/>
+            <!-- Certificats utilisateur (développement uniquement) -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- Configuration spéciale pour debug builds -->
+    <debug-overrides>
+        <trust-anchors>
+            <!-- En mode debug, permettre tous les certificats -->
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+
+</network-security-config>
