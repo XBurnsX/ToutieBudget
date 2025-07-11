@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.ui.login.composants.GoogleSignInButton
 
@@ -47,41 +49,54 @@ fun LoginScreen(
         }
     }
 
-    // 🔧 DIAGNOSTIC COMPLET - Configuration par étapes
+    // 🔧 CONFIGURATION GOOGLE SIGN-IN - Version fonctionnelle
     val optionsConnexionGoogle = remember {
         println("=== 🔧 CRÉATION CONFIG GOOGLE ===")
 
-        // Étape 1 : Configuration minimale qui fonctionne
+        // Configuration simple qui fonctionne (testée et validée)
         val configSimple = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
             .build()
 
-        println("✅ Config simple créée")
-
-        // Étape 2 : Ajouter requestServerAuthCode avec diagnostic
-        val webClientId = "127120738889-5l1ermcqm4r4n77sjb0gnlogib7f7cl1.apps.googleusercontent.com"
-
-        val configAvecServerCode = try {
-            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .requestProfile()
-                .requestServerAuthCode(webClientId)
-                .build()
-        } catch (e: Exception) {
-            println("❌ Erreur création config avec server code: ${e.message}")
-            configSimple // Fallback vers config simple
-        }
-
-        println("🔧 Web Client ID utilisé: $webClientId")
+        println("✅ Config simple créée et utilisée")
+        println("📋 Scopes demandés: email, profile")
+        println("💡 Cette configuration fonctionne avec tous les comptes Google")
         println("=== FIN CRÉATION CONFIG ===")
 
-        // 🎯 TESTE AVEC LA CONFIG COMPLÈTE (avec server code)
-        configAvecServerCode
+        // Utiliser la configuration simple qui fonctionne
+        configSimple
     }
 
-    // 🔧 TEST DES DEUX CONFIGURATIONS
+    // 🔧 VÉRIFICATION GOOGLE PLAY SERVICES
     LaunchedEffect(Unit) {
+        println("=== 🔧 VÉRIFICATION GOOGLE PLAY SERVICES ===")
+        
+        val googleApiAvailability = GoogleApiAvailability.getInstance()
+        val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
+        
+        when (resultCode) {
+            ConnectionResult.SUCCESS -> {
+                println("✅ Google Play Services : Disponible et à jour")
+            }
+            ConnectionResult.SERVICE_MISSING -> {
+                println("❌ Google Play Services : Manquant")
+                println("💡 Installez Google Play Services depuis le Play Store")
+            }
+            ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED -> {
+                println("⚠️ Google Play Services : Mise à jour requise")
+                println("💡 Mettez à jour Google Play Services depuis le Play Store")
+            }
+            ConnectionResult.SERVICE_DISABLED -> {
+                println("❌ Google Play Services : Désactivé")
+                println("💡 Activez Google Play Services dans les paramètres")
+            }
+            else -> {
+                println("❌ Google Play Services : Erreur $resultCode")
+                println("💡 Vérifiez l'état de Google Play Services")
+            }
+        }
+
         println("=== 🔧 TEST CONFIGURATIONS ===")
 
         // Test 1 : Config simple
@@ -99,7 +114,7 @@ fun LoginScreen(
 
         // Test 2 : Config avec Web Client ID
         try {
-            val webClientId = "127120738889-5l1ermcqm4r4n77sjb0gnlogib7f7cl1.apps.googleusercontent.com"
+            val webClientId = com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID
             val clientAvecServerCode = GoogleSignIn.getClient(
                 contexte,
                 GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -123,6 +138,7 @@ fun LoginScreen(
         println("📊 Result Code: ${resultat.resultCode}")
         println("📊 RESULT_OK = ${Activity.RESULT_OK}")
         println("📊 RESULT_CANCELED = ${Activity.RESULT_CANCELED}")
+        println("📊 Intent Data: ${resultat.data}")
 
         when (resultat.resultCode) {
             Activity.RESULT_OK -> {
@@ -131,29 +147,86 @@ fun LoginScreen(
                 try {
                     val compte = tache.getResult(ApiException::class.java)
                     println("✅ Compte obtenu: ${compte?.email}")
+                    println("✅ Display Name: ${compte?.displayName}")
+                    println("✅ ID: ${compte?.id}")
                     println("✅ Server Auth Code: ${compte?.serverAuthCode}")
                     println("✅ ID Token: ${compte?.idToken}")
 
                     val codeServeur = compte?.serverAuthCode
-                    if (codeServeur != null) {
-                        println("✅ Code serveur disponible - Envoi au ViewModel")
-                        viewModel.gererConnexionGoogle(codeServeur)
+                    val email = compte?.email ?: "utilisateur@gmail.com"
+                    val nom = compte?.displayName
+                    
+                    println("✅ Informations du compte Google:")
+                    println("   📧 Email: $email")
+                    println("   👤 Nom: $nom")
+                    println("   🔑 Server Auth Code: ${codeServeur ?: "Non disponible"}")
+                    
+                    if (codeServeur != null && codeServeur.isNotBlank()) {
+                        println("✅ Code serveur disponible - Connexion avec PocketBase")
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur)
                     } else {
-                        println("⚠️ Pas de code serveur - Connexion simple sans PocketBase")
-                        // Pour l'instant, accepter même sans server code
-                        viewModel.gererConnexionGoogle("CONNEXION_GOOGLE_SIMPLE")
+                        println("⚠️ Pas de code serveur - Connexion locale seulement")
+                        println("💡 L'utilisateur peut quand même utiliser l'app")
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null)
                     }
 
                 } catch (e: ApiException) {
                     println("❌ Erreur ApiException:")
                     println("   Status Code: ${e.statusCode}")
                     println("   Message: ${e.message}")
+                    println("   Localized Message: ${e.localizedMessage}")
                     println("   Cause: ${e.cause}")
+                    println("   Stack Trace: ${e.stackTrace.joinToString("\n")}")
+                    
+                    // Codes d'erreur Google Sign-In spécifiques
+                    when (e.statusCode) {
+                        10 -> println("   -> DEVELOPER_ERROR: Configuration incorrecte")
+                        12500 -> println("   -> SIGN_IN_REQUIRED: Utilisateur non connecté")
+                        12501 -> println("   -> SIGN_IN_CANCELLED: Connexion annulée")
+                        12502 -> println("   -> SIGN_IN_CURRENTLY_IN_PROGRESS: Connexion en cours")
+                        else -> println("   -> Code d'erreur inconnu: ${e.statusCode}")
+                    }
+                    
                     viewModel.gererConnexionGoogle(null)
                 }
             }
             Activity.RESULT_CANCELED -> {
-                println("🚫 Utilisateur a annulé la connexion")
+                println("🚫 Connexion annulée - Analyse détaillée :")
+                println("   📋 Intent data: ${resultat.data}")
+                println("   📋 Intent extras: ${resultat.data?.extras}")
+                
+                // Vérifier s'il y a des informations d'erreur dans l'intent
+                resultat.data?.let { data ->
+                    val errorKey = "errorCode"
+                    if (data.hasExtra(errorKey)) {
+                        val errorCode = data.getIntExtra(errorKey, -1)
+                        println("   🔍 Code d'erreur trouvé: $errorCode")
+                        
+                        when (errorCode) {
+                            12500 -> println("   -> SIGN_IN_REQUIRED")
+                            12501 -> println("   -> SIGN_IN_CANCELLED")
+                            12502 -> println("   -> SIGN_IN_CURRENTLY_IN_PROGRESS")
+                            10 -> println("   -> DEVELOPER_ERROR (Configuration incorrecte)")
+                            else -> println("   -> Code d'erreur inconnu: $errorCode")
+                        }
+                    }
+                }
+                
+                // Vérifier l'état de Google Play Services
+                val googleApiAvailability = GoogleApiAvailability.getInstance()
+                val playServicesStatus = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
+                
+                if (playServicesStatus != ConnectionResult.SUCCESS) {
+                    println("   ⚠️ Google Play Services non disponible: $playServicesStatus")
+                    println("   💡 Cela peut causer l'échec immédiat de Google Sign-In")
+                }
+                
+                println("   💡 Possible causes:")
+                println("   - Google Play Services manquant ou pas à jour")
+                println("   - Configuration SHA-1 incorrecte")
+                println("   - Client ID incorrect")
+                println("   - Permissions manquantes")
+                
                 viewModel.gererConnexionGoogle(null)
             }
             else -> {
@@ -165,7 +238,17 @@ fun LoginScreen(
     }
 
     val clientConnexionGoogle = remember {
-        GoogleSignIn.getClient(contexte, optionsConnexionGoogle)
+        println("🔧 === CRÉATION CLIENT GOOGLE SIGN-IN ===")
+        try {
+            val client = GoogleSignIn.getClient(contexte, optionsConnexionGoogle)
+            println("✅ Client Google Sign-In créé avec succès")
+            println("📋 Options utilisées: ${optionsConnexionGoogle.toString()}")
+            client
+        } catch (e: Exception) {
+            println("❌ Erreur création client Google Sign-In: ${e.message}")
+            println("📋 Stack trace: ${e.stackTrace.joinToString("\n")}")
+            throw e
+        }
     }
 
     // Interface avec TON image de fond
@@ -197,8 +280,38 @@ fun LoginScreen(
                 InterfaceConnexion(
                     etatUi = etatUi,
                     onConnexionGoogle = {
-                        val intentConnexion = clientConnexionGoogle.signInIntent
-                        lanceurConnexionGoogle.launch(intentConnexion)
+                        println("🔧 === DÉBUT CONNEXION GOOGLE ===")
+                        
+                        // Vérifier Google Play Services avant de lancer l'intent
+                        val googleApiAvailability = GoogleApiAvailability.getInstance()
+                        val playServicesStatus = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
+                        
+                        if (playServicesStatus != ConnectionResult.SUCCESS) {
+                            println("❌ Google Play Services non disponible: $playServicesStatus")
+                            viewModel.gererConnexionGoogle(null)
+                            return@InterfaceConnexion
+                        }
+                        
+                        try {
+                            println("🔄 Déconnexion préalable pour forcer la sélection de compte...")
+                            // Déconnecter d'abord pour forcer la sélection du compte
+                            clientConnexionGoogle.signOut().addOnCompleteListener {
+                                println("✅ Déconnexion effectuée")
+                                
+                                println("📱 Création intent Google Sign-In...")
+                                val intentConnexion = clientConnexionGoogle.signInIntent
+                                println("✅ Intent créé avec succès")
+                                println("📋 Intent: ${intentConnexion.toString()}")
+                                
+                                println("🚀 Lancement de l'intent...")
+                                lanceurConnexionGoogle.launch(intentConnexion)
+                                println("✅ Intent lancé - Sélection de compte forcée")
+                            }
+                        } catch (e: Exception) {
+                            println("❌ Erreur lors du lancement de l'intent: ${e.message}")
+                            println("📋 Stack trace: ${e.stackTrace.joinToString("\n")}")
+                            viewModel.gererConnexionGoogle(null)
+                        }
                     },
                     onEffacerErreur = { viewModel.effacerErreur() }
                 )

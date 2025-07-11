@@ -92,37 +92,7 @@ object UrlResolver {
         return typeEnvironnementCache!!
     }
 
-    /**
-     * URLs à tester pour un émulateur Android (ordre de priorité)
-     */
-    private fun obtenirUrlsEmulateur(): List<Pair<String, String>> {
-        return listOf(
-            // 1. Adresse spéciale émulateur pour host machine
-            BuildConfig.POCKETBASE_URL_EMULATEUR to "Émulateur → Host (10.0.2.2)",
 
-            // 2. Adresse alternative émulateur
-            BuildConfig.POCKETBASE_URL_EMULATEUR_AVD to "Émulateur → Host AVD (10.0.2.15)",
-
-            // 3. Localhost émulateur
-            "http://localhost:8090" to "Localhost émulateur",
-
-            // 4. URL publique externe en dernier recours
-            BuildConfig.POCKETBASE_URL_PUBLIC to "Serveur externe (fallback)"
-        )
-    }
-
-    /**
-     * URLs à tester pour un dispositif physique (ordre de priorité)
-     */
-    private fun obtenirUrlsDispositifPhysique(): List<Pair<String, String>> {
-        return listOf(
-            // 1. Serveur local sur le réseau
-            BuildConfig.POCKETBASE_URL_LOCAL to "Serveur local réseau",
-
-            // 2. URL publique externe
-            BuildConfig.POCKETBASE_URL_PUBLIC to "Serveur externe"
-        )
-    }
 
     /**
      * Teste si une URL PocketBase est accessible
@@ -195,12 +165,10 @@ object UrlResolver {
             ========================
             $infoEnv
             
-            🌐 URLS CONFIGURÉES
-            ==================
-            Local: ${BuildConfig.POCKETBASE_URL_LOCAL}
-            Émulateur: ${BuildConfig.POCKETBASE_URL_EMULATEUR}
-            Émulateur AVD: ${BuildConfig.POCKETBASE_URL_EMULATEUR_AVD}
-            Public: ${BuildConfig.POCKETBASE_URL_PUBLIC}
+            🌐 URLS UTILISÉES
+            =================
+            Émulateur: http://10.0.2.2:8090, http://127.0.0.1:8090
+            Dispositif: http://192.168.1.77:8090, http://localhost:8090
         """.trimIndent()
     }
 }

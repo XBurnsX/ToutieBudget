@@ -50,50 +50,51 @@ object PocketBaseClient {
      * Connecte l'utilisateur via Google OAuth2
      * @param codeAutorisation Le code d'autorisation obtenu de Google
      */
-// chemin/simule: PocketBaseClient.kt - Login manuel COMPLET
-// REMPLACE COMPLÈTEMENT la fonction connecterAvecGoogle par :
-
     suspend fun connecterAvecGoogle(codeAutorisation: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                println("🔧 === LOGIN MANUEL POCKETBASE ===")
-                println("ℹ️ Bypass OAuth - Utilisation email/password")
+                println("🔐 === AUTHENTIFICATION GOOGLE OAUTH2 ===")
+                println("📤 Code d'autorisation Google reçu: ${codeAutorisation.take(20)}...")
 
                 val urlBase = UrlResolver.obtenirUrlActive()
                 println("🌐 URL PocketBase: $urlBase")
 
-                // 🔧 ENDPOINT LOGIN CLASSIQUE (pas OAuth)
-                val urlLogin = "$urlBase/api/collections/users/auth-with-password"
-                println("🔗 URL Login: $urlLogin")
+                // Endpoint OAuth2 PocketBase pour Google
+                val urlOAuth = "$urlBase/api/collections/users/auth-with-oauth2"
+                println("🔗 URL OAuth2: $urlOAuth")
 
-                // 🔧 LOGIN EMAIL/PASSWORD
-                val donneesLogin = JsonObject().apply {
-                    addProperty("identity", "xburnsx287@gmail.com")
-                    addProperty("password", "temppassword123")
+                // Données pour l'authentification OAuth2
+                val donneesOAuth = JsonObject().apply {
+                    addProperty("provider", "google")
+                    addProperty("code", codeAutorisation)
+                    addProperty("codeVerifier", "")
+                    addProperty("redirectUrl", "")
+                    addProperty("createData", JsonObject().apply {
+                        addProperty("emailVisibility", false)
+                    }.toString())
                 }
 
-                val corpsRequete = donneesLogin.toString().toRequestBody("application/json".toMediaType())
+                val corpsRequete = donneesOAuth.toString().toRequestBody("application/json".toMediaType())
 
                 val requete = Request.Builder()
-                    .url(urlLogin)
+                    .url(urlOAuth)
                     .post(corpsRequete)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("Accept", "application/json")
                     .build()
 
-                println("📡 Tentative login email/password...")
-                println("📧 Email: xburnsx287@gmail.com")
-                println("🔑 Password: temppassword123")
+                println("📡 Tentative authentification OAuth2...")
+                println("🔑 Provider: google")
 
                 val reponse = client.newCall(requete).execute()
                 val corpsReponse = reponse.body?.string() ?: ""
 
                 println("📨 Status HTTP: ${reponse.code}")
-                println("📨 Response: ${corpsReponse.take(300)}...")
+                println("📨 Response: ${corpsReponse.take(500)}...")
 
                 when (reponse.code) {
                     200 -> {
-                        println("✅ LOGIN RÉUSSI !")
+                        println("✅ AUTHENTIFICATION GOOGLE RÉUSSIE !")
                         try {
                             val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
 
@@ -103,32 +104,32 @@ object PocketBaseClient {
 
                             println("✅ Utilisateur connecté: ${reponseAuth.record.email}")
                             println("🎫 Token: ${reponseAuth.token.take(20)}...")
-                            println("🔧 === LOGIN MANUEL RÉUSSI ===")
+                            println("🔐 === AUTHENTIFICATION GOOGLE RÉUSSIE ===")
 
                             Result.success(Unit)
 
                         } catch (e: Exception) {
-                            println("❌ Erreur parsing réponse: ${e.message}")
+                            println("❌ Erreur parsing réponse OAuth2: ${e.message}")
                             println("📄 Réponse brute: $corpsReponse")
-                            Result.failure(Exception("Erreur parsing: ${e.message}"))
+                            Result.failure(Exception("Erreur parsing OAuth2: ${e.message}"))
                         }
                     }
                     400 -> {
-                        println("❌ 400 - Email ou mot de passe incorrect")
+                        println("❌ 400 - Erreur dans la requête OAuth2")
+                        println("📄 Détails: $corpsReponse")
                         println("💡 Solutions:")
-                        println("   1. Vérifiez que l'utilisateur existe dans PocketBase")
-                        println("   2. Collections → users → New record")
-                        println("   3. Email: xburnsx287@gmail.com")
-                        println("   4. Password: temppassword123")
-                        println("   5. Verified: true")
-                        Result.failure(Exception("Utilisateur non trouvé ou mot de passe incorrect"))
+                        println("   1. Vérifiez que Google OAuth2 est configuré dans PocketBase")
+                        println("   2. Settings → Auth providers → Google")
+                        println("   3. Client ID et Client Secret corrects")
+                        println("   4. Redirect URLs autorisées")
+                        Result.failure(Exception("Configuration OAuth2 incorrecte"))
                     }
                     401 -> {
-                        println("❌ 401 - Non autorisé")
-                        Result.failure(Exception("Accès non autorisé"))
+                        println("❌ 401 - Code d'autorisation invalide ou expiré")
+                        Result.failure(Exception("Code d'autorisation Google invalide"))
                     }
                     404 -> {
-                        println("❌ 404 - Endpoint login non trouvé")
+                        println("❌ 404 - Endpoint OAuth2 non trouvé")
                         println("💡 Vérifiez que PocketBase tourne sur: $urlBase")
                         Result.failure(Exception("Service PocketBase non accessible"))
                     }

@@ -38,9 +38,7 @@ android {
             buildConfigField("String", "POCKETBASE_URL_EMULATEUR", "\"http://10.0.2.2:8090/\"")
             buildConfigField("String", "POCKETBASE_URL_EMULATEUR_AVD", "\"http://10.0.2.15:8090/\"")
 
-            // CORRECTION : Client ID pour Android (pas Web)
-            buildConfigField("String", "GOOGLE_ANDROID_CLIENT_ID", "\"127120738889-NOUVEAU_CLIENT_ID_ANDROID.apps.googleusercontent.com\"")
-            // CORRECTION : Utiliser le vrai Client ID de ton JSON
+            // Client ID Web réel du google-services.json
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com\"")
 
             buildConfigField("boolean", "EST_MODE_DEBUG", "true")
@@ -51,10 +49,9 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
 
-            // Même config pour release
+            // Configuration pour release
             buildConfigField("String", "POCKETBASE_URL_PUBLIC", "\"http://toutiebudget.duckdns.org:8090/\"")
-            buildConfigField("String", "GOOGLE_ANDROID_CLIENT_ID", "\"127120738889-NOUVEAU_CLIENT_ID_ANDROID.apps.googleusercontent.com\"")
-            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"127120738889-5l1ermcqm4r4n77sjb0gnlogib7f7cl1.apps.googleusercontent.com\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com\"")
             buildConfigField("boolean", "EST_MODE_DEBUG", "false")
         }
 
