@@ -39,10 +39,13 @@ class CategoriesEnveloppesViewModel(
                 
                 // Créer un map pour accéder rapidement aux catégories par ID
                 val categoriesMap = categories.associateBy { it.id }
+                println("[DEBUG] CategoriesMap: ${categoriesMap.map { "${it.key} -> ${it.value.nom}" }}")
                 
                 // Grouper les enveloppes par catégorie
                 val groupesEnveloppes = enveloppes.filter { !it.estArchive }.groupBy { enveloppe ->
+                    println("[DEBUG] Enveloppe ${enveloppe.nom} a categorieId: ${enveloppe.categorieId}")
                     val categorie = categoriesMap[enveloppe.categorieId]
+                    println("[DEBUG] Catégorie trouvée pour ${enveloppe.nom}: ${categorie?.nom ?: "NULL"}")
                     categorie?.nom ?: "Autre"
                 }
                 
@@ -56,10 +59,13 @@ class CategoriesEnveloppesViewModel(
                 println("[DEBUG] Catégories détectées: " + groupes.keys.joinToString())
                 println("[DEBUG] Enveloppes récupérées: " + enveloppes.joinToString { "${it.nom} (cat: ${categoriesMap[it.categorieId]?.nom ?: "Autre"})" })
                 println("[DEBUG] Groupes finaux: " + groupes.map { "${it.key}: ${it.value.size} enveloppes" })
+                
+                // On ne touche à enveloppesGroupees que quand tout est prêt
                 _uiState.update { it.copy(enveloppesGroupees = groupes) }
             } catch (e: Exception) {
                 println("[DEBUG] Erreur dans chargerCategoriesEtEnveloppes: ${e.message}")
                 e.printStackTrace()
+                // On ne touche PAS à enveloppesGroupees ici !
                 _uiState.update { it.copy(erreur = e.message) }
             }
         }

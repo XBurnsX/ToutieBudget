@@ -54,15 +54,12 @@ object PocketBaseClient {
      */
     suspend fun initialiser() {
         try {
-            println("🔧 === INITIALISATION POCKETBASE CLIENT ===")
             val urlActive = UrlResolver.obtenirUrlActive()
-            println("✅ PocketBaseClient initialisé avec : $urlActive")
             
             // Test de connectivité
             testerConnectivite(urlActive)
             
         } catch (e: Exception) {
-            println("❌ Erreur lors de l'initialisation : ${e.message}")
             throw e
         }
     }
@@ -72,7 +69,6 @@ object PocketBaseClient {
      */
     private suspend fun testerConnectivite(urlBase: String) {
         try {
-            println("🔍 Test de connectivité vers : $urlBase")
             val requete = Request.Builder()
                 .url("${urlBase.trimEnd('/')}/api/health")
                 .get()
@@ -82,15 +78,11 @@ object PocketBaseClient {
                 client.newCall(requete).execute()
             }
             
-            if (reponse.isSuccessful) {
-                println("✅ Connectivité OK - Serveur PocketBase accessible")
-            } else {
-                println("⚠️ Connectivité partielle - Code ${reponse.code}")
+            if (!reponse.isSuccessful) {
+                // Log silencieux pour les erreurs de connectivité
             }
         } catch (e: Exception) {
-            val messageErreur = e.message ?: "Erreur inconnue"
-            println("❌ Problème de connectivité : $messageErreur")
-            println("🔍 Type d'erreur : ${e.javaClass.simpleName}")
+            // Log silencieux pour les erreurs de connectivité
         }
     }
 
@@ -101,15 +93,10 @@ object PocketBaseClient {
     suspend fun connecterAvecGoogle(codeAutorisation: String, context: Context): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                println("🔐 === AUTHENTIFICATION GOOGLE OAUTH2 ===")
-                println("📤 Code d'autorisation Google reçu: ${codeAutorisation.take(20)}...")
-
                 val urlBase = obtenirUrlBaseActive()
-                println("🌐 URL PocketBase obtenue: $urlBase")
 
                 // Endpoint OAuth2 PocketBase pour Google
                 val urlOAuth = "$urlBase/api/collections/users/auth-with-oauth2"
-                println("🔗 URL OAuth2 complète: $urlOAuth")
 
                 // Données pour l'authentification OAuth2
                 // IMPORTANT : Le redirectURL doit correspondre EXACTEMENT à ce qui est configuré dans Google Cloud Console
@@ -122,7 +109,6 @@ object PocketBaseClient {
                     // createData est optionnel, PocketBase prendra les infos du profil Google
                 }
                 val corpsRequeteString = donneesOAuth.toString()
-                println("📦 Corps de la requête JSON préparé: $corpsRequeteString")
 
                 val corpsRequete = corpsRequeteString.toRequestBody("application/json".toMediaType())
 
@@ -133,38 +119,27 @@ object PocketBaseClient {
                     .addHeader("Accept", "application/json")
                     .build()
 
-                println("📡 Envoi de la requête à PocketBase... (Timeout après 15s)")
                 val reponse = client.newCall(requete).execute()
-                println("📨 Réponse reçue de PocketBase ! Status: ${reponse.code}")
 
                 val corpsReponse = reponse.body?.string() ?: ""
-                println("📄 Corps de la réponse (brut): ${corpsReponse.take(500)}...")
 
                 if (reponse.isSuccessful) {
-                    println("✅ AUTHENTIFICATION GOOGLE RÉUSSIE !")
                     try {
                         val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
                         sauvegarderToken(context, reponseAuth.token)
                         sauvegarderUtilisateur(context, reponseAuth.record)
-                        println("👤 Utilisateur connecté: "+reponseAuth.record.email+" | Token: "+reponseAuth.token.take(20)+"...")
                         Result.success(Unit)
                     } catch (e: Exception) {
-                        println("❌ Erreur de parsing de la réponse JSON: ${e.message}")
-                        println("📄 Réponse complète qui a causé l'erreur: $corpsReponse")
                         Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}"))
                     }
                 } else {
-                    println("❌ La réponse du serveur indique une erreur (code ${reponse.code})")
-                    
                     // Analyse détaillée de l'erreur
                     val messageErreur = analyserErreurServeur(reponse.code, corpsReponse)
-                    println("🔍 Analyse de l'erreur: $messageErreur")
                     
                     Result.failure(Exception(messageErreur))
                 }
 
             } catch (e: IOException) {
-                println("❌ Erreur réseau/timeout: ${e.javaClass.simpleName} - ${e.message}")
                 UrlResolver.invaliderCache()
                 
                 val messageErreur = when {
@@ -179,7 +154,6 @@ object PocketBaseClient {
                 
                 Result.failure(Exception(messageErreur))
             } catch (e: Exception) {
-                println("❌ Erreur inattendue: ${e.javaClass.simpleName} - ${e.message}")
                 Result.failure(Exception("Erreur inattendue: ${e.message}"))
             }
         }
@@ -198,159 +172,120 @@ object PocketBaseClient {
                     corpsReponse.contains("invalid_provider", ignoreCase = true) -> 
                         "Fournisseur OAuth2 non configuré. Vérifiez la configuration PocketBase."
                     corpsReponse.contains("missing_code", ignoreCase = true) -> 
-                        "Code d'autorisation manquant. Vérifiez la configuration Google Sign-In."
-                    corpsReponse.contains("redirectURL", ignoreCase = true) -> 
-                        "Configuration OAuth2 incomplète. Vérifiez la configuration PocketBase."
-                    corpsReponse.contains("validation_required", ignoreCase = true) -> 
-                        "Données de requête invalides. Vérifiez la configuration OAuth2."
-                    corpsReponse.contains("Failed to fetch OAuth2 token", ignoreCase = true) ->
-                        "Impossible de récupérer le token Google. Vérifiez que les redirect URLs sont correctement configurées dans Google Cloud Console."
-                    else -> "Requête invalide (400). Détails: $corpsReponse"
+                        "Code d'autorisation manquant. Vérifiez la configuration Google."
+                    else -> "Requête invalide (400). Vérifiez la configuration OAuth2."
                 }
             }
             401 -> "Authentification échouée. Vérifiez vos identifiants Google."
             403 -> "Accès refusé. Vérifiez les permissions de votre compte Google."
             404 -> "Endpoint OAuth2 introuvable. Vérifiez la configuration PocketBase."
-            500 -> "Erreur interne du serveur PocketBase. Contactez l'administrateur."
-            502 -> "Serveur PocketBase temporairement indisponible. Réessayez plus tard."
-            503 -> "Service PocketBase en maintenance. Réessayez plus tard."
-            else -> "Erreur serveur (code $code). Détails: $corpsReponse"
+            500 -> "Erreur serveur interne. Contactez l'administrateur."
+            else -> "Erreur serveur (code $code): $corpsReponse"
         }
     }
 
     /**
-     * Déconnecte l'utilisateur actuel
+     * Déconnecte l'utilisateur
      */
     fun deconnecter(context: Context) {
-        println("👋 Déconnexion de l'utilisateur")
-        effacerToken(context)
-        effacerUtilisateur(context)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            remove(KEY_TOKEN)
+            remove(KEY_USER)
+            apply()
+        }
+        tokenAuthentification = null
         utilisateurConnecte = null
     }
 
     /**
-     * Vérifie si un utilisateur est actuellement connecté
+     * Charge le token depuis les préférences
+     */
+    fun chargerToken(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        tokenAuthentification = prefs.getString(KEY_TOKEN, null)
+        
+        val userJson = prefs.getString(KEY_USER, null)
+        if (userJson != null) {
+            try {
+                utilisateurConnecte = gson.fromJson(userJson, EnregistrementUtilisateur::class.java)
+            } catch (e: Exception) {
+                // Ignorer les erreurs de parsing
+            }
+        }
+    }
+
+    /**
+     * Sauvegarde le token d'authentification
+     */
+    private fun sauvegarderToken(context: Context, token: String) {
+        tokenAuthentification = token
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_TOKEN, token).apply()
+    }
+
+    /**
+     * Sauvegarde les informations utilisateur
+     */
+    private fun sauvegarderUtilisateur(context: Context, utilisateur: EnregistrementUtilisateur) {
+        utilisateurConnecte = utilisateur
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val userJson = gson.toJson(utilisateur)
+        prefs.edit().putString(KEY_USER, userJson).apply()
+    }
+
+    /**
+     * Vérifie si l'utilisateur est connecté
      */
     fun estConnecte(): Boolean {
         return tokenAuthentification != null
     }
 
     /**
-     * Obtient les informations de l'utilisateur connecté
+     * Récupère l'utilisateur connecté
      */
     fun obtenirUtilisateurConnecte(): EnregistrementUtilisateur? {
         return utilisateurConnecte
     }
 
     /**
-     * Obtient l'URL de base active de PocketBase.
-     */
-    suspend fun obtenirUrlBaseActive(): String {
-        return UrlResolver.obtenirUrlActive()
-    }
-
-    /**
-     * Obtient le token d'authentification actuel
+     * Récupère le token d'authentification
      */
     fun obtenirToken(): String? {
         return tokenAuthentification
     }
 
     /**
-     * Sauvegarde le token d'authentification dans les SharedPreferences
+     * Obtient l'URL de base active
      */
-    fun sauvegarderToken(context: Context, token: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_TOKEN, token)
-            .apply()
-        tokenAuthentification = token
+    suspend fun obtenirUrlBaseActive(): String {
+        return UrlResolver.obtenirUrlActive()
     }
 
     /**
-     * Charge le token d'authentification depuis les SharedPreferences
+     * Teste la connexion à PocketBase
      */
-    fun chargerToken(context: Context) {
-        val token = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_TOKEN, null)
-        tokenAuthentification = token
-        chargerUtilisateur(context)
-    }
-
-    /**
-     * Efface le token d'authentification des SharedPreferences
-     */
-    fun effacerToken(context: Context) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_TOKEN)
-            .apply()
-        tokenAuthentification = null
-    }
-
-    /**
-     * Sauvegarde l'utilisateur connecté dans les SharedPreferences
-     */
-    fun sauvegarderUtilisateur(context: Context, utilisateur: EnregistrementUtilisateur) {
-        val json = gson.toJson(utilisateur)
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_USER, json)
-            .apply()
-        utilisateurConnecte = utilisateur
-    }
-
-    /**
-     * Charge l'utilisateur connecté depuis les SharedPreferences
-     */
-    fun chargerUtilisateur(context: Context) {
-        val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_USER, null)
-        utilisateurConnecte = if (json != null) gson.fromJson(json, EnregistrementUtilisateur::class.java) else null
-    }
-
-    /**
-     * Efface l'utilisateur connecté des SharedPreferences
-     */
-    fun effacerUtilisateur(context: Context) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_USER)
-            .apply()
-        utilisateurConnecte = null
-    }
-
-    /**
-     * Teste la connexion à PocketBase (pour debug)
-     */
-    suspend fun testerConnexionPocketBase(): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun testerConnexion(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            println("🔍 Test de connexion PocketBase...")
             val urlBase = obtenirUrlBaseActive()
-            val urlTest = "$urlBase/api/health"
-            
             val requete = Request.Builder()
-                .url(urlTest)
+                .url("${urlBase.trimEnd('/')}/api/health")
                 .get()
                 .build()
             
             val reponse = client.newCall(requete).execute()
-            val corpsReponse = reponse.body?.string() ?: ""
             
             if (reponse.isSuccessful) {
-                println("✅ Test de connexion réussi")
-                Result.success("Connexion OK - $urlBase")
+                Result.success(Unit)
             } else {
-                println("❌ Test de connexion échoué - Code ${reponse.code}")
-                Result.failure(Exception("Test échoué - Code ${reponse.code}: $corpsReponse"))
+                Result.failure(Exception("Erreur de connexion - Code ${reponse.code}"))
             }
         } catch (e: Exception) {
-            println("❌ Erreur lors du test de connexion: ${e.message}")
-            Result.failure(e)
+            Result.failure(Exception("Erreur lors du test de connexion: ${e.message}"))
         }
     }
 
-    // Classes de données pour les réponses PocketBase
+    // Classes de données pour la réponse d'authentification
     data class ReponseAuthentification(
         val token: String,
         val record: EnregistrementUtilisateur
@@ -359,7 +294,9 @@ object PocketBaseClient {
     data class EnregistrementUtilisateur(
         val id: String,
         val email: String,
-        val name: String?,
-        val avatar: String?
+        val name: String? = null,
+        val avatar: String? = null,
+        val created: String? = null,
+        val updated: String? = null
     )
 }

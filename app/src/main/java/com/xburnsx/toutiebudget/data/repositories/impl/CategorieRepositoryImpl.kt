@@ -62,7 +62,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             )
             
             val json = gson.toJson(dataMap)
-            println("[DEBUG] JSON envoyé à PocketBase: $json")
             
             val body = json.toRequestBody("application/json".toMediaType())
             val requete = Request.Builder()
@@ -74,7 +73,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string()
-                println("[DEBUG] Réponse d'erreur PocketBase: $errorBody")
                 throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
             }
             

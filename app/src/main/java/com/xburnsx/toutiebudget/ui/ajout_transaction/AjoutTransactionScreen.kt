@@ -137,14 +137,12 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
     LaunchedEffect(uiState.erreur) {
         if (uiState.erreur != null) {
             // TODO: Afficher une Snackbar ou un Toast avec l'erreur
-            println("Erreur: ${uiState.erreur}")
         }
     }
 
     LaunchedEffect(uiState.transactionReussie) {
         if (uiState.transactionReussie) {
             // TODO: Retourner à l'écran précédent ou réinitialiser le formulaire
-            println("Transaction sauvegardée avec succès!")
         }
     }
 }

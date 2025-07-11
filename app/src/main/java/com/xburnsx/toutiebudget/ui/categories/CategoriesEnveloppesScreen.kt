@@ -28,7 +28,6 @@ fun CategoriesEnveloppesScreen(
     viewModel: CategoriesEnveloppesViewModel,
     onBack: (() -> Unit)? = null
 ) {
-    println("[DEBUG] Composable CategoriesEnveloppesScreen appelé")
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isAjoutCategorieDialogVisible) {

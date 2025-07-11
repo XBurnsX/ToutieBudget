@@ -35,7 +35,6 @@ import com.google.android.gms.common.GoogleApiAvailability
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.ui.login.composants.GoogleSignInButton
 import com.xburnsx.toutiebudget.utils.Sha1Helper
-import com.xburnsx.toutiebudget.utils.TestGoogleSignIn
 import com.xburnsx.toutiebudget.utils.KeystoreDiagnostic
 
 /**
@@ -56,318 +55,246 @@ fun LoginScreen(
         }
     }
 
-    // 🔧 CONFIGURATION GOOGLE SIGN-IN - Configuration PocketBase (serverAuthCode permanent)
+    // Configuration Google Sign-In
     val optionsConnexionGoogle = remember {
-        println("=== 🔧 CRÉATION CONFIG GOOGLE (PocketBase) ===")
         val webClientId = com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID
         val config = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
             .requestIdToken(webClientId)
-            .requestServerAuthCode(webClientId, /* forceRefresh = */ true) // Important : true pour recevoir un nouveau code à chaque connexion
+            .requestServerAuthCode(webClientId, /* forceRefresh = */ true)
             .build()
-        println("✅ Config créée avec serverAuthCode (forceRefresh=true)")
         config
     }
 
-    // 🔧 VÉRIFICATION GOOGLE PLAY SERVICES
+    // Vérification de connexion existante
     LaunchedEffect(Unit) {
-        println("=== 🔧 VÉRIFICATION GOOGLE PLAY SERVICES ===")
-        
-        val googleApiAvailability = GoogleApiAvailability.getInstance()
-        val resultCode = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
-        
-        when (resultCode) {
-            ConnectionResult.SUCCESS -> {
-                println("✅ Google Play Services : Disponible et à jour")
-            }
-            ConnectionResult.SERVICE_MISSING -> {
-                println("❌ Google Play Services : Manquant")
-                println("💡 Installez Google Play Services depuis le Play Store")
-            }
-            ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED -> {
-                println("⚠️ Google Play Services : Mise à jour requise")
-                println("💡 Mettez à jour Google Play Services depuis le Play Store")
-            }
-            ConnectionResult.SERVICE_DISABLED -> {
-                println("❌ Google Play Services : Désactivé")
-                println("💡 Activez Google Play Services dans les paramètres")
-            }
-            else -> {
-                println("❌ Google Play Services : Erreur $resultCode")
-                println("💡 Vérifiez l'état de Google Play Services")
-            }
-        }
-
-        // Informations détaillées sur l'environnement
-        println("=== 🔧 INFORMATIONS ENVIRONNEMENT ===")
-        println("📱 Package Name: ${contexte.packageName}")
-        println("🔧 Build Config: ${com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID}")
-        println("🔧 Mode Debug: ${com.xburnsx.toutiebudget.BuildConfig.EST_MODE_DEBUG}")
-        
-        // Informations sur l'émulateur
-        val detecteur = com.xburnsx.toutiebudget.utils.DetecteurEmulateur.obtenirInfoEnvironnement()
-        println("🔍 Détection émulateur:")
-        detecteur.split("\n").forEach { ligne ->
-            println("   $ligne")
-        }
-
-        println("=== 🔧 TEST CONFIGURATIONS ===")
-
-        // Test 1 : Config simple
-        try {
-            val clientSimple = GoogleSignIn.getClient(
-                contexte,
-                GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .build()
-            )
-            println("✅ Client simple : OK")
-        } catch (e: Exception) {
-            println("❌ Client simple : ${e.message}")
-        }
-
-        // Test 2 : Config avec Web Client ID
-        try {
-            val webClientId = com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID
-            val clientAvecServerCode = GoogleSignIn.getClient(
-                contexte,
-                GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestServerAuthCode(webClientId)
-                    .build()
-            )
-            println("✅ Client avec server code : OK")
-        } catch (e: Exception) {
-            println("❌ Client avec server code : ${e.message}")
-        }
-
-        println("=== FIN TEST CONFIGURATIONS ===")
-        
-        // 🔍 DIAGNOSTIC SHA-1
-        Sha1Helper.afficherDiagnosticSha1(contexte)
-        
-        // 🔍 TEST GOOGLE SIGN-IN ISOLÉ
-        println("🔍 === LANCEMENT TEST GOOGLE SIGN-IN ===")
-        val testGoogleSignIn = TestGoogleSignIn.testerGoogleSignIn(contexte)
-        println(testGoogleSignIn)
-        
-        // 🔍 TEST GOOGLE PLAY SERVICES
-        val testGooglePlayServices = TestGoogleSignIn.testerGooglePlayServices(contexte)
-        println(testGooglePlayServices)
-        
-        // 🔍 DIAGNOSTIC KEYSTORE DÉTAILLÉ
-        KeystoreDiagnostic.afficherDiagnosticKeystore(contexte)
-        KeystoreDiagnostic.comparerAvecDebugStandard()
+        // Vérifier la connexion existante en premier
+        viewModel.verifierConnexionExistante(contexte)
     }
 
-    // Configuration du launcher Google Sign-In avec diagnostic détaillé
+    // Configuration du launcher Google Sign-In
     val lanceurConnexionGoogle = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { resultat: ActivityResult ->
-        println("=== 🔧 DEBUG RETOUR GOOGLE SIGN-IN ===")
-        println("📊 Result Code: ${resultat.resultCode}")
-        println("📊 RESULT_OK = ${Activity.RESULT_OK}")
-        println("📊 RESULT_CANCELED = ${Activity.RESULT_CANCELED}")
-        println("📊 Intent Data: ${resultat.data}")
-
         when (resultat.resultCode) {
             Activity.RESULT_OK -> {
-                println("✅ Résultat OK - Traitement...")
                 val tache = GoogleSignIn.getSignedInAccountFromIntent(resultat.data)
                 try {
                     val compte = tache.getResult(ApiException::class.java)
-                    println("✅ Compte obtenu: ${compte?.email}")
-                    println("✅ Display Name: ${compte?.displayName}")
-                    println("✅ ID: ${compte?.id}")
-                    println("✅ Server Auth Code: ${compte?.serverAuthCode}")
-                    println("✅ ID Token: ${compte?.idToken}")
 
                     val codeServeur = compte?.serverAuthCode
                     val idToken = compte?.idToken
                     val email = compte?.email ?: "utilisateur@gmail.com"
                     val nom = compte?.displayName
                     
-                    println("✅ Informations du compte Google:")
-                    println("   📧 Email: $email")
-                    println("   👤 Nom: $nom")
-                    println("   🔑 Server Auth Code: ${codeServeur ?: "Non disponible"}")
-                    println("   🎫 ID Token: ${idToken ?: "Non disponible"}")
-                    
                     if (codeServeur != null && codeServeur.isNotBlank()) {
-                        println("✅ Code serveur disponible - Connexion avec PocketBase")
                         viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur, idToken, contexte)
                     } else if (idToken != null && idToken.isNotBlank()) {
-                        println("✅ ID Token disponible - Connexion avec ID Token")
                         viewModel.gererConnexionGoogleAvecCompte(email, nom, null, idToken, contexte)
                     } else {
-                        println("❌ Aucun code d'autorisation ni ID token reçu – échec de la connexion sécurisée")
-                        viewModel.gererConnexionGoogle(null, contexte)
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null, null, contexte)
                     }
-                } catch (e: Exception) {
-                    println("❌ Erreur lors de la récupération du compte Google: ${e.message}")
-                    viewModel.gererConnexionGoogle(null, contexte)
+                } catch (e: ApiException) {
+                    val messageErreur = when (e.statusCode) {
+                        12500 -> "SIGN_IN_REQUIRED"
+                        12501 -> "SIGN_IN_CANCELLED"
+                        12502 -> "SIGN_IN_CURRENTLY_IN_PROGRESS"
+                        10 -> "DEVELOPER_ERROR (Configuration incorrecte)"
+                        else -> "Erreur Google Sign-In: ${e.statusCode}"
+                    }
+                    viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
                 }
             }
             Activity.RESULT_CANCELED -> {
-                println("🚫 Connexion annulée - Analyse détaillée :")
-                println("   📋 Intent data: ${resultat.data}")
-                println("   📋 Intent extras: ${resultat.data?.extras}")
-                
-                // Vérifier s'il y a des informations d'erreur dans l'intent
-                resultat.data?.let { data ->
-                    val errorKey = "errorCode"
-                    if (data.hasExtra(errorKey)) {
-                        val errorCode = data.getIntExtra(errorKey, -1)
-                        println("   🔍 Code d'erreur trouvé: $errorCode")
-                        
-                        when (errorCode) {
-                            12500 -> println("   -> SIGN_IN_REQUIRED")
-                            12501 -> println("   -> SIGN_IN_CANCELLED")
-                            12502 -> println("   -> SIGN_IN_CURRENTLY_IN_PROGRESS")
-                            10 -> println("   -> DEVELOPER_ERROR (Configuration incorrecte)")
-                            else -> println("   -> Code d'erreur inconnu: $errorCode")
-                        }
-                    }
-                    
-                    // Vérifier d'autres clés d'erreur possibles
-                    val errorKeys = listOf("error", "errorMessage", "status", "statusCode")
-                    for (key in errorKeys) {
-                        if (data.hasExtra(key)) {
-                            val value = data.getStringExtra(key) ?: data.getIntExtra(key, -1)
-                            println("   🔍 $key: $value")
-                        }
-                    }
-                }
-                
-                // Vérifier l'état de Google Play Services
-                val googleApiAvailability = GoogleApiAvailability.getInstance()
-                val playServicesStatus = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
-                
-                if (playServicesStatus != ConnectionResult.SUCCESS) {
-                    println("   ⚠️ Google Play Services non disponible: $playServicesStatus")
-                    println("   💡 Cela peut causer l'échec immédiat de Google Sign-In")
-                    
-                    // Informations sur le statut
-                    val messageErreur = when (playServicesStatus) {
-                        ConnectionResult.SERVICE_MISSING -> "Google Play Services manquant"
-                        ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED -> "Mise à jour Google Play Services requise"
-                        ConnectionResult.SERVICE_DISABLED -> "Google Play Services désactivé"
-                        else -> "Erreur Google Play Services: $playServicesStatus"
-                    }
-                    println("   🔧 $messageErreur")
-                }
-                
-                // Vérifier la configuration Google
-                println("   🔧 Vérification de la configuration:")
-                println("   - Client ID: ${com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID}")
-                println("   - Package: ${contexte.packageName}")
-                
-                // Test de connectivité réseau
-                println("   🌐 Test de connectivité réseau...")
-                try {
-                    val connectivityManager = contexte.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                    val networkInfo = connectivityManager.activeNetworkInfo
-                    if (networkInfo?.isConnected == true) {
-                        println("   ✅ Connexion réseau disponible")
-                    } else {
-                        println("   ❌ Pas de connexion réseau")
-                    }
-                } catch (e: Exception) {
-                    println("   ⚠️ Impossible de vérifier la connectivité: ${e.message}")
-                }
-                
-                println("   💡 Possible causes:")
-                println("   - Google Play Services manquant ou pas à jour")
-                println("   - Configuration SHA-1 incorrecte")
-                println("   - Client ID incorrect")
-                println("   - Permissions manquantes")
-                println("   - Problème de connectivité réseau")
-                println("   - Compte Google non configuré sur l'appareil")
-                
-                viewModel.gererConnexionGoogle(null, contexte)
+                viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
             }
             else -> {
-                println("❓ Code de résultat inattendu: ${resultat.resultCode}")
-                viewModel.gererConnexionGoogle(null, contexte)
+                viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
             }
         }
-        println("=== FIN DEBUG RETOUR ===")
     }
 
-    val clientConnexionGoogle = remember {
-        println("🔧 === CRÉATION CLIENT GOOGLE SIGN-IN ===")
-        try {
-            val client = GoogleSignIn.getClient(contexte, optionsConnexionGoogle)
-            println("✅ Client Google Sign-In créé avec succès")
-            println("📋 Options utilisées: ${optionsConnexionGoogle.toString()}")
-            client
-        } catch (e: Exception) {
-            println("❌ Erreur création client Google Sign-In: ${e.message}")
-            println("📋 Stack trace: ${e.stackTrace.joinToString("\n")}")
-            throw e
-        }
-    }
-
-    // Interface avec TON image de fond
+    // Interface utilisateur
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF1E1E1E))
     ) {
-        // TON IMAGE LOGIN.PNG comme fond !
-        Image(
-            painter = painterResource(id = R.drawable.login),
-            contentDescription = "Image de fond de connexion Toutie Budget",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-
-        // Overlay semi-transparent pour lisibilité du texte
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
-        )
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Logo et titre
+            Image(
+                painter = painterResource(id = R.drawable.login),
+                contentDescription = "Logo ToutieBudget",
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 32.dp),
+                contentScale = ContentScale.Fit
+            )
 
-        // Contenu principal selon l'état
-        when {
-            etatUi.estEnChargement -> {
-                InterfaceChargement(etatUi.messageChargement)
-            }
-            etatUi.modeDebug -> {
-                InterfaceDebug(
-                    etatUi = etatUi,
-                    onConnexionGoogle = {
-                        println("🔧 === DÉBUT CONNEXION GOOGLE ===")
-                        clientConnexionGoogle.signOut().addOnCompleteListener {
-                            lanceurConnexionGoogle.launch(clientConnexionGoogle.signInIntent)
-                        }
-                    },
-                    onEffacerErreur = { viewModel.effacerErreur() },
-                    onBasculerDebug = { viewModel.basculerModeDebug() },
-                    onEffacerLogs = { viewModel.effacerLogsDebug() },
-                    onDiagnostic = { viewModel.lancerDiagnosticPocketBase() }
+            Text(
+                text = "ToutieBudget",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontFamily.Default,
+                    fontSize = 32.sp
+                ),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Text(
+                text = "Gestionnaire de budget intelligent",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 48.dp)
+            )
+
+            // Bouton de connexion Google
+            GoogleSignInButton(
+                onClick = {
+                    lanceurConnexionGoogle.launch(
+                        GoogleSignIn.getClient(contexte, optionsConnexionGoogle).signInIntent
+                    )
+                },
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Indicateur de chargement
+            if (etatUi.estEnChargement) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.padding(16.dp)
+                )
+                Text(
+                    text = etatUi.messageChargement,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
                 )
             }
-            else -> {
-                InterfaceConnexion(
-                    etatUi = etatUi,
-                    onConnexionGoogle = {
-                        println("🔧 === DÉBUT CONNEXION GOOGLE ===")
-                        clientConnexionGoogle.signOut().addOnCompleteListener {
-                            lanceurConnexionGoogle.launch(clientConnexionGoogle.signInIntent)
-                        }
-                    },
-                    onEffacerErreur = { viewModel.effacerErreur() },
-                    onBasculerDebug = { viewModel.basculerModeDebug() }
+
+            // Message d'erreur
+            etatUi.erreur?.let { erreur ->
+                Text(
+                    text = erreur,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
+            }
+
+            // Mode debug (optionnel)
+            if (etatUi.modeDebug) {
+                DebugSection(etatUi, viewModel)
             }
         }
     }
+}
 
-    // Vérification de connexion existante au démarrage
-    LaunchedEffect(Unit) {
-        viewModel.verifierConnexionExistante(contexte)
+/**
+ * Section de debug pour afficher les logs et informations techniques
+ */
+@Composable
+private fun DebugSection(
+    etatUi: EtatLoginUi,
+    viewModel: LoginViewModel
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2D2D2D)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔧 Mode Debug",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+                IconButton(onClick = { isExpanded = !isExpanded }) {
+                    Text(
+                        text = if (isExpanded) "▼" else "▶",
+                        color = Color.White
+                    )
+                }
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Boutons d'action debug
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = { viewModel.basculerModeDebug() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        )
+                    ) {
+                        Text("Basculer Debug")
+                    }
+                    
+                    Button(
+                        onClick = { viewModel.effacerLogsDebug() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9800)
+                        )
+                    ) {
+                        Text("Effacer Logs")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Logs de debug
+                if (etatUi.logsDebug.isNotEmpty()) {
+                    Text(
+                        text = "📋 Logs:",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    
+                    LazyColumn(
+                        modifier = Modifier
+                            .height(200.dp)
+                            .background(Color(0xFF1A1A1A))
+                            .padding(8.dp)
+                    ) {
+                        items(etatUi.logsDebug) { log ->
+                            Text(
+                                text = log,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray,
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

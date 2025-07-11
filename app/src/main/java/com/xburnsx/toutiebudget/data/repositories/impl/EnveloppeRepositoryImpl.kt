@@ -65,11 +65,12 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             }
 
             val corpsReponse = reponse.body!!.string()
-            println("[DEBUG] JSON reçu de PocketBase: $corpsReponse")
+            println("[DEBUG] Réponse brute de PocketBase pour enveloppes: $corpsReponse")
             val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Enveloppe::class.java).type
             val resultatPagine: ListeResultats<Enveloppe> = gson.fromJson(corpsReponse, typeReponse)
 
             val enveloppes = resultatPagine.items.filter { !it.estArchive }.sortedBy { it.ordre }
+            println("[DEBUG] Enveloppes parsées: ${enveloppes.map { "${it.nom} (categorieId: ${it.categorieId})" }}")
             Result.success(enveloppes)
         } catch (e: Exception) {
             Result.failure(e)
@@ -145,14 +146,13 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val dataMap = mapOf(
                 "utilisateur_id" to utilisateurId,
                 "nom" to enveloppe.nom,
-                "categorie_id" to enveloppe.categorieId,
+                "categorieId" to enveloppe.categorieId,
                 "est_archive" to enveloppe.estArchive,
                 "ordre" to enveloppe.ordre
                 // Pas d'objectif par défaut - l'utilisateur le définira plus tard
             )
             
             val corpsJson = gson.toJson(dataMap)
-            println("[DEBUG] JSON envoyé à PocketBase pour enveloppe: $corpsJson")
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
@@ -165,7 +165,6 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             httpClient.newCall(requete).execute().use { reponse ->
                 if (!reponse.isSuccessful) {
                     val errorBody = reponse.body?.string()
-                    println("[DEBUG] Réponse d'erreur PocketBase pour enveloppe: $errorBody")
                     return@withContext Result.failure(Exception("Échec de la création: $errorBody"))
                 }
             }

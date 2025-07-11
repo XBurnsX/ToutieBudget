@@ -22,7 +22,6 @@ class RolloverServiceImpl(
 
                     val estCompatible = allocationNouvelle.compteSourceId == null || allocationNouvelle.compteSourceId == allocationAncienne.compteSourceId
                     if (!estCompatible) {
-                        println("Avertissement: Rollover ignoré pour l'enveloppe ${allocationAncienne.enveloppeId} car les sources ne sont pas compatibles.")
                         continue
                     }
 

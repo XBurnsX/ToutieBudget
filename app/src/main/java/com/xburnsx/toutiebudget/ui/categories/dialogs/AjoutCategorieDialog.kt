@@ -25,7 +25,6 @@ fun AjoutCategorieDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    println("[DEBUG] Bouton Créer cliqué, nom: '$nomCategorie'")
                     onSave()
                 },
                 enabled = nomCategorie.isNotBlank()

@@ -36,21 +36,17 @@ class LoginViewModel : ViewModel() {
     init {
         // Initialiser le client PocketBase au démarrage
         viewModelScope.launch {
-            ajouterLogDebug("🚀 Initialisation du LoginViewModel...")
-            
-            _etatUi.update {
-                it.copy(
-                    estEnChargement = true,
-                    messageChargement = "Initialisation de la connexion...",
-                    modeDebug = true // Mode debug activé par défaut
-                )
-            }
+                            _etatUi.update {
+                    it.copy(
+                        estEnChargement = true,
+                        messageChargement = "Initialisation de la connexion...",
+                        modeDebug = false // Mode debug désactivé par défaut
+                    )
+                }
 
             try {
-                ajouterLogDebug("📡 Initialisation du client PocketBase...")
                 PocketBaseClient.initialiser()
                 
-                ajouterLogDebug("✅ Client PocketBase initialisé avec succès")
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
@@ -58,7 +54,6 @@ class LoginViewModel : ViewModel() {
                     )
                 }
             } catch (e: Exception) {
-                ajouterLogDebug("❌ Erreur d'initialisation : ${e.message}")
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
@@ -67,18 +62,6 @@ class LoginViewModel : ViewModel() {
                     )
                 }
             }
-        }
-    }
-
-    /**
-     * Ajoute un log au mode debug
-     */
-    private fun ajouterLogDebug(message: String) {
-        println("🔍 [DEBUG] $message")
-        _etatUi.update { etat ->
-            etat.copy(
-                logsDebug = etat.logsDebug + "${System.currentTimeMillis()}: $message"
-            )
         }
     }
 
@@ -97,12 +80,6 @@ class LoginViewModel : ViewModel() {
         context: Context
     ) {
         viewModelScope.launch {
-            ajouterLogDebug("🔐 === DÉBUT CONNEXION GOOGLE AVEC COMPTE ===")
-            ajouterLogDebug("📧 Email: $email")
-            ajouterLogDebug("👤 Nom: $nom")
-            ajouterLogDebug("🔑 Code autorisation: ${codeAutorisation?.take(20) ?: "Non disponible"}")
-            ajouterLogDebug("🎫 ID Token: ${idToken?.take(20) ?: "Non disponible"}")
-
             _etatUi.update {
                 it.copy(
                     estEnChargement = true,
@@ -113,7 +90,6 @@ class LoginViewModel : ViewModel() {
 
             // Vérification des données reçues
             if (codeAutorisation.isNullOrBlank() && idToken.isNullOrBlank()) {
-                ajouterLogDebug("❌ Aucun code d'autorisation ni ID token reçu")
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
@@ -126,7 +102,6 @@ class LoginViewModel : ViewModel() {
 
             // SI on a un code d'autorisation, essayer PocketBase
             if (!codeAutorisation.isNullOrBlank()) {
-                ajouterLogDebug("🔄 Tentative PocketBase avec code d'autorisation...")
                 _etatUi.update {
                     it.copy(messageChargement = "Connexion à PocketBase...")
                 }
@@ -134,7 +109,6 @@ class LoginViewModel : ViewModel() {
                 val resultat = PocketBaseClient.connecterAvecGoogle(codeAutorisation, context)
 
                 resultat.onSuccess {
-                    ajouterLogDebug("✅ Connexion PocketBase réussie !")
                     _etatUi.update {
                         it.copy(
                             estEnChargement = false,
@@ -144,8 +118,6 @@ class LoginViewModel : ViewModel() {
                     }
                     return@launch
                 }.onFailure { erreur ->
-                    ajouterLogDebug("❌ Erreur PocketBase : ${erreur.message}")
-                    
                     // Message d'erreur plus explicite pour l'utilisateur
                     val messageErreur = when {
                         erreur.message?.contains("timeout", ignoreCase = true) == true -> 
@@ -170,13 +142,11 @@ class LoginViewModel : ViewModel() {
                     return@launch
                 }
             } else if (!idToken.isNullOrBlank()) {
-                ajouterLogDebug("🔄 Tentative PocketBase avec ID Token...")
                 _etatUi.update {
                     it.copy(messageChargement = "Connexion avec ID Token...")
                 }
 
                 // TODO: Implémenter la connexion avec ID Token si nécessaire
-                ajouterLogDebug("⚠️ Connexion avec ID Token non implémentée")
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
@@ -186,7 +156,6 @@ class LoginViewModel : ViewModel() {
                     )
                 }
             } else {
-                ajouterLogDebug("✅ Pas de code serveur. Connexion locale acceptée pour $email")
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
@@ -203,10 +172,7 @@ class LoginViewModel : ViewModel() {
      * @param codeAutorisation Le code d'autorisation obtenu de Google Sign-In
      */
     fun gererConnexionGoogle(codeAutorisation: String?, context: Context) {
-        ajouterLogDebug("🔐 === CONNEXION GOOGLE (LEGACY) ===")
-        
         if (codeAutorisation == null) {
-            ajouterLogDebug("❌ Aucun code d'autorisation reçu")
             _etatUi.update {
                 it.copy(
                     erreur = "L'authentification Google a été annulée ou a échoué. Vérifiez votre connexion internet et réessayez.",
@@ -224,7 +190,6 @@ class LoginViewModel : ViewModel() {
      * Réinitialise l'état d'erreur
      */
     fun effacerErreur() {
-        ajouterLogDebug("🧹 Effacement de l'erreur")
         _etatUi.update { it.copy(erreur = null) }
     }
 
@@ -232,70 +197,28 @@ class LoginViewModel : ViewModel() {
      * Vérifie si l'utilisateur est déjà connecté
      */
     fun verifierConnexionExistante(context: Context) {
-        ajouterLogDebug("🔍 Vérification de connexion existante...")
         PocketBaseClient.chargerToken(context)
         if (PocketBaseClient.estConnecte()) {
-            ajouterLogDebug("✅ Utilisateur déjà connecté")
             _etatUi.update {
                 it.copy(
                     connexionReussie = true,
                     messageChargement = "Reconnexion automatique..."
                 )
             }
-        } else {
-            ajouterLogDebug("❌ Aucune connexion existante")
         }
     }
 
     /**
-     * Force une déconnexion complète
-     */
-    fun deconnecter(context: Context) {
-        ajouterLogDebug("👋 Déconnexion de l'utilisateur")
-        PocketBaseClient.deconnecter(context)
-        _etatUi.update {
-            EtatLoginUi(modeDebug = true) // Réinitialiser complètement l'état
-        }
-    }
-
-    /**
-     * Bascule le mode debug
-     */
-    fun basculerModeDebug() {
-        _etatUi.update { etat ->
-            etat.copy(modeDebug = !etat.modeDebug)
-        }
-        ajouterLogDebug("🔧 Mode debug ${if (_etatUi.value.modeDebug) "activé" else "désactivé"}")
-    }
-
-    /**
-     * Efface les logs de debug
+     * Efface tous les logs de debug
      */
     fun effacerLogsDebug() {
-        _etatUi.update { etat ->
-            etat.copy(logsDebug = emptyList())
-        }
-        ajouterLogDebug("🧹 Logs de debug effacés")
+        _etatUi.update { it.copy(logsDebug = emptyList()) }
     }
 
     /**
-     * Lance le diagnostic complet de PocketBase
+     * Active/désactive le mode debug
      */
-    fun lancerDiagnosticPocketBase() {
-        viewModelScope.launch {
-            ajouterLogDebug("🔍 Lancement du diagnostic PocketBase...")
-            
-            try {
-                val rapport = com.xburnsx.toutiebudget.utils.TestPocketBase.diagnosticComplet()
-                ajouterLogDebug("📋 Diagnostic complet:")
-                rapport.split("\n").forEach { ligne ->
-                    if (ligne.isNotBlank()) {
-                        ajouterLogDebug(ligne)
-                    }
-                }
-            } catch (e: Exception) {
-                ajouterLogDebug("❌ Erreur lors du diagnostic: ${e.message}")
-            }
-        }
+    fun basculerModeDebug() {
+        _etatUi.update { it.copy(modeDebug = !it.modeDebug) }
     }
 }

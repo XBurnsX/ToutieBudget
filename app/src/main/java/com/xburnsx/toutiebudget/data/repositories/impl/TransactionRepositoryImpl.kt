@@ -124,7 +124,6 @@ class TransactionRepositoryImpl : TransactionRepository {
                 }
             }
             
-            println("Transaction créée: $transaction")
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

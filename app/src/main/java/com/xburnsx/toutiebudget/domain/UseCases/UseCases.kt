@@ -107,13 +107,9 @@ class VerifierEtExecuterRolloverUseCase(
             val moisDernierRollover = dernierRolloverCal.get(Calendar.MONTH)
 
             if (anneeActuelle > anneeDernierRollover || (anneeActuelle == anneeDernierRollover && moisActuel > moisDernierRollover)) {
-                println("Nouveau mois détecté. Lancement du rollover...")
                 val moisPrecedentCal = Calendar.getInstance().apply { time = dernierRolloverCal.time; set(Calendar.DAY_OF_MONTH, 1) }
                 rolloverService.effectuerRolloverMensuel(moisPrecedent = moisPrecedentCal.time, nouveauMois = aujourdhui.time).getOrThrow()
                 preferenceRepository.sauvegarderDernierRollover(aujourdhui.time)
-                println("Rollover terminé et date sauvegardée.")
-            } else {
-                println("Rollover non nécessaire pour ce mois.")
             }
             Result.success(Unit)
         } catch (e: Exception) {
