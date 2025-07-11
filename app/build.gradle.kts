@@ -39,7 +39,7 @@ android {
             buildConfigField("String", "POCKETBASE_URL_EMULATEUR_AVD", "\"http://10.0.2.15:8090/\"")
 
             // Client ID Web réel du google-services.json
-            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"857272496129-adbtb0bltka9siqarvll7s36l697bcs2.apps.googleusercontent.com\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1078578579569-eb1v1cre9rius8grrppg1sktal3bkbrl.apps.googleusercontent.com\"")
 
             buildConfigField("boolean", "EST_MODE_DEBUG", "true")
         }

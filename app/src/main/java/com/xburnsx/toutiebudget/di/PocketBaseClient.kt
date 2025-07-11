@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
  * - L'authentification Google OAuth2
  * - La gestion des erreurs réseau
  * - Les timeouts appropriés
+ * - Les logs détaillés pour le debug
  */
 object PocketBaseClient {
 
@@ -39,10 +40,43 @@ object PocketBaseClient {
      */
     suspend fun initialiser() {
         try {
+            println("🔧 === INITIALISATION POCKETBASE CLIENT ===")
             val urlActive = UrlResolver.obtenirUrlActive()
-            println("🚀 PocketBaseClient initialisé avec : $urlActive")
+            println("✅ PocketBaseClient initialisé avec : $urlActive")
+            
+            // Test de connectivité
+            testerConnectivite(urlActive)
+            
         } catch (e: Exception) {
             println("❌ Erreur lors de l'initialisation : ${e.message}")
+            throw e
+        }
+    }
+
+    /**
+     * Teste la connectivité vers PocketBase
+     */
+    private suspend fun testerConnectivite(urlBase: String) {
+        try {
+            println("🔍 Test de connectivité vers : $urlBase")
+            val requete = Request.Builder()
+                .url("${urlBase.trimEnd('/')}/api/health")
+                .get()
+                .build()
+            
+            val reponse = withContext(Dispatchers.IO) {
+                client.newCall(requete).execute()
+            }
+            
+            if (reponse.isSuccessful) {
+                println("✅ Connectivité OK - Serveur PocketBase accessible")
+            } else {
+                println("⚠️ Connectivité partielle - Code ${reponse.code}")
+            }
+        } catch (e: Exception) {
+            val messageErreur = e.message ?: "Erreur inconnue"
+            println("❌ Problème de connectivité : $messageErreur")
+            println("🔍 Type d'erreur : ${e.javaClass.simpleName}")
         }
     }
 
@@ -56,25 +90,25 @@ object PocketBaseClient {
                 println("🔐 === AUTHENTIFICATION GOOGLE OAUTH2 ===")
                 println("📤 Code d'autorisation Google reçu: ${codeAutorisation.take(20)}...")
 
-                val urlBase = UrlResolver.obtenirUrlActive()
-                println("🌐 URL PocketBase: $urlBase")
+                val urlBase = obtenirUrlBaseActive()
+                println("🌐 URL PocketBase obtenue: $urlBase")
 
                 // Endpoint OAuth2 PocketBase pour Google
                 val urlOAuth = "$urlBase/api/collections/users/auth-with-oauth2"
-                println("🔗 URL OAuth2: $urlOAuth")
+                println("🔗 URL OAuth2 complète: $urlOAuth")
 
                 // Données pour l'authentification OAuth2
                 val donneesOAuth = JsonObject().apply {
                     addProperty("provider", "google")
                     addProperty("code", codeAutorisation)
-                    addProperty("codeVerifier", "")
-                    addProperty("redirectUrl", "")
-                    addProperty("createData", JsonObject().apply {
-                        addProperty("emailVisibility", false)
-                    }.toString())
+                    addProperty("codeVerifier", "") // Standard pour le flux web/mobile
+                    addProperty("redirectUrl", "http://localhost:8090") // Requis par PocketBase
+                    // createData est optionnel, PocketBase prendra les infos du profil Google
                 }
+                val corpsRequeteString = donneesOAuth.toString()
+                println("📦 Corps de la requête JSON préparé: $corpsRequeteString")
 
-                val corpsRequete = donneesOAuth.toString().toRequestBody("application/json".toMediaType())
+                val corpsRequete = corpsRequeteString.toRequestBody("application/json".toMediaType())
 
                 val requete = Request.Builder()
                     .url(urlOAuth)
@@ -83,80 +117,94 @@ object PocketBaseClient {
                     .addHeader("Accept", "application/json")
                     .build()
 
-                println("📡 Tentative authentification OAuth2...")
-                println("🔑 Provider: google")
-
+                println("📡 Envoi de la requête à PocketBase... (Timeout après 15s)")
                 val reponse = client.newCall(requete).execute()
+                println("📨 Réponse reçue de PocketBase ! Status: ${reponse.code}")
+
                 val corpsReponse = reponse.body?.string() ?: ""
+                println("📄 Corps de la réponse (brut): ${corpsReponse.take(500)}...")
 
-                println("📨 Status HTTP: ${reponse.code}")
-                println("📨 Response: ${corpsReponse.take(500)}...")
-
-                when (reponse.code) {
-                    200 -> {
-                        println("✅ AUTHENTIFICATION GOOGLE RÉUSSIE !")
-                        try {
-                            val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
-
-                            // Sauvegarder les informations de connexion
-                            tokenAuthentification = reponseAuth.token
-                            utilisateurConnecte = reponseAuth.record
-
-                            println("✅ Utilisateur connecté: ${reponseAuth.record.email}")
-                            println("🎫 Token: ${reponseAuth.token.take(20)}...")
-                            println("🔐 === AUTHENTIFICATION GOOGLE RÉUSSIE ===")
-
-                            Result.success(Unit)
-
-                        } catch (e: Exception) {
-                            println("❌ Erreur parsing réponse OAuth2: ${e.message}")
-                            println("📄 Réponse brute: $corpsReponse")
-                            Result.failure(Exception("Erreur parsing OAuth2: ${e.message}"))
-                        }
+                if (reponse.isSuccessful) {
+                    println("✅ AUTHENTIFICATION GOOGLE RÉUSSIE !")
+                    try {
+                        val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
+                        tokenAuthentification = reponseAuth.token
+                        utilisateurConnecte = reponseAuth.record
+                        println("👤 Utilisateur connecté: ${reponseAuth.record.email} | Token: ${reponseAuth.token.take(20)}...")
+                        Result.success(Unit)
+                    } catch (e: Exception) {
+                        println("❌ Erreur de parsing de la réponse JSON: ${e.message}")
+                        println("📄 Réponse complète qui a causé l'erreur: $corpsReponse")
+                        Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}"))
                     }
-                    400 -> {
-                        println("❌ 400 - Erreur dans la requête OAuth2")
-                        println("📄 Détails: $corpsReponse")
-                        println("💡 Solutions:")
-                        println("   1. Vérifiez que Google OAuth2 est configuré dans PocketBase")
-                        println("   2. Settings → Auth providers → Google")
-                        println("   3. Client ID et Client Secret corrects")
-                        println("   4. Redirect URLs autorisées")
-                        Result.failure(Exception("Configuration OAuth2 incorrecte"))
-                    }
-                    401 -> {
-                        println("❌ 401 - Code d'autorisation invalide ou expiré")
-                        Result.failure(Exception("Code d'autorisation Google invalide"))
-                    }
-                    404 -> {
-                        println("❌ 404 - Endpoint OAuth2 non trouvé")
-                        println("💡 Vérifiez que PocketBase tourne sur: $urlBase")
-                        Result.failure(Exception("Service PocketBase non accessible"))
-                    }
-                    else -> {
-                        println("❌ Erreur HTTP ${reponse.code}")
-                        println("📄 Détails: $corpsReponse")
-                        Result.failure(Exception("Erreur HTTP ${reponse.code}: $corpsReponse"))
-                    }
+                } else {
+                    println("❌ La réponse du serveur indique une erreur (code ${reponse.code})")
+                    
+                    // Analyse détaillée de l'erreur
+                    val messageErreur = analyserErreurServeur(reponse.code, corpsReponse)
+                    println("🔍 Analyse de l'erreur: $messageErreur")
+                    
+                    Result.failure(Exception(messageErreur))
                 }
 
             } catch (e: IOException) {
-                println("🌐 Erreur réseau: ${e.message}")
+                println("❌ Erreur réseau/timeout: ${e.javaClass.simpleName} - ${e.message}")
                 UrlResolver.invaliderCache()
-                Result.failure(Exception("Erreur réseau: ${e.message}"))
+                
+                val messageErreur = when {
+                    e.message?.contains("timeout", ignoreCase = true) == true -> 
+                        "Le serveur ne répond pas dans les délais. Vérifiez votre connexion internet."
+                    e.message?.contains("unknown host", ignoreCase = true) == true -> 
+                        "Impossible de joindre le serveur. Vérifiez l'adresse du serveur."
+                    e.message?.contains("connection refused", ignoreCase = true) == true -> 
+                        "Connexion refusée par le serveur. Vérifiez que PocketBase est démarré."
+                    else -> "Erreur réseau ou timeout. Le serveur est-il accessible à l'adresse ${UrlResolver.obtenirUrlActuelle()}? Message: ${e.message}"
+                }
+                
+                Result.failure(Exception(messageErreur))
             } catch (e: Exception) {
-                println("💥 Erreur générale: ${e.message}")
+                println("❌ Erreur inattendue: ${e.javaClass.simpleName} - ${e.message}")
                 Result.failure(Exception("Erreur inattendue: ${e.message}"))
             }
         }
 
     /**
+     * Analyse l'erreur retournée par le serveur
+     */
+    private fun analyserErreurServeur(code: Int, corpsReponse: String): String {
+        return when (code) {
+            400 -> {
+                when {
+                    corpsReponse.contains("invalid_code", ignoreCase = true) -> 
+                        "Code d'autorisation Google invalide. Vérifiez votre configuration Google."
+                    corpsReponse.contains("invalid_provider", ignoreCase = true) -> 
+                        "Fournisseur OAuth2 non configuré. Vérifiez la configuration PocketBase."
+                    corpsReponse.contains("missing_code", ignoreCase = true) -> 
+                        "Code d'autorisation manquant. Vérifiez la configuration Google Sign-In."
+                    corpsReponse.contains("redirectURL", ignoreCase = true) -> 
+                        "Configuration OAuth2 incomplète. Vérifiez la configuration PocketBase."
+                    corpsReponse.contains("validation_required", ignoreCase = true) -> 
+                        "Données de requête invalides. Vérifiez la configuration OAuth2."
+                    else -> "Requête invalide (400). Détails: $corpsReponse"
+                }
+            }
+            401 -> "Authentification échouée. Vérifiez vos identifiants Google."
+            403 -> "Accès refusé. Vérifiez les permissions de votre compte Google."
+            404 -> "Endpoint OAuth2 introuvable. Vérifiez la configuration PocketBase."
+            500 -> "Erreur interne du serveur PocketBase. Contactez l'administrateur."
+            502 -> "Serveur PocketBase temporairement indisponible. Réessayez plus tard."
+            503 -> "Service PocketBase en maintenance. Réessayez plus tard."
+            else -> "Erreur serveur (code $code). Détails: $corpsReponse"
+        }
+    }
+
+    /**
      * Déconnecte l'utilisateur actuel
      */
     fun deconnecter() {
+        println("👋 Déconnexion de l'utilisateur")
         tokenAuthentification = null
         utilisateurConnecte = null
-        println("👋 Utilisateur déconnecté")
     }
 
     /**
@@ -174,10 +222,47 @@ object PocketBaseClient {
     }
 
     /**
+     * Obtient l'URL de base active de PocketBase.
+     */
+    suspend fun obtenirUrlBaseActive(): String {
+        return UrlResolver.obtenirUrlActive()
+    }
+
+    /**
      * Obtient le token d'authentification actuel
      */
     fun obtenirToken(): String? {
         return tokenAuthentification
+    }
+
+    /**
+     * Teste la connexion à PocketBase (pour debug)
+     */
+    suspend fun testerConnexionPocketBase(): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            println("🔍 Test de connexion PocketBase...")
+            val urlBase = obtenirUrlBaseActive()
+            val urlTest = "$urlBase/api/health"
+            
+            val requete = Request.Builder()
+                .url(urlTest)
+                .get()
+                .build()
+            
+            val reponse = client.newCall(requete).execute()
+            val corpsReponse = reponse.body?.string() ?: ""
+            
+            if (reponse.isSuccessful) {
+                println("✅ Test de connexion réussi")
+                Result.success("Connexion OK - $urlBase")
+            } else {
+                println("❌ Test de connexion échoué - Code ${reponse.code}")
+                Result.failure(Exception("Test échoué - Code ${reponse.code}: $corpsReponse"))
+            }
+        } catch (e: Exception) {
+            println("❌ Erreur lors du test de connexion: ${e.message}")
+            Result.failure(e)
+        }
     }
 
     // Classes de données pour les réponses PocketBase

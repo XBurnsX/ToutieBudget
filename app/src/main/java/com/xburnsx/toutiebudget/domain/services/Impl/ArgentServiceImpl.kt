@@ -29,18 +29,27 @@ class ArgentServiceImpl(
             val compteMaj = when (compteSource) {
                 is CompteCheque -> compteSource.copy(solde = compteSource.solde - montant)
                 is CompteCredit -> compteSource.copy(solde = compteSource.solde - montant)
+                is CompteDette -> compteSource.copy(solde = compteSource.solde - montant)
+                is CompteInvestissement -> compteSource.copy(solde = compteSource.solde - montant)
             }
             compteRepository.mettreAJourCompte(compteMaj).getOrThrow()
+
+            val nomCollection = when (compteSource) {
+                is CompteCheque -> "comptes_cheque"
+                is CompteCredit -> "comptes_credit"
+                is CompteDette -> "comptes_dette"
+                is CompteInvestissement -> "comptes_investissement"
+            }
 
             val allocationMaj = allocation.copy(
                 solde = allocation.solde + montant,
                 alloue = allocation.alloue + montant,
                 compteSourceId = compteSource.id,
-                collectionCompteSource = if (compteSource is CompteCheque) "comptes_cheque" else "comptes_credit"
+                collectionCompteSource = nomCollection
             )
             enveloppeRepository.mettreAJourAllocation(allocationMaj).getOrThrow()
 
-            val transaction = Transaction(UUID.randomUUID().toString(), compteSource.utilisateurId, TypeTransaction.ALLOCATION, montant, Date(), "Allocation vers enveloppe", compteSource.id, if (compteSource is CompteCheque) "comptes_cheque" else "comptes_credit", allocation.id)
+            val transaction = Transaction(UUID.randomUUID().toString(), compteSource.utilisateurId, TypeTransaction.ALLOCATION, montant, Date(), "Allocation vers enveloppe", compteSource.id, nomCollection, allocation.id)
             transactionRepository.creerTransaction(transaction).getOrThrow()
             Result.success(Unit)
         } catch (e: Exception) {

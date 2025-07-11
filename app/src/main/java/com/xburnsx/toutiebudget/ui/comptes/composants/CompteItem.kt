@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
 import com.xburnsx.toutiebudget.ui.budget.composants.toColor
 import java.text.NumberFormat
 import java.util.Locale
@@ -73,7 +75,9 @@ fun CompteItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 when (compte) {
                     is CompteCheque -> PastilleInfo("Prêt à placer: ${formatteurMonetaire.format(compte.solde)}", Color(0xFF2E7D32))
-                    is CompteCredit -> Text(text = "Carte de crédit", fontSize = 13.sp, color = Color.Gray)
+                    is CompteCredit -> Text(text = "Limite : ${formatteurMonetaire.format(compte.limiteCredit)}", fontSize = 13.sp, color = Color.Gray)
+                    is CompteDette -> Text(text = "Montant initial : ${formatteurMonetaire.format(compte.montantInitial)}", fontSize = 13.sp, color = Color.Gray)
+                    is CompteInvestissement -> Text(text = "Investissement", fontSize = 13.sp, color = Color.Gray)
                 }
             }
             Text(

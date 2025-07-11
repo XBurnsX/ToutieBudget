@@ -10,6 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,11 +20,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -30,6 +34,9 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.ui.login.composants.GoogleSignInButton
+import com.xburnsx.toutiebudget.utils.Sha1Helper
+import com.xburnsx.toutiebudget.utils.TestGoogleSignIn
+import com.xburnsx.toutiebudget.utils.KeystoreDiagnostic
 
 /**
  * Écran de connexion avec authentification Google OAuth2 et diagnostic complet
@@ -49,23 +56,18 @@ fun LoginScreen(
         }
     }
 
-    // 🔧 CONFIGURATION GOOGLE SIGN-IN - Version fonctionnelle
+    // 🔧 CONFIGURATION GOOGLE SIGN-IN - Configuration PocketBase (serverAuthCode permanent)
     val optionsConnexionGoogle = remember {
-        println("=== 🔧 CRÉATION CONFIG GOOGLE ===")
-
-        // Configuration simple qui fonctionne (testée et validée)
-        val configSimple = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        println("=== 🔧 CRÉATION CONFIG GOOGLE (PocketBase) ===")
+        val webClientId = com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID
+        val config = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
+            .requestIdToken(webClientId)
+            .requestServerAuthCode(webClientId, /* forceRefresh = */ true) // Important : true pour recevoir un nouveau code à chaque connexion
             .build()
-
-        println("✅ Config simple créée et utilisée")
-        println("📋 Scopes demandés: email, profile")
-        println("💡 Cette configuration fonctionne avec tous les comptes Google")
-        println("=== FIN CRÉATION CONFIG ===")
-
-        // Utiliser la configuration simple qui fonctionne
-        configSimple
+        println("✅ Config créée avec serverAuthCode (forceRefresh=true)")
+        config
     }
 
     // 🔧 VÉRIFICATION GOOGLE PLAY SERVICES
@@ -95,6 +97,19 @@ fun LoginScreen(
                 println("❌ Google Play Services : Erreur $resultCode")
                 println("💡 Vérifiez l'état de Google Play Services")
             }
+        }
+
+        // Informations détaillées sur l'environnement
+        println("=== 🔧 INFORMATIONS ENVIRONNEMENT ===")
+        println("📱 Package Name: ${contexte.packageName}")
+        println("🔧 Build Config: ${com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID}")
+        println("🔧 Mode Debug: ${com.xburnsx.toutiebudget.BuildConfig.EST_MODE_DEBUG}")
+        
+        // Informations sur l'émulateur
+        val detecteur = com.xburnsx.toutiebudget.utils.DetecteurEmulateur.obtenirInfoEnvironnement()
+        println("🔍 Détection émulateur:")
+        detecteur.split("\n").forEach { ligne ->
+            println("   $ligne")
         }
 
         println("=== 🔧 TEST CONFIGURATIONS ===")
@@ -128,6 +143,22 @@ fun LoginScreen(
         }
 
         println("=== FIN TEST CONFIGURATIONS ===")
+        
+        // 🔍 DIAGNOSTIC SHA-1
+        Sha1Helper.afficherDiagnosticSha1(contexte)
+        
+        // 🔍 TEST GOOGLE SIGN-IN ISOLÉ
+        println("🔍 === LANCEMENT TEST GOOGLE SIGN-IN ===")
+        val testGoogleSignIn = TestGoogleSignIn.testerGoogleSignIn(contexte)
+        println(testGoogleSignIn)
+        
+        // 🔍 TEST GOOGLE PLAY SERVICES
+        val testGooglePlayServices = TestGoogleSignIn.testerGooglePlayServices(contexte)
+        println(testGooglePlayServices)
+        
+        // 🔍 DIAGNOSTIC KEYSTORE DÉTAILLÉ
+        KeystoreDiagnostic.afficherDiagnosticKeystore(contexte)
+        KeystoreDiagnostic.comparerAvecDebugStandard()
     }
 
     // Configuration du launcher Google Sign-In avec diagnostic détaillé
@@ -153,6 +184,7 @@ fun LoginScreen(
                     println("✅ ID Token: ${compte?.idToken}")
 
                     val codeServeur = compte?.serverAuthCode
+                    val idToken = compte?.idToken
                     val email = compte?.email ?: "utilisateur@gmail.com"
                     val nom = compte?.displayName
                     
@@ -160,14 +192,17 @@ fun LoginScreen(
                     println("   📧 Email: $email")
                     println("   👤 Nom: $nom")
                     println("   🔑 Server Auth Code: ${codeServeur ?: "Non disponible"}")
+                    println("   🎫 ID Token: ${idToken ?: "Non disponible"}")
                     
                     if (codeServeur != null && codeServeur.isNotBlank()) {
                         println("✅ Code serveur disponible - Connexion avec PocketBase")
-                        viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur)
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur, idToken)
+                    } else if (idToken != null && idToken.isNotBlank()) {
+                        println("✅ ID Token disponible - Connexion avec ID Token")
+                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null, idToken)
                     } else {
-                        println("⚠️ Pas de code serveur - Connexion locale seulement")
-                        println("💡 L'utilisateur peut quand même utiliser l'app")
-                        viewModel.gererConnexionGoogleAvecCompte(email, nom, null)
+                        println("❌ Aucun code d'autorisation ni ID token reçu – échec de la connexion sécurisée")
+                        viewModel.gererConnexionGoogle(null)
                     }
 
                 } catch (e: ApiException) {
@@ -210,6 +245,15 @@ fun LoginScreen(
                             else -> println("   -> Code d'erreur inconnu: $errorCode")
                         }
                     }
+                    
+                    // Vérifier d'autres clés d'erreur possibles
+                    val errorKeys = listOf("error", "errorMessage", "status", "statusCode")
+                    for (key in errorKeys) {
+                        if (data.hasExtra(key)) {
+                            val value = data.getStringExtra(key) ?: data.getIntExtra(key, -1)
+                            println("   🔍 $key: $value")
+                        }
+                    }
                 }
                 
                 // Vérifier l'état de Google Play Services
@@ -219,6 +263,34 @@ fun LoginScreen(
                 if (playServicesStatus != ConnectionResult.SUCCESS) {
                     println("   ⚠️ Google Play Services non disponible: $playServicesStatus")
                     println("   💡 Cela peut causer l'échec immédiat de Google Sign-In")
+                    
+                    // Informations sur le statut
+                    val messageErreur = when (playServicesStatus) {
+                        ConnectionResult.SERVICE_MISSING -> "Google Play Services manquant"
+                        ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED -> "Mise à jour Google Play Services requise"
+                        ConnectionResult.SERVICE_DISABLED -> "Google Play Services désactivé"
+                        else -> "Erreur Google Play Services: $playServicesStatus"
+                    }
+                    println("   🔧 $messageErreur")
+                }
+                
+                // Vérifier la configuration Google
+                println("   🔧 Vérification de la configuration:")
+                println("   - Client ID: ${com.xburnsx.toutiebudget.BuildConfig.GOOGLE_WEB_CLIENT_ID}")
+                println("   - Package: ${contexte.packageName}")
+                
+                // Test de connectivité réseau
+                println("   🌐 Test de connectivité réseau...")
+                try {
+                    val connectivityManager = contexte.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                    val networkInfo = connectivityManager.activeNetworkInfo
+                    if (networkInfo?.isConnected == true) {
+                        println("   ✅ Connexion réseau disponible")
+                    } else {
+                        println("   ❌ Pas de connexion réseau")
+                    }
+                } catch (e: Exception) {
+                    println("   ⚠️ Impossible de vérifier la connectivité: ${e.message}")
                 }
                 
                 println("   💡 Possible causes:")
@@ -226,6 +298,8 @@ fun LoginScreen(
                 println("   - Configuration SHA-1 incorrecte")
                 println("   - Client ID incorrect")
                 println("   - Permissions manquantes")
+                println("   - Problème de connectivité réseau")
+                println("   - Compte Google non configuré sur l'appareil")
                 
                 viewModel.gererConnexionGoogle(null)
             }
@@ -276,44 +350,32 @@ fun LoginScreen(
             etatUi.estEnChargement -> {
                 InterfaceChargement(etatUi.messageChargement)
             }
+            etatUi.modeDebug -> {
+                InterfaceDebug(
+                    etatUi = etatUi,
+                    onConnexionGoogle = {
+                        println("🔧 === DÉBUT CONNEXION GOOGLE ===")
+                        clientConnexionGoogle.signOut().addOnCompleteListener {
+                            lanceurConnexionGoogle.launch(clientConnexionGoogle.signInIntent)
+                        }
+                    },
+                    onEffacerErreur = { viewModel.effacerErreur() },
+                    onBasculerDebug = { viewModel.basculerModeDebug() },
+                    onEffacerLogs = { viewModel.effacerLogsDebug() },
+                    onDiagnostic = { viewModel.lancerDiagnosticPocketBase() }
+                )
+            }
             else -> {
                 InterfaceConnexion(
                     etatUi = etatUi,
                     onConnexionGoogle = {
                         println("🔧 === DÉBUT CONNEXION GOOGLE ===")
-                        
-                        // Vérifier Google Play Services avant de lancer l'intent
-                        val googleApiAvailability = GoogleApiAvailability.getInstance()
-                        val playServicesStatus = googleApiAvailability.isGooglePlayServicesAvailable(contexte)
-                        
-                        if (playServicesStatus != ConnectionResult.SUCCESS) {
-                            println("❌ Google Play Services non disponible: $playServicesStatus")
-                            viewModel.gererConnexionGoogle(null)
-                            return@InterfaceConnexion
-                        }
-                        
-                        try {
-                            println("🔄 Déconnexion préalable pour forcer la sélection de compte...")
-                            // Déconnecter d'abord pour forcer la sélection du compte
-                            clientConnexionGoogle.signOut().addOnCompleteListener {
-                                println("✅ Déconnexion effectuée")
-                                
-                                println("📱 Création intent Google Sign-In...")
-                                val intentConnexion = clientConnexionGoogle.signInIntent
-                                println("✅ Intent créé avec succès")
-                                println("📋 Intent: ${intentConnexion.toString()}")
-                                
-                                println("🚀 Lancement de l'intent...")
-                                lanceurConnexionGoogle.launch(intentConnexion)
-                                println("✅ Intent lancé - Sélection de compte forcée")
-                            }
-                        } catch (e: Exception) {
-                            println("❌ Erreur lors du lancement de l'intent: ${e.message}")
-                            println("📋 Stack trace: ${e.stackTrace.joinToString("\n")}")
-                            viewModel.gererConnexionGoogle(null)
+                        clientConnexionGoogle.signOut().addOnCompleteListener {
+                            lanceurConnexionGoogle.launch(clientConnexionGoogle.signInIntent)
                         }
                     },
-                    onEffacerErreur = { viewModel.effacerErreur() }
+                    onEffacerErreur = { viewModel.effacerErreur() },
+                    onBasculerDebug = { viewModel.basculerModeDebug() }
                 )
             }
         }
@@ -359,13 +421,150 @@ private fun InterfaceChargement(messageChargement: String) {
 }
 
 /**
+ * Interface de debug avec logs détaillés
+ */
+@Composable
+private fun InterfaceDebug(
+    etatUi: EtatLoginUi,
+    onConnexionGoogle: () -> Unit,
+    onEffacerErreur: () -> Unit,
+    onBasculerDebug: () -> Unit,
+    onEffacerLogs: () -> Unit,
+    onDiagnostic: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // En-tête debug
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Black.copy(alpha = 0.8f)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔧 MODE DEBUG",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = onEffacerLogs,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Text("🧹", fontSize = 12.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Button(
+                        onClick = onDiagnostic,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Green.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Text("🔍", fontSize = 12.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Button(
+                        onClick = onBasculerDebug,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Text("❌", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Bouton de connexion
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            )
+        ) {
+            GoogleSignInButton(
+                onClick = onConnexionGoogle,
+                modifier = Modifier.fillMaxWidth(),
+                text = "Se connecter avec Google"
+            )
+        }
+
+        // Affichage de l'erreur
+        if (etatUi.erreur != null) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                )
+            ) {
+                Text(
+                    text = etatUi.erreur,
+                    color = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.padding(16.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        // Logs de debug
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Black.copy(alpha = 0.7f)
+            ),
+            modifier = Modifier.weight(1f)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "📋 LOGS DE DEBUG (${etatUi.logsDebug.size} entrées)",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(etatUi.logsDebug.takeLast(50)) { log ->
+                        Text(
+                            text = log,
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(vertical = 1.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Interface de connexion avec ton image en arrière-plan
  */
 @Composable
 private fun InterfaceConnexion(
     etatUi: EtatLoginUi,
     onConnexionGoogle: () -> Unit,
-    onEffacerErreur: () -> Unit
+    onEffacerErreur: () -> Unit,
+    onBasculerDebug: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -421,57 +620,53 @@ private fun InterfaceConnexion(
             )
         }
 
-        // Affichage des erreurs avec fond
-        etatUi.erreur?.let { messageErreur ->
+        // Affichage de l'erreur, s'il y en a une
+        if (etatUi.erreur != null) {
+            Spacer(modifier = Modifier.height(16.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                )
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "❌ Erreur de connexion",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                    Text(
-                        text = messageErreur,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(onClick = onEffacerErreur) {
-                            Text("Réessayer")
-                        }
-                    }
-                }
+                Text(
+                    text = etatUi.erreur,
+                    color = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(0.2f))
 
-        // Note de bas avec fond semi-transparent
+        // Note en bas de page avec bouton debug
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = Color.Black.copy(alpha = 0.5f)
             )
         ) {
-            Text(
-                text = "🔒 Connexion sécurisée\nGérez votre budget en toute confiance",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(16.dp)
-            )
+            ) {
+                Text(
+                    text = "🔒 Connexion sécurisée\nGérez votre budget en toute confiance",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.9f),
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = onBasculerDebug,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Blue.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Text("🔧 Mode Debug", fontSize = 12.sp)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -492,28 +687,36 @@ class EtatLoginPreviewProvider : PreviewParameterProvider<EtatLoginUi> {
             estEnChargement = false,
             connexionReussie = false,
             erreur = null,
-            messageChargement = ""
+            messageChargement = "",
+            modeDebug = false,
+            logsDebug = emptyList()
         ),
         // État de chargement
         EtatLoginUi(
             estEnChargement = true,
             connexionReussie = false,
             erreur = null,
-            messageChargement = "Connexion avec Google en cours..."
+            messageChargement = "Connexion avec Google en cours...",
+            modeDebug = false,
+            logsDebug = emptyList()
         ),
         // État avec erreur
         EtatLoginUi(
             estEnChargement = false,
             connexionReussie = false,
             erreur = "Impossible de se connecter au serveur PocketBase. Vérifiez votre connexion internet.",
-            messageChargement = ""
+            messageChargement = "",
+            modeDebug = false,
+            logsDebug = emptyList()
         ),
         // État de connexion réussie
         EtatLoginUi(
             estEnChargement = false,
             connexionReussie = true,
             erreur = null,
-            messageChargement = "Connexion réussie !"
+            messageChargement = "Connexion réussie !",
+            modeDebug = false,
+            logsDebug = emptyList()
         )
     )
 }
@@ -521,23 +724,15 @@ class EtatLoginPreviewProvider : PreviewParameterProvider<EtatLoginUi> {
 /**
  * Preview principal du LoginScreen
  */
-@Preview(
-    name = "LoginScreen - État Normal",
-    showBackground = true,
-    showSystemUi = true
-)
+@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-private fun LoginScreenPreview() {
+private fun LoginScreenPreview(@PreviewParameter(EtatLoginPreviewProvider::class) etatUi: EtatLoginUi) {
     com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme {
         LoginScreenContenu(
-            etatUi = EtatLoginUi(
-                estEnChargement = false,
-                connexionReussie = false,
-                erreur = null,
-                messageChargement = ""
-            ),
+            etatUi = etatUi,
             onConnexionGoogle = { /* Preview - pas d'action */ },
-            onEffacerErreur = { /* Preview - pas d'action */ }
+            onEffacerErreur = { /* Preview - pas d'action */ },
+            onBasculerDebug = { /* Preview - pas d'action */ }
         )
     }
 }
@@ -549,8 +744,12 @@ private fun LoginScreenPreview() {
 private fun LoginScreenContenu(
     etatUi: EtatLoginUi,
     onConnexionGoogle: () -> Unit,
-    onEffacerErreur: () -> Unit
+    onEffacerErreur: () -> Unit,
+    onBasculerDebug: () -> Unit
 ) {
+    val contexte = LocalContext.current
+
+    // Interface avec TON image de fond
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -579,7 +778,8 @@ private fun LoginScreenContenu(
                 InterfaceConnexion(
                     etatUi = etatUi,
                     onConnexionGoogle = onConnexionGoogle,
-                    onEffacerErreur = onEffacerErreur
+                    onEffacerErreur = onEffacerErreur,
+                    onBasculerDebug = onBasculerDebug
                 )
             }
         }
