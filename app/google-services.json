@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "857272496129",
+    "project_id": "toutiebudget-kotlin",
+    "storage_bucket": "toutiebudget-kotlin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:857272496129:android:4c2cd622a4fb64edb91000",
+        "android_client_info": {
+          "package_name": "com.xburnsx.toutiebudget"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsThhkHOM0ScrN4MSuV2xbjytyl4nXtHQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

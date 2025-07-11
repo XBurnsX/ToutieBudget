@@ -22,6 +22,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.xburnsx.toutiebudget.BuildConfig
 import com.xburnsx.toutiebudget.R
+import com.xburnsx.toutiebudget.ui.login.composants.GoogleSignInButton
 
 @Composable
 fun LoginScreen(
@@ -83,17 +84,16 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(horizontal = 32.dp)
             ) {
-                Spacer(modifier = Modifier.weight(1f))
-                Button(
+                Spacer(modifier = Modifier.weight(2.4f))
+
+                // CORRECTION : On utilise notre nouveau bouton personnalisé
+                GoogleSignInButton(
                     onClick = {
                         val signInIntent = googleSignInClient.signInIntent
                         googleSignInLauncher.launch(signInIntent)
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 16.dp)
-                ) {
-                    Text("Se connecter avec Google")
-                }
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (uiState.error != null) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = uiState.error!!, color = MaterialTheme.colorScheme.error)
