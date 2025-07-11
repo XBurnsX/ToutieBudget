@@ -46,13 +46,25 @@ class BudgetViewModel(
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
 
-                val pretAPlacer = comptes.filterIsInstance<CompteCheque>().sumOf { it.solde }
+                // Créer des bandeaux pour chaque compte chèque avec solde > 0
+                val bandeauxPretAPlacer = comptes
+                    .filterIsInstance<CompteCheque>()
+                    .filter { it.solde > 0 }
+                    .map { compte ->
+                        PretAPlacerUi(
+                            compteId = compte.id,
+                            nomCompte = compte.nom,
+                            montant = compte.solde,
+                            couleurCompte = compte.couleur
+                        )
+                    }
+
                 val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
 
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        pretAPlacer = pretAPlacer,
+                        bandeauxPretAPlacer = bandeauxPretAPlacer,
                         enveloppes = enveloppesUi
                     )
                 }
@@ -61,6 +73,8 @@ class BudgetViewModel(
             }
         }
     }
+
+
 
     private fun creerEnveloppesUi(
         enveloppes: List<Enveloppe>,

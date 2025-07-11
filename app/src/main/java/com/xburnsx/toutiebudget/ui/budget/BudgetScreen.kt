@@ -44,10 +44,17 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    item {
-                        PretAPlacerCarte(montant = uiState.pretAPlacer)
-                        Spacer(modifier = Modifier.height(16.dp))
+                    // Bandeaux "Prêt à placer" pour chaque compte avec solde > 0
+                    items(uiState.bandeauxPretAPlacer, key = { it.compteId }) { bandeau ->
+                        PretAPlacerCarte(
+                            nomCompte = bandeau.nomCompte,
+                            montant = bandeau.montant,
+                            couleurCompte = bandeau.couleurCompte
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
+
+                    // Liste des enveloppes
                     items(uiState.enveloppes, key = { it.id }) { enveloppe ->
                         EnveloppeItem(enveloppe = enveloppe)
                     }
