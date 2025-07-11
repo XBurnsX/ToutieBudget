@@ -1,7 +1,11 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// build.gradle.kts (Niveau Projet)
+// Ce fichier configure les plugins pour l'ensemble du projet.
+
 plugins {
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
-    alias(libs.plugins.kotlin.compose) apply false
-    id("com.google.dagger.hilt.android") version "2.51.1" apply false
+    id("com.android.application") version "8.2.2" apply false
+    // ⬇️ CHANGEMENT : Kotlin 1.9.22 → 2.0.20
+    id("org.jetbrains.kotlin.android") version "2.0.20" apply false
+    // ⬇️ AJOUT : Plugin Compose pour Kotlin 2.0
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.20" apply false
+    id("com.google.gms.google-services") version "4.4.1" apply false
 }
