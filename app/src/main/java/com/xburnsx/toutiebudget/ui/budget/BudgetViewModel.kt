@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import java.util.Date
 class BudgetViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val categorieRepository: CategorieRepository,
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase
 ) : ViewModel() {
 
@@ -45,6 +47,7 @@ class BudgetViewModel(
                 val comptes = compteRepository.recupererTousLesComptes().getOrThrow()
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
 
                 // Créer des bandeaux pour chaque compte chèque avec solde > 0
                 val bandeauxPretAPlacer = comptes
@@ -64,7 +67,11 @@ class BudgetViewModel(
                 val categoriesEnveloppes = enveloppesUi
                     .groupBy { enveloppeUi ->
                         // Trouver la catégorie de l'enveloppe originale
-                        enveloppes.find { it.id == enveloppeUi.id }?.categorie ?: "Autre"
+                        val enveloppe = enveloppes.find { it.id == enveloppeUi.id }
+                        val categorie = enveloppe?.categorieId?.let { categorieId ->
+                            categories.find { it.id == categorieId }
+                        }
+                        categorie?.nom ?: "Autre"
                     }
                     .map { (categorie, enveloppes) ->
                         CategorieEnveloppesUi(

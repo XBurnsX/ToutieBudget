@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,13 +20,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
+import androidx.compose.ui.graphics.vector.ImageVector
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BudgetScreen(viewModel: BudgetViewModel) {
+fun BudgetScreen(
+    viewModel: BudgetViewModel,
+    onCategoriesClick: (() -> Unit)? = null
+) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        containerColor = Color(0xFF121212)
+        containerColor = Color(0xFF121212),
+        topBar = {
+            TopAppBar(
+                title = { Text("Budget", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
+                actions = {
+                    IconButton(onClick = { onCategoriesClick?.invoke() }) {
+                        Icon(Icons.Default.Category, contentDescription = "Catégories", tint = Color.White)
+                    }
+                }
+            )
+        }
     ) { paddingValues ->
         Box(
             modifier = Modifier

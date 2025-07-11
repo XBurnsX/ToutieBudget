@@ -44,7 +44,7 @@ sealed class Screen(
 
 
     companion object {
-        val items = listOf(Budget, Comptes, NouvelleTransaction, Categories, Statistiques)
+        val items = listOf(Budget, Comptes, NouvelleTransaction, Statistiques)
     }
 }
 
@@ -102,7 +102,12 @@ fun MainAppScaffold(mainNavController: NavHostController) {
         ) {
             composable(Screen.Budget.route) {
                 val viewModel = AppModule.provideBudgetViewModel()
-                BudgetScreen(viewModel = viewModel)
+                BudgetScreen(
+                    viewModel = viewModel,
+                    onCategoriesClick = {
+                        bottomBarNavController.navigate(Screen.Categories.route)
+                    }
+                )
             }
             composable(Screen.Comptes.route) {
                 val viewModel = AppModule.provideComptesViewModel()
@@ -121,7 +126,10 @@ fun MainAppScaffold(mainNavController: NavHostController) {
             }
             composable(Screen.Categories.route) {
                 val viewModel = AppModule.provideCategoriesEnveloppesViewModel()
-                CategoriesEnveloppesScreen(viewModel = viewModel)
+                CategoriesEnveloppesScreen(
+                    viewModel = viewModel,
+                    onBack = { bottomBarNavController.popBackStack() }
+                )
             }
             composable(Screen.Statistiques.route) {
                 PlaceholderScreen("Statistiques")

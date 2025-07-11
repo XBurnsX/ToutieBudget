@@ -20,7 +20,9 @@ import okhttp3.MediaType.Companion.toMediaType
 class EnveloppeRepositoryImpl : EnveloppeRepository {
     
     private val client = PocketBaseClient
-    private val gson = Gson()
+    private val gson = Gson().newBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
     private val httpClient = okhttp3.OkHttpClient()
 
     // Noms des collections dans PocketBase
@@ -212,6 +214,26 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             }
 
             Result.success(nouvelleAllocation)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
+            val urlBase = client.obtenirUrlBaseActive()
+            val url = "$urlBase/api/collections/enveloppe/records/${enveloppe.id}"
+            val json = gson.toJson(enveloppe)
+            val body = json.toRequestBody("application/json".toMediaType())
+            val requete = okhttp3.Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .patch(body)
+                .build()
+            val response = httpClient.newCall(requete).execute()
+            if (!response.isSuccessful) throw Exception("Erreur PocketBase: ${response.code}")
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

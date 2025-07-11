@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
+import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,7 +16,8 @@ import kotlinx.coroutines.launch
 import java.util.*
 
 class CategoriesEnveloppesViewModel(
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val categorieRepository: CategorieRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoriesEnveloppesUiState())
@@ -27,10 +30,22 @@ class CategoriesEnveloppesViewModel(
     fun chargerCategoriesEtEnveloppes() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            enveloppeRepository.recupererToutesLesEnveloppes().onSuccess { enveloppes ->
-                val groupes = enveloppes.filter { !it.estArchive }.groupBy { it.categorie }
+            try {
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                
+                // Créer un map pour accéder rapidement aux catégories par ID
+                val categoriesMap = categories.associateBy { it.id }
+                
+                val groupes = enveloppes.filter { !it.estArchive }.groupBy { enveloppe ->
+                    val categorie = categoriesMap[enveloppe.categorieId]
+                    categorie?.nom ?: "Autre"
+                }
+                
+                println("[DEBUG] Catégories détectées: " + groupes.keys.joinToString())
+                println("[DEBUG] Enveloppes récupérées: " + enveloppes.joinToString { "${it.nom} (cat: ${categoriesMap[it.categorieId]?.nom ?: "Autre"})" })
                 _uiState.update { it.copy(isLoading = false, enveloppesGroupees = groupes) }
-            }.onFailure { e ->
+            } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, erreur = e.message) }
             }
         }
@@ -61,22 +76,70 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun sauvegarderNouvelleCategorie() {
-        onFermerDialogues()
-        _uiState.update {
-            val nouveauxGroupes = it.enveloppesGroupees.toMutableMap()
-            nouveauxGroupes[it.nomNouvelleCategorie] = emptyList()
-            it.copy(enveloppesGroupees = nouveauxGroupes)
+        println("[DEBUG] sauvegarderNouvelleCategorie appelé")
+        viewModelScope.launch {
+            val state = _uiState.value
+            println("[DEBUG] Nom de la catégorie: '${state.nomNouvelleCategorie}'")
+            
+            if (state.nomNouvelleCategorie.isBlank()) {
+                println("[DEBUG] Nom vide, annulation")
+                return@launch
+            }
+            
+            // Récupérer l'ID de l'utilisateur connecté
+            val utilisateurId = try {
+                // Utiliser le client PocketBase pour récupérer l'utilisateur connecté
+                val client = com.xburnsx.toutiebudget.di.PocketBaseClient
+                client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
+            } catch (e: Exception) {
+                println("[DEBUG] Erreur récupération utilisateur: ${e.message}")
+                throw Exception("Impossible de récupérer l'utilisateur connecté")
+            }
+            
+            val nouvelleCategorie = Categorie(
+                id = "", // L'ID sera généré par PocketBase
+                utilisateurId = utilisateurId,
+                nom = state.nomNouvelleCategorie
+            )
+            
+            println("[DEBUG] Création de la catégorie: $nouvelleCategorie")
+            
+            categorieRepository.creerCategorie(nouvelleCategorie).onSuccess {
+                println("[DEBUG] Catégorie créée avec succès")
+                onFermerDialogues()
+                chargerCategoriesEtEnveloppes()
+            }.onFailure { e ->
+                println("[DEBUG] Erreur lors de la création: ${e.message}")
+                _uiState.update { it.copy(erreur = e.message) }
+            }
         }
     }
 
     fun sauvegarderNouvelleEnveloppe() {
         viewModelScope.launch {
             val state = _uiState.value
+            // Trouver l'ID de la catégorie par son nom
+            val categorieId = try {
+                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                categories.find { it.nom == state.categoriePourAjout }?.id ?: "categorie_autre"
+            } catch (e: Exception) {
+                "categorie_autre"
+            }
+            
+            // Récupérer l'ID de l'utilisateur connecté
+            val utilisateurId = try {
+                val client = com.xburnsx.toutiebudget.di.PocketBaseClient
+                client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
+            } catch (e: Exception) {
+                println("[DEBUG] Erreur récupération utilisateur: ${e.message}")
+                throw Exception("Impossible de récupérer l'utilisateur connecté")
+            }
+            
             val nouvelleEnveloppe = Enveloppe(
-                id = UUID.randomUUID().toString(),
-                utilisateurId = "user_simule",
+                id = "", // L'ID sera généré par PocketBase
+                utilisateurId = utilisateurId,
                 nom = state.nomNouvelleEnveloppe,
-                categorie = state.categoriePourAjout ?: "Autre",
+                categorieId = categorieId,
                 estArchive = false,
                 ordre = (state.enveloppesGroupees.values.flatten().size) + 1
             )
@@ -128,10 +191,12 @@ class CategoriesEnveloppesViewModel(
                 objectifDate = formState.date,
                 objectifJour = formState.jour
             )
-            // TODO: Remplacer par un vrai appel au repository pour mettre à jour
-            println("Sauvegarde de l'objectif pour ${enveloppeMiseAJour.nom}")
-            onFermerDialogues()
-            chargerCategoriesEtEnveloppes()
+            enveloppeRepository.mettreAJourEnveloppe(enveloppeMiseAJour).onSuccess {
+                onFermerDialogues()
+                chargerCategoriesEtEnveloppes()
+            }.onFailure { e ->
+                _uiState.update { it.copy(erreur = e.message) }
+            }
         }
     }
 }

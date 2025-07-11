@@ -15,7 +15,7 @@ data class Enveloppe(
     val id: String,
     val utilisateurId: String,
     val nom: String,
-    val categorie: String,
+    val categorieId: String, // <-- référence à la catégorie
     val estArchive: Boolean,
     val ordre: Int,
     val objectifType: TypeObjectif = TypeObjectif.AUCUN,

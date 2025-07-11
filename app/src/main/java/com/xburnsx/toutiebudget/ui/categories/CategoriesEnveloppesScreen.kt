@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,7 +24,11 @@ import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun CategoriesEnveloppesScreen(viewModel: CategoriesEnveloppesViewModel) {
+fun CategoriesEnveloppesScreen(
+    viewModel: CategoriesEnveloppesViewModel,
+    onBack: (() -> Unit)? = null
+) {
+    println("[DEBUG] Composable CategoriesEnveloppesScreen appelé")
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isAjoutCategorieDialogVisible) {
@@ -56,6 +61,11 @@ fun CategoriesEnveloppesScreen(viewModel: CategoriesEnveloppesViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("Catégories & Enveloppes", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { onBack?.invoke() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Retour", tint = Color.White)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
                 actions = {
                     IconButton(onClick = { viewModel.onOuvrirAjoutCategorieDialog() }) {

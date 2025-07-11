@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,7 @@ import java.util.Date
 class VirerArgentViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val categorieRepository: CategorieRepository,
     private val argentService: ArgentService
 ) : ViewModel() {
 
@@ -34,6 +36,7 @@ class VirerArgentViewModel(
                 val comptes = compteRepository.recupererTousLesComptes().getOrThrow()
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val allocations = enveloppeRepository.recupererAllocationsPourMois(Date()).getOrThrow()
+                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
 
                 val itemsComptes = comptes
                     .filterIsInstance<CompteCheque>()
@@ -45,8 +48,17 @@ class VirerArgentViewModel(
                     ItemVirement.EnveloppeItem(enveloppe, alloc?.solde ?: 0.0, compteSource?.couleur)
                 }
 
-                val sources = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { it.enveloppe.categorie }
-                val destinations = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { it.enveloppe.categorie }
+                // Créer un map pour accéder rapidement aux catégories par ID
+                val categoriesMap = categories.associateBy { it.id }
+                
+                val sources = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { item ->
+                    val categorie = categoriesMap[item.enveloppe.categorieId]
+                    categorie?.nom ?: "Autre"
+                }
+                val destinations = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { item ->
+                    val categorie = categoriesMap[item.enveloppe.categorieId]
+                    categorie?.nom ?: "Autre"
+                }
 
                 _uiState.update {
                     it.copy(

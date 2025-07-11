@@ -32,7 +32,9 @@ object PocketBaseClient {
         .retryOnConnectionFailure(true)
         .build()
 
-    private val gson = Gson()
+    private val gson = Gson().newBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
     private var tokenAuthentification: String? = null
     private var utilisateurConnecte: EnregistrementUtilisateur? = null
 

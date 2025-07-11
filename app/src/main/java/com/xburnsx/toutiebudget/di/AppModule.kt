@@ -17,6 +17,7 @@ object AppModule {
     // Repositories
     private val compteRepository: CompteRepository by lazy { CompteRepositoryImpl() }
     private val enveloppeRepository: EnveloppeRepository by lazy { EnveloppeRepositoryImpl() }
+    private val categorieRepository: CategorieRepository by lazy { CategorieRepositoryImpl() }
     private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
     private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
 
@@ -34,9 +35,9 @@ object AppModule {
 
     // ViewModel Factories
     fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
-    fun provideBudgetViewModel(): BudgetViewModel = BudgetViewModel(compteRepository, enveloppeRepository, verifierEtExecuterRolloverUseCase)
+    fun provideBudgetViewModel(): BudgetViewModel = BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
     fun provideComptesViewModel(): ComptesViewModel = ComptesViewModel(compteRepository)
-    fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = AjoutTransactionViewModel(compteRepository, enveloppeRepository, enregistrerDepenseUseCase, enregistrerRevenuUseCase, enregistrerPretAccordeUseCase, enregistrerDetteContracteeUseCase, enregistrerPaiementDetteUseCase)
-    fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = CategoriesEnveloppesViewModel(enveloppeRepository)
-    fun provideVirerArgentViewModel(): VirerArgentViewModel = VirerArgentViewModel(compteRepository, enveloppeRepository, argentService)
+    fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = AjoutTransactionViewModel(compteRepository, enveloppeRepository, categorieRepository, enregistrerDepenseUseCase, enregistrerRevenuUseCase, enregistrerPretAccordeUseCase, enregistrerDetteContracteeUseCase, enregistrerPaiementDetteUseCase)
+    fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository)
+    fun provideVirerArgentViewModel(): VirerArgentViewModel = VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService)
 }

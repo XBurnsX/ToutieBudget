@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.domain.usecases.*
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -22,6 +23,7 @@ import java.util.Date
 class AjoutTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val categorieRepository: CategorieRepository,
     private val enregistrerDepenseUseCase: EnregistrerDepenseUseCase,
     private val enregistrerRevenuUseCase: EnregistrerRevenuUseCase,
     private val enregistrerPretAccordeUseCase: EnregistrerPretAccordeUseCase,
@@ -36,6 +38,7 @@ class AjoutTransactionViewModel(
     private var allComptes: List<Compte> = emptyList()
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
+    private var allCategories: List<Categorie> = emptyList()
 
     init {
         chargerDonneesInitiales()
@@ -58,6 +61,9 @@ class AjoutTransactionViewModel(
                     .filter { !it.estArchive }
 
                 allAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
+                    .getOrThrow()
+
+                allCategories = categorieRepository.recupererToutesLesCategories()
                     .getOrThrow()
 
                 _uiState.update {
@@ -199,7 +205,11 @@ class AjoutTransactionViewModel(
 
         // Grouper par catégorie
         val enveloppesGroupees = enveloppesFiltrees.groupBy { enveloppeUi ->
-            allEnveloppes.find { it.id == enveloppeUi.id }?.categorie ?: "Autre"
+            val enveloppe = allEnveloppes.find { it.id == enveloppeUi.id }
+            val categorie = enveloppe?.categorieId?.let { categorieId ->
+                allCategories.find { it.id == categorieId }
+            }
+            categorie?.nom ?: "Autre"
         }
 
         _uiState.update { it.copy(enveloppesFiltrees = enveloppesGroupees) }
