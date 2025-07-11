@@ -22,10 +22,15 @@ data class PretAPlacerUi(
     val couleurCompte: String
 )
 
+data class CategorieEnveloppesUi(
+    val nomCategorie: String,
+    val enveloppes: List<EnveloppeUi>
+)
+
 data class BudgetUiState(
     val isLoading: Boolean = true,
     val messageChargement: String = "",
     val erreur: String? = null,
     val bandeauxPretAPlacer: List<PretAPlacerUi> = emptyList(),
-    val enveloppes: List<EnveloppeUi> = emptyList()
+    val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList()
 )

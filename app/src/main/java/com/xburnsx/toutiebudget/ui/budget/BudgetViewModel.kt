@@ -59,13 +59,26 @@ class BudgetViewModel(
                         )
                     }
 
+                // Créer les enveloppes UI et les grouper par catégorie
                 val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
+                val categoriesEnveloppes = enveloppesUi
+                    .groupBy { enveloppeUi ->
+                        // Trouver la catégorie de l'enveloppe originale
+                        enveloppes.find { it.id == enveloppeUi.id }?.categorie ?: "Autre"
+                    }
+                    .map { (categorie, enveloppes) ->
+                        CategorieEnveloppesUi(
+                            nomCategorie = categorie,
+                            enveloppes = enveloppes
+                        )
+                    }
+                    .sortedBy { it.nomCategorie }
 
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
-                        enveloppes = enveloppesUi
+                        categoriesEnveloppes = categoriesEnveloppes
                     )
                 }
             } catch (e: Exception) {
@@ -73,8 +86,6 @@ class BudgetViewModel(
             }
         }
     }
-
-
 
     private fun creerEnveloppesUi(
         enveloppes: List<Enveloppe>,
