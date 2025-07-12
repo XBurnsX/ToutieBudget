@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
@@ -83,4 +84,64 @@ fun BudgetScreen(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun BudgetScreenPreview() {
+    // Preview simplifié sans ViewModel
+    val bandeauxExemple = listOf(
+        PretAPlacerUi(
+            compteId = "compte1",
+            nomCompte = "Compte Courant",
+            montant = 1250.75,
+            couleurCompte = "#4CAF50"
+        ),
+        PretAPlacerUi(
+            compteId = "compte2",
+            nomCompte = "Livret A",
+            montant = 850.00,
+            couleurCompte = "#2196F3"
+        )
+    )
 
+    val enveloppesExemple = listOf(
+        EnveloppeUi(
+            id = "env1",
+            nom = "Courses",
+            solde = 320.50,
+            depense = 80.25,
+            objectif = 400.0,
+            couleurProvenance = "#4CAF50",
+            statutObjectif = StatutObjectif.JAUNE
+        ),
+        EnveloppeUi(
+            id = "env2",
+            nom = "Essence",
+            solde = 150.0,
+            depense = 45.0,
+            objectif = 200.0,
+            couleurProvenance = "#2196F3",
+            statutObjectif = StatutObjectif.VERT
+        )
+    )
+
+    val categoriesExemple = listOf(
+        CategorieEnveloppesUi(
+            nomCategorie = "Nécessités",
+            enveloppes = enveloppesExemple
+        ),
+        CategorieEnveloppesUi(
+            nomCategorie = "Loisirs",
+            enveloppes = listOf(
+                EnveloppeUi(
+                    id = "env3",
+                    nom = "Cinéma",
+                    solde = 0.0,
+                    depense = 0.0,
+                    objectif = 50.0,
+                    couleurProvenance = null,
+                    statutObjectif = StatutObjectif.GRIS
+                )
+            )
+        )
+    )
+}

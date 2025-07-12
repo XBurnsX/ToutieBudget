@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 
 @Composable
 fun CategorieCard(
@@ -105,3 +106,56 @@ fun CategorieCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun CategorieCardPreview() {
+    // Données d'exemple pour le preview
+    val enveloppesExemple = listOf(
+        Enveloppe(
+            id = "1",
+            utilisateurId = "user1",
+            nom = "Courses",
+            categorieId = "cat1",
+            estArchive = false,
+            ordre = 0,
+            objectifType = TypeObjectif.Mensuel,
+            objectifMontant = 500.0,
+            objectifDate = null,
+            objectifJour = null
+        ),
+        Enveloppe(
+            id = "2",
+            utilisateurId = "user1",
+            nom = "Essence",
+            categorieId = "cat1",
+            estArchive = false,
+            ordre = 1,
+            objectifType = TypeObjectif.Aucun,
+            objectifMontant = 0.0,
+            objectifDate = null,
+            objectifJour = null
+        )
+    )
+
+    CategorieCard(
+        nomCategorie = "Nécessités",
+        enveloppes = enveloppesExemple,
+        onAjouterEnveloppeClick = { },
+        onObjectifClick = { },
+        onSupprimerEnveloppe = { },
+        onSupprimerCategorie = { }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CategorieCardVidePreview() {
+    CategorieCard(
+        nomCategorie = "Catégorie Vide",
+        enveloppes = emptyList(),
+        onAjouterEnveloppeClick = { },
+        onObjectifClick = { },
+        onSupprimerEnveloppe = { },
+        onSupprimerCategorie = { }
+    )
+}

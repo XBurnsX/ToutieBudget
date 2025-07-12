@@ -27,6 +27,9 @@ class CategoriesEnveloppesViewModel(
     private val categorieRepository: CategorieRepository
 ) : ViewModel() {
 
+    // Callback pour notifier les autres ViewModels des changements
+    var onEnveloppeChange: (() -> Unit)? = null
+
     private val _uiState = MutableStateFlow(CategoriesEnveloppesUiState())
     val uiState: StateFlow<CategoriesEnveloppesUiState> = _uiState.asStateFlow()
 
@@ -315,13 +318,16 @@ class CategoriesEnveloppesViewModel(
                 
                 resultat.onSuccess { enveloppeCreee ->
                     // Mettre à jour le cache avec la vraie enveloppe
-                    enveloppesList = enveloppesList.map { 
-                        if (it.id == enveloppeVide.id) enveloppeCreee else it 
+                    enveloppesList = enveloppesList.map {
+                        if (it.id == enveloppeVide.id) enveloppeCreee else it
                     }
                     
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
                     
+                    // Notifier le BudgetViewModel du changement
+                    onEnveloppeChange?.invoke()
+
                     println("[DEBUG] Enveloppe vide créée: ${enveloppeCreee.nom} dans catégorie ${categorie.nom}")
                     
                 }.onFailure { erreur ->

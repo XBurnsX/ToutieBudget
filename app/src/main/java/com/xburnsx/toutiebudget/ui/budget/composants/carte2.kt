@@ -1,9 +1,10 @@
 // chemin/simule: /ui/budget/composants/PretAPlacerCarte.kt
+/*
 package com.xburnsx.toutiebudget.ui.budget.composants
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,8 +24,8 @@ import java.text.NumberFormat
 import java.util.Locale
 
 /**
- * Une version plus compacte du design "Cadre Coloré",
- * avec une hauteur réduite.
+ * Un design unique avec une "pastille" flottante pour l'icône
+ * et une ligne de force colorée pour un look moderne et structuré.
  *
  * @param nomCompte Le nom du compte d'investissement.
  * @param montant Le montant disponible pour l'investissement.
@@ -36,12 +38,13 @@ fun PretAPlacerCarte(
     couleurCompte: String
 ) {
     // --- Couleurs ---
-    val couleurCadre = try {
+    val couleurLigne = try {
         Color(android.graphics.Color.parseColor(couleurCompte))
     } catch (e: Exception) {
         Color(0xFF007BFF) // Couleur par défaut
     }
-    val couleurFond = Color(0xFF1C1C1E) // Fond gris foncé neutre
+    val couleurFondCarte = Color(0xFF1F1F1F) // Un gris très foncé
+    val couleurPastille = Color(0xFF2C2C2E) // Un gris légèrement plus clair
 
     // --- Formatage du montant ---
     val montantFormatte = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(montant)
@@ -49,29 +52,25 @@ fun PretAPlacerCarte(
     // --- Structure ---
     Box(
         modifier = Modifier
-            .padding(horizontal = 12.dp, vertical = 5.dp) // Espacement vertical réduit
+            .padding(horizontal = 12.dp, vertical = 6.dp)
             .fillMaxWidth()
-            .height(74.dp) // Hauteur réduite
-            // 1. La bordure colorée définit le cadre externe
-            .border(
-                width = 4.dp,
-                color = couleurCadre,
-                shape = RoundedCornerShape(18.dp)
-            )
-            // 2. On clip l'intérieur pour que le fond ne dépasse pas les coins arrondis
-            .clip(RoundedCornerShape(18.dp))
-            // 3. Le fond est appliqué à l'intérieur du cadre
-            .background(couleurFond)
-            // 4. Padding pour le contenu à l'intérieur du cadre
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.AccountBalanceWallet,
-                contentDescription = "Portefeuille",
-                tint = couleurCadre, // Icône de la même couleur que le cadre
-                modifier = Modifier.size(26.dp)
+        // La carte principale en arrière-plan
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(couleurFondCarte)
+                .padding(start = 56.dp), // Espace pour la pastille
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Ligne de force colorée
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(3.dp)
+                    .background(couleurLigne)
             )
 
             Spacer(modifier = Modifier.width(14.dp))
@@ -97,7 +96,27 @@ fun PretAPlacerCarte(
                 text = montantFormatte,
                 color = Color.White,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(end = 16.dp)
+            )
+        }
+
+        // La pastille flottante par-dessus
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 16.dp)
+                .shadow(elevation = 8.dp, shape = CircleShape) // Ombre pour l'effet flottant
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(couleurPastille),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountBalanceWallet,
+                contentDescription = "Portefeuille",
+                tint = couleurLigne,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -129,3 +148,4 @@ fun ApercuPretAPlacerCarte() {
         )
     }
 }
+*/

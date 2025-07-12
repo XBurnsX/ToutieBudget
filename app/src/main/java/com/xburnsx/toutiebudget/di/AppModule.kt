@@ -5,7 +5,7 @@ import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.data.repositories.impl.*
 import com.xburnsx.toutiebudget.domain.services.*
 import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
-import com.xburnsx.toutiebudget.domain.services.impl.*
+import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
 import com.xburnsx.toutiebudget.domain.usecases.*
 import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel
 import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
@@ -47,7 +47,14 @@ object AppModule {
             }
         }
     }
-    private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository) }
+    private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy {
+        CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository).apply {
+            // Configurer la notification au BudgetViewModel quand une enveloppe est créée/modifiée
+            onEnveloppeChange = {
+                budgetViewModel.rafraichirDonnees()
+            }
+        }
+    }
     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
         AjoutTransactionViewModel(
             compteRepository,
