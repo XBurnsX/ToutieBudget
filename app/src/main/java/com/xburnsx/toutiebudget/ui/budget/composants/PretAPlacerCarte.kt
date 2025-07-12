@@ -72,7 +72,7 @@ fun PretAPlacerCarte(
 fun ApercuPretAPlacerCarte() {
     // Utilisation du composant avec une valeur d'exemple
     PretAPlacerCarte(
-        nomCompte = "Compte Principal",
+        nomCompte = "WealthSimple",
         montant = 1234.56,
         couleurCompte = "#2196F3"
     )
