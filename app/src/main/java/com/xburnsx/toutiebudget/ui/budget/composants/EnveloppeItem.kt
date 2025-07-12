@@ -85,7 +85,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         Text(
                             text = enveloppe.nom,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
+                            fontSize = 15.sp,
                             color = Color.White,
                             modifier = Modifier.weight(1f)
                         )
@@ -115,7 +115,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             Text(
                                 text = formatteurMonetaire.format(enveloppe.objectif) + " pour le 31", // TODO: date réelle si dispo
                                 color = Color.LightGray,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 modifier = Modifier.weight(1f)
                             )
                             if (estDepenseComplete) {

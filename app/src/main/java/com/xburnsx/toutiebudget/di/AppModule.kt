@@ -39,7 +39,14 @@ object AppModule {
     private val budgetViewModel: BudgetViewModel by lazy {
         BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
     }
-    private val comptesViewModel: ComptesViewModel by lazy { ComptesViewModel(compteRepository) }
+    private val comptesViewModel: ComptesViewModel by lazy {
+        ComptesViewModel(compteRepository).apply {
+            // Configurer la notification au BudgetViewModel quand un compte est créé/modifié
+            onCompteChange = {
+                budgetViewModel.rafraichirDonnees()
+            }
+        }
+    }
     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository) }
     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
         AjoutTransactionViewModel(

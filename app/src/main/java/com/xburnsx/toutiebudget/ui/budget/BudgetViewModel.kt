@@ -155,4 +155,11 @@ class BudgetViewModel(
             )
         }
     }
+
+    /**
+     * Méthode publique pour rafraîchir les données depuis d'autres ViewModels
+     */
+    fun rafraichirDonnees() {
+        chargerDonneesBudget(Date())
+    }
 }

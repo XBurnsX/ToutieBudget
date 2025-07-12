@@ -20,6 +20,9 @@ class ComptesViewModel(
     private val compteRepository: CompteRepository
 ) : ViewModel() {
 
+    // Callback pour notifier les autres ViewModels des changements
+    var onCompteChange: (() -> Unit)? = null
+
     private val _uiState = MutableStateFlow(ComptesUiState())
     val uiState: StateFlow<ComptesUiState> = _uiState.asStateFlow()
 
@@ -121,14 +124,16 @@ class ComptesViewModel(
             val formState = _uiState.value.formState
             val nouveauCompte = when(formState.type) {
                 "Compte chèque" -> CompteCheque(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0)
-                "Carte de crédit" -> CompteCredit(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0, limiteCredit = 0.0) // Limite à définir
-                "Dette" -> CompteDette(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, estArchive = false, ordre = 0, montantInitial = 0.0) // Montant initial à définir
+                "Carte de crédit" -> CompteCredit(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0, limiteCredit = 0.0)
+                "Dette" -> CompteDette(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, estArchive = false, ordre = 0, montantInitial = 0.0)
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
             compteRepository.creerCompte(nouveauCompte).onSuccess {
                 chargerComptes()
                 onFermerTousLesDialogues()
+                // Notifier les autres ViewModels du changement
+                onCompteChange?.invoke()
             }.onFailure {
                 // Gérer l'erreur
             }
@@ -149,6 +154,8 @@ class ComptesViewModel(
             compteRepository.mettreAJourCompte(compteModifie).onSuccess {
                 onFermerTousLesDialogues()
                 chargerComptes()
+                // Notifier les autres ViewModels du changement
+                onCompteChange?.invoke()
             }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
         }
     }
