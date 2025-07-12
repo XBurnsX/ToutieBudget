@@ -1,15 +1,11 @@
 // chemin/simule: /data/repositories/impl/EnveloppeRepositoryImpl.kt
+// Dépendances: PocketBaseClient, Gson, SafeDateAdapter, OkHttp3, Modèles
+
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.google.gson.GsonBuilder
-import com.google.gson.TypeAdapter
-import com.google.gson.stream.JsonReader
-import com.google.gson.stream.JsonWriter
-import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
-import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +18,10 @@ import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaType
 import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 
+/**
+ * Implémentation du repository des enveloppes avec PocketBase.
+ * Gère la création, récupération et mise à jour des enveloppes et allocations.
+ */
 class EnveloppeRepositoryImpl : EnveloppeRepository {
     
     private val client = PocketBaseClient
@@ -37,6 +37,10 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
         const val ALLOCATIONS = "allocations_mensuelles"
     }
 
+    /**
+     * Récupère toutes les enveloppes de l'utilisateur connecté.
+     * @return Result contenant la liste des enveloppes
+     */
     override suspend fun recupererToutesLesEnveloppes(): Result<List<Enveloppe>> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
             return@withContext Result.success(emptyList())
@@ -49,9 +53,9 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
-            // Filtre pour ne récupérer que les enregistrements de l'utilisateur connecté
+            // Filtre pour récupérer seulement les enveloppes de l'utilisateur
             val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
-            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records?filter=$filtreEncode&perPage=100"
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records?filter=$filtreEncode&perPage=100&sort=ordre,nom"
 
             val requete = Request.Builder()
                 .url(url)
@@ -61,22 +65,169 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             val reponse = httpClient.newCall(requete).execute()
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la récupération des enveloppes: ${reponse.code} ${reponse.body?.string()}")
+                throw Exception("Erreur lors de la récupération des enveloppes: ${reponse.code}")
             }
 
             val corpsReponse = reponse.body!!.string()
-            println("[DEBUG] Réponse brute de PocketBase pour enveloppes: $corpsReponse")
             val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Enveloppe::class.java).type
             val resultatPagine: ListeResultats<Enveloppe> = gson.fromJson(corpsReponse, typeReponse)
 
-            val enveloppes = resultatPagine.items.filter { !it.estArchive }.sortedBy { it.ordre }
-            println("[DEBUG] Enveloppes parsées: ${enveloppes.map { "${it.nom} (categorieId: ${it.categorieId})" }}")
+            val enveloppes = resultatPagine.items.filter { !it.estArchive }
+            println("[DEBUG] Enveloppes récupérées: ${enveloppes.size}")
             Result.success(enveloppes)
+            
         } catch (e: Exception) {
+            println("[ERROR] Erreur récupération enveloppes: ${e.message}")
             Result.failure(e)
         }
     }
 
+    /**
+     * Crée une nouvelle enveloppe dans PocketBase.
+     * @param enveloppe L'enveloppe à créer
+     * @return Result contenant l'enveloppe créée avec son vrai ID
+     */
+    override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Enveloppe> = withContext(Dispatchers.IO) {
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records"
+            
+            // Créer les données à envoyer (sans l'ID temporaire)
+            val donnees = mapOf(
+                "utilisateur_id" to utilisateurId,
+                "nom" to enveloppe.nom,
+                "categorieId" to enveloppe.categorieId, // IMPORTANT: Lien vers la catégorie
+                "est_archive" to enveloppe.estArchive,
+                "ordre" to enveloppe.ordre,
+                "objectif_montant" to enveloppe.objectifMontant,
+                "objectif_type" to enveloppe.objectifType.toString(),
+                "objectif_date" to enveloppe.objectifDate,
+                "objectif_jour" to enveloppe.objectifJour
+            )
+            
+            val json = gson.toJson(donnees)
+            println("[DEBUG] Création enveloppe: $json")
+            
+            val body = json.toRequestBody("application/json".toMediaType())
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .post(body)
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            
+            if (!reponse.isSuccessful) {
+                val errorBody = reponse.body?.string()
+                throw Exception("Erreur PocketBase: ${reponse.code} - $errorBody")
+            }
+            
+            // Récupérer l'enveloppe créée avec son vrai ID
+            val responseBody = reponse.body?.string() ?: throw Exception("Réponse vide")
+            val enveloppeCreee = gson.fromJson(responseBody, Enveloppe::class.java)
+            
+            println("[DEBUG] Enveloppe créée: ID=${enveloppeCreee.id}, nom=${enveloppeCreee.nom}, categorieId=${enveloppeCreee.categorieId}")
+            Result.success(enveloppeCreee)
+            
+        } catch (e: Exception) {
+            println("[ERROR] Erreur création enveloppe: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Met à jour une enveloppe existante.
+     * @param enveloppe L'enveloppe à mettre à jour
+     * @return Result indiquant le succès ou l'erreur
+     */
+    override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: throw Exception("Token manquant")
+            val urlBase = client.obtenirUrlBaseActive()
+            
+            // Vérifier que l'ID n'est pas temporaire
+            if (enveloppe.id.startsWith("temp_")) {
+                throw Exception("Impossible de mettre à jour une enveloppe avec un ID temporaire")
+            }
+            
+            val donnees = mapOf(
+                "nom" to enveloppe.nom,
+                "categorieId" to enveloppe.categorieId,
+                "est_archive" to enveloppe.estArchive,
+                "ordre" to enveloppe.ordre,
+                "objectif_type" to enveloppe.objectifType.toString(),
+                "objectif_montant" to enveloppe.objectifMontant,
+                "objectif_date" to enveloppe.objectifDate,
+                "objectif_jour" to enveloppe.objectifJour
+            )
+            
+            val json = gson.toJson(donnees)
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records/${enveloppe.id}"
+            val body = json.toRequestBody("application/json".toMediaType())
+            
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .patch(body)
+                .build()
+                
+            val response = httpClient.newCall(requete).execute()
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
+            }
+            
+            println("[DEBUG] Enveloppe mise à jour: ${enveloppe.id}")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            println("[ERROR] Erreur mise à jour enveloppe: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Supprime une enveloppe de PocketBase.
+     * @param id L'ID de l'enveloppe à supprimer
+     * @return Result indiquant le succès ou l'erreur
+     */
+    override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: throw Exception("Token manquant")
+            val urlBase = client.obtenirUrlBaseActive()
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records/$id"
+            
+            println("[DEBUG] Suppression enveloppe ID: $id")
+            
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+                
+            val response = httpClient.newCall(requete).execute()
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
+            }
+            
+            println("[DEBUG] Enveloppe supprimée avec succès")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            println("[ERROR] Erreur suppression enveloppe: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // ===== MÉTHODES POUR LES ALLOCATIONS =====
+    
     override suspend fun recupererAllocationsPourMois(mois: Date): Result<List<AllocationMensuelle>> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
             return@withContext Result.success(emptyList())
@@ -89,7 +240,6 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
-            // Filtre pour ne récupérer que les allocations de l'utilisateur connecté
             val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=100"
 
@@ -101,7 +251,7 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             val reponse = httpClient.newCall(requete).execute()
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la récupération des allocations: ${reponse.code} ${reponse.body?.string()}")
+                throw Exception("Erreur lors de la récupération des allocations: ${reponse.code}")
             }
 
             val corpsReponse = reponse.body!!.string()
@@ -137,78 +287,15 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
         }
     }
 
-    override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé pour la création."))
-
-            // Créer un map avec les champs nécessaires pour PocketBase
-            val dataMap = mapOf(
-                "utilisateur_id" to utilisateurId,
-                "nom" to enveloppe.nom,
-                "categorieId" to enveloppe.categorieId,
-                "est_archive" to enveloppe.estArchive,
-                "ordre" to enveloppe.ordre,
-                // Inclure les objectifs s'ils sont définis
-                "objectif_montant" to enveloppe.objectifMontant,
-                "objectif_type" to enveloppe.objectifType.toString(),
-                "objectif_date" to enveloppe.objectifDate,
-                "objectif_jour" to enveloppe.objectifJour
-            )
-            
-            val corpsJson = gson.toJson(dataMap)
-            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
-            val urlBase = client.obtenirUrlBaseActive()
-            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records"
-            
-            println("[DEBUG] Création d'enveloppe avec les données: $corpsJson")
-            println("[DEBUG] URL: $url")
-
-            val requete = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $token")
-                .post(corpsJson.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val reponse = httpClient.newCall(requete).execute()
-            if (!reponse.isSuccessful) {
-                val errorBody = reponse.body?.string()
-                println("[ERROR] Échec de la création d'enveloppe: $errorBody")
-                return@withContext Result.failure(Exception("Échec de la création: $errorBody"))
-            }
-            
-            // Récupérer l'ID de l'enveloppe nouvellement créée
-            val responseBody = reponse.body?.string()
-            if (responseBody != null) {
-                try {
-                    val enveloppeCreee = gson.fromJson(responseBody, EnveloppeResponse::class.java)
-                    println("[DEBUG] Enveloppe créée avec succès, ID: ${enveloppeCreee.id}, nom: ${enveloppeCreee.nom}, categorieId: ${enveloppeCreee.categorieId}")
-                } catch (e: Exception) {
-                    println("[DEBUG] Impossible de parser la réponse: $responseBody")
-                }
-            }
-            
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("[ERROR] Erreur lors de la création de l'enveloppe: ${e.message}")
-            e.printStackTrace()
-            Result.failure(e)
-        }
-    }
-    
-    // Classe pour désérialiser la réponse de création
-    data class EnveloppeResponse(val id: String, val nom: String, val categorieId: String)
-
     override suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
                 ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
 
-            // D'abord, essayer de récupérer l'allocation existante
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
-            // Filtre pour trouver l'allocation existante
+            // Chercher allocation existante
             val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId' && enveloppe_id = '$enveloppeId'", "UTF-8")
             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=1"
 
@@ -229,7 +316,7 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
                 }
             }
 
-            // Si aucune allocation n'existe, en créer une nouvelle
+            // Créer nouvelle allocation si aucune trouvée
             val nouvelleAllocation = AllocationMensuelle(
                 id = UUID.randomUUID().toString(),
                 utilisateurId = utilisateurId,
@@ -261,86 +348,14 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
         }
     }
 
-    override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
-            val urlBase = client.obtenirUrlBaseActive()
-            
-            // Vérifier si l'ID est temporaire (pour les enveloppes créées localement mais pas encore synchronisées)
-            if (enveloppe.id.startsWith("temp_")) {
-                throw Exception("Impossible de mettre à jour une enveloppe avec un ID temporaire")
-            }
-            
-            // Créer une map avec les champs à mettre à jour
-            // Cela permet d'éviter les problèmes de sérialisation et de n'envoyer que ce qui est nécessaire
-            val dataMap = mapOf(
-                "nom" to enveloppe.nom,
-                "categorieId" to enveloppe.categorieId,
-                "est_archive" to enveloppe.estArchive,
-                "ordre" to enveloppe.ordre,
-                "objectif_type" to enveloppe.objectifType.toString(),
-                "objectif_montant" to enveloppe.objectifMontant,
-                "objectif_date" to enveloppe.objectifDate,
-                "objectif_jour" to enveloppe.objectifJour
-            )
-            
-            val json = gson.toJson(dataMap)
-            val url = "$urlBase/api/collections/enveloppes/records/${enveloppe.id}"
-            val body = json.toRequestBody("application/json".toMediaType())
-            
-            println("[DEBUG] Mise à jour de l'enveloppe ${enveloppe.id} avec les données: $json")
-            println("[DEBUG] URL: $url")
-            
-            val requete = okhttp3.Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $token")
-                .patch(body)
-                .build()
-                
-            val response = httpClient.newCall(requete).execute()
-            
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string()
-                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
-            }
-            
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("[ERROR] Erreur lors de la mise à jour de l'enveloppe: ${e.message}")
-            e.printStackTrace()
-            Result.failure(e)
-        }
-    }
-    
-    override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
-            val urlBase = client.obtenirUrlBaseActive()
-            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records/$id"
-            
-            println("[DEBUG] Suppression de l'enveloppe avec ID: $id")
-            println("[DEBUG] URL: $url")
-            
-            val requete = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $token")
-                .delete()
-                .build()
-                
-            val response = httpClient.newCall(requete).execute()
-            
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string()
-                println("[ERROR] Échec de la suppression de l'enveloppe: $errorBody")
-                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
-            }
-            
-            println("[DEBUG] Enveloppe supprimée avec succès: $id")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("[ERROR] Erreur lors de la suppression de l'enveloppe: ${e.message}")
-            e.printStackTrace()
-            Result.failure(e)
-        }
-    }
+    /**
+     * Classe pour désérialiser les réponses paginées de PocketBase
+     */
+    private data class ListeResultats<T>(
+        val page: Int,
+        val perPage: Int,
+        val totalItems: Int,
+        val totalPages: Int,
+        val items: List<T>
+    )
 }
