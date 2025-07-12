@@ -44,6 +44,10 @@ class CategoriesEnveloppesViewModel(
         // Si on a des données en cache, les afficher immédiatement
         donneesCachees?.let { cache ->
             _uiState.update { cache }
+        } ?: run {
+            // Sinon, s'assurer qu'on a au moins une structure vide mais valide
+            // pour éviter l'écran noir
+            _uiState.update { it.copy(enveloppesGroupees = mapOf()) }
         }
         
         // Puis charger en arrière-plan

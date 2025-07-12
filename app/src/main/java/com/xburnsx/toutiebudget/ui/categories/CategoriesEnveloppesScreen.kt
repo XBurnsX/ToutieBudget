@@ -112,7 +112,10 @@ fun CategoriesEnveloppesScreen(
             contentAlignment = Alignment.Center
         ) {
             // Affiche toujours la liste, même si elle est vide pendant le chargement
-            LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
                 items(
                     items = uiState.enveloppesGroupees.entries.toList(),
                     key = { (categorie, enveloppes) -> "${categorie}_${enveloppes.firstOrNull()?.categorieId ?: "vide"}" }
