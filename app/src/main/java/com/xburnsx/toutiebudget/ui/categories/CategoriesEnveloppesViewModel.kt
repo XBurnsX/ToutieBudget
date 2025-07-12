@@ -176,58 +176,81 @@ class CategoriesEnveloppesViewModel(
 
     fun onAjouterCategorie() {
         val nom = _uiState.value.nomNouvelleCategorie.trim()
-        if (nom.isNotEmpty()) {
-            viewModelScope.launch {
-                try {
-                    // Récupérer l'ID de l'utilisateur connecté
-                    val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                        ?: throw Exception("Utilisateur non connecté")
-                        
-                    // Créer la catégorie avec les paramètres requis
-                    val nouvelleCategorie = Categorie(
-                        id = "", // Sera généré par PocketBase
-                        utilisateurId = utilisateurId,
-                        nom = nom
+        
+        if (nom.isEmpty()) {
+            _uiState.update { it.copy(erreur = "Le nom de la catégorie ne peut pas être vide") }
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                // 1. Valider que l'utilisateur est connecté
+                val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                    ?: throw Exception("Utilisateur non connecté")
+                
+                // 2. Vérifier si la catégorie existe déjà
+                if (categoriesMap.values.any { it.nom.equals(nom, ignoreCase = true) }) {
+                    throw Exception("Une catégorie avec ce nom existe déjà")
+                }
+                
+                // 3. Créer l'objet Categorie
+                val nouvelleCategorie = Categorie(
+                    id = "temp_${System.currentTimeMillis()}", // ID temporaire
+                    utilisateurId = utilisateurId,
+                    nom = nom
+                )
+                
+                // 4. Mise à jour optimiste de l'UI
+                _uiState.update { etatActuel ->
+                    val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                    nouveauxGroupes[nom] = emptyList()
+                    
+                    etatActuel.copy(
+                        enveloppesGroupees = nouveauxGroupes,
+                        isAjoutCategorieDialogVisible = false,
+                        nomNouvelleCategorie = "",
+                        erreur = null
                     )
+                }
+                
+                // 5. Envoyer la requête à PocketBase
+                val result = categorieRepository.creerCategorie(nouvelleCategorie)
+                
+                result.onSuccess { categorieCreee ->
+                    // Mettre à jour la map des catégories
+                    categoriesMap = categoriesMap + (categorieCreee.id to categorieCreee)
                     
-                    // Mettre à jour l'UI immédiatement pour une expérience utilisateur fluide
-                    // Créer une catégorie temporaire avec un ID unique temporaire
-                    val categorieTemp = nouvelleCategorie.copy(id = "temp_${System.currentTimeMillis()}")
-                    
-                    // Ajouter temporairement à l'UI
+                    // Mise à jour avec les vraies données du serveur
                     _uiState.update { etatActuel ->
-                        val groupesActuels = etatActuel.enveloppesGroupees.toMutableMap()
-                        groupesActuels[nom] = emptyList()
+                        val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                        val enveloppes = nouveauxGroupes.remove(nom) ?: emptyList()
+                        nouveauxGroupes[categorieCreee.nom] = enveloppes
+                        
                         etatActuel.copy(
-                            enveloppesGroupees = groupesActuels,
-                            isAjoutCategorieDialogVisible = false,
-                            nomNouvelleCategorie = ""
+                            enveloppesGroupees = nouveauxGroupes
                         )
                     }
-                    
-                    // Envoyer à PocketBase
-                    categorieRepository.creerCategorie(nouvelleCategorie).onSuccess {
-                        // Recharger silencieusement pour obtenir l'ID réel
-                        chargerCategoriesEtEnveloppesSilencieusement(true)
-                    }.onFailure { e ->
-                        // En cas d'échec, retirer la catégorie temporaire et afficher l'erreur
-                        _uiState.update { etatActuel ->
-                            val groupesActuels = etatActuel.enveloppesGroupees.toMutableMap()
-                            groupesActuels.remove(nom)
-                            etatActuel.copy(
-                                enveloppesGroupees = groupesActuels,
-                                erreur = "Erreur lors de la création de la catégorie: ${e.message}"
-                            )
-                        }
-                        chargerCategoriesEtEnveloppesSilencieusement(true)
+                }.onFailure { e ->
+                    // En cas d'erreur, on supprime la catégorie temporaire
+                    _uiState.update { etatActuel ->
+                        val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                        nouveauxGroupes.remove(nom)
+                        
+                        etatActuel.copy(
+                            enveloppesGroupees = nouveauxGroupes,
+                            erreur = "Erreur lors de la création: ${e.message}"
+                        )
                     }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(erreur = "Erreur lors de la création de la catégorie: ${e.message}") }
-                    onFermerAjoutCategorieDialog()
+                }
+                
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        erreur = "Erreur: ${e.message}",
+                        isAjoutCategorieDialogVisible = false
+                    )
                 }
             }
-        } else {
-            _uiState.update { it.copy(erreur = "Le nom de la catégorie ne peut pas être vide") }
         }
     }
 
@@ -256,74 +279,91 @@ class CategoriesEnveloppesViewModel(
 
     fun onAjouterEnveloppe() {
         val nom = _uiState.value.nomNouvelleEnveloppe.trim()
-        val categorie = _uiState.value.categoriePourAjout
-        if (nom.isNotEmpty() && categorie != null) {
-            viewModelScope.launch {
-                try {
-                    // Récupérer l'ID de l'utilisateur connecté
-                    val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                        ?: throw Exception("Utilisateur non connecté")
-                        
-                    // Utiliser la map des catégories pour trouver rapidement l'ID de la catégorie
-                    val categorieObj = categoriesMap.values.find { it.nom == categorie }
-                        ?: throw Exception("Catégorie '$categorie' introuvable")
+        val categorieNom = _uiState.value.categoriePourAjout
+        
+        if (nom.isEmpty() || categorieNom == null) {
+            _uiState.update { it.copy(erreur = "Le nom de l'enveloppe ne peut pas être vide") }
+            return
+        }
+        
+        viewModelScope.launch {
+            try {
+                // 1. Valider que l'utilisateur est connecté
+                val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                    ?: throw Exception("Utilisateur non connecté")
+                
+                // 2. Trouver la catégorie correspondante
+                val categorie = categoriesMap.values.find { it.nom == categorieNom }
+                    ?: throw Exception("Catégorie '$categorieNom' introuvable")
+                
+                // 3. Créer l'objet Enveloppe avec l'ID de la catégorie
+                val nouvelleEnveloppe = Enveloppe(
+                    id = "temp_${System.currentTimeMillis()}", // ID temporaire
+                    utilisateurId = utilisateurId,
+                    nom = nom,
+                    categorieId = categorie.id, // Lien avec la catégorie
+                    estArchive = false,
+                    ordre = 0
+                )
+                
+                // 4. Mise à jour optimiste de l'UI
+                _uiState.update { etatActuel ->
+                    val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                    val nouvellesEnveloppes = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
+                    nouvellesEnveloppes.add(nouvelleEnveloppe)
+                    nouveauxGroupes[categorieNom] = nouvellesEnveloppes
                     
-                    println("[DEBUG] Création d'enveloppe pour catégorie: ${categorieObj.nom} (${categorieObj.id})")
-                    
-                    // Créer l'enveloppe avec les paramètres requis
-                    val nouvelleEnveloppe = Enveloppe(
-                        id = "", // Sera généré par PocketBase
-                        utilisateurId = utilisateurId,
-                        nom = nom,
-                        categorieId = categorieObj.id,
-                        estArchive = false,
-                        ordre = 0
+                    etatActuel.copy(
+                        enveloppesGroupees = nouveauxGroupes,
+                        isAjoutEnveloppeDialogVisible = false,
+                        nomNouvelleEnveloppe = "",
+                        categoriePourAjout = null,
+                        erreur = null
                     )
-                    
-                    // Mettre à jour l'UI immédiatement pour une expérience utilisateur fluide
-                    // Créer une enveloppe temporaire avec un ID unique temporaire
-                    val enveloppeTemp = nouvelleEnveloppe.copy(id = "temp_${System.currentTimeMillis()}")
-                    
-                    // Ajouter temporairement à l'UI
+                }
+                
+                // 5. Envoyer la requête à PocketBase
+                val result = enveloppeRepository.creerEnveloppe(nouvelleEnveloppe)
+                
+                result.onSuccess { enveloppeCreee ->
+                    // Mise à jour avec les vraies données du serveur
                     _uiState.update { etatActuel ->
-                        val groupesActuels = etatActuel.enveloppesGroupees.toMutableMap()
-                        val enveloppesActuelles = groupesActuels[categorie]?.toMutableList() ?: mutableListOf()
-                        enveloppesActuelles.add(enveloppeTemp)
-                        groupesActuels[categorie] = enveloppesActuelles
+                        val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                        val nouvellesEnveloppes = (nouveauxGroupes[categorieNom] ?: emptyList())
+                            .toMutableList()
+                            .map { if (it.id == nouvelleEnveloppe.id) enveloppeCreee else it }
+                        
+                        nouveauxGroupes[categorieNom] = nouvellesEnveloppes
                         
                         etatActuel.copy(
-                            enveloppesGroupees = groupesActuels,
-                            isAjoutEnveloppeDialogVisible = false,
-                            nomNouvelleEnveloppe = "",
-                            categoriePourAjout = null
+                            enveloppesGroupees = nouveauxGroupes
                         )
                     }
-                    
-                    // Envoyer à PocketBase
-                    enveloppeRepository.creerEnveloppe(nouvelleEnveloppe).onSuccess {
-                        // Recharger silencieusement pour obtenir l'ID réel
-                        chargerCategoriesEtEnveloppesSilencieusement(true)
-                    }.onFailure { e ->
-                        // En cas d'échec, retirer l'enveloppe temporaire et afficher l'erreur
-                        _uiState.update { etatActuel ->
-                            val groupesActuels = etatActuel.enveloppesGroupees.toMutableMap()
-                            val enveloppesActuelles = groupesActuels[categorie]?.toMutableList() ?: mutableListOf()
-                            enveloppesActuelles.removeIf { it.id.startsWith("temp_") }
-                            groupesActuels[categorie] = enveloppesActuelles
-                            
-                            etatActuel.copy(
-                                enveloppesGroupees = groupesActuels,
-                                erreur = "Erreur lors de la création de l'enveloppe: ${e.message}"
-                            )
-                        }
+                }.onFailure { e ->
+                    // En cas d'erreur, on supprime l'enveloppe temporaire
+                    _uiState.update { etatActuel ->
+                        val nouveauxGroupes = etatActuel.enveloppesGroupees.toMutableMap()
+                        val nouvellesEnveloppes = (nouveauxGroupes[categorieNom] ?: emptyList())
+                            .toMutableList()
+                            .filterNot { it.id == nouvelleEnveloppe.id }
+                        
+                        nouveauxGroupes[categorieNom] = nouvellesEnveloppes
+                        
+                        etatActuel.copy(
+                            enveloppesGroupees = nouveauxGroupes,
+                            erreur = "Erreur lors de la création: ${e.message}"
+                        )
                     }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(erreur = "Erreur lors de la création de l'enveloppe: ${e.message}") }
-                    onFermerAjoutEnveloppeDialog()
+                }
+                
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        erreur = "Erreur: ${e.message}",
+                        isAjoutEnveloppeDialogVisible = false
+                    )
                 }
             }
-        } else {
-            _uiState.update { it.copy(erreur = "Le nom de l'enveloppe ne peut pas être vide") }
         }
     }
 

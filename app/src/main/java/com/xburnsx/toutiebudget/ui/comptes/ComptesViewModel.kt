@@ -23,27 +23,13 @@ class ComptesViewModel(
     private val _uiState = MutableStateFlow(ComptesUiState())
     val uiState: StateFlow<ComptesUiState> = _uiState.asStateFlow()
 
-    // Cache pour éviter les rechargements visibles
-    private var donneesCachees: ComptesUiState? = null
-
     init {
-        // État initial sans chargement visible
-        _uiState.update { it.copy(isLoading = false) }
         chargerComptes()
     }
 
     fun chargerComptes() {
-        // Si on a des données en cache, les afficher immédiatement
-        donneesCachees?.let { cache ->
-            _uiState.update { cache }
-        }
-        
-        // Puis charger en arrière-plan
-        chargerComptesSilencieusement()
-    }
-
-    private fun chargerComptesSilencieusement() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
             compteRepository.recupererTousLesComptes().onSuccess { comptes ->
                 val comptesGroupes = comptes.groupBy {
                     when (it) {
@@ -53,23 +39,12 @@ class ComptesViewModel(
                         is CompteInvestissement -> "Investissements"
                     }
                 }
-                val nouvelEtat = ComptesUiState(
-                    isLoading = false,
-                    comptesGroupes = comptesGroupes
-                )
-                
-                // Mettre en cache et mettre à jour l'UI
-                donneesCachees = nouvelEtat
-                _uiState.update { nouvelEtat }
+                _uiState.update {
+                    it.copy(isLoading = false, comptesGroupes = comptesGroupes)
+                }
             }.onFailure { erreur ->
-                // Erreur silencieuse - on garde les données précédentes si disponibles
-                if (donneesCachees == null) {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false, 
-                            erreur = "Impossible de charger les comptes: ${erreur.message}"
-                        )
-                    }
+                _uiState.update {
+                    it.copy(isLoading = false, erreur = "Impossible de charger les comptes: ${erreur.message}")
                 }
             }
         }
@@ -152,7 +127,7 @@ class ComptesViewModel(
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
             compteRepository.creerCompte(nouveauCompte).onSuccess {
-                chargerComptesSilencieusement()
+                chargerComptes()
                 onFermerTousLesDialogues()
             }.onFailure {
                 // Gérer l'erreur
@@ -173,7 +148,7 @@ class ComptesViewModel(
             }
             compteRepository.mettreAJourCompte(compteModifie).onSuccess {
                 onFermerTousLesDialogues()
-                chargerComptesSilencieusement()
+                chargerComptes()
             }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
         }
     }
@@ -189,7 +164,7 @@ class ComptesViewModel(
             }
             compteRepository.mettreAJourCompte(compteModifie).onSuccess {
                 _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
-                chargerComptesSilencieusement()
+                chargerComptes()
             }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
         }
     }
