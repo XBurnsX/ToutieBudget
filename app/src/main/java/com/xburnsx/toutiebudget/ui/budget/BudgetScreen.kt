@@ -1,6 +1,7 @@
 // chemin/simule: /ui/budget/BudgetScreen.kt
 package com.xburnsx.toutiebudget.ui.budget
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
-import androidx.compose.ui.graphics.vector.ImageVector
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,40 +44,38 @@ fun BudgetScreen(
             )
         }
     ) { paddingValues ->
-        Box(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
+                .padding(paddingValues)
         ) {
-            if (uiState.isLoading) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(uiState.messageChargement, color = Color.Gray)
-                }
-            } else if (uiState.erreur != null) {
-                Text(
-                    text = uiState.erreur!!,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
+            // Bandeaux "Prêt à placer" pour chaque compte avec solde > 0
+            items(uiState.bandeauxPretAPlacer, key = { it.compteId }) { bandeau ->
+                PretAPlacerCarte(
+                    nomCompte = bandeau.nomCompte,
+                    montant = bandeau.montant,
+                    couleurCompte = bandeau.couleurCompte
                 )
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    // Bandeaux "Prêt à placer" pour chaque compte avec solde > 0
-                    items(uiState.bandeauxPretAPlacer, key = { it.compteId }) { bandeau ->
-                        PretAPlacerCarte(
-                            nomCompte = bandeau.nomCompte,
-                            montant = bandeau.montant,
-                            couleurCompte = bandeau.couleurCompte
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+            }
 
-                    // Catégories avec leurs enveloppes
-                    items(uiState.categoriesEnveloppes, key = { it.nomCategorie }) { categorie ->
-                        CategorieEnveloppesSection(categorie = categorie)
+            // Enveloppes groupées par catégorie
+            items(uiState.categoriesEnveloppes, key = { it.nomCategorie }) { categorie ->
+                Column {
+                    // En-tête de catégorie
+                    Text(
+                        text = categorie.nomCategorie,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF121212))
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+
+                    // Enveloppes de cette catégorie
+                    categorie.enveloppes.forEach { enveloppe ->
+                        EnveloppeItem(enveloppe = enveloppe)
                     }
                 }
             }
@@ -85,37 +83,4 @@ fun BudgetScreen(
     }
 }
 
-@Composable
-private fun CategorieEnveloppesSection(categorie: CategorieEnveloppesUi) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2C2C2E)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Column {
-            // En-tête de la catégorie
-            Text(
-                text = categorie.nomCategorie.uppercase(),
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(16.dp)
-            )
-            
-            // Enveloppes de la catégorie
-            if (categorie.enveloppes.isEmpty()) {
-                Text(
-                    text = "Aucune enveloppe dans cette catégorie",
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            } else {
-                categorie.enveloppes.forEach { enveloppe ->
-                    EnveloppeItem(enveloppe = enveloppe)
-                }
-            }
-        }
-    }
-}
+

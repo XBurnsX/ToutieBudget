@@ -28,22 +28,34 @@ class BudgetViewModel(
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
 
+    // Cache pour éviter les rechargements visibles
+    private var donneesCachees: BudgetUiState? = null
+
     init {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
-            verifierEtExecuterRolloverUseCase().onSuccess {
-                chargerDonneesBudget(Date())
-            }.onFailure { e ->
-                _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
-                chargerDonneesBudget(Date())
-            }
-        }
+        // État initial sans chargement visible
+        _uiState.update { it.copy(isLoading = false) }
+        // Chargement initial silencieux
+        chargerDonneesBudgetSilencieusement(Date())
     }
 
     fun chargerDonneesBudget(mois: Date) {
+        // Si on a des données en cache, les afficher immédiatement
+        donneesCachees?.let { cache ->
+            _uiState.update { cache }
+        }
+        
+        // Puis charger en arrière-plan
+        chargerDonneesBudgetSilencieusement(mois)
+    }
+
+    private fun chargerDonneesBudgetSilencieusement(mois: Date) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
             try {
+                // Rollover silencieux
+                verifierEtExecuterRolloverUseCase().onFailure { e ->
+                    // Erreur silencieuse, on continue
+                }
+
                 val comptes = compteRepository.recupererTousLesComptes().getOrThrow()
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
@@ -82,15 +94,25 @@ class BudgetViewModel(
                     )
                 }.sortedBy { it.nomCategorie }
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        bandeauxPretAPlacer = bandeauxPretAPlacer,
-                        categoriesEnveloppes = categoriesEnveloppes
-                    )
-                }
+                val nouvelEtat = BudgetUiState(
+                    isLoading = false,
+                    bandeauxPretAPlacer = bandeauxPretAPlacer,
+                    categoriesEnveloppes = categoriesEnveloppes
+                )
+
+                // Mettre en cache et mettre à jour l'UI
+                donneesCachees = nouvelEtat
+                _uiState.update { nouvelEtat }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreur = "Erreur lors du chargement des données: ${e.message}") }
+                // Erreur silencieuse - on garde les données précédentes si disponibles
+                if (donneesCachees == null) {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false, 
+                            erreur = "Erreur lors du chargement des données: ${e.message}"
+                        ) 
+                    }
+                }
             }
         }
     }

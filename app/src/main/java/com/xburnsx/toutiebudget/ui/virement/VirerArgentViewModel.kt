@@ -25,62 +25,156 @@ class VirerArgentViewModel(
     private val _uiState = MutableStateFlow(VirerArgentUiState())
     val uiState: StateFlow<VirerArgentUiState> = _uiState.asStateFlow()
 
+    // Cache pour éviter les rechargements visibles
+    private var donneesCachees: VirerArgentUiState? = null
+
     init {
+        // État initial sans chargement visible
+        _uiState.update { it.copy(isLoading = false) }
         chargerSourcesEtDestinations()
     }
 
     private fun chargerSourcesEtDestinations() {
+        // Si on a des données en cache, les afficher immédiatement
+        donneesCachees?.let { cache ->
+            _uiState.update { cache }
+        }
+        
+        // Puis charger en arrière-plan
+        chargerSourcesEtDestinationsSilencieusement()
+    }
+
+    private fun chargerSourcesEtDestinationsSilencieusement() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
             try {
                 val comptes = compteRepository.recupererTousLesComptes().getOrThrow()
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val allocations = enveloppeRepository.recupererAllocationsPourMois(Date()).getOrThrow()
                 val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
 
-                val itemsComptes = comptes
+                // Créer les sources (comptes chèques avec solde > 0)
+                val sourcesComptes = comptes
                     .filterIsInstance<CompteCheque>()
+                    .filter { it.solde > 0 }
                     .map { ItemVirement.CompteItem(it) }
 
-                val itemsEnveloppes = enveloppes.map { enveloppe ->
-                    val alloc = allocations.find { it.enveloppeId == enveloppe.id }
-                    val compteSource = alloc?.compteSourceId?.let { id -> comptes.find { it.id == id } }
-                    ItemVirement.EnveloppeItem(enveloppe, alloc?.solde ?: 0.0, compteSource?.couleur)
-                }
+                // Créer les sources enveloppes avec solde > 0
+                val sourcesEnveloppes = enveloppes
+                    .filter { !it.estArchive }
+                    .mapNotNull { enveloppe ->
+                        val allocation = allocations.find { it.enveloppeId == enveloppe.id }
+                        if (allocation?.solde ?: 0.0 > 0) {
+                            val categorie = categories.find { it.id == enveloppe.categorieId }
+                            ItemVirement.EnveloppeItem(
+                                enveloppe = enveloppe,
+                                solde = allocation?.solde ?: 0.0,
+                                couleurProvenance = null
+                            )
+                        } else null
+                    }
 
-                // Créer un map pour accéder rapidement aux catégories par ID
-                val categoriesMap = categories.associateBy { it.id }
-                
-                val sources = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { item ->
-                    val categorie = categoriesMap[item.enveloppe.categorieId]
-                    categorie?.nom ?: "Autre"
-                }
-                val destinations = mapOf("Prêt à placer" to itemsComptes) + itemsEnveloppes.groupBy { item ->
-                    val categorie = categoriesMap[item.enveloppe.categorieId]
-                    categorie?.nom ?: "Autre"
-                }
+                // Créer les destinations (toutes les enveloppes)
+                val destinationsEnveloppes = enveloppes
+                    .filter { !it.estArchive }
+                    .map { enveloppe ->
+                        val allocation = allocations.find { it.enveloppeId == enveloppe.id }
+                        val categorie = categories.find { it.id == enveloppe.categorieId }
+                        ItemVirement.EnveloppeItem(
+                            enveloppe = enveloppe,
+                            solde = allocation?.solde ?: 0.0,
+                            couleurProvenance = null
+                        )
+                    }
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        sourcesDisponibles = sources,
-                        destinationsDisponibles = destinations
-                    )
-                }
+                // Grouper par catégorie
+                val sourcesDisponibles = mapOf(
+                    "Comptes" to sourcesComptes,
+                    "Enveloppes" to sourcesEnveloppes
+                ).filter { it.value.isNotEmpty() }
+
+                val destinationsDisponibles = destinationsEnveloppes
+                    .groupBy { enveloppeItem ->
+                        val categorie = categories.find { it.id == enveloppeItem.enveloppe.categorieId }
+                        categorie?.nom ?: "Sans catégorie"
+                    }
+                    .filter { it.value.isNotEmpty() }
+
+                val nouvelEtat = VirerArgentUiState(
+                    isLoading = false,
+                    sourcesDisponibles = sourcesDisponibles,
+                    destinationsDisponibles = destinationsDisponibles
+                )
+
+                // Mettre en cache et mettre à jour l'UI
+                donneesCachees = nouvelEtat
+                _uiState.update { nouvelEtat }
+
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreur = e.message) }
+                // Erreur silencieuse - on garde les données précédentes si disponibles
+                if (donneesCachees == null) {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false, 
+                            erreur = "Erreur lors du chargement: ${e.message}"
+                        ) 
+                    }
+                }
             }
         }
     }
 
-    fun ouvrirSelecteur(type: SelecteurOuvert) { _uiState.update { it.copy(selecteurOuvert = type) } }
-    fun fermerSelecteur() { _uiState.update { it.copy(selecteurOuvert = SelecteurOuvert.AUCUN) } }
-    fun onItemSelected(item: ItemVirement) {
-        when (_uiState.value.selecteurOuvert) {
-            SelecteurOuvert.SOURCE -> _uiState.update { it.copy(sourceSelectionnee = item) }
-            SelecteurOuvert.DESTINATION -> _uiState.update { it.copy(destinationSelectionnee = item) }
-            SelecteurOuvert.AUCUN -> {}
+    fun onMontantChange(montant: String) {
+        _uiState.update { it.copy(montant = montant) }
+    }
+
+    fun onSourceSelectionnee(source: ItemVirement) {
+        _uiState.update { it.copy(sourceSelectionnee = source) }
+    }
+
+    fun onDestinationSelectionnee(destination: ItemVirement) {
+        _uiState.update { it.copy(destinationSelectionnee = destination) }
+    }
+
+    fun onSelecteurOuvert(selecteur: SelecteurOuvert) {
+        _uiState.update { it.copy(selecteurOuvert = selecteur) }
+    }
+
+    fun onVirementExecute() {
+        val source = _uiState.value.sourceSelectionnee
+        val destination = _uiState.value.destinationSelectionnee
+        val montant = _uiState.value.montant.toDoubleOrNull()
+
+        if (source == null || destination == null || montant == null || montant <= 0) {
+            _uiState.update { it.copy(erreur = "Veuillez sélectionner une source, une destination et un montant valide") }
+            return
         }
-        fermerSelecteur()
+
+        viewModelScope.launch {
+            try {
+                // Pour l'instant, on simule le virement
+                // TODO: Implémenter la logique de virement avec ArgentService
+                _uiState.update { 
+                    it.copy(
+                        virementReussi = true,
+                        montant = "",
+                        sourceSelectionnee = null,
+                        destinationSelectionnee = null
+                    ) 
+                }
+                // Recharger les données en arrière-plan
+                chargerSourcesEtDestinationsSilencieusement()
+
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Erreur lors du virement: ${e.message}") }
+            }
+        }
+    }
+
+    fun onEffacerErreur() {
+        _uiState.update { it.copy(erreur = null) }
+    }
+
+    fun onVirementReussi() {
+        _uiState.update { it.copy(virementReussi = false) }
     }
 }

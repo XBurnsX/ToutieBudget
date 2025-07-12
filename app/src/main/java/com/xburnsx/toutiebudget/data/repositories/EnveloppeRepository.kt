@@ -12,4 +12,5 @@ interface EnveloppeRepository {
     suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Unit>
     suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle>
     suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit>
+    suspend fun supprimerEnveloppe(id: String): Result<Unit>
 }

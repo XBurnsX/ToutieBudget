@@ -1,13 +1,12 @@
 // chemin/simule: /ui/categories/composants/EnveloppeConfigItem.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,8 +18,11 @@ import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 @Composable
 fun EnveloppeConfigItem(
     enveloppe: Enveloppe,
-    onObjectifClick: () -> Unit
+    onObjectifClick: () -> Unit,
+    onSupprimerClick: () -> Unit = {}
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -31,12 +33,39 @@ fun EnveloppeConfigItem(
             fontSize = 16.sp,
             modifier = Modifier.weight(1f)
         )
+        
         TextButton(onClick = onObjectifClick) {
             Text(
                 text = if (enveloppe.objectifMontant > 0) "${enveloppe.objectifMontant}$" else "Objectif",
                 color = if (enveloppe.objectifMontant > 0) Color.Green else MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
+        }
+        
+        // Menu pour l'enveloppe
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Plus d'options",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Supprimer l'enveloppe") },
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                    onClick = {
+                        onSupprimerClick()
+                        showMenu = false
+                    }
+                )
+            }
         }
     }
 }

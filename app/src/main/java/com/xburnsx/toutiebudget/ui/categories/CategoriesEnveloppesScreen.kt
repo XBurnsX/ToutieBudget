@@ -21,6 +21,7 @@ import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
+import com.xburnsx.toutiebudget.ui.categories.dialogs.ConfirmationSuppressionDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -33,27 +34,58 @@ fun CategoriesEnveloppesScreen(
     if (uiState.isAjoutCategorieDialogVisible) {
         AjoutCategorieDialog(
             nomCategorie = uiState.nomNouvelleCategorie,
-            onNomChange = viewModel::onNomNouvelleCategorieChange,
-            onDismissRequest = viewModel::onFermerDialogues,
-            onSave = viewModel::sauvegarderNouvelleCategorie
+            onNomChange = viewModel::onNomCategorieChange,
+            onDismissRequest = viewModel::onFermerAjoutCategorieDialog,
+            onSave = viewModel::onAjouterCategorie
         )
     }
     if (uiState.isAjoutEnveloppeDialogVisible) {
         AjoutEnveloppeDialog(
             nomEnveloppe = uiState.nomNouvelleEnveloppe,
-            onNomChange = viewModel::onNomNouvelleEnveloppeChange,
-            onDismissRequest = viewModel::onFermerDialogues,
-            onSave = viewModel::sauvegarderNouvelleEnveloppe
+            onNomChange = viewModel::onNomEnveloppeChange,
+            onDismissRequest = viewModel::onFermerAjoutEnveloppeDialog,
+            onSave = viewModel::onAjouterEnveloppe
         )
     }
     if (uiState.isObjectifDialogVisible) {
         DefinirObjectifDialog(
             nomEnveloppe = uiState.enveloppePourObjectif?.nom ?: "",
             formState = uiState.objectifFormState,
-            onValueChange = viewModel::onObjectifFormChange,
-            onDismissRequest = viewModel::onFermerDialogues,
-            onSave = viewModel::sauvegarderObjectif
+            onValueChange = { type, montant, date, jour ->
+                type?.let { viewModel.onObjectifTypeChange(it) }
+                montant?.let { viewModel.onObjectifMontantChange(it) }
+                date?.let { viewModel.onObjectifDateChange(it) }
+                jour?.let { viewModel.onObjectifJourChange(it) }
+            },
+            onDismissRequest = viewModel::onFermerObjectifDialog,
+            onSave = viewModel::onSauvegarderObjectif
         )
+    }
+    
+    // Boîte de dialogue de confirmation de suppression d'enveloppe
+    if (uiState.isConfirmationSuppressionEnveloppeVisible) {
+        val enveloppe = uiState.enveloppePourSuppression
+        if (enveloppe != null) {
+            ConfirmationSuppressionDialog(
+                titre = "Supprimer l'enveloppe",
+                message = "Êtes-vous sûr de vouloir supprimer l'enveloppe '${enveloppe.nom}' ? Cette action est irréversible.",
+                onConfirm = viewModel::onConfirmerSuppressionEnveloppe,
+                onDismiss = viewModel::onFermerConfirmationSuppressionEnveloppe
+            )
+        }
+    }
+    
+    // Boîte de dialogue de confirmation de suppression de catégorie
+    if (uiState.isConfirmationSuppressionCategorieVisible) {
+        val nomCategorie = uiState.categoriePourSuppression
+        if (nomCategorie != null) {
+            ConfirmationSuppressionDialog(
+                titre = "Supprimer la catégorie",
+                message = "Êtes-vous sûr de vouloir supprimer la catégorie '$nomCategorie' ? Cette action est irréversible.",
+                onConfirm = viewModel::onConfirmerSuppressionCategorie,
+                onDismiss = viewModel::onFermerConfirmationSuppressionCategorie
+            )
+        }
     }
 
     Scaffold(
@@ -89,7 +121,9 @@ fun CategoriesEnveloppesScreen(
                         nomCategorie = categorie,
                         enveloppes = enveloppes,
                         onAjouterEnveloppeClick = { viewModel.onOuvrirAjoutEnveloppeDialog(categorie) },
-                        onObjectifClick = { enveloppe -> viewModel.onOuvrirObjectifDialog(enveloppe) }
+                        onObjectifClick = { enveloppe -> viewModel.onOuvrirObjectifDialog(enveloppe) },
+                        onSupprimerEnveloppe = { enveloppe -> viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe) },
+                        onSupprimerCategorie = { nomCat -> viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat) }
                     )
                 }
             }

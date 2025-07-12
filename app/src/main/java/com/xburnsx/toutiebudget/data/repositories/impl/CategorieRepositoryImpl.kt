@@ -63,6 +63,9 @@ class CategorieRepositoryImpl : CategorieRepository {
             
             val json = gson.toJson(dataMap)
             
+            println("[DEBUG] Création de catégorie avec les données: $json")
+            println("[DEBUG] URL: $url")
+            
             val body = json.toRequestBody("application/json".toMediaType())
             val requete = Request.Builder()
                 .url(url)
@@ -76,26 +79,56 @@ class CategorieRepositoryImpl : CategorieRepository {
                 throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
             }
             
+            // Récupérer l'ID de la catégorie nouvellement créée
+            val responseBody = response.body?.string()
+            if (responseBody != null) {
+                try {
+                    val categorieCreee = gson.fromJson(responseBody, CategorieResponse::class.java)
+                    println("[DEBUG] Catégorie créée avec succès, ID: ${categorieCreee.id}")
+                } catch (e: Exception) {
+                    println("[DEBUG] Impossible de parser la réponse: $responseBody")
+                }
+            }
+            
             Result.success(Unit)
         } catch (e: Exception) {
+            println("[ERROR] Erreur lors de la création de la catégorie: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
+    
+    // Classe pour désérialiser la réponse de création
+    data class CategorieResponse(val id: String, val nom: String)
 
     override suspend fun supprimerCategorie(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
             val urlBase = client.obtenirUrlBaseActive()
             val url = "$urlBase/api/collections/categorie/records/$id"
+            
+            println("[DEBUG] Suppression de la catégorie avec ID: $id")
+            println("[DEBUG] URL: $url")
+            
             val requete = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $token")
                 .delete()
                 .build()
+                
             val response = httpClient.newCall(requete).execute()
-            if (!response.isSuccessful) throw Exception("Erreur PocketBase: ${response.code}")
+            
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                println("[ERROR] Échec de la suppression de la catégorie: $errorBody")
+                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
+            }
+            
+            println("[DEBUG] Catégorie supprimée avec succès: $id")
             Result.success(Unit)
         } catch (e: Exception) {
+            println("[ERROR] Erreur lors de la suppression de la catégorie: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }

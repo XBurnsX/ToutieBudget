@@ -34,8 +34,15 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
         SelecteurVirementSheet(
             titre = titre,
             itemsGroupes = items,
-            onItemSelected = viewModel::onItemSelected,
-            onDismiss = viewModel::fermerSelecteur
+            onItemSelected = { item ->
+                when (uiState.selecteurOuvert) {
+                    SelecteurOuvert.SOURCE -> viewModel.onSourceSelectionnee(item)
+                    SelecteurOuvert.DESTINATION -> viewModel.onDestinationSelectionnee(item)
+                    SelecteurOuvert.AUCUN -> {}
+                }
+                viewModel.onSelecteurOuvert(SelecteurOuvert.AUCUN)
+            },
+            onDismiss = { viewModel.onSelecteurOuvert(SelecteurOuvert.AUCUN) }
         )
     }
 
@@ -67,19 +74,40 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                 ChampSelecteur(
                     label = "Source",
                     valeur = uiState.sourceSelectionnee?.nom ?: "",
-                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) }
+                    onClick = { viewModel.onSelecteurOuvert(SelecteurOuvert.SOURCE) }
                 )
                 ChampSelecteur(
                     label = "Destination",
                     valeur = uiState.destinationSelectionnee?.nom ?: "",
-                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) }
+                    onClick = { viewModel.onSelecteurOuvert(SelecteurOuvert.DESTINATION) }
                 )
             }
-            ClavierNumerique(onKeyPress = { /* ... */ })
+            ClavierNumerique(onKeyPress = { key ->
+                when (key) {
+                    in "0".."9" -> {
+                        val nouveauMontant = uiState.montant + key
+                        viewModel.onMontantChange(nouveauMontant)
+                    }
+                    "del" -> {
+                        if (uiState.montant.isNotEmpty()) {
+                            viewModel.onMontantChange(uiState.montant.dropLast(1))
+                        }
+                    }
+                    "." -> {
+                        if (!uiState.montant.contains(".")) {
+                            viewModel.onMontantChange(uiState.montant + key)
+                        }
+                    }
+                    else -> {}
+                }
+            })
             Button(
-                onClick = { /* ... */ },
+                onClick = { viewModel.onVirementExecute() },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                enabled = uiState.sourceSelectionnee != null && 
+                         uiState.destinationSelectionnee != null && 
+                         uiState.montant.isNotEmpty()
             ) {
                 Text("Virer")
             }

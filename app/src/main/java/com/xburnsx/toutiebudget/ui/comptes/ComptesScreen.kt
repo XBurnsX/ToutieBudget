@@ -31,10 +31,47 @@ import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
 @Composable
 fun ComptesScreen(
     viewModel: ComptesViewModel,
-    onNavigateToHistorique: (Compte) -> Unit
+    onCompteClick: (String, String, String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    Scaffold(
+        containerColor = Color(0xFF121212),
+        topBar = {
+            TopAppBar(
+                title = { Text("Comptes", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
+                actions = {
+                    IconButton(onClick = { viewModel.onOuvrirAjoutDialog() }) {
+                        Icon(Icons.Default.Add, contentDescription = "Ajouter un compte", tint = Color.White)
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            uiState.comptesGroupes.forEach { (typeDeCompte, listeDeComptes) ->
+                stickyHeader {
+                    Text(
+                        text = typeDeCompte,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+                items(listeDeComptes, key = { it.id }) { compte ->
+                    CompteItem(
+                        compte = compte,
+                        onClick = { onCompteClick(compte.id, compte.javaClass.simpleName.lowercase().replace("compte", ""), compte.nom) },
+                        onLongClick = { viewModel.onCompteLongPress(compte) }
+                    )
+                }
+            }
+        }
+    }
+
+    // Dialogues
     if (uiState.isAjoutDialogVisible) {
         AjoutCompteDialog(
             formState = uiState.formState,
@@ -43,6 +80,7 @@ fun ComptesScreen(
             onSave = { viewModel.onSauvegarderCompte() }
         )
     }
+
     if (uiState.isModificationDialogVisible) {
         ModifierCompteDialog(
             formState = uiState.formState,
@@ -50,60 +88,5 @@ fun ComptesScreen(
             onValueChange = viewModel::onFormValueChange,
             onSave = { viewModel.onSauvegarderCompte() }
         )
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mes comptes", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
-                actions = {
-                    IconButton(onClick = { viewModel.onOuvrirAjoutDialog() }) {
-                        Icon(Icons.Default.Add, "Ajouter un compte", tint = Color.White)
-                    }
-                }
-            )
-        },
-        containerColor = Color(0xFF121212),
-    ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else if (uiState.erreur != null) {
-                Text(uiState.erreur!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    uiState.comptesGroupes.forEach { (typeDeCompte, listeDeComptes) ->
-                        stickyHeader {
-                            Text(
-                                text = typeDeCompte,
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(horizontal = 16.dp, vertical = 12.dp)
-                            )
-                        }
-                        items(listeDeComptes, key = { it.id }) { compte ->
-                            Box {
-                                CompteItem(
-                                    compte = compte,
-                                    onClick = { onNavigateToHistorique(compte) },
-                                    onLongClick = { viewModel.onCompteLongPress(compte) }
-                                )
-                                DropdownMenu(
-                                    expanded = uiState.isMenuContextuelVisible && uiState.compteSelectionne?.id == compte.id,
-                                    onDismissRequest = { viewModel.onDismissMenu() }
-                                ) {
-                                    DropdownMenuItem(text = { Text("Modifier") }, onClick = { viewModel.onOuvrirModificationDialog() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
-                                    DropdownMenuItem(text = { Text("Réconcilier") }, onClick = { /* TODO */ }, leadingIcon = { Icon(Icons.Default.Sync, null) })
-                                    Divider()
-                                    DropdownMenuItem(text = { Text("Archiver") }, onClick = { viewModel.onArchiverCompte() }, leadingIcon = { Icon(Icons.Default.Archive, null, tint = MaterialTheme.colorScheme.error) })
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

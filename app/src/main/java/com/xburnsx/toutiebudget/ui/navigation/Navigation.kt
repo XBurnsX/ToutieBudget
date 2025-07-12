@@ -113,9 +113,9 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                 val viewModel = AppModule.provideComptesViewModel()
                 ComptesScreen(
                     viewModel = viewModel,
-                    onNavigateToHistorique = { compte ->
+                    onCompteClick = { compteId, collectionCompte, nomCompte ->
                         mainNavController.navigate(
-                            "historique_compte/${compte.id}/${compte::class.java.simpleName}/${compte.nom}"
+                            "historique_compte/$compteId/$collectionCompte/$nomCompte"
                         )
                     }
                 )
