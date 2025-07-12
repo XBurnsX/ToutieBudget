@@ -251,13 +251,13 @@ class AjoutTransactionViewModel(
                     }
                 }
                 "Prêt" -> {
-                    enregistrerPretAccordeUseCase(montant, compte, state.tiers, state.note)
+                    enregistrerPretAccordeUseCase(montant, compte, compte.collection, state.tiers, state.note)
                 }
                 "Dette" -> {
-                    enregistrerDetteContracteeUseCase(montant, compte, state.tiers, state.note)
+                    enregistrerDetteContracteeUseCase(montant, compte, compte.collection, state.tiers, state.note)
                 }
                 "Paiement" -> {
-                    enregistrerPaiementDetteUseCase(montant, compte, state.tiers, state.note)
+                    enregistrerPaiementDetteUseCase(montant, compte, compte.collection, state.tiers, state.note)
                 }
                 else -> {
                     Result.failure(Exception("Type d'opération inconnu: ${state.modeOperation}"))
@@ -320,6 +320,7 @@ class AjoutTransactionViewModel(
         return enregistrerRevenuUseCase(
             montant = montant,
             compteCible = compte,
+            collectionCompteCible = compte.collection,
             dateTransaction = Date(),
             note = state.note.ifBlank { null },
             tiers = state.tiers.ifBlank { null }

@@ -111,6 +111,9 @@ dependencies {
 
     implementation("io.ktor:ktor-client-okhttp:2.3.2")
 
+    // Ajout de javax.inject pour l'injection de dépendances
+    implementation("javax.inject:javax.inject:1")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

@@ -1,3 +1,6 @@
+// chemin/simule: /data/repositories/impl/CompteRepositoryImpl.kt
+// Dépendances: PocketBaseClient, Gson, Coroutines
+
 package com.xburnsx.toutiebudget.data.repositories.impl
 
 import com.google.gson.Gson
@@ -5,14 +8,15 @@ import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.di.UrlResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
-import okhttp3.MediaType.Companion.toMediaType
 
 // Classe pour désérialiser la réponse paginée de PocketBase
 data class ListeResultats<T>(
@@ -39,7 +43,6 @@ class CompteRepositoryImpl : CompteRepository {
 
     override suspend fun recupererTousLesComptes(): Result<List<Compte>> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
-            // Mode hors-ligne : renvoyer une liste vide pour éviter l’erreur « Utilisateur non authentifié »
             return@withContext Result.success(emptyList())
         }
         try {
@@ -66,7 +69,7 @@ class CompteRepositoryImpl : CompteRepository {
 
     private suspend inline fun <reified T : Compte> recupererComptesDeCollection(collection: String, utilisateurId: String): List<T> = withContext(Dispatchers.IO) {
         val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
-        val urlBase = client.obtenirUrlBaseActive()
+        val urlBase = UrlResolver.obtenirUrlActive()
 
         // Filtre pour ne récupérer que les enregistrements de l'utilisateur connecté
         val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
@@ -106,7 +109,7 @@ class CompteRepositoryImpl : CompteRepository {
 
             val corpsJson = gson.toJson(compteAvecUtilisateur)
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
-            val urlBase = client.obtenirUrlBaseActive()
+            val urlBase = UrlResolver.obtenirUrlActive()
 
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records")
@@ -128,9 +131,9 @@ class CompteRepositoryImpl : CompteRepository {
     override suspend fun mettreAJourCompte(compte: Compte): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val collection = obtenirCollectionPourCompte(compte)
-            val corpsJson = gson.toJson(compte) // La sérialisation devra être ajustée
+            val corpsJson = gson.toJson(compte)
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
-            val urlBase = client.obtenirUrlBaseActive()
+            val urlBase = UrlResolver.obtenirUrlActive()
 
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records/${compte.id}")
@@ -152,7 +155,7 @@ class CompteRepositoryImpl : CompteRepository {
     override suspend fun supprimerCompte(compteId: String, collection: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
-            val urlBase = client.obtenirUrlBaseActive()
+            val urlBase = UrlResolver.obtenirUrlActive()
 
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records/$compteId")
@@ -168,6 +171,47 @@ class CompteRepositoryImpl : CompteRepository {
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun getCompteById(compteId: String, collection: String): Compte? = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: return@withContext null
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/$collection/records/$compteId")
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) return@withContext null
+                val corps = reponse.body!!.string()
+                // Utilise Gson pour désérialiser en fonction de la collection
+                return@withContext when (collection) {
+                    Collections.CHEQUE -> gson.fromJson(corps, CompteCheque::class.java)
+                    Collections.CREDIT -> gson.fromJson(corps, CompteCredit::class.java)
+                    Collections.DETTE -> gson.fromJson(corps, CompteDette::class.java)
+                    Collections.INVESTISSEMENT -> gson.fromJson(corps, CompteInvestissement::class.java)
+                    else -> null
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun mettreAJourSolde(compteId: String, collection: String, nouveauSolde: Double) = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: return@withContext
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val corpsJson = "{\"solde\":$nouveauSolde}" // patch minimal
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/$collection/records/$compteId")
+                .addHeader("Authorization", "Bearer $token")
+                .patch(corpsJson.toRequestBody("application/json".toMediaType()))
+                .build()
+            httpClient.newCall(requete).execute().close()
+        } catch (_: Exception) {
         }
     }
 

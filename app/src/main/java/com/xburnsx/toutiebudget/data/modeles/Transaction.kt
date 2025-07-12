@@ -4,10 +4,10 @@ package com.xburnsx.toutiebudget.data.modeles
 import java.util.Date
 
 enum class TypeTransaction {
-    DEPENSE,
-    REVENU,
-    ALLOCATION,
-    TRANSFERT
+    Depense,
+    Revenu,
+    Pret,
+    Emprunt
 }
 
 data class Transaction(

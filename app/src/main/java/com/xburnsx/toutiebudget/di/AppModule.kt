@@ -4,6 +4,7 @@ package com.xburnsx.toutiebudget.di
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.data.repositories.impl.*
 import com.xburnsx.toutiebudget.domain.services.*
+import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
 import com.xburnsx.toutiebudget.domain.services.impl.*
 import com.xburnsx.toutiebudget.domain.usecases.*
 import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel
@@ -20,9 +21,10 @@ object AppModule {
     private val categorieRepository: CategorieRepository by lazy { CategorieRepositoryImpl() }
     private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
     private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
+    private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
 
     // Services
-    private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository) }
+    private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository) }
     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
 
     // Use Cases

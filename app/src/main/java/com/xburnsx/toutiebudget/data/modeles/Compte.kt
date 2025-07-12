@@ -13,6 +13,7 @@ sealed interface Compte {
     @get:SerializedName("est_archive")
     val estArchive: Boolean
     val ordre: Int
+    val collection: String
 }
 
 data class CompteCheque(
@@ -24,7 +25,8 @@ data class CompteCheque(
     override val couleur: String,
     @SerializedName("est_archive")
     override val estArchive: Boolean,
-    override val ordre: Int
+    override val ordre: Int,
+    override val collection: String = "comptes_cheque"
 ) : Compte
 
 data class CompteCredit(
@@ -39,7 +41,8 @@ data class CompteCredit(
     override val ordre: Int,
     @SerializedName("limite_credit")
     val limiteCredit: Double,
-    val interet: Double? = null
+    val interet: Double? = null,
+    override val collection: String = "comptes_credit"
 ) : Compte
 
 data class CompteDette(
@@ -53,7 +56,8 @@ data class CompteDette(
     override val ordre: Int,
     @SerializedName("montant_initial")
     val montantInitial: Double,
-    val interet: Double? = null
+    val interet: Double? = null,
+    override val collection: String = "comptes_dette"
 ) : Compte {
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.
     override val couleur: String = "#FF0000"
@@ -68,5 +72,6 @@ data class CompteInvestissement(
     override val couleur: String,
     @SerializedName("est_archive")
     override val estArchive: Boolean,
-    override val ordre: Int
+    override val ordre: Int,
+    override val collection: String = "comptes_investissement"
 ) : Compte

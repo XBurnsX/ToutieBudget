@@ -3,14 +3,16 @@ package com.xburnsx.toutiebudget.data.modeles
 
 import com.google.gson.annotations.SerializedName
 import java.util.Date
+import com.xburnsx.toutiebudget.data.modeles.TypeObjectif // Importer l'énumération centralisée
 
-enum class TypeObjectif {
-    AUCUN,
-    MENSUEL,
-    BIHEBDOMADAIRE,
-    ECHEANCE,
-    ANNUEL
-}
+// Supprimé l'énumération locale en doublon, utilisez l'énumération centralisée dans TypeObjectif.kt
+// enum class TypeObjectif {
+//     Aucun,
+//     Mensuel,
+//     Bihebdomadaire,
+//     Echeance,
+//     Annuel
+// }
 
 data class Enveloppe(
     val id: String,
@@ -23,7 +25,7 @@ data class Enveloppe(
     val estArchive: Boolean,
     val ordre: Int,
     @SerializedName("objectif_type")
-    val objectifType: TypeObjectif = TypeObjectif.AUCUN,
+    val objectifType: TypeObjectif = TypeObjectif.Aucun,
     @SerializedName("objectif_montant")
     val objectifMontant: Double = 0.0,
     @SerializedName("objectif_date")

@@ -1,92 +1,226 @@
-// chemin/simule: /domain/services/impl/ArgentServiceImpl.kt
-package com.xburnsx.toutiebudget.domain.services.impl
+package com.xburnsx.toutiebudget.domain.services.Impl
 
-import com.xburnsx.toutiebudget.data.modeles.*
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
-import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import java.util.*
+import javax.inject.Inject
 
-class ArgentServiceImpl(
+/**
+ * Implémentation du service ArgentService qui gère les opérations financières.
+ */
+class ArgentServiceImpl @Inject constructor(
     private val compteRepository: CompteRepository,
-    private val enveloppeRepository: EnveloppeRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository
 ) : ArgentService {
 
-    override suspend fun allouerArgent(montant: Double, compteSource: Compte, enveloppeId: String, mois: Date): Result<Unit> {
-        val allocationResult = enveloppeRepository.recupererOuCreerAllocation(enveloppeId, mois)
-        val allocation = allocationResult.getOrNull() ?: return Result.failure(allocationResult.exceptionOrNull()!!)
-
-        val estSourceCompatible = allocation.compteSourceId == null || allocation.compteSourceId == compteSource.id
-        if (!estSourceCompatible) {
-            return Result.failure(IllegalStateException("Opération refusée : L'enveloppe contient déjà de l'argent d'un autre compte."))
-        }
+    /**
+     * Alloue un montant d'un compte source vers une enveloppe pour un mois donné.
+     *
+     * @param enveloppeId L'ID de l'enveloppe à créditer.
+     * @param compteSourceId L'ID du compte d'où provient l'argent.
+     * @param collectionCompteSource Le nom de la collection du compte source (ex: "comptes_cheque").
+     * @param montant Le montant à allouer.
+     * @param mois Le mois de l'allocation (le premier jour du mois).
+     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     */
+    override suspend fun allouerArgentEnveloppe(
+        enveloppeId: String,
+        compteSourceId: String,
+        collectionCompteSource: String,
+        montant: Double,
+        mois: Date
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant de l'allocation doit être positif.")
+        
+        // 1. Récupérer le compte source
+        val compteSource = compteRepository.getCompteById(compteSourceId, collectionCompteSource)
+            ?: throw IllegalArgumentException("Compte source non trouvé: $compteSourceId")
+        
+        // 2. Vérifier que le compte a suffisamment de fonds
         if (compteSource.solde < montant) {
-            return Result.failure(IllegalStateException("Solde insuffisant sur le compte '${compteSource.nom}'."))
+            throw IllegalStateException("Solde insuffisant sur le compte source.")
         }
-        return try {
-            val compteMaj = when (compteSource) {
-                is CompteCheque -> compteSource.copy(solde = compteSource.solde - montant)
-                is CompteCredit -> compteSource.copy(solde = compteSource.solde - montant)
-                is CompteDette -> compteSource.copy(solde = compteSource.solde - montant)
-                is CompteInvestissement -> compteSource.copy(solde = compteSource.solde - montant)
-            }
-            compteRepository.mettreAJourCompte(compteMaj).getOrThrow()
-
-            val nomCollection = when (compteSource) {
-                is CompteCheque -> "comptes_cheque"
-                is CompteCredit -> "comptes_credit"
-                is CompteDette -> "comptes_dette"
-                is CompteInvestissement -> "comptes_investissement"
-            }
-
-            val allocationMaj = allocation.copy(
-                solde = allocation.solde + montant,
-                alloue = allocation.alloue + montant,
-                compteSourceId = compteSource.id,
-                collectionCompteSource = nomCollection
-            )
-            enveloppeRepository.mettreAJourAllocation(allocationMaj).getOrThrow()
-
-            val transaction = Transaction(UUID.randomUUID().toString(), compteSource.utilisateurId, TypeTransaction.ALLOCATION, montant, Date(), "Allocation vers enveloppe", compteSource.id, nomCollection, allocation.id)
-            transactionRepository.creerTransaction(transaction).getOrThrow()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        
+        // 3. Récupérer ou créer l'allocation mensuelle pour cette enveloppe et ce mois
+        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+            enveloppeId = enveloppeId,
+            mois = mois
+        )
+        
+        // 4. Mettre à jour le solde du compte source
+        val nouveauSolde = compteSource.solde - montant
+        compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSolde)
+        
+        // 5. Mettre à jour l'allocation mensuelle
+        val nouveauSoldeAllocation = allocation.solde + montant
+        val nouvelleAllocation = allocation.copy(
+            solde = nouveauSoldeAllocation,
+            alloue = allocation.alloue + montant,
+            compteSourceId = compteSourceId,
+            collectionCompteSource = collectionCompteSource
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+        
+        // 6. Créer une transaction pour cette allocation
+        val transaction = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = "", // À récupérer depuis un UserRepository ou une session
+            type = TypeTransaction.Depense,
+            montant = montant,
+            date = Date(),
+            compteId = compteSourceId,
+            collectionCompte = collectionCompteSource,
+            allocationMensuelleId = allocation.id,
+            note = "Allocation vers enveloppe #$enveloppeId"
+        )
+        
+        transactionRepository.creerTransaction(transaction)
     }
-
-    override suspend fun enregistrerDepense(montant: Double, allocationMensuelle: AllocationMensuelle, dateTransaction: Date, note: String?, tiers: String?): Result<Unit> {
-        val compteSourceId = allocationMensuelle.compteSourceId ?: return Result.failure(IllegalStateException("L'enveloppe est vide, impossible de dépenser."))
-        val collectionCompte = allocationMensuelle.collectionCompteSource ?: return Result.failure(IllegalStateException("Collection de compte source inconnue."))
-
-        if (allocationMensuelle.solde < montant) {
-            return Result.failure(IllegalStateException("Solde insuffisant dans l'enveloppe."))
+    
+    /**
+     * Enregistre une nouvelle transaction (dépense ou revenu) et met à jour les soldes correspondants.
+     *
+     * @param type Le type de transaction (Depense, Revenu, Pret, Emprunt).
+     * @param montant Le montant de la transaction.
+     * @param date La date de la transaction.
+     * @param compteId L'ID du compte affecté.
+     * @param collectionCompte Le nom de la collection du compte affecté.
+     * @param allocationMensuelleId (Optionnel) L'ID de l'allocation mensuelle si c'est une dépense liée à une enveloppe.
+     * @param note Une description pour la transaction.
+     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     */
+    override suspend fun enregistrerTransaction(
+        type: String,
+        montant: Double,
+        date: Date,
+        compteId: String,
+        collectionCompte: String,
+        allocationMensuelleId: String?,
+        note: String?
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant de la transaction doit être positif.")
+        
+        // 1. Récupérer le compte
+        val compte = compteRepository.getCompteById(compteId, collectionCompte)
+            ?: throw IllegalArgumentException("Compte non trouvé: $compteId")
+        
+        // 2. Convertir le type de transaction (String vers Enum)
+        val typeTransaction = try {
+            TypeTransaction.valueOf(type)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Type de transaction invalide: $type. Valeurs acceptées: ${TypeTransaction.values().joinToString()}")
         }
-        return try {
-            var allocationMaj = allocationMensuelle.copy(
-                solde = allocationMensuelle.solde - montant,
-                depense = allocationMensuelle.depense + montant
+        
+        // 3. Calculer le nouveau solde du compte selon le type de transaction
+        val nouveauSolde = when (typeTransaction) {
+            TypeTransaction.Depense -> compte.solde - montant
+            TypeTransaction.Revenu -> compte.solde + montant
+            TypeTransaction.Pret -> compte.solde - montant
+            TypeTransaction.Emprunt -> compte.solde + montant
+        }
+        
+        // 4. Mettre à jour le solde du compte
+        compteRepository.mettreAJourSolde(compteId, collectionCompte, nouveauSolde)
+        
+        // 5. Si c'est une dépense liée à une enveloppe, mettre à jour l'allocation mensuelle
+        if (typeTransaction == TypeTransaction.Depense && allocationMensuelleId != null) {
+            val allocation = allocationMensuelleRepository.getAllocationById(allocationMensuelleId)
+                ?: throw IllegalArgumentException("Allocation mensuelle non trouvée: $allocationMensuelleId")
+            
+            val nouveauSoldeAllocation = allocation.solde - montant
+            val nouvelleAllocation = allocation.copy(
+                solde = nouveauSoldeAllocation,
+                depense = allocation.depense + montant
             )
-            if (allocationMaj.solde == 0.0) {
-                allocationMaj = allocationMaj.copy(compteSourceId = null, collectionCompteSource = null)
-            }
-            enveloppeRepository.mettreAJourAllocation(allocationMaj).getOrThrow()
-
-            val transaction = Transaction(UUID.randomUUID().toString(), allocationMensuelle.utilisateurId, TypeTransaction.DEPENSE, montant, dateTransaction, listOfNotNull(tiers, note).joinToString(" - "), compteSourceId, collectionCompte, allocationMensuelle.id)
-            transactionRepository.creerTransaction(transaction).getOrThrow()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            
+            allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
         }
+        
+        // 6. Créer et enregistrer la transaction
+        val transaction = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = "", // À récupérer depuis un UserRepository ou une session
+            type = typeTransaction,
+            montant = montant,
+            date = date,
+            compteId = compteId,
+            collectionCompte = collectionCompte,
+            allocationMensuelleId = allocationMensuelleId,
+            note = note
+        )
+        
+        transactionRepository.creerTransaction(transaction)
     }
-
-    // ... autres implémentations ...
-    override suspend fun enregistrerRevenu(montant: Double, compteCible: Compte, dateTransaction: Date, note: String?, tiers: String?): Result<Unit> {TODO()}
-    override suspend fun transfererEntreEnveloppes(montant: Double, allocationSource: AllocationMensuelle, allocationCible: AllocationMensuelle): Result<Unit> {TODO()}
-    override suspend fun renvoyerEnveloppeVersCompte(montant: Double, allocationSource: AllocationMensuelle): Result<Unit> {TODO()}
-    override suspend fun enregistrerPretAccorde(montant: Double, compteSource: Compte, tiers: String?, note: String?): Result<Unit> {TODO()}
-    override suspend fun enregistrerDetteContractee(montant: Double, compteCible: Compte, tiers: String?, note: String?): Result<Unit> {TODO()}
-    override suspend fun enregistrerPaiementDette(montant: Double, compteSource: Compte, tiers: String?, note: String?): Result<Unit> {TODO()}
+    
+    /**
+     * Transfère de l'argent entre deux comptes.
+     *
+     * @param compteSourceId L'ID du compte source.
+     * @param collectionCompteSource Le nom de la collection du compte source (ex: "comptes_cheque").
+     * @param compteDestId L'ID du compte destination.
+     * @param collectionCompteDest Le nom de la collection du compte destination.
+     * @param montant Le montant à transférer.
+     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     */
+    override suspend fun transfererArgentEntreComptes(
+        compteSourceId: String,
+        collectionCompteSource: String,
+        compteDestId: String,
+        collectionCompteDest: String,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du transfert doit être positif.")
+        
+        // 1. Récupérer les comptes source et destination
+        val compteSource = compteRepository.getCompteById(compteSourceId, collectionCompteSource)
+            ?: throw IllegalArgumentException("Compte source non trouvé: $compteSourceId")
+            
+        val compteDest = compteRepository.getCompteById(compteDestId, collectionCompteDest)
+            ?: throw IllegalArgumentException("Compte destination non trouvé: $compteDestId")
+        
+        // 2. Vérifier que le compte source a suffisamment de fonds
+        if (compteSource.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte source.")
+        }
+        
+        // 3. Mettre à jour les soldes des deux comptes
+        val nouveauSoldeSource = compteSource.solde - montant
+        val nouveauSoldeDest = compteDest.solde + montant
+        
+        compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSoldeSource)
+        compteRepository.mettreAJourSolde(compteDestId, collectionCompteDest, nouveauSoldeDest)
+        
+        // 4. Créer les transactions correspondantes
+        val transactionSource = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = "", // À récupérer depuis un UserRepository ou une session
+            type = TypeTransaction.Pret,
+            montant = montant,
+            date = Date(),
+            compteId = compteSourceId,
+            collectionCompte = collectionCompteSource,
+            allocationMensuelleId = null,
+            note = "Transfert vers compte #$compteDestId"
+        )
+        
+        val transactionDest = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = "", // À récupérer depuis un UserRepository ou une session
+            type = TypeTransaction.Emprunt,
+            montant = montant,
+            date = Date(),
+            compteId = compteDestId,
+            collectionCompte = collectionCompteDest,
+            allocationMensuelleId = null,
+            note = "Transfert depuis compte #$compteSourceId"
+        )
+        
+        transactionRepository.creerTransaction(transactionSource)
+        transactionRepository.creerTransaction(transactionDest)
+    }
 }

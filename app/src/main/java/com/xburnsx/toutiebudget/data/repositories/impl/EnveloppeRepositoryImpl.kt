@@ -43,11 +43,11 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
      */
     private fun typeObjectifVersPocketBase(type: TypeObjectif): String {
         return when (type) {
-            TypeObjectif.AUCUN -> "Aucun"                    // ✅ EXACTEMENT comme dans PocketBase
-            TypeObjectif.MENSUEL -> "Mensuel"               // ✅ EXACTEMENT comme dans PocketBase
-            TypeObjectif.BIHEBDOMADAIRE -> "Bihebdomadaire"  // ✅ EXACTEMENT comme dans PocketBase
-            TypeObjectif.ECHEANCE -> "Echeance"             // ✅ EXACTEMENT comme dans PocketBase
-            TypeObjectif.ANNUEL -> "Annuel"                 // ✅ EXACTEMENT comme dans PocketBase
+            TypeObjectif.Aucun -> "Aucun"                    // ✅ EXACTEMENT comme dans PocketBase
+            TypeObjectif.Mensuel -> "Mensuel"               // ✅ EXACTEMENT comme dans PocketBase
+            TypeObjectif.Bihebdomadaire -> "Bihebdomadaire"  // ✅ EXACTEMENT comme dans PocketBase
+            TypeObjectif.Echeance -> "Echeance"             // ✅ EXACTEMENT comme dans PocketBase
+            TypeObjectif.Annuel -> "Annuel"                 // ✅ EXACTEMENT comme dans PocketBase
         }
     }
 
@@ -56,14 +56,14 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
      */
     private fun pocketBaseVersTypeObjectif(str: String?): TypeObjectif {
         return when (str) {
-            "Aucun" -> TypeObjectif.AUCUN
-            "Mensuel" -> TypeObjectif.MENSUEL
-            "Bihebdomadaire" -> TypeObjectif.BIHEBDOMADAIRE
-            "Echeance" -> TypeObjectif.ECHEANCE
-            "Annuel" -> TypeObjectif.ANNUEL
+            "Aucun" -> TypeObjectif.Aucun
+            "Mensuel" -> TypeObjectif.Mensuel
+            "Bihebdomadaire" -> TypeObjectif.Bihebdomadaire
+            "Echeance" -> TypeObjectif.Echeance
+            "Annuel" -> TypeObjectif.Annuel
             else -> {
                 println("[DEBUG] Valeur objectif_type inconnue: '$str', utilisation de AUCUN par défaut")
-                TypeObjectif.AUCUN
+                TypeObjectif.Aucun
             }
         }
     }

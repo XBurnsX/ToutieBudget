@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build, Install & Launch on Emulator",
+            "type": "shell",
+            // Cette commande enchaîne la compilation, l'installation et le lancement.
+            "command": ".\\gradlew.bat assembleDebug; & \"C:\\Users\\XBurnsX\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe\" -s emulator-5554 install -r \"app\\build\\outputs\\apk\\debug\\app-debug.apk\"; & \"C:\\Users\\XBurnsX\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe\" -s emulator-5554 shell am start -n com.xburnsx.toutiebudget/com.xburnsx.toutiebudget.MainActivity",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

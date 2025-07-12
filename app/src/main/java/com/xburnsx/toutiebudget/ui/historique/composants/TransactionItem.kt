@@ -24,8 +24,8 @@ fun TransactionItem(transaction: TransactionUi) {
     val formatteurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
 
     val (icone, couleur) = when (transaction.type) {
-        TypeTransaction.DEPENSE -> Icons.Default.ArrowDownward to Color.Red
-        TypeTransaction.REVENU -> Icons.Default.ArrowUpward to Color.Green
+        TypeTransaction.Depense -> Icons.Default.ArrowDownward to Color.Red
+        TypeTransaction.Revenu -> Icons.Default.ArrowUpward to Color.Green
         else -> Icons.Default.ArrowDownward to Color.Yellow
     }
 

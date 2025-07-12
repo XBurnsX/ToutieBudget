@@ -17,39 +17,77 @@ interface EnregistrerDepenseUseCase {
     suspend operator fun invoke(montant: Double, allocationMensuelle: com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle, dateTransaction: Date, note: String?, tiers: String?): Result<Unit>
 }
 interface EnregistrerRevenuUseCase {
-    suspend operator fun invoke(montant: Double, compteCible: Compte, dateTransaction: Date, note: String?, tiers: String?): Result<Unit>
+    suspend operator fun invoke(montant: Double, compteCible: Compte, collectionCompteCible: String, dateTransaction: Date, note: String?, tiers: String?): Result<Unit>
 }
 interface EnregistrerPretAccordeUseCase {
-    suspend operator fun invoke(montant: Double, compteSource: Compte, tiers: String?, note: String?): Result<Unit>
+    suspend operator fun invoke(montant: Double, compteSource: Compte, collectionCompteSource: String, tiers: String?, note: String?): Result<Unit>
 }
 interface EnregistrerDetteContracteeUseCase {
-    suspend operator fun invoke(montant: Double, compteCible: Compte, tiers: String?, note: String?): Result<Unit>
+    suspend operator fun invoke(montant: Double, compteCible: Compte, collectionCompteCible: String, tiers: String?, note: String?): Result<Unit>
 }
 interface EnregistrerPaiementDetteUseCase {
-    suspend operator fun invoke(montant: Double, compteSource: Compte, tiers: String?, note: String?): Result<Unit>
+    suspend operator fun invoke(montant: Double, compteSource: Compte, collectionCompteSource: String, tiers: String?, note: String?): Result<Unit>
 }
 
 // --- Implémentations ---
 
 class EnregistrerDepenseUseCaseImpl(private val argentService: ArgentService) : EnregistrerDepenseUseCase {
-    override suspend fun invoke(montant: Double, allocationMensuelle: com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle, dateTransaction: Date, note: String?, tiers: String?) =
-        argentService.enregistrerDepense(montant, allocationMensuelle, dateTransaction, note, tiers)
+    override suspend fun invoke(montant: Double, allocationMensuelle: com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle, dateTransaction: Date, note: String?, tiers: String?) = argentService.enregistrerTransaction(
+        type = "DEPENSE",
+        montant = montant,
+        date = dateTransaction,
+        compteId = allocationMensuelle.compteSourceId ?: "", // Le compte de la dépense est celui de l'allocation
+        collectionCompte = allocationMensuelle.collectionCompteSource ?: "",
+        allocationMensuelleId = allocationMensuelle.id,
+        note = note
+    )
 }
+
 class EnregistrerRevenuUseCaseImpl(private val argentService: ArgentService) : EnregistrerRevenuUseCase {
-    override suspend fun invoke(montant: Double, compteCible: Compte, dateTransaction: Date, note: String?, tiers: String?) =
-        argentService.enregistrerRevenu(montant, compteCible, dateTransaction, note, tiers)
+    override suspend fun invoke(montant: Double, compteCible: Compte, collectionCompteCible: String, dateTransaction: Date, note: String?, tiers: String?) = argentService.enregistrerTransaction(
+        type = "REVENU",
+        montant = montant,
+        date = dateTransaction,
+        compteId = compteCible.id,
+        collectionCompte = collectionCompteCible,
+        note = note
+    )
 }
+
 class EnregistrerPretAccordeUseCaseImpl(private val argentService: ArgentService) : EnregistrerPretAccordeUseCase {
-    override suspend fun invoke(montant: Double, compteSource: Compte, tiers: String?, note: String?) =
-        argentService.enregistrerPretAccorde(montant, compteSource, tiers, note)
+    override suspend fun invoke(montant: Double, compteSource: Compte, collectionCompteSource: String, tiers: String?, note: String?) = argentService.enregistrerTransaction(
+        type = "PRET",
+        montant = montant,
+        date = Date(), // Utilise la date actuelle
+        compteId = compteSource.id,
+        collectionCompte = collectionCompteSource,
+        note = "Prêt à $tiers. ${note ?: ""}".trim()
+    )
 }
+
 class EnregistrerDetteContracteeUseCaseImpl(private val argentService: ArgentService) : EnregistrerDetteContracteeUseCase {
-    override suspend fun invoke(montant: Double, compteCible: Compte, tiers: String?, note: String?) =
-        argentService.enregistrerDetteContractee(montant, compteCible, tiers, note)
+    override suspend fun invoke(montant: Double, compteCible: Compte, collectionCompteCible: String, tiers: String?, note: String?) = argentService.enregistrerTransaction(
+        type = "EMPRUNT",
+        montant = montant,
+        date = Date(), // Utilise la date actuelle
+        compteId = compteCible.id,
+        collectionCompte = collectionCompteCible,
+        note = "Emprunt de $tiers. ${note ?: ""}".trim()
+    )
 }
+
 class EnregistrerPaiementDetteUseCaseImpl(private val argentService: ArgentService) : EnregistrerPaiementDetteUseCase {
-    override suspend fun invoke(montant: Double, compteSource: Compte, tiers: String?, note: String?) =
-        argentService.enregistrerPaiementDette(montant, compteSource, tiers, note)
+    // Note: Un paiement de dette est une dépense. Il pourrait être modélisé différemment,
+    // mais pour l'instant on le traite comme une transaction de type DEPENSE.
+    override suspend fun invoke(montant: Double, compteSource: Compte, collectionCompteSource: String, tiers: String?, note: String?) = argentService.enregistrerTransaction(
+        type = "DEPENSE",
+        montant = montant,
+        date = Date(),
+        compteId = compteSource.id,
+        collectionCompte = collectionCompteSource,
+        note = "Remboursement à $tiers. ${note ?: ""}".trim()
+        // Pas d'allocation mensuelle ID car c'est un paiement direct depuis un compte.
+    )
 }
 
 // --- Autres Use Cases ---
@@ -57,15 +95,15 @@ class EnregistrerPaiementDetteUseCaseImpl(private val argentService: ArgentServi
 class CalculerTexteObjectifUseCase {
     operator fun invoke(enveloppe: Enveloppe): String? {
         return when (enveloppe.objectifType) {
-            TypeObjectif.AUCUN -> null
-            TypeObjectif.MENSUEL -> "${enveloppe.objectifMontant} $ nécessaire d'ici le ${enveloppe.objectifJour ?: 1}"
-            TypeObjectif.BIHEBDOMADAIRE -> {
+            TypeObjectif.Aucun -> null
+            TypeObjectif.Mensuel -> "${enveloppe.objectifMontant} $ nécessaire d'ici le ${enveloppe.objectifJour ?: 1}"
+            TypeObjectif.Bihebdomadaire -> {
                 val jourSemaine = when(enveloppe.objectifJour) {
                     1 -> "Lundi"; 2 -> "Mardi"; 3 -> "Mercredi"; 4 -> "Jeudi"; 5 -> "Vendredi"; 6 -> "Samedi"; 7 -> "Dimanche"; else -> ""
                 }
                 "${enveloppe.objectifMontant} $ d'ici le prochain $jourSemaine"
             }
-            TypeObjectif.ECHEANCE -> {
+            TypeObjectif.Echeance -> {
                 val dateFin = enveloppe.objectifDate ?: return null
                 val aujourdhui = Date()
                 if (aujourdhui.after(dateFin)) return "Échéance passée"
@@ -76,7 +114,7 @@ class CalculerTexteObjectifUseCase {
                 val montantFormatte = String.format(Locale.CANADA_FRENCH, "%.2f", montantParMois)
                 "$montantFormatte $ nécessaire ce mois-ci"
             }
-            TypeObjectif.ANNUEL -> {
+            TypeObjectif.Annuel -> {
                 val montantParMois = enveloppe.objectifMontant / 12.0
                 val montantFormatte = String.format(Locale.CANADA_FRENCH, "%.2f", montantParMois)
                 "$montantFormatte $ nécessaire ce mois-ci"

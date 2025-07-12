@@ -34,17 +34,17 @@ fun DefinirObjectifDialog(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Objectif pour : $nomEnveloppe", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BoutonTypeObjectif("Mois", formState.type == TypeObjectif.MENSUEL, { onValueChange(TypeObjectif.MENSUEL, null, null, null) }, Modifier.weight(1f))
-                    BoutonTypeObjectif("2 semaines", formState.type == TypeObjectif.BIHEBDOMADAIRE, { onValueChange(TypeObjectif.BIHEBDOMADAIRE, null, null, null) }, Modifier.weight(1f))
+                    BoutonTypeObjectif("Mois", formState.type == TypeObjectif.Mensuel, { onValueChange(TypeObjectif.Mensuel, null, null, null) }, Modifier.weight(1f))
+                    BoutonTypeObjectif("2 semaines", formState.type == TypeObjectif.Bihebdomadaire, { onValueChange(TypeObjectif.Bihebdomadaire, null, null, null) }, Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BoutonTypeObjectif("Échéance", formState.type == TypeObjectif.ECHEANCE, { onValueChange(TypeObjectif.ECHEANCE, null, null, null) }, Modifier.weight(1f))
-                    BoutonTypeObjectif("Année", formState.type == TypeObjectif.ANNUEL, { onValueChange(TypeObjectif.ANNUEL, null, null, null) }, Modifier.weight(1f))
+                    BoutonTypeObjectif("Échéance", formState.type == TypeObjectif.Echeance, { onValueChange(TypeObjectif.Echeance, null, null, null) }, Modifier.weight(1f))
+                    BoutonTypeObjectif("Année", formState.type == TypeObjectif.Annuel, { onValueChange(TypeObjectif.Annuel, null, null, null) }, Modifier.weight(1f))
                 }
                 when (formState.type) {
-                    TypeObjectif.ECHEANCE -> ChampDate(formState.date) { onValueChange(null, null, it, null) }
-                    TypeObjectif.MENSUEL -> SelecteurJourMois(formState.jour) { onValueChange(null, null, null, it) }
-                    TypeObjectif.BIHEBDOMADAIRE -> SelecteurJourSemaine(formState.jour) { onValueChange(null, null, null, it) }
+                    TypeObjectif.Echeance -> ChampDate(formState.date) { onValueChange(null, null, it, null) }
+                    TypeObjectif.Mensuel -> SelecteurJourMois(formState.jour) { onValueChange(null, null, null, it) }
+                    TypeObjectif.Bihebdomadaire -> SelecteurJourSemaine(formState.jour) { onValueChange(null, null, null, it) }
                     else -> {}
                 }
                 OutlinedTextField(

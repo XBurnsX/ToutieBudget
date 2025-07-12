@@ -1,3 +1,6 @@
+// chemin/simule: /di/UrlResolver.kt
+// Dépendances: DetecteurEmulateur, TypeEnvironnement, OkHttp3, Coroutines
+
 package com.xburnsx.toutiebudget.di
 
 import com.xburnsx.toutiebudget.utils.DetecteurEmulateur

@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run on Emulator",
+            // Le type "java" est un placeholder. Le vrai travail est fait par la tâche ci-dessous.
+            "type": "node", 
+            "request": "launch",
+            // C'est la ligne magique : elle exécute notre tâche de tasks.json avant de faire quoi que ce soit d'autre.
+            "preLaunchTask": "Build, Install & Launch on Emulator"
+        }
+    ]
+}

@@ -286,7 +286,7 @@ class CategoriesEnveloppesViewModel(
                     estArchive = false,
                     ordre = 0,
                     // ✅ OBJECTIFS VIDES PAR DÉFAUT
-                    objectifType = TypeObjectif.AUCUN,  // Pas d'objectif
+                    objectifType = TypeObjectif.Aucun,  // Pas d'objectif
                     objectifMontant = 0.0,             // Pas de montant objectif
                     objectifDate = null,               // Pas de date d'échéance
                     objectifJour = null                // Pas de jour spécifique
