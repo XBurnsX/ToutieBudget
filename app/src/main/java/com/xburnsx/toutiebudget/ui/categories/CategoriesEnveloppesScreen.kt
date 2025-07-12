@@ -165,15 +165,36 @@ fun CategoriesEnveloppesScreen(
                 // Composant de debug (en mode développement)
                 if (com.xburnsx.toutiebudget.BuildConfig.EST_MODE_DEBUG) {
                     item(key = "debug_info") {
+                        // ✅ CORRECTION : Récupérer les vraies catégories depuis le ViewModel
                         val toutesLesEnveloppes = uiState.enveloppesGroupees.values.flatten()
-                        val categoriesMap = uiState.enveloppesGroupees.keys.associateWith { nomCategorie ->
-                            // Pour le debug, on simule les IDs de catégories
-                            "cat_${nomCategorie.hashCode()}"
+                        
+                        // ✅ CORRECTION : Utiliser les vraies catégories avec leurs vrais IDs
+                        val categoriesReelles = mutableMapOf<String, String>()
+                        
+                        // Construire le map des catégories en se basant sur les enveloppes existantes
+                        toutesLesEnveloppes.forEach { enveloppe ->
+                            val nomCategorie = uiState.enveloppesGroupees.entries
+                                .find { (_, enveloppes) -> enveloppes.any { it.id == enveloppe.id } }
+                                ?.key
+                            
+                            if (nomCategorie != null) {
+                                categoriesReelles[nomCategorie] = enveloppe.categorieId
+                            }
                         }
+                        
+                        // Ajouter les catégories vides
+                        uiState.enveloppesGroupees.keys.forEach { nomCategorie ->
+                            if (!categoriesReelles.containsKey(nomCategorie)) {
+                                categoriesReelles[nomCategorie] = "categorie_vide_$nomCategorie"
+                            }
+                        }
+                        
+                        println("[DEBUG] 🔧 Catégories pour debug: $categoriesReelles")
+                        println("[DEBUG] 🔧 Enveloppes pour debug: ${toutesLesEnveloppes.map { "${it.nom} → ${it.categorieId}" }}")
                         
                         DebugInfoComposant(
                             enveloppes = toutesLesEnveloppes,
-                            categories = categoriesMap
+                            categories = categoriesReelles
                         )
                     }
                 }

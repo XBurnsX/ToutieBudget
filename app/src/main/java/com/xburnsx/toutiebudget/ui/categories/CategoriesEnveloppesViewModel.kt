@@ -256,7 +256,8 @@ class CategoriesEnveloppesViewModel(
     }
 
     /**
-     * Crée une nouvelle enveloppe avec mise à jour instantanée.
+     * Crée une nouvelle enveloppe VIDE avec mise à jour instantanée.
+     * Une enveloppe fraîche n'a aucun objectif et tous les montants à 0.
      */
     fun onAjouterEnveloppe() {
         val nom = _uiState.value.nomNouvelleEnveloppe.trim()
@@ -276,20 +277,27 @@ class CategoriesEnveloppesViewModel(
                 val categorie = categoriesMap.values.find { it.nom == categorieNom }
                     ?: throw Exception("Catégorie '$categorieNom' introuvable")
                 
-                // Créer l'enveloppe temporaire
-                val enveloppeTemporaire = Enveloppe(
+                // ✅ CRÉATION D'UNE ENVELOPPE COMPLÈTEMENT VIDE
+                val enveloppeVide = Enveloppe(
                     id = "temp_${System.currentTimeMillis()}",
                     utilisateurId = utilisateurId,
                     nom = nom,
                     categorieId = categorie.id, // IMPORTANT: Lien avec la catégorie
                     estArchive = false,
-                    ordre = 0
+                    ordre = 0,
+                    // ✅ OBJECTIFS VIDES PAR DÉFAUT
+                    objectifType = TypeObjectif.AUCUN,  // Pas d'objectif
+                    objectifMontant = 0.0,             // Pas de montant objectif
+                    objectifDate = null,               // Pas de date d'échéance
+                    objectifJour = null                // Pas de jour spécifique
                 )
+                
+                println("[DEBUG] Création enveloppe vide: nom='$nom', objectifType=${enveloppeVide.objectifType}")
                 
                 // Mise à jour optimiste de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
                 val enveloppesCategorie = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
-                enveloppesCategorie.add(enveloppeTemporaire)
+                enveloppesCategorie.add(enveloppeVide)
                 nouveauxGroupes[categorieNom] = enveloppesCategorie
                 
                 _uiState.update { currentState ->
@@ -303,24 +311,24 @@ class CategoriesEnveloppesViewModel(
                 }
                 
                 // Envoyer à PocketBase
-                val resultat = enveloppeRepository.creerEnveloppe(enveloppeTemporaire)
+                val resultat = enveloppeRepository.creerEnveloppe(enveloppeVide)
                 
                 resultat.onSuccess { enveloppeCreee ->
                     // Mettre à jour le cache avec la vraie enveloppe
                     enveloppesList = enveloppesList.map { 
-                        if (it.id == enveloppeTemporaire.id) enveloppeCreee else it 
+                        if (it.id == enveloppeVide.id) enveloppeCreee else it 
                     }
                     
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
                     
-                    println("[DEBUG] Enveloppe créée: ${enveloppeCreee.nom} dans catégorie ${categorie.nom}")
+                    println("[DEBUG] Enveloppe vide créée: ${enveloppeCreee.nom} dans catégorie ${categorie.nom}")
                     
                 }.onFailure { erreur ->
                     // Supprimer l'enveloppe temporaire en cas d'erreur
                     val groupesCorrigés = _uiState.value.enveloppesGroupees.toMutableMap()
                     val enveloppesCorrigées = (groupesCorrigés[categorieNom] ?: emptyList())
-                        .filterNot { it.id == enveloppeTemporaire.id }
+                        .filterNot { it.id == enveloppeVide.id }
                     groupesCorrigés[categorieNom] = enveloppesCorrigées
                     
                     _uiState.update { currentState ->
