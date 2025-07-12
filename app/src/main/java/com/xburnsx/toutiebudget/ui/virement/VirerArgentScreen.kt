@@ -35,14 +35,9 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
             titre = titre,
             itemsGroupes = items,
             onItemSelected = { item ->
-                when (uiState.selecteurOuvert) {
-                    SelecteurOuvert.SOURCE -> viewModel.onSourceSelectionnee(item)
-                    SelecteurOuvert.DESTINATION -> viewModel.onDestinationSelectionnee(item)
-                    SelecteurOuvert.AUCUN -> {}
-                }
-                viewModel.onSelecteurOuvert(SelecteurOuvert.AUCUN)
+                viewModel.onItemSelected(item)
             },
-            onDismiss = { viewModel.onSelecteurOuvert(SelecteurOuvert.AUCUN) }
+            onDismiss = { viewModel.fermerSelecteur() }
         )
     }
 
@@ -74,12 +69,12 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                 ChampSelecteur(
                     label = "Source",
                     valeur = uiState.sourceSelectionnee?.nom ?: "",
-                    onClick = { viewModel.onSelecteurOuvert(SelecteurOuvert.SOURCE) }
+                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) }
                 )
                 ChampSelecteur(
                     label = "Destination",
                     valeur = uiState.destinationSelectionnee?.nom ?: "",
-                    onClick = { viewModel.onSelecteurOuvert(SelecteurOuvert.DESTINATION) }
+                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) }
                 )
             }
             ClavierNumerique(onKeyPress = { key ->

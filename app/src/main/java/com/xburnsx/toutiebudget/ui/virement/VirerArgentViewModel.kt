@@ -73,8 +73,16 @@ class VirerArgentViewModel(
         }
     }
 
-    fun ouvrirSelecteur(type: SelecteurOuvert) { _uiState.update { it.copy(selecteurOuvert = type) } }
-    fun fermerSelecteur() { _uiState.update { it.copy(selecteurOuvert = SelecteurOuvert.AUCUN) } }
+    // ===== FONCTIONS PUBLIQUES POUR L'INTERFACE =====
+
+    fun ouvrirSelecteur(type: SelecteurOuvert) { 
+        _uiState.update { it.copy(selecteurOuvert = type) } 
+    }
+    
+    fun fermerSelecteur() { 
+        _uiState.update { it.copy(selecteurOuvert = SelecteurOuvert.AUCUN) } 
+    }
+    
     fun onItemSelected(item: ItemVirement) {
         when (_uiState.value.selecteurOuvert) {
             SelecteurOuvert.SOURCE -> _uiState.update { it.copy(sourceSelectionnee = item) }
@@ -82,5 +90,47 @@ class VirerArgentViewModel(
             SelecteurOuvert.AUCUN -> {}
         }
         fermerSelecteur()
+    }
+
+    /**
+     * Met à jour le montant saisi par l'utilisateur
+     */
+    fun onMontantChange(nouveauMontant: String) {
+        // Limiter à 9 chiffres maximum (99,999.99$)
+        if (nouveauMontant.length <= 9) {
+            _uiState.update { it.copy(montant = nouveauMontant) }
+        }
+    }
+
+    /**
+     * Exécute le virement d'argent entre source et destination
+     */
+    fun onVirementExecute() {
+        val state = _uiState.value
+        val source = state.sourceSelectionnee
+        val destination = state.destinationSelectionnee
+        val montant = (state.montant.toLongOrNull() ?: 0L) / 100.0
+
+        if (source == null || destination == null || montant <= 0) {
+            _uiState.update { it.copy(erreur = "Veuillez remplir tous les champs") }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // TODO: Implémenter la logique de virement
+                // Pour l'instant, on simule un succès
+                _uiState.update { 
+                    it.copy(
+                        virementReussi = true,
+                        montant = "",
+                        sourceSelectionnee = null,
+                        destinationSelectionnee = null
+                    ) 
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = e.message) }
+            }
+        }
     }
 }
