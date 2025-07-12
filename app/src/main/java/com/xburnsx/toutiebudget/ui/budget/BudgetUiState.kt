@@ -29,7 +29,7 @@ data class CategorieEnveloppesUi(
 
 data class BudgetUiState(
     val isLoading: Boolean = true,
-    val messageChargement: String = "",
+    val messageChargement: String? = null,
     val erreur: String? = null,
     val bandeauxPretAPlacer: List<PretAPlacerUi> = emptyList(),
     val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList()

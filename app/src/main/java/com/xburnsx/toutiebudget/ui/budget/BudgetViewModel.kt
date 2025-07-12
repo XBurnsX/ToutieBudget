@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
@@ -25,6 +26,12 @@ class BudgetViewModel(
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase
 ) : ViewModel() {
 
+    // --- Cache en mémoire pour éviter les écrans de chargement ---
+    private var cacheComptes: List<Compte> = emptyList()
+    private var cacheEnveloppes: List<Enveloppe> = emptyList()
+    private var cacheAllocations: List<AllocationMensuelle> = emptyList()
+    private var cacheCategories: List<Categorie> = emptyList()
+
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
 
@@ -40,58 +47,81 @@ class BudgetViewModel(
         }
     }
 
+    /**
+     * Rafraîchit les données du budget pour le mois donné.
+     * Si des données sont déjà présentes en cache, elles sont
+     * affichées immédiatement puis un rafraîchissement silencieux est effectué.
+     */
     fun chargerDonneesBudget(mois: Date) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
-            try {
-                val comptes = compteRepository.recupererTousLesComptes().getOrThrow()
-                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
-                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
-
-                // Créer des bandeaux pour chaque compte chèque avec solde > 0
-                val bandeauxPretAPlacer = comptes
+            // 1. Si on a déjà du cache, l'afficher immédiatement sans loader
+            if (cacheComptes.isNotEmpty() && cacheEnveloppes.isNotEmpty() && cacheCategories.isNotEmpty()) {
+                // Reconstruire la vue à partir du cache
+                val bandeauxPretAPlacer = cacheComptes
                     .filterIsInstance<CompteCheque>()
                     .filter { it.solde > 0 }
-                    .map { compte ->
-                        PretAPlacerUi(
-                            compteId = compte.id,
-                            nomCompte = compte.nom,
-                            montant = compte.solde,
-                            couleurCompte = compte.couleur
-                        )
+                    .map {
+                        PretAPlacerUi(it.id, it.nom, it.solde, it.couleur)
                     }
-
-                // Créer les enveloppes UI et les grouper par catégorie
-                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
-                
-                // Grouper les enveloppes par catégorie
+                val enveloppesUi = creerEnveloppesUi(cacheEnveloppes, cacheAllocations, cacheComptes)
                 val groupesEnveloppes = enveloppesUi.groupBy { enveloppeUi ->
-                    val enveloppe = enveloppes.find { it.id == enveloppeUi.id }
-                    val categorie = enveloppe?.categorieId?.let { categorieId ->
-                        categories.find { it.id == categorieId }
-                    }
-                    categorie?.nom ?: "Autre"
+                    val enveloppe = cacheEnveloppes.find { it.id == enveloppeUi.id }
+                    val cat = enveloppe?.categorieId?.let { id -> cacheCategories.find { it.id == id } }
+                    cat?.nom ?: "Autre"
                 }
-                
-                // Créer un map complet avec toutes les catégories (même vides)
-                val categoriesEnveloppes = categories.map { categorie ->
-                    CategorieEnveloppesUi(
-                        nomCategorie = categorie.nom,
-                        enveloppes = groupesEnveloppes[categorie.nom] ?: emptyList()
-                    )
+                val categoriesEnveloppesUi = cacheCategories.map { cat ->
+                    CategorieEnveloppesUi(cat.nom, groupesEnveloppes[cat.nom] ?: emptyList())
                 }.sortedBy { it.nomCategorie }
-
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
-                        categoriesEnveloppes = categoriesEnveloppes
+                        categoriesEnveloppes = categoriesEnveloppesUi,
+                        messageChargement = null
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreur = "Erreur lors du chargement des données: ${e.message}") }
+                // Et on rafraîchit en arrière-plan
+                launch { rafraichirDepuisServeur(mois) }
+                return@launch
             }
+            // 2. Pas de cache? on affiche le loader puis on récupère
+            _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
+            rafraichirDepuisServeur(mois)
+        }
+    }
+
+    private suspend fun rafraichirDepuisServeur(mois: Date) {
+        try {
+            cacheComptes = compteRepository.recupererTousLesComptes().getOrThrow()
+            cacheEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+            cacheAllocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+            cacheCategories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+
+            val bandeauxPretAPlacer = cacheComptes
+                .filterIsInstance<CompteCheque>()
+                .filter { it.solde > 0 }
+                .map { PretAPlacerUi(it.id, it.nom, it.solde, it.couleur) }
+
+            val enveloppesUi = creerEnveloppesUi(cacheEnveloppes, cacheAllocations, cacheComptes)
+            val groupesEnveloppes = enveloppesUi.groupBy { enveloppeUi ->
+                val enveloppe = cacheEnveloppes.find { it.id == enveloppeUi.id }
+                val cat = enveloppe?.categorieId?.let { id -> cacheCategories.find { it.id == id } }
+                cat?.nom ?: "Autre"
+            }
+            val categoriesEnveloppesUi = cacheCategories.map { cat ->
+                CategorieEnveloppesUi(cat.nom, groupesEnveloppes[cat.nom] ?: emptyList())
+            }.sortedBy { it.nomCategorie }
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    bandeauxPretAPlacer = bandeauxPretAPlacer,
+                    categoriesEnveloppes = categoriesEnveloppesUi,
+                    messageChargement = null
+                )
+            }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(isLoading = false, erreur = "Erreur lors du chargement des données: ${e.message}") }
         }
     }
 

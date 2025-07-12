@@ -35,11 +35,31 @@ object AppModule {
     private val enregistrerPaiementDetteUseCase: EnregistrerPaiementDetteUseCase by lazy { EnregistrerPaiementDetteUseCaseImpl(argentService) }
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
 
+    // Singletons pour éviter la recréation et donc le rechargement visible lorsque l'utilisateur change d'onglet.
+    private val budgetViewModel: BudgetViewModel by lazy {
+        BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
+    }
+    private val comptesViewModel: ComptesViewModel by lazy { ComptesViewModel(compteRepository) }
+    private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository) }
+    private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
+        AjoutTransactionViewModel(
+            compteRepository,
+            enveloppeRepository,
+            categorieRepository,
+            enregistrerDepenseUseCase,
+            enregistrerRevenuUseCase,
+            enregistrerPretAccordeUseCase,
+            enregistrerDetteContracteeUseCase,
+            enregistrerPaiementDetteUseCase
+        )
+    }
+    private val virerArgentViewModel: VirerArgentViewModel by lazy { VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService) }
+
     // ViewModel Factories
     fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
-    fun provideBudgetViewModel(): BudgetViewModel = BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
-    fun provideComptesViewModel(): ComptesViewModel = ComptesViewModel(compteRepository)
-    fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = AjoutTransactionViewModel(compteRepository, enveloppeRepository, categorieRepository, enregistrerDepenseUseCase, enregistrerRevenuUseCase, enregistrerPretAccordeUseCase, enregistrerDetteContracteeUseCase, enregistrerPaiementDetteUseCase)
-    fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository)
-    fun provideVirerArgentViewModel(): VirerArgentViewModel = VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService)
+    fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
+    fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
+    fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
+    fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
+    fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
 }
