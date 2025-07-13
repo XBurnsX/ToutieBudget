@@ -68,7 +68,7 @@ fun SelecteurCompte(
                 color = if (compteSelectionne != null) {
                     Color(0xFF404040)
                 } else {
-                    Color(0xFF6366F1)
+                    MaterialTheme.colorScheme.primary
                 }
             )
         ) {
@@ -117,7 +117,7 @@ fun SelecteurCompte(
                     Text(
                         text = "Sélectionner un compte",
                         fontSize = 16.sp,
-                        color = Color(0xFF6366F1),
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -125,7 +125,7 @@ fun SelecteurCompte(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Ouvrir sélecteur",
-                    tint = Color.White.copy(alpha = 0.7f)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
             }
         }

@@ -69,7 +69,7 @@ fun SelecteurEnveloppe(
                 color = if (enveloppeSelectionnee != null) {
                     Color(0xFF404040)
                 } else {
-                    Color(0xFF6366F1)
+                    MaterialTheme.colorScheme.primary
                 }
             )
         ) {
@@ -127,7 +127,7 @@ fun SelecteurEnveloppe(
                     Text(
                         text = if (obligatoire) "Sélectionner une enveloppe" else "Aucune enveloppe",
                         fontSize = 16.sp,
-                        color = Color(0xFF6366F1),
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -135,7 +135,7 @@ fun SelecteurEnveloppe(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Ouvrir sélecteur",
-                    tint = Color.White.copy(alpha = 0.7f)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
             }
         }
