@@ -520,12 +520,9 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
      * Formate une date pour PocketBase (évite les conflits SimpleDateFormat).
      */
     private fun formatDate(date: Date): String {
-        val calendar = java.util.Calendar.getInstance()
-        calendar.time = date
-        val year = calendar.get(java.util.Calendar.YEAR)
-        val month = calendar.get(java.util.Calendar.MONTH) + 1
-        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-        return String.format("%04d-%02d-%02d", year, month, day)
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return sdf.format(date)
     }
 
     /**
