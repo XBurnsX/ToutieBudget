@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.util.Calendar
 
 class BudgetViewModel(
     private val compteRepository: CompteRepository,
@@ -33,6 +34,9 @@ class BudgetViewModel(
     private var cacheEnveloppes: List<Enveloppe> = emptyList()
     private var cacheAllocations: List<AllocationMensuelle> = emptyList()
     private var cacheCategories: List<Categorie> = emptyList()
+    
+    // Garder en mémoire le mois sélectionné pour les rafraîchissements automatiques
+    private var moisSelectionne: Date = Date()
 
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
@@ -47,10 +51,11 @@ class BudgetViewModel(
                 chargerDonneesBudget(Date())
             }
         }
-        // Abonnement à l’event bus pour rafraîchir le budget
+        // Abonnement à l'event bus pour rafraîchir le budget
         viewModelScope.launch {
             BudgetEvents.refreshBudget.collectLatest {
-                chargerDonneesBudget(Date())
+                println("[DEBUG] Rafraîchissement automatique avec mois sélectionné: $moisSelectionne")
+                chargerDonneesBudget(moisSelectionne)
             }
         }
     }
@@ -61,7 +66,22 @@ class BudgetViewModel(
      * affichées immédiatement puis un rafraîchissement silencieux est effectué.
      */
     fun chargerDonneesBudget(mois: Date) {
+        // Mettre à jour le mois sélectionné en mémoire
+        moisSelectionne = mois
+        
         viewModelScope.launch {
+            // Calculer le premier jour du mois pour récupérer les allocations
+            val calendar = Calendar.getInstance().apply {
+                time = mois
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val premierJourMois = calendar.time
+            println("[DEBUG] Utilisation du premier jour du mois pour les allocations: $premierJourMois")
+
             // 1. Si on a déjà du cache, l'afficher immédiatement sans loader
             if (cacheComptes.isNotEmpty() && cacheEnveloppes.isNotEmpty() && cacheCategories.isNotEmpty()) {
                 // Reconstruire la vue à partir du cache
@@ -89,12 +109,12 @@ class BudgetViewModel(
                     )
                 }
                 // Et on rafraîchit en arrière-plan
-                launch { rafraichirDepuisServeur(mois) }
+                launch { rafraichirDepuisServeur(premierJourMois) }
                 return@launch
             }
             // 2. Pas de cache? on affiche le loader puis on récupère
             _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
-            rafraichirDepuisServeur(mois)
+            rafraichirDepuisServeur(premierJourMois)
         }
     }
 
@@ -105,12 +125,18 @@ class BudgetViewModel(
             cacheAllocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
             cacheCategories = categorieRepository.recupererToutesLesCategories().getOrThrow()
 
+            println("[DEBUG] Allocations récupérées pour le mois $mois :")
+            cacheAllocations.forEach { println("  - enveloppeId=${it.enveloppeId}, solde=${it.solde}, depense=${it.depense}") }
+
             val bandeauxPretAPlacer = cacheComptes
                 .filterIsInstance<CompteCheque>()
                 .filter { it.solde > 0 }
                 .map { PretAPlacerUi(it.id, it.nom, it.solde, it.couleur) }
 
             val enveloppesUi = creerEnveloppesUi(cacheEnveloppes, cacheAllocations, cacheComptes)
+            println("[DEBUG] EnveloppesUi générées :")
+            enveloppesUi.forEach { println("  - ${it.nom} (id=${it.id}) : solde=${it.solde}, depense=${it.depense}") }
+
             val groupesEnveloppes = enveloppesUi.groupBy { enveloppeUi ->
                 val enveloppe = cacheEnveloppes.find { it.id == enveloppeUi.id }
                 val cat = enveloppe?.categorieId?.let { id -> cacheCategories.find { it.id == id } }

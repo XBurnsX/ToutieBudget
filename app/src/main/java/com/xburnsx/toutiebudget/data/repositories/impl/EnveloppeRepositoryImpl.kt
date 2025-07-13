@@ -134,14 +134,23 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
         
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
 
-            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
+            // Formater la date pour le filtre
             val dateFormatee = formatDate(mois)
-            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId' && mois = '$dateFormatee'", "UTF-8")
-            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=100"
+            println("[DEBUG] recupererAllocationsPourMois: mois=$mois, dateFormatee=$dateFormatee")
+            
+            // Filtre pour récupérer les allocations du mois
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && mois = '$dateFormatee'", 
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtreEncode&perPage=500"
+            println("[DEBUG] recupererAllocationsPourMois: URL=$url")
 
             val requete = Request.Builder()
                 .url(url)
@@ -151,14 +160,21 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             val reponse = httpClient.newCall(requete).execute()
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la récupération des allocations: ${reponse.code}")
+                val erreur = "Erreur lors de la récupération des allocations: ${reponse.code} ${reponse.body?.string()}"
+                println("[DEBUG] $erreur")
+                throw Exception(erreur)
             }
 
             val corpsReponse = reponse.body!!.string()
+            println("[DEBUG] recupererAllocationsPourMois: réponse=${corpsReponse.take(200)}...")
+            
             val allocations = deserialiserListeAllocations(corpsReponse)
+            println("[DEBUG] recupererAllocationsPourMois: ${allocations.size} allocations trouvées")
+            allocations.forEach { println("  - enveloppeId=${it.enveloppeId}, solde=${it.solde}, depense=${it.depense}") }
 
             Result.success(allocations)
         } catch (e: Exception) {
+            println("[DEBUG] recupererAllocationsPourMois: erreur - ${e.message}")
             Result.failure(e)
         }
     }
@@ -339,7 +355,10 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
      * Soustrait le montant du solde et l'ajoute aux dépenses.
      */
     override suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit> = withContext(Dispatchers.IO) {
+        println("[DEBUG] ajouterDepenseAllocation: début - allocationId=$allocationMensuelleId, montant=$montantDepense")
+        
         if (!client.estConnecte()) {
+            println("[DEBUG] ajouterDepenseAllocation: utilisateur non connecté")
             return@withContext Result.failure(Exception("Utilisateur non connecté"))
         }
         
@@ -349,17 +368,23 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val urlBase = client.obtenirUrlBaseActive()
 
             // 1. Récupérer l'allocation actuelle
+            println("[DEBUG] Récupération allocation actuelle")
             val resultAllocation = recupererAllocationParId(allocationMensuelleId)
             if (resultAllocation.isFailure) {
+                println("[DEBUG] Erreur récupération allocation: ${resultAllocation.exceptionOrNull()?.message}")
                 throw resultAllocation.exceptionOrNull() ?: Exception("Impossible de récupérer l'allocation")
             }
             
             val allocation = resultAllocation.getOrNull() 
                 ?: throw Exception("Allocation non trouvée")
             
+            println("[DEBUG] Allocation trouvée: solde=${allocation.solde}, depense=${allocation.depense}")
+            
             // 2. Calculer les nouveaux montants
             val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
             val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses
+            
+            println("[DEBUG] Nouveaux montants: solde=$nouveauSolde, depense=$nouvelleDépense")
             
             // 3. Préparer les données de mise à jour
             val donneesUpdate = mapOf(
@@ -369,6 +394,7 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
             val corpsRequete = gson.toJson(donneesUpdate)
             
             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
+            println("[DEBUG] URL mise à jour: $url")
             
             val requete = Request.Builder()
                 .url(url)
@@ -379,11 +405,15 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             val reponse = httpClient.newCall(requete).execute()
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}")
+                val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
+                println("[DEBUG] $erreur")
+                throw Exception(erreur)
             }
 
+            println("[DEBUG] ajouterDepenseAllocation: succès")
             Result.success(Unit)
         } catch (e: Exception) {
+            println("[DEBUG] ajouterDepenseAllocation: erreur - ${e.message}")
             Result.failure(e)
         }
     }

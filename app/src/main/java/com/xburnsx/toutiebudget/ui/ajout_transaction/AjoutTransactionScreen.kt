@@ -32,11 +32,13 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSuccess: () -> Unit = {}) {
+    println("[DEBUG] Entrée dans AjoutTransactionScreen")
     val uiState by viewModel.uiState.collectAsState()
 
     // Détecter le succès de la transaction
     LaunchedEffect(uiState.transactionReussie) {
         if (uiState.transactionReussie) {
+            println("[DEBUG] Transaction sauvegardée avec succès, retour vers BudgetScreen")
             onTransactionSuccess()
         }
     }
@@ -116,6 +118,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     ChampMontantUniversel(
                         montant = uiState.montant.toLongOrNull() ?: 0L,
                         onMontantChange = { nouveauMontant ->
+                            println("[DEBUG] Montant saisi: $nouveauMontant")
                             viewModel.onMontantChanged(nouveauMontant.toString())
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -134,10 +137,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
 
                     // 4. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
                     if (uiState.modeOperation == "Standard" && uiState.typeTransaction == TypeTransaction.Depense) {
+                        println("[DEBUG] SélecteurEnveloppe affiché, enveloppe sélectionnée: ${uiState.enveloppeSelectionnee?.nom} (solde: ${uiState.enveloppeSelectionnee?.solde})")
                         SelecteurEnveloppe(
                             enveloppes = uiState.enveloppesFiltrees,
                             enveloppeSelectionnee = uiState.enveloppeSelectionnee,
-                            onEnveloppeChange = viewModel::onEnveloppeChanged,
+                            onEnveloppeChange = {
+                                println("[DEBUG] Enveloppe sélectionnée: ${it?.nom} (solde: ${it?.solde})")
+                                viewModel.onEnveloppeChanged(it)
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             obligatoire = true
                         )
@@ -184,7 +191,10 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 ) {
                     Button(
-                        onClick = viewModel::sauvegarderTransaction,
+                        onClick = {
+                            println("[DEBUG] Clic sur sauvegarder transaction. Montant: ${uiState.montant}, Compte: ${uiState.compteSelectionne?.nom}, Enveloppe: ${uiState.enveloppeSelectionnee?.nom}")
+                            viewModel.sauvegarderTransaction()
+                        },
                         enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
                         modifier = Modifier
                             .fillMaxWidth()

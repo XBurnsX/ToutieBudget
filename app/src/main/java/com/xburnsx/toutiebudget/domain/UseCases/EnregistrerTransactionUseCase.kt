@@ -50,14 +50,19 @@ class EnregistrerTransactionUseCase(
 
         return try {
             coroutineScope {
+                println("[DEBUG] EnregistrerTransactionUseCase: début - montant=$montant, type=$typeTransaction, enveloppeId=$enveloppeId")
+                
                 // 1. Récupérer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
+                    println("[DEBUG] Création/récupération allocation mensuelle pour enveloppeId=$enveloppeId")
                     val resultAllocation = obtenirOuCreerAllocationMensuelle(enveloppeId, date)
                     if (resultAllocation.isFailure) {
+                        println("[DEBUG] Erreur allocation mensuelle: ${resultAllocation.exceptionOrNull()?.message}")
                         throw resultAllocation.exceptionOrNull() ?: Exception("Erreur lors de la récupération de l'allocation")
                     }
                     allocationMensuelleId = resultAllocation.getOrNull()
+                    println("[DEBUG] Allocation mensuelle créée/récupérée: $allocationMensuelleId")
                 }
 
                 // 2. Créer la transaction
@@ -71,18 +76,26 @@ class EnregistrerTransactionUseCase(
                     allocationMensuelleId = allocationMensuelleId
                 )
 
+                println("[DEBUG] Création transaction avec allocationMensuelleId=$allocationMensuelleId")
                 val resultTransaction = transactionRepository.creerTransaction(transaction)
                 if (resultTransaction.isFailure) {
+                    println("[DEBUG] Erreur création transaction: ${resultTransaction.exceptionOrNull()?.message}")
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
                 }
+                println("[DEBUG] Transaction créée avec succès")
 
                 // 3. Mettre à jour les soldes en parallèle
                 val tachesMiseAJour = listOf(
-                    async { mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant) },
+                    async { 
+                        println("[DEBUG] Mise à jour solde compte")
+                        mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant) 
+                    },
                     async { 
                         if (!allocationMensuelleId.isNullOrBlank()) {
+                            println("[DEBUG] Mise à jour solde enveloppe avec allocationId=$allocationMensuelleId, montant=$montant")
                             mettreAJourSoldeEnveloppe(allocationMensuelleId, montant)
                         } else {
+                            println("[DEBUG] Pas de mise à jour enveloppe (allocationId null)")
                             Result.success(Unit)
                         }
                     }
@@ -93,13 +106,16 @@ class EnregistrerTransactionUseCase(
                 // Vérifier que toutes les mises à jour ont réussi
                 resultats.forEach { resultat ->
                     if (resultat.isFailure) {
+                        println("[DEBUG] Erreur mise à jour soldes: ${resultat.exceptionOrNull()?.message}")
                         throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
                     }
                 }
+                println("[DEBUG] EnregistrerTransactionUseCase: succès complet")
 
                 Result.success(Unit)
             }
         } catch (e: Exception) {
+            println("[DEBUG] EnregistrerTransactionUseCase: erreur - ${e.message}")
             Result.failure(e)
         }
     }
