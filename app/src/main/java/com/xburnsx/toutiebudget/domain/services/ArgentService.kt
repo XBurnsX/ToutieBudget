@@ -101,4 +101,22 @@ interface ArgentService {
         enveloppeDestination: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
         montant: Double
     ): Result<Unit>
+
+    /**
+     * Effectue un virement depuis le "prêt à placer" d'un compte vers une enveloppe.
+     */
+    suspend fun effectuerVirementPretAPlacerVersEnveloppe(
+        compteId: String,
+        enveloppeId: String,
+        montant: Double
+    ): Result<Unit>
+
+    /**
+     * Effectue un virement depuis une enveloppe vers le "prêt à placer" d'un compte.
+     */
+    suspend fun effectuerVirementEnveloppeVersPretAPlacer(
+        enveloppeId: String,
+        compteId: String,
+        montant: Double
+    ): Result<Unit>
 }

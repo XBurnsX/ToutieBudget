@@ -301,15 +301,37 @@ class VirerArgentViewModel(
                             mois = Date()
                         )
                     }
+                    // Prêt à placer vers Enveloppe
+                    source is ItemVirement.EnveloppeItem && estPretAPlacer(source.enveloppe) && destination is ItemVirement.EnveloppeItem && !estPretAPlacer(destination.enveloppe) -> {
+                        val compteId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
+                        argentService.effectuerVirementPretAPlacerVersEnveloppe(
+                            compteId = compteId,
+                            enveloppeId = destination.enveloppe.id,
+                            montant = montantEnDollars
+                        )
+                    }
+                    // Enveloppe vers Prêt à placer
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) && destination is ItemVirement.EnveloppeItem && estPretAPlacer(destination.enveloppe) -> {
+                        val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
+                        argentService.effectuerVirementEnveloppeVersPretAPlacer(
+                            enveloppeId = source.enveloppe.id,
+                            compteId = compteId,
+                            montant = montantEnDollars
+                        )
+                    }
                     // Enveloppe vers Compte
-                    source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) && destination is ItemVirement.CompteItem -> {
                         // Logique pour retirer de l'enveloppe vers le compte
                         // À implémenter selon vos besoins
                     }
-                    // Enveloppe vers Enveloppe
-                    source is ItemVirement.EnveloppeItem && destination is ItemVirement.EnveloppeItem -> {
+                    // Enveloppe vers Enveloppe (normale)
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) && destination is ItemVirement.EnveloppeItem && !estPretAPlacer(destination.enveloppe) -> {
                         // Logique pour virement entre enveloppes
                         // À implémenter selon vos besoins
+                    }
+                    // Cas non supportés
+                    else -> {
+                        throw IllegalArgumentException("Type de virement non supporté")
                     }
                 }
 
@@ -348,11 +370,25 @@ class VirerArgentViewModel(
      */
     private fun memeItem(item1: ItemVirement, item2: ItemVirement): Boolean {
         return when {
-            item1 is ItemVirement.CompteItem && item2 is ItemVirement.CompteItem -> 
+            item1 is ItemVirement.CompteItem && item2 is ItemVirement.CompteItem ->
                 item1.compte.id == item2.compte.id
-            item1 is ItemVirement.EnveloppeItem && item2 is ItemVirement.EnveloppeItem -> 
+            item1 is ItemVirement.EnveloppeItem && item2 is ItemVirement.EnveloppeItem ->
                 item1.enveloppe.id == item2.enveloppe.id
             else -> false
         }
+    }
+
+    /**
+     * Vérifie si une EnveloppeUi représente un "Prêt à placer".
+     */
+    private fun estPretAPlacer(enveloppe: EnveloppeUi): Boolean {
+        return enveloppe.id.startsWith("pret_a_placer_")
+    }
+
+    /**
+     * Extrait l'ID du compte depuis un ID "Prêt à placer".
+     */
+    private fun extraireCompteIdDepuisPretAPlacer(enveloppeId: String): String {
+        return enveloppeId.removePrefix("pret_a_placer_")
     }
 }

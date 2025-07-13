@@ -33,7 +33,7 @@
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
  
      // ===== SERVICES =====
-     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository) }
+     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository) }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
  
      // ===== USE CASES EXISTANTS =====

@@ -379,4 +379,58 @@ class CompteRepositoryImpl : CompteRepository {
             Result.failure(e)
         }
     }
+
+    override suspend fun mettreAJourPretAPlacerSeulement(
+        compteId: String,
+        variationPretAPlacer: Double
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+
+        try {
+            val token = client.obtenirToken()
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = UrlResolver.obtenirUrlActive()
+
+            // 1. Récupérer le compte actuel (doit être un CompteCheque)
+            val resultCompte = recupererCompteParId(compteId, Collections.CHEQUE)
+            if (resultCompte.isFailure) {
+                throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
+            }
+
+            val compte = resultCompte.getOrNull() as? CompteCheque
+                ?: throw Exception("Le compte n'est pas un compte chèque ou n'existe pas")
+
+            // 2. Calculer le nouveau montant prêt à placer
+            val nouveauPretAPlacer = compte.pretAPlacer + variationPretAPlacer
+
+            // 3. Vérifier que le montant ne devient pas négatif
+            if (nouveauPretAPlacer < 0) {
+                throw Exception("Montant prêt à placer insuffisant")
+            }
+
+            // 4. Préparer les données de mise à jour (seulement pret_a_placer)
+            val donneesUpdate = mapOf("pret_a_placer" to nouveauPretAPlacer)
+            val corpsRequete = gson.toJson(donneesUpdate)
+
+            val url = "$urlBase/api/collections/${Collections.CHEQUE}/records/$compteId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la mise à jour: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

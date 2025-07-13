@@ -82,7 +82,19 @@ interface CompteRepository {
         variationSolde: Double,
         mettreAJourPretAPlacer: Boolean
     ): Result<Unit>
-    
+
+    /**
+     * Met à jour seulement le champ "pret_a_placer" d'un compte chèque.
+     * Ne modifie PAS le solde du compte.
+     * @param compteId ID du compte chèque à modifier
+     * @param variationPretAPlacer Montant à ajouter/soustraire du pret_a_placer (peut être négatif)
+     * @return Result indiquant le succès ou l'échec
+     */
+    suspend fun mettreAJourPretAPlacerSeulement(
+        compteId: String,
+        variationPretAPlacer: Double
+    ): Result<Unit>
+
     /**
      * Récupère un compte spécifique par son ID et sa collection.
      * Version pour les transactions avec gestion d'erreurs.
