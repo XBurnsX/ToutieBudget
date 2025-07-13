@@ -77,11 +77,11 @@ private fun VirementItemRow(item: ItemVirement, onClick: () -> Unit) {
             }
             is ItemVirement.EnveloppeItem -> {
                 nom = item.enveloppe.nom
-                montant = item.solde
+                montant = item.enveloppe.solde
                 couleurMontant = when {
-                    item.solde < 0 -> Color.Red
-                    item.solde == 0.0 -> Color.Gray
-                    else -> item.couleurProvenance?.toColor() ?: Color.Green
+                    item.enveloppe.solde < 0 -> Color.Red
+                    item.enveloppe.solde == 0.0 -> Color.Gray
+                    else -> item.enveloppe.couleurProvenance?.toColor() ?: Color.Green
                 }
             }
         }
