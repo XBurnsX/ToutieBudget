@@ -101,8 +101,12 @@ class CompteRepositoryImpl : CompteRepository {
                 ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé pour la création."))
 
             // Injecte l'ID de l'utilisateur dans l'objet compte avant la sérialisation
+            // Pour les comptes chèque, initialise pret_a_placer avec la valeur du solde
             val compteAvecUtilisateur = when(compte) {
-                is CompteCheque -> compte.copy(utilisateurId = utilisateurId)
+                is CompteCheque -> compte.copy(
+                    utilisateurId = utilisateurId,
+                    pretAPlacerRaw = compte.solde // Initialiser pret_a_placer avec le solde
+                )
                 is CompteCredit -> compte.copy(utilisateurId = utilisateurId)
                 is CompteDette -> compte.copy(utilisateurId = utilisateurId)
                 is CompteInvestissement -> compte.copy(utilisateurId = utilisateurId)
@@ -233,7 +237,7 @@ class CompteRepositoryImpl : CompteRepository {
             // 2. Calculer le nouveau solde
             val nouveauSolde = compte.solde + variationSolde
 
-            // 3. Préparer les données de mise à jour
+            // 3. Préparer les données de mise à jour (seulement le solde pour cette méthode)
             val donneesUpdate = mapOf("solde" to nouveauSolde)
             val corpsRequete = gson.toJson(donneesUpdate)
 
@@ -312,6 +316,67 @@ class CompteRepositoryImpl : CompteRepository {
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun mettreAJourSoldeAvecVariationEtPretAPlacer(
+        compteId: String,
+        collectionCompte: String,
+        variationSolde: Double,
+        mettreAJourPretAPlacer: Boolean
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+
+        try {
+            val token = client.obtenirToken()
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = UrlResolver.obtenirUrlActive()
+
+            // 1. Récupérer le compte actuel
+            val resultCompte = recupererCompteParId(compteId, collectionCompte)
+            if (resultCompte.isFailure) {
+                throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
+            }
+
+            val compte = resultCompte.getOrNull()
+                ?: throw Exception("Compte non trouvé")
+
+            // 2. Calculer le nouveau solde
+            val nouveauSolde = compte.solde + variationSolde
+
+            // 3. Préparer les données de mise à jour
+            val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {
+                // Pour les comptes chèque, mettre à jour aussi pret_a_placer si demandé
+                val nouveauPretAPlacer = compte.pretAPlacer + variationSolde
+                mapOf(
+                    "solde" to nouveauSolde,
+                    "pret_a_placer" to nouveauPretAPlacer
+                )
+            } else {
+                // Sinon, mettre à jour seulement le solde
+                mapOf("solde" to nouveauSolde)
+            }
+            val corpsRequete = gson.toJson(donneesUpdate)
+
+            val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la mise à jour: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

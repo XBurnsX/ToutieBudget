@@ -22,12 +22,17 @@ data class CompteCheque(
     override var utilisateurId: String = "",
     override val nom: String,
     override val solde: Double,
+    @SerializedName("pret_a_placer")
+    val pretAPlacerRaw: Double? = null,
     override val couleur: String,
     @SerializedName("est_archive")
     override val estArchive: Boolean,
     override val ordre: Int,
     override val collection: String = "comptes_cheque"
-) : Compte
+) : Compte {
+    // Propriété calculée pour gérer la valeur par défaut
+    val pretAPlacer: Double get() = pretAPlacerRaw ?: 0.0
+}
 
 data class CompteCredit(
     override val id: String = "",

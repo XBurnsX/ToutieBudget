@@ -66,6 +66,22 @@ interface CompteRepository {
      * @return Result indiquant le succès ou l'échec
      */
     suspend fun mettreAJourSoldeAvecVariation(compteId: String, collectionCompte: String, variationSolde: Double): Result<Unit>
+
+    /**
+     * Met à jour le solde d'un compte avec gestion intelligente du "prêt à placer".
+     * Pour les comptes chèque, met à jour aussi pret_a_placer selon le type de transaction.
+     * @param compteId ID du compte à modifier
+     * @param collectionCompte Collection du compte (ex: "comptes_cheque")
+     * @param variationSolde Montant à ajouter/soustraire du solde (peut être négatif)
+     * @param mettreAJourPretAPlacer Si true, met aussi à jour pret_a_placer (pour revenus, transferts entrants, etc.)
+     * @return Result indiquant le succès ou l'échec
+     */
+    suspend fun mettreAJourSoldeAvecVariationEtPretAPlacer(
+        compteId: String,
+        collectionCompte: String,
+        variationSolde: Double,
+        mettreAJourPretAPlacer: Boolean
+    ): Result<Unit>
     
     /**
      * Récupère un compte spécifique par son ID et sa collection.

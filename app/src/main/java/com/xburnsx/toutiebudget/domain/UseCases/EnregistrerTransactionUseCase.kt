@@ -176,12 +176,12 @@ class EnregistrerTransactionUseCase(
      * Met à jour le solde d'un compte selon le type de transaction.
      */
     private suspend fun mettreAJourSoldeCompte(
-        compteId: String, 
-        collectionCompte: String, 
-        typeTransaction: TypeTransaction, 
+        compteId: String,
+        collectionCompte: String,
+        typeTransaction: TypeTransaction,
         montant: Double
     ): Result<Unit> {
-        
+
         // Calculer la variation du solde
         val variationSolde = when (typeTransaction) {
             TypeTransaction.Depense -> -montant  // Dépense = soustraction
@@ -194,8 +194,24 @@ class EnregistrerTransactionUseCase(
             TypeTransaction.TransfertSortant -> -montant  // Transfert sortant = soustraction
             TypeTransaction.TransfertEntrant -> montant   // Transfert entrant = addition
         }
-        
-        return compteRepository.mettreAJourSoldeAvecVariation(compteId, collectionCompte, variationSolde)
+
+        // Déterminer si on doit aussi mettre à jour le "prêt à placer"
+        // Seulement pour les transactions qui ajoutent de l'argent au compte
+        val mettreAJourPretAPlacer = when (typeTransaction) {
+            TypeTransaction.Revenu -> true              // Revenu = argent qui arrive
+            TypeTransaction.RemboursementRecu -> true   // Remboursement reçu = argent qui arrive
+            TypeTransaction.Emprunt -> true             // Emprunt = argent qui arrive
+            TypeTransaction.TransfertEntrant -> true    // Transfert entrant = argent qui arrive
+            // Pour les dépenses, prêts, paiements, etc. : le solde diminue mais pas le prêt à placer
+            else -> false
+        }
+
+        return compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+            compteId,
+            collectionCompte,
+            variationSolde,
+            mettreAJourPretAPlacer
+        )
     }
 
     /**

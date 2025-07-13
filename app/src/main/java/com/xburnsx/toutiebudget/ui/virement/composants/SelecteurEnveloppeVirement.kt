@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -30,7 +31,8 @@ fun SelecteurEnveloppeVirement(
     enveloppeSelectionnee: EnveloppeUi?,
     onEnveloppeChange: (EnveloppeUi) -> Unit,
     modifier: Modifier = Modifier,
-    obligatoire: Boolean = true
+    obligatoire: Boolean = true,
+    comptesPretAPlacer: List<CompteCheque> = emptyList()
 ) {
     var dialogOuvert by remember { mutableStateOf(false) }
 
@@ -122,6 +124,7 @@ fun SelecteurEnveloppeVirement(
     if (dialogOuvert) {
         DialogSelectionEnveloppeVirement(
             enveloppes = enveloppes,
+            comptesPretAPlacer = comptesPretAPlacer,
             onEnveloppeSelectionnee = {
                 onEnveloppeChange(it)
                 dialogOuvert = false
@@ -134,6 +137,7 @@ fun SelecteurEnveloppeVirement(
 @Composable
 private fun DialogSelectionEnveloppeVirement(
     enveloppes: Map<String, List<EnveloppeUi>>,
+    comptesPretAPlacer: List<CompteCheque>,
     onEnveloppeSelectionnee: (EnveloppeUi) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -156,6 +160,40 @@ private fun DialogSelectionEnveloppeVirement(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 LazyColumn {
+                    // Afficher la catégorie "Prêt à placer" en premier si des comptes chèque ont un montant "prêt à placer" positif
+                    val comptesChequeAvecPretAPlacer = comptesPretAPlacer.filter { it.pretAPlacer > 0 }
+
+                    if (comptesChequeAvecPretAPlacer.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Prêt à placer",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        items(comptesChequeAvecPretAPlacer) { compte ->
+                            ItemComptePretAPlacerVirement(
+                                compte = compte,
+                                onClick = {
+                                    // Créer une EnveloppeUi virtuelle pour représenter ce compte spécifique
+                                    val enveloppeCompte = EnveloppeUi(
+                                        id = "pret_a_placer_${compte.id}",
+                                        nom = "${compte.nom} - Prêt à placer",
+                                        solde = compte.pretAPlacer,
+                                        depense = 0.0,
+                                        objectif = 0.0,
+                                        couleurProvenance = compte.couleur,
+                                        statutObjectif = com.xburnsx.toutiebudget.ui.budget.StatutObjectif.VERT
+                                    )
+                                    onEnveloppeSelectionnee(enveloppeCompte)
+                                }
+                            )
+                        }
+                    }
+
+                    // Afficher les autres catégories d'enveloppes
                     enveloppes.forEach { (nomCategorie, enveloppesCategorie) ->
                         item {
                             Text(
@@ -225,4 +263,53 @@ private fun ItemEnveloppeVirement(
             )
         }
     }
-} 
+}
+
+@Composable
+private fun ItemComptePretAPlacerVirement(
+    compte: CompteCheque,
+    onClick: () -> Unit
+) {
+    // Convertir la couleur hexadécimale du compte en Color
+    val couleurCompte = try {
+        Color(android.graphics.Color.parseColor(compte.couleur))
+    } catch (e: Exception) {
+        Color(0xFF10B981) // Couleur par défaut si la conversion échoue
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = compte.nom,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = couleurCompte
+                )
+                Text(
+                    text = "Prêt à placer",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+            Text(
+                text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(compte.pretAPlacer),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = couleurCompte
+            )
+        }
+    }
+}

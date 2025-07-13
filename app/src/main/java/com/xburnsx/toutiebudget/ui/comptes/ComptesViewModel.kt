@@ -122,11 +122,19 @@ class ComptesViewModel(
     private fun creerNouveauCompte() {
         viewModelScope.launch {
             val formState = _uiState.value.formState
+            val soldeInitial = formState.solde.toDoubleOrNull() ?: 0.0
             val nouveauCompte = when(formState.type) {
-                "Compte chèque" -> CompteCheque(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0)
-                "Carte de crédit" -> CompteCredit(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0, limiteCredit = 0.0)
-                "Dette" -> CompteDette(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, estArchive = false, ordre = 0, montantInitial = 0.0)
-                "Investissement" -> CompteInvestissement(nom = formState.nom, solde = formState.solde.toDoubleOrNull() ?: 0.0, couleur = formState.couleur, estArchive = false, ordre = 0)
+                "Compte chèque" -> CompteCheque(
+                    nom = formState.nom,
+                    solde = soldeInitial,
+                    pretAPlacerRaw = soldeInitial, // Initialiser pret_a_placer avec le solde initial
+                    couleur = formState.couleur,
+                    estArchive = false,
+                    ordre = 0
+                )
+                "Carte de crédit" -> CompteCredit(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0, limiteCredit = 0.0)
+                "Dette" -> CompteDette(nom = formState.nom, solde = soldeInitial, estArchive = false, ordre = 0, montantInitial = 0.0)
+                "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
             compteRepository.creerCompte(nouveauCompte).onSuccess {
@@ -146,7 +154,12 @@ class ComptesViewModel(
             val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
             val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
             val compteModifie = when (compteOriginal) {
-                is CompteCheque -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                is CompteCheque -> compteOriginal.copy(
+                    nom = form.nom,
+                    solde = soldeDouble,
+                    couleur = form.couleur
+                    // Note: pretAPlacerRaw est préservé automatiquement par copy()
+                )
                 is CompteCredit -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
                 is CompteDette -> compteOriginal.copy(nom = form.nom, solde = soldeDouble)
                 is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)

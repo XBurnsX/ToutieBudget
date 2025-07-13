@@ -267,6 +267,7 @@ private fun PreviewSelecteurCompte() {
             utilisateurId = "",
             nom = "Compte Desjardins",
             solde = 1500.50,
+            pretAPlacerRaw = 800.0,
             couleur = "#10B981",
             estArchive = false,
             ordre = 0

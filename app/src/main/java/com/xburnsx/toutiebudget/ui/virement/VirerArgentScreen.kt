@@ -88,13 +88,21 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                         categorie
                     }
                 
+                // Extraire les comptes chèque avec montant "prêt à placer" positif
+                val comptesPretAPlacer = uiState.sourcesDisponibles["Prêt à placer"]
+                    ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
+                    ?.map { it.compte }
+                    ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+                    ?: emptyList()
+
                 SelecteurEnveloppeVirement(
                     enveloppes = sourcesEnveloppes,
                     enveloppeSelectionnee = (uiState.sourceSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
                     onEnveloppeChange = { enveloppeUi ->
                         viewModel.onEnveloppeSelected(enveloppeUi, isSource = true)
                     },
-                    obligatoire = true
+                    obligatoire = true,
+                    comptesPretAPlacer = comptesPretAPlacer
                 )
                 
                 // Flèche indicative
@@ -133,13 +141,21 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                         categorie
                     }
                 
+                // Extraire les comptes chèque avec montant "prêt à placer" positif (destinations)
+                val comptesPretAPlacerDestination = uiState.destinationsDisponibles["Prêt à placer"]
+                    ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
+                    ?.map { it.compte }
+                    ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+                    ?: emptyList()
+
                 SelecteurEnveloppeVirement(
                     enveloppes = destinationsEnveloppes,
                     enveloppeSelectionnee = (uiState.destinationSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
                     onEnveloppeChange = { enveloppeUi ->
                         viewModel.onEnveloppeSelected(enveloppeUi, isSource = false)
                     },
-                    obligatoire = true
+                    obligatoire = true,
+                    comptesPretAPlacer = comptesPretAPlacerDestination
                 )
             }
             

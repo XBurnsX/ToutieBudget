@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Compte
+import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
@@ -336,16 +337,17 @@ class BudgetViewModel(
     }
 
     /**
-     * Crée les bandeaux "Prêt à placer" à partir des comptes ayant un solde positif.
+     * Crée les bandeaux "Prêt à placer" à partir des comptes chèque ayant un montant "prêt à placer" positif.
      */
     private fun creerBandeauxPretAPlacer(comptes: List<Compte>): List<PretAPlacerUi> {
         return comptes
-            .filter { it.solde > 0 }
+            .filterIsInstance<CompteCheque>()
+            .filter { it.pretAPlacer > 0 }
             .map { compte ->
                 PretAPlacerUi(
                     compteId = compte.id,
                     nomCompte = compte.nom,
-                    montant = compte.solde,
+                    montant = compte.pretAPlacer,
                     couleurCompte = compte.couleur
                 )
             }
