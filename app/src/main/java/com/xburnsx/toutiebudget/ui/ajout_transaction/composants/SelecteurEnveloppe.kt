@@ -35,7 +35,7 @@ import java.util.Locale
  */
 @Composable
 fun SelecteurEnveloppe(
-    enveloppes: List<EnveloppeUi>,
+    enveloppes: Map<String, List<EnveloppeUi>>,
     enveloppeSelectionnee: EnveloppeUi?,
     onEnveloppeChange: (EnveloppeUi) -> Unit,
     modifier: Modifier = Modifier,
@@ -169,7 +169,7 @@ fun SelecteurEnveloppe(
  */
 @Composable
 private fun DialogSelectionEnveloppe(
-    enveloppes: List<EnveloppeUi>,
+    enveloppes: Map<String, List<EnveloppeUi>>,
     onEnveloppeSelectionnee: (EnveloppeUi) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -193,16 +193,13 @@ private fun DialogSelectionEnveloppe(
                 )
                 
                 LazyColumn {
-                    // Grouper par catégorie - simplifié car nomCategorie n'existe plus
-                    val enveloppesParCategorie = mapOf("Enveloppes" to enveloppes)
-                    
-                    enveloppesParCategorie.forEach { (nomCategorie, enveloppesCategorie) ->
+                    enveloppes.forEach { (nomCategorie, enveloppesCategorie) ->
                         item {
                             Text(
                                 text = nomCategorie,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF6366F1),
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
@@ -299,7 +296,7 @@ private fun PreviewSelecteurEnveloppe() {
     )
     
     SelecteurEnveloppe(
-        enveloppes = enveloppesTest,
+        enveloppes = mapOf("Alimentation" to enveloppesTest),
         enveloppeSelectionnee = enveloppesTest.first(),
         onEnveloppeChange = { }
     )
@@ -338,8 +335,13 @@ private fun PreviewDialogSelectionEnveloppe() {
         )
     )
     
+    val enveloppesGroupes = mapOf(
+        "Alimentation" to enveloppesTest.take(2),
+        "Transport" to enveloppesTest.takeLast(1)
+    )
+    
     DialogSelectionEnveloppe(
-        enveloppes = enveloppesTest,
+        enveloppes = enveloppesGroupes,
         onEnveloppeSelectionnee = { },
         onDismiss = { }
     )

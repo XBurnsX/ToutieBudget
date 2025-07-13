@@ -121,7 +121,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                     // 4. Sélecteur d'enveloppe (seulement pour les dépenses)
                     if (uiState.typeTransaction == TypeTransaction.Depense) {
                         SelecteurEnveloppe(
-                            enveloppes = uiState.enveloppesDisponibles,
+                            enveloppes = uiState.enveloppesFiltrees,
                             enveloppeSelectionnee = uiState.enveloppeSelectionnee,
                             onEnveloppeChange = viewModel::onEnveloppeChanged,
                             modifier = Modifier.fillMaxWidth(),
