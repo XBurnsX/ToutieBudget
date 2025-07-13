@@ -304,3 +304,43 @@ private fun PreviewSelecteurEnveloppe() {
         onEnveloppeChange = { }
     )
 }
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun PreviewDialogSelectionEnveloppe() {
+    val enveloppesTest = listOf(
+        EnveloppeUi(
+            id = "1",
+            nom = "Épicerie",
+            solde = 150.50,
+            depense = 0.0,
+            objectif = 300.0,
+            couleurProvenance = "#10B981",
+            statutObjectif = StatutObjectif.GRIS
+        ),
+        EnveloppeUi(
+            id = "2",
+            nom = "Restaurants",
+            solde = -25.75,
+            depense = 125.75,
+            objectif = 100.0,
+            couleurProvenance = "#EF4444",
+            statutObjectif = StatutObjectif.GRIS
+        ),
+        EnveloppeUi(
+            id = "3",
+            nom = "Transport",
+            solde = 75.25,
+            depense = 24.75,
+            objectif = 150.0,
+            couleurProvenance = "#6366F1",
+            statutObjectif = StatutObjectif.GRIS
+        )
+    )
+    
+    DialogSelectionEnveloppe(
+        enveloppes = enveloppesTest,
+        onEnveloppeSelectionnee = { },
+        onDismiss = { }
+    )
+}
