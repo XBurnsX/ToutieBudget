@@ -27,7 +27,7 @@ fun ModesOperationSelector(
     val modes = listOf(
         "Standard" to "💳",
         "Prêt" to "🤝", 
-        "Dette" to "📊",
+        "Emprunt" to "📊",
         "Paiement" to "💰"
     )
     
