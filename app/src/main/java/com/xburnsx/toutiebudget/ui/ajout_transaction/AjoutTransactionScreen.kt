@@ -16,6 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypePretSelector
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypeDetteSelector
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurCompte
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurEnveloppe
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel

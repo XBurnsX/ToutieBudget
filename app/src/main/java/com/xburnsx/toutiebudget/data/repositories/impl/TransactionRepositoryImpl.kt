@@ -245,8 +245,11 @@ class TransactionRepositoryImpl : TransactionRepository {
      * Désérialise une transaction simple depuis JSON PocketBase.
      */
     private fun deserialiserTransaction(json: String): Transaction? {
-        // Temporairement désactivé pour éviter l'erreur de compilation
-        return null
+        return try {
+            gson.fromJson(json, Transaction::class.java)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**
