@@ -164,7 +164,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         .padding(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
-                            Color(0xFF6366F1)
+                            MaterialTheme.colorScheme.primary
                         } else {
                             Color(0xFF404040)
                         }
