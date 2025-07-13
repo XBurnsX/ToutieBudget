@@ -358,11 +358,7 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
         }
     }
 
-    // ===== NOUVELLES MÉTHODES POUR LES TRANSACTIONS =====
-
     /**
-     * Ajoute une dépense à une allocation mensuelle.
-     /**
      * Ajoute une dépense à une allocation mensuelle.
      * Soustrait le montant du solde et l'ajoute aux dépenses.
      */
@@ -415,107 +411,6 @@ class EnveloppeRepositoryImpl : EnveloppeRepository {
 
             val corpsReponse = reponse.body?.string() ?: ""
             println("[DEBUG] Réponse mise à jour: ${corpsReponse.take(200)}...")
-            println("[DEBUG] ajouterDepenseAllocation: succès")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("[DEBUG] ajouterDepenseAllocation: erreur - ${e.message}")
-            Result.failure(e)
-        }
-    }
-            val urlBase = client.obtenirUrlBaseActive()
-
-            println("[DEBUG] ajouterDepenseAllocation: début - allocationId=$allocationMensuelleId, montant=$montantDepense")
-            
-            // 1. Récupérer l'allocation actuelle
-            println("[DEBUG] Récupération allocation actuelle")
-            val allocation = recupererAllocationParId(allocationMensuelleId).getOrNull()
-                ?: throw Exception("Allocation non trouvée")
-            
-            println("[DEBUG] Allocation trouvée: solde=${allocation.solde}, depense=${allocation.depense}")
-            
-            // 2. Calculer les nouveaux montants
-            val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
-            val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
-            
-            println("[DEBUG] Nouveaux montants calculés: solde=$nouveauSolde, depense=$nouvelleDépense")
-            println("[DEBUG] Vérification calcul: ${allocation.solde} - $montantDepense = $nouveauSolde")
-            println("[DEBUG] Vérification calcul: ${allocation.depense} + $montantDepense = $nouvelleDépense")
-            
-            // 3. Préparer les données de mise à jour
-            val donneesUpdate = mapOf(
-                "solde" to nouveauSolde,
-                "depense" to nouvelleDépense
-            )
-            val corpsRequete = gson.toJson(donneesUpdate)
-            
-            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
-            println("[DEBUG] URL mise à jour: $url")
-            println("[DEBUG] Données envoyées: $donneesUpdate")
-            
-            val requete = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $token")
-                .addHeader("Content-Type", "application/json")
-                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val reponse = httpClient.newCall(requete).execute()
-            if (!reponse.isSuccessful) {
-                val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
-                println("[DEBUG] $erreur")
-                throw Exception(erreur)
-            }
-
-            val corpsReponse = reponse.body?.string() ?: ""
-            println("[DEBUG] Réponse mise à jour: ${corpsReponse.take(200)}...")
-            println("[DEBUG] ajouterDepenseAllocation: succès")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("[DEBUG] ajouterDepenseAllocation: erreur - ${e.message}")
-            Result.failure(e)
-        }
-    }(Exception("Token manquant"))
-            val urlBase = client.obtenirUrlBaseActive()
-
-            println("[DEBUG] ajouterDepenseAllocation: début - allocationId=$allocationMensuelleId, montant=$montantDepense")
-            
-            // 1. Récupérer l'allocation actuelle
-            println("[DEBUG] Récupération allocation actuelle")
-            val allocation = recupererAllocationParId(allocationMensuelleId).getOrNull()
-                ?: throw Exception("Allocation non trouvée")
-            
-            println("[DEBUG] Allocation trouvée: solde=${allocation.solde}, depense=${allocation.depense}")
-            
-            // 2. Calculer les nouveaux montants
-            val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
-            val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses
-            
-            println("[DEBUG] Nouveaux montants: solde=$nouveauSolde, depense=$nouvelleDépense")
-            
-            // 3. Préparer les données de mise à jour
-            val donneesUpdate = mapOf(
-                "solde" to nouveauSolde,
-                "depense" to nouvelleDépense
-            )
-            val corpsRequete = gson.toJson(donneesUpdate)
-            
-            val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
-            println("[DEBUG] URL mise à jour: $url")
-            
-            val requete = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer $token")
-                .addHeader("Content-Type", "application/json")
-                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val reponse = httpClient.newCall(requete).execute()
-            if (!reponse.isSuccessful) {
-                val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
-                println("[DEBUG] $erreur")
-                throw Exception(erreur)
-            }
-
             println("[DEBUG] ajouterDepenseAllocation: succès")
             Result.success(Unit)
         } catch (e: Exception) {
