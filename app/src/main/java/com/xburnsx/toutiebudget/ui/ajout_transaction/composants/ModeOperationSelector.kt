@@ -59,7 +59,7 @@ fun ModesOperationSelector(
                         ),
                     colors = CardDefaults.cardColors(
                         containerColor = if (estSelectionne) 
-                            Color(0xFF6366F1)
+                            MaterialTheme.colorScheme.primary
                         else 
                             Color(0xFF2A2A2A)
                     ),

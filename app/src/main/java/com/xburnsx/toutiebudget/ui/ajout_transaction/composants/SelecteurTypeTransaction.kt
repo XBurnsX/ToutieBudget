@@ -39,31 +39,28 @@ fun SelecteurTypeTransaction(
     ) {
         Text(
             text = "Type de transaction",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.labelMedium,
             color = Color.White,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             // Bouton Dépense
-            BoutonTypeTransaction(
+            BoutonTypeTransactionHarmonise(
                 type = TypeTransaction.Depense,
                 icone = Icons.Default.RemoveCircle,
-                couleurPrincipale = Color(0xFFEF4444),
+                couleurSelection = Color(0xFFEF4444),
                 estSelectionne = typeSelectionne == TypeTransaction.Depense,
                 onClick = { onTypeChange(TypeTransaction.Depense) },
                 modifier = Modifier.weight(1f)
             )
-            
             // Bouton Revenu
-            BoutonTypeTransaction(
+            BoutonTypeTransactionHarmonise(
                 type = TypeTransaction.Revenu,
                 icone = Icons.Default.AddCircle,
-                couleurPrincipale = Color(0xFF10B981),
+                couleurSelection = Color(0xFF10B981),
                 estSelectionne = typeSelectionne == TypeTransaction.Revenu,
                 onClick = { onTypeChange(TypeTransaction.Revenu) },
                 modifier = Modifier.weight(1f)
@@ -72,69 +69,43 @@ fun SelecteurTypeTransaction(
     }
 }
 
-/**
- * Bouton individuel pour un type de transaction.
- */
 @Composable
-private fun BoutonTypeTransaction(
+private fun BoutonTypeTransactionHarmonise(
     type: TypeTransaction,
     icone: ImageVector,
-    couleurPrincipale: Color,
+    couleurSelection: Color,
     estSelectionne: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val couleurFond = if (estSelectionne) {
-        couleurPrincipale.copy(alpha = 0.15f)
-    } else {
-        Color(0xFF1F1F1F)
-    }
-    
-    val couleurBordure = if (estSelectionne) {
-        couleurPrincipale
-    } else {
-        Color(0xFF404040)
-    }
-    
-    val couleurTexte = if (estSelectionne) {
-        couleurPrincipale
-    } else {
-        Color.White.copy(alpha = 0.7f)
-    }
-    
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(80.dp)
+            .height(56.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = couleurFond),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (estSelectionne) 2.dp else 1.dp,
-            color = couleurBordure
-        )
+        colors = CardDefaults.cardColors(
+            containerColor = if (estSelectionne) couleurSelection else Color(0xFF2A2A2A)
+        ),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(8.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 imageVector = icone,
                 contentDescription = null,
-                tint = couleurTexte,
-                modifier = Modifier.size(24.dp)
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
             Text(
                 text = type.libelleAffiche,
-                fontSize = 14.sp,
-                fontWeight = if (estSelectionne) FontWeight.SemiBold else FontWeight.Normal,
-                color = couleurTexte
+                color = if (estSelectionne) Color.White else Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 2
             )
         }
     }
