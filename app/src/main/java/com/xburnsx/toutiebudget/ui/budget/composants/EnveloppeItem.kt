@@ -67,16 +67,21 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
     // --- LOGIQUE POUR LA BULLE DE MONTANT ---
     // Détermine la couleur de fond de la bulle qui affiche le solde.
-    val couleurBulle = if (montant > 0 && enveloppe.couleurProvenance != null) {
+    val couleurBulle = when {
+        // CORRECTION: Rouge pour soldes négatifs
+        montant < 0 -> Color(0xFFEF4444) // Rouge pour négatif
         // Si le solde est positif et une couleur est définie, on utilise cette couleur.
-        enveloppe.couleurProvenance.toColor()
-    } else {
+        montant > 0 && enveloppe.couleurProvenance != null -> enveloppe.couleurProvenance.toColor()
         // Sinon (solde à zéro ou pas de couleur définie), on utilise un gris foncé.
-        Color(0xFF444444)
+        else -> Color(0xFF444444)
     }
-    // Détermine la couleur du texte dans la bulle.
-    val couleurTexteBulle = if (montant > 0) Color.White else Color.LightGray // Texte blanc si solde positif, gris clair sinon.
 
+    // Détermine la couleur du texte dans la bulle.
+    val couleurTexteBulle = when {
+        montant < 0 -> Color.White // Texte blanc pour le rouge
+        montant > 0 -> Color.White // Texte blanc pour les couleurs
+        else -> Color.LightGray // Texte gris clair pour le gris
+    }
     // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
     val couleurStatut = when {
@@ -364,7 +369,7 @@ fun ApercuEnveloppeItem() {
                 enveloppe = EnveloppeUi(
                     id = "6",
                     nom = "🏡 objectif / Rien (Gris)",
-                    solde = 0.0,
+                    solde = -10.0,
                     depense = 0.0,
                     objectif = 50.0,
                     couleurProvenance = null,
