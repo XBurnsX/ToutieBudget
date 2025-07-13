@@ -113,10 +113,10 @@ fun SelecteurEnveloppe(
                                     text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
                                         .format(enveloppeSelectionnee.solde),
                                     fontSize = 14.sp,
-                                    color = if (enveloppeSelectionnee.solde >= 0) {
-                                        Color(0xFF10B981)
-                                    } else {
-                                        Color(0xFFEF4444)
+                                    color = when {
+                                        enveloppeSelectionnee.solde < 0 -> Color(0xFFEF4444) // Rouge pour négatif
+                                        enveloppeSelectionnee.solde == 0.0 -> Color.Gray // Gris pour zéro
+                                        else -> enveloppeSelectionnee.couleurProvenance?.toColor() ?: Color(0xFF10B981) // Couleur du compte de provenance ou vert par défaut
                                     },
                                     fontWeight = FontWeight.Medium
                                 )
@@ -255,16 +255,16 @@ private fun ItemEnveloppe(
                     )
                 }
             }
-            
+            // Couleur du solde
             Text(
                 text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
                     .format(enveloppe.solde),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (enveloppe.solde >= 0) {
-                    Color(0xFF10B981)
-                } else {
-                    Color(0xFFEF4444)
+                color = when {
+                    enveloppe.solde < 0 -> Color(0xFFEF4444) // Rouge pour négatif
+                    enveloppe.solde == 0.0 -> Color.Gray // Gris pour zéro
+                    else -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF10B981) // Couleur du compte de provenance ou vert par défaut
                 }
             )
         }
