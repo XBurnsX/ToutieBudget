@@ -167,7 +167,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                     )
 
                     // Affichage d'erreur si nécessaire
-                    if (uiState.erreur != null) {
+                    uiState.messageErreur?.let { message ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
@@ -175,7 +175,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                             )
                         ) {
                             Text(
-                                text = uiState.erreur,
+                                text = message,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.padding(16.dp)
                             )

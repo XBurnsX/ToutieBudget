@@ -121,7 +121,12 @@ class ArgentServiceImpl @Inject constructor(
             TypeTransaction.Depense -> compte.solde - montant
             TypeTransaction.Revenu -> compte.solde + montant
             TypeTransaction.Pret -> compte.solde - montant
+            TypeTransaction.RemboursementRecu -> compte.solde + montant
             TypeTransaction.Emprunt -> compte.solde + montant
+            TypeTransaction.RemboursementDonne -> compte.solde - montant
+            TypeTransaction.Paiement -> compte.solde - montant
+            TypeTransaction.TransfertSortant -> compte.solde - montant
+            TypeTransaction.TransfertEntrant -> compte.solde + montant
         }
         
         // 4. Mettre à jour le solde du compte

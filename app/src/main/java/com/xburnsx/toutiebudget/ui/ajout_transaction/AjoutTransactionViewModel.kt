@@ -290,16 +290,19 @@ class AjoutTransactionViewModel(
                     ?: throw Exception("Aucun compte sélectionné")
                 
                 // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
-                val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
+                val enveloppeId = if (state.typeTransaction == "Depense") {
                     state.enveloppeSelectionnee?.id 
                         ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
                 } else {
                     null
                 }
                 
+                // Convertir le type de transaction String vers TypeTransaction
+                val typeTransaction = TypeTransaction.valueOf(state.typeTransaction)
+                
                 // Enregistrer la transaction
                 val result = enregistrerTransactionUseCase.executer(
-                    typeTransaction = state.typeTransaction,
+                    typeTransaction = typeTransaction,
                     montant = montant,
                     compteId = compte.id,
                     collectionCompte = when (compte) {

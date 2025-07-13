@@ -171,7 +171,12 @@ class EnregistrerTransactionUseCase(
             TypeTransaction.Depense -> -montant  // Dépense = soustraction
             TypeTransaction.Revenu -> montant     // Revenu = addition
             TypeTransaction.Pret -> -montant      // Prêt accordé = soustraction
+            TypeTransaction.RemboursementRecu -> montant  // Remboursement reçu = addition
             TypeTransaction.Emprunt -> montant    // Emprunt reçu = addition
+            TypeTransaction.RemboursementDonne -> -montant // Remboursement donné = soustraction
+            TypeTransaction.Paiement -> -montant  // Paiement = soustraction
+            TypeTransaction.TransfertSortant -> -montant  // Transfert sortant = soustraction
+            TypeTransaction.TransfertEntrant -> montant   // Transfert entrant = addition
         }
         
         return compteRepository.mettreAJourSoldeAvecVariation(compteId, collectionCompte, variationSolde)
