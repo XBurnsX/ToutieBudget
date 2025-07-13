@@ -108,7 +108,8 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                         libelle = "Montant de la transaction",
-                        couleurMontant = obtenirCouleurMontant(uiState)
+                        couleurMontant = obtenirCouleurMontant(uiState),
+                        tailleMontant = 30.sp
                     )
 
                     // 3. Sélecteur de compte
