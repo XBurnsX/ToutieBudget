@@ -216,14 +216,14 @@ private fun ClavierModerneDialog(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
-            // Barre violette avec le montant (comme votre image)
+            // Barre avec le montant utilisant la couleur primaire du thème
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF6A4C93) // Violet comme votre image
+                    containerColor = MaterialTheme.colorScheme.primary // 🎨 Couleur primaire du thème
                 )
             ) {
                 Text(

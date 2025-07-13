@@ -1,5 +1,5 @@
 // chemin/simule: /ui/comptes/dialogs/AjoutCompteDialog.kt
-// Dépendances: Jetpack Compose, Material3, ChampArgent, CouleurSelecteur
+// Dépendances: Jetpack Compose, Material3, ChampMontantUniversel, CouleurSelecteur
 
 package com.xburnsx.toutiebudget.ui.comptes.dialogs
 
@@ -27,8 +27,18 @@ fun AjoutCompteDialog(
     val couleursDisponibles = listOf("#F44336", "#E91E63", "#9C27B0", "#2196F3", "#4CAF50", "#FFC107")
     var expanded by remember { mutableStateOf(false) }
 
-    // Conversion entre format centimes et format texte pour ChampArgent
-    val soldeEnCentimes = (formState.solde.toDoubleOrNull() ?: 0.0) * 100
+    // 🔧 CORRECTION : Conversion plus robuste entre format centimes et format texte
+    val soldeEnCentimes = remember(formState.solde) {
+        if (formState.solde.isBlank()) {
+            0L
+        } else {
+            try {
+                (formState.solde.toDouble() * 100).toLong()
+            } catch (e: Exception) {
+                0L
+            }
+        }
+    }
     
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -72,16 +82,20 @@ fun AjoutCompteDialog(
                     }
                 }
                 
-                // *** NOUVEAU : Champ argent pour le solde initial ***
+                // ✅ CHAMP MONTANT AVEC VOTRE CLAVIER UNIVERSEL !
                 ChampMontantUniversel(
-                    montant = soldeEnCentimes.toLong(),
+                    montant = soldeEnCentimes,
                     onMontantChange = { nouveauMontantEnCentimes ->
+                        // Conversion centimes -> dollars avec 2 décimales
                         val nouveauSoldeEnDollars = nouveauMontantEnCentimes / 100.0
-                        onValueChange(null, null, nouveauSoldeEnDollars.toString(), null)
+                        val soldeFormate = String.format("%.2f", nouveauSoldeEnDollars)
+                        onValueChange(null, null, soldeFormate, null)
                     },
                     libelle = "Solde initial",
+                    nomDialog = "Solde initial du compte", // 🎯 Titre personnalisé pour la dialog
+                    isMoney = true, // 💰 C'est de l'argent
                     icone = Icons.Default.AccountBalance,
-                    estObligatoire = false,
+                    estObligatoire = false, // Optionnel, peut être 0
                     modifier = Modifier
                 )
                 
