@@ -106,6 +106,12 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                     viewModel = viewModel,
                     onCategoriesClick = {
                         bottomBarNavController.navigate(Screen.Categories.route)
+                    },
+                    onLogout = {
+                        // Redirige immédiatement vers l'écran de login
+                        mainNavController.navigate("login_flow") {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 )
             }

@@ -283,7 +283,7 @@ class AjoutTransactionViewModel(
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
             
             try {
-                val montant = state.montant.toDoubleOrNull() 
+                val montant = state.montant.toDoubleOrNull()?.div(100.0)
                     ?: throw Exception("Montant invalide")
                 
                 val compte = state.compteSelectionne 

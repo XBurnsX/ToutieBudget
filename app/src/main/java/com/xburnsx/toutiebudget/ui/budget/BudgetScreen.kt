@@ -9,17 +9,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 
@@ -27,9 +30,11 @@ import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 @Composable
 fun BudgetScreen(
     viewModel: BudgetViewModel,
-    onCategoriesClick: (() -> Unit)? = null
+    onCategoriesClick: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = Color(0xFF121212),
@@ -40,6 +45,12 @@ fun BudgetScreen(
                 actions = {
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {
                         Icon(Icons.Default.Category, contentDescription = "Catégories", tint = Color.White)
+                    }
+                    IconButton(onClick = {
+                        PocketBaseClient.deconnecter(context)
+                        onLogout?.invoke()
+                    }) {
+                        Icon(Icons.Default.Logout, contentDescription = "Déconnexion", tint = Color.White)
                     }
                 }
             )
