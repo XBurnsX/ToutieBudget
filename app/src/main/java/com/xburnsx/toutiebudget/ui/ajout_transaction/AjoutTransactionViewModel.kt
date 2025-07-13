@@ -15,6 +15,7 @@ import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import java.util.Calendar
 import java.util.Date
 
@@ -318,6 +319,8 @@ class AjoutTransactionViewModel(
                 
                 if (result.isSuccess) {
                     _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+                    // Émettre l’événement global de rafraîchissement du budget
+                    BudgetEvents.refreshBudget.tryEmit(Unit)
                     // Réinitialiser le formulaire après succès
                     _uiState.update { 
                         AjoutTransactionUiState(

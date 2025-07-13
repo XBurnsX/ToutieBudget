@@ -12,10 +12,12 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -42,6 +44,12 @@ class BudgetViewModel(
                 chargerDonneesBudget(Date())
             }.onFailure { e ->
                 _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
+                chargerDonneesBudget(Date())
+            }
+        }
+        // Abonnement à l’event bus pour rafraîchir le budget
+        viewModelScope.launch {
+            BudgetEvents.refreshBudget.collectLatest {
                 chargerDonneesBudget(Date())
             }
         }
