@@ -107,7 +107,8 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                             viewModel.onMontantChanged(nouveauMontant.toString())
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        libelle = "Montant de la transaction"
+                        libelle = "Montant de la transaction",
+                        couleurMontant = obtenirCouleurMontant(uiState)
                     )
 
                     // 3. Sélecteur de compte
@@ -222,6 +223,37 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Obtient la couleur du montant selon le mode et type de transaction sélectionnés.
+ */
+private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
+    return when (uiState.modeOperation) {
+        "Standard" -> {
+            when (uiState.typeTransaction) {
+                TypeTransaction.Depense -> Color(0xFFEF4444) // Rouge pour dépense
+                TypeTransaction.Revenu -> Color(0xFF10B981) // Vert pour revenu
+                else -> Color(0xFF10B981) // Vert par défaut
+            }
+        }
+        "Prêt" -> {
+            when (uiState.typePret) {
+                "Prêt accordé" -> Color(0xFFEF4444) // Rouge pour prêt accordé
+                "Remboursement reçu" -> Color(0xFF10B981) // Vert pour remboursement reçu
+                else -> Color(0xFF10B981) // Vert par défaut
+            }
+        }
+        "Dette" -> {
+            when (uiState.typeDette) {
+                "Dette contractée" -> Color(0xFF10B981) // Vert pour dette contractée
+                "Remboursement donné" -> Color(0xFFEF4444) // Rouge pour remboursement donné
+                else -> Color(0xFF10B981) // Vert par défaut
+            }
+        }
+        "Paiement" -> Color(0xFFEF4444) // Rouge pour paiement
+        else -> Color(0xFF10B981) // Vert par défaut
     }
 }
 
