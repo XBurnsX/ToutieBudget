@@ -31,8 +31,15 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
+fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSuccess: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Détecter le succès de la transaction
+    LaunchedEffect(uiState.transactionReussie) {
+        if (uiState.transactionReussie) {
+            onTransactionSuccess()
+        }
+    }
 
     Scaffold(
         topBar = {

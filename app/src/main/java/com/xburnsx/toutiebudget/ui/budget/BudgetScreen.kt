@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,16 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
+import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,12 +46,18 @@ fun BudgetScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var moisSelectionne by remember { mutableStateOf(Date()) }
 
     Scaffold(
         containerColor = Color(0xFF121212),
         topBar = {
             TopAppBar(
-                title = { Text("Budget", fontWeight = FontWeight.Bold) },
+                title = {
+                    SelecteurMoisAnnee(moisSelectionne = moisSelectionne) {
+                        moisSelectionne = it
+                        viewModel.chargerDonneesBudget(it)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
                 actions = {
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {

@@ -317,6 +317,7 @@ class AjoutTransactionViewModel(
                 )
                 
                 if (result.isSuccess) {
+                    _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
                     // Réinitialiser le formulaire après succès
                     _uiState.update { 
                         AjoutTransactionUiState(
@@ -329,7 +330,7 @@ class AjoutTransactionViewModel(
                     // Recharger les données pour mettre à jour les soldes
                     chargerDonneesInitiales()
                 } else {
-                    throw result.exceptionOrNull() ?: Exception("Erreur lors de la sauvegarde")
+                    _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
                 }
                 
             } catch (e: Exception) {

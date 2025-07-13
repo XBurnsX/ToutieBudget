@@ -127,8 +127,12 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                 )
             }
             composable(Screen.NouvelleTransaction.route) {
+                val budgetViewModel = AppModule.provideBudgetViewModel()
                 val viewModel = AppModule.provideAjoutTransactionViewModel()
-                AjoutTransactionScreen(viewModel = viewModel)
+                AjoutTransactionScreen(
+                    viewModel = viewModel,
+                    onTransactionSuccess = { budgetViewModel.rafraichirDonnees() }
+                )
             }
             composable(Screen.Categories.route) {
                 val viewModel = AppModule.provideCategoriesEnveloppesViewModel()
