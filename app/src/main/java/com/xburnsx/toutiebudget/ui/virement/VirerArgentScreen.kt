@@ -15,10 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import com.xburnsx.toutiebudget.ui.composants_communs.BlocSaisieMontant
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurVirementSheet
-import java.text.NumberFormat
-import java.util.Locale
+import com.xburnsx.toutiebudget.utils.formatToCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,9 +54,8 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
-            val montantDouble = (uiState.montant.toLongOrNull() ?: 0L) / 100.0
             Text(
-                text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(montantDouble),
+                text = formatToCurrency(uiState.montant),
                 fontSize = 52.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Green
@@ -77,25 +75,12 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                     onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) }
                 )
             }
-            ClavierNumerique(onKeyPress = { key ->
-                when (key) {
-                    in "0".."9" -> {
-                        val nouveauMontant = uiState.montant + key
-                        viewModel.onMontantChange(nouveauMontant)
-                    }
-                    "del" -> {
-                        if (uiState.montant.isNotEmpty()) {
-                            viewModel.onMontantChange(uiState.montant.dropLast(1))
-                        }
-                    }
-                    "." -> {
-                        if (!uiState.montant.contains(".")) {
-                            viewModel.onMontantChange(uiState.montant + key)
-                        }
-                    }
-                    else -> {}
+            BlocSaisieMontant(
+                montantInitial = uiState.montant,
+                onTermine = { montant ->
+                    viewModel.onMontantChange(montant)
                 }
-            })
+            )
             Button(
                 onClick = { viewModel.onVirementExecute() },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),

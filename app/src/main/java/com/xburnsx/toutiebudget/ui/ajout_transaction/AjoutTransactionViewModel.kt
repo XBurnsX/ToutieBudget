@@ -85,7 +85,7 @@ class AjoutTransactionViewModel(
 
     /**
      * Gère la saisie sur le clavier numérique.
-     * Construit le montant en centimes pour éviter les erreurs de virgule flottante.
+     * Gère intelligemment le point décimal et les chiffres.
      */
     fun onClavierKeyPress(key: String) {
         _uiState.update { currentState ->
@@ -100,11 +100,14 @@ class AjoutTransactionViewModel(
                     }
                 }
                 "." -> {
-                    // Ignorer le point décimal (on travaille en centimes)
+                    // Ajouter le point décimal seulement s'il n'y en a pas déjà et si ce n'est pas le premier caractère
+                    if (!montantActuel.contains('.') && montantActuel.isNotEmpty()) {
+                        montantActuel += key
+                    }
                 }
                 else -> {
-                    // Ajouter un chiffre (maximum 9 chiffres = 99,999.99$)
-                    if (montantActuel.length < 9) {
+                    // Ajouter un chiffre (maximum 8 chiffres pour éviter les débordements)
+                    if (montantActuel.length < 8) {
                         montantActuel += key
                     }
                 }
@@ -158,6 +161,13 @@ class AjoutTransactionViewModel(
      */
     fun onNoteChanged(note: String) {
         _uiState.update { it.copy(note = note) }
+    }
+
+    /**
+     * Appelé quand l'utilisateur termine la saisie du montant.
+     */
+    fun onMontantTermine(montant: String) {
+        _uiState.update { it.copy(montant = montant) }
     }
 
     /**

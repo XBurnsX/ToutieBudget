@@ -16,9 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
-import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import com.xburnsx.toutiebudget.ui.composants_communs.BlocSaisieMontant
 import com.xburnsx.toutiebudget.ui.composants_communs.EnveloppeDropdownItem
 import com.xburnsx.toutiebudget.ui.composants_communs.SelecteurGenerique
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -28,6 +31,11 @@ import com.xburnsx.toutiebudget.ui.composants_communs.SelecteurGenerique
 @Composable
 fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+
+    println("DEBUG montant affiché: ${uiState.montant}")
+
+    // État pour l'affichage du clavier numérique en modal
+    var showClavier by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -70,10 +78,15 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                     onTypeSelected = viewModel::onTypeTransactionSelected
                 )
 
-                // Affichage du montant en gros
+                // Affichage du montant en gros, cliquable
                 AffichageMontant(
                     valeurEnCentimes = uiState.montant,
-                    typeTransaction = uiState.typeTransaction
+                    typeTransaction = uiState.typeTransaction,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showClavier = true
+                        }
                 )
 
                 // Champ pour le tiers (payé à / reçu de)
@@ -120,16 +133,62 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Boutons d'actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Bouton Fractionner
+                    Button(
+                        onClick = { /* TODO: Implémenter le fractionnement */ },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Text("Fractionner")
+                    }
+
+                    // Bouton Sauvegarder
+                    Button(
+                        onClick = { viewModel.sauvegarderTransaction() },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Sauvegarder")
+                    }
+                }
             }
+        }
+    }
 
-            // Clavier numérique en bas
-            ClavierNumerique(onKeyPress = viewModel::onClavierKeyPress)
-
-            // Boutons d'actions
-            ActionsBoutons(
-                onFractionnerClick = { /* TODO: Implémenter le fractionnement */ },
-                onSauvegarderClick = { viewModel.sauvegarderTransaction() }
-            )
+    // Gestion du clavier numérique en modal bottom sheet
+    if (showClavier) {
+        ModalBottomSheet(
+            onDismissRequest = { showClavier = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                BlocSaisieMontant(
+                    montantInitial = uiState.montant,
+                    onTermine = { montant ->
+                        viewModel.onMontantTermine(montant)
+                        // Ne pas fermer le clavier automatiquement
+                    },
+                    onFermer = {
+                        showClavier = false
+                    }
+                )
+            }
         }
     }
 

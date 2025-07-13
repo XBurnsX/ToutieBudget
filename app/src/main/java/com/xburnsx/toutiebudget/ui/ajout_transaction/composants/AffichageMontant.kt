@@ -9,22 +9,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.text.NumberFormat
-import java.util.Locale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.xburnsx.toutiebudget.utils.formatToCurrency
 
 @Composable
 fun AffichageMontant(
     valeurEnCentimes: String,
-    typeTransaction: String
+    typeTransaction: String,
+    modifier: Modifier = Modifier
 ) {
-    val montantDouble = (valeurEnCentimes.toLongOrNull() ?: 0L) / 100.0
     val couleurMontant = if (typeTransaction == "Dépense") Color.Red else Color.Green
 
     Text(
-        text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(montantDouble),
+        text = formatToCurrency(valeurEnCentimes),
         fontSize = 52.sp,
         fontWeight = FontWeight.Bold,
         color = couleurMontant,
-        modifier = Modifier.padding(vertical = 16.dp)
+        modifier = modifier
+            .padding(vertical = 16.dp)
+            .fillMaxWidth(),
+        textAlign = TextAlign.Center
     )
 }

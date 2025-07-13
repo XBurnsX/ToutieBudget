@@ -133,4 +133,34 @@ class VirerArgentViewModel(
             }
         }
     }
+
+    /**
+     * Gère la saisie sur le clavier numérique.
+     * Gère intelligemment le point décimal et les chiffres.
+     */
+    fun onClavierKeyPress(key: String) {
+        _uiState.update { currentState ->
+            var montantActuel = currentState.montant
+            when (key) {
+                "del" -> {
+                    montantActuel = if (montantActuel.isNotEmpty()) {
+                        montantActuel.dropLast(1)
+                    } else {
+                        ""
+                    }
+                }
+                "." -> {
+                    if (!montantActuel.contains('.') && montantActuel.isNotEmpty()) {
+                        montantActuel += key
+                    }
+                }
+                else -> {
+                    if (montantActuel.length < 8) {
+                        montantActuel += key
+                    }
+                }
+            }
+            currentState.copy(montant = montantActuel)
+        }
+    }
 }
