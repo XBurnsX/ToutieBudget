@@ -16,10 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
-import com.xburnsx.toutiebudget.ui.composants_communs.EnveloppeDropdownItem
-import com.xburnsx.toutiebudget.ui.composants_communs.SelecteurGenerique
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -80,9 +79,10 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                     // Sélecteur de sous-type selon le mode choisi
                     when (uiState.modeOperation) {
                         "Standard" -> {
-                            TypeTransactionSelector(
+                            SelecteurTypeTransaction(
                                 typeSelectionne = uiState.typeTransaction,
-                                onTypeChange = viewModel::onTypeTransactionChanged
+                                onTypeChange = viewModel::onTypeTransactionChanged,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                         "Prêt" -> {
@@ -100,66 +100,36 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         // "Paiement" n'a pas de sous-types
                     }
 
-                    // Champ de montant avec votre clavier original
+                    // 2. Champ de montant avec clavier personnalisé
                     ChampMontantUniversel(
                         montant = uiState.montant.toLongOrNull() ?: 0L,
                         onMontantChange = { nouveauMontant ->
-                            viewModel.onMontantDirectChange(nouveauMontant.toString())
+                            viewModel.onMontantChanged(nouveauMontant.toString())
                         },
-                        libelle = obtenirLibelleMontant(uiState),
-                        nomDialog = obtenirLibelleMontant(uiState),
-                        isMoney = true,
-                        icone = obtenirIconeMontant(uiState),
-                        estObligatoire = true,
-                        tailleMontant = 20.sp,
-                        couleurMontant = obtenirCouleurMontant(uiState)
+                        modifier = Modifier.fillMaxWidth(),
+                        libelle = "Montant de la transaction"
                     )
 
-                    // Sélection du compte
-                    SelecteurGenerique(
-                        options = uiState.comptesDisponibles,
-                        optionSelectionnee = uiState.compteSelectionne,
-                        onSelectionChange = viewModel::onCompteSelected,
-                        libelle = "Compte",
-                        obtenirTextePourOption = { it.nom },
-                        icone = Icons.Default.AccountBalance
+                    // 3. Sélecteur de compte
+                    SelecteurCompte(
+                        comptes = uiState.comptesDisponibles,
+                        compteSelectionne = uiState.compteSelectionne,
+                        onCompteChange = viewModel::onCompteChanged,
+                        modifier = Modifier.fillMaxWidth()
                     )
 
-                    // Champ de tiers (pour Standard/Dépense ET tous les autres modes sauf Standard/Revenu)
-                    val doitAfficherTiers = when (uiState.modeOperation) {
-                        "Standard" -> uiState.typeTransaction == "Dépense"
-                        else -> true
-                    }
-                    
-                    if (doitAfficherTiers) {
-                        val labelTiers = obtenirLabelTiers(uiState)
-                        
-                        ChampTiers(
-                            valeur = uiState.tiers,
-                            onValeurChange = viewModel::onTiersChanged,
-                            libelle = labelTiers
+                    // 4. Sélecteur d'enveloppe (seulement pour les dépenses)
+                    if (uiState.typeTransaction == TypeTransaction.Depense) {
+                        SelecteurEnveloppe(
+                            enveloppes = uiState.enveloppesDisponibles,
+                            enveloppeSelectionnee = uiState.enveloppeSelectionnee,
+                            onEnveloppeChange = viewModel::onEnveloppeChanged,
+                            modifier = Modifier.fillMaxWidth(),
+                            obligatoire = true
                         )
                     }
 
-                    // Sélection de l'enveloppe (uniquement pour les dépenses en mode Standard)
-                    if (uiState.modeOperation == "Standard" && 
-                        uiState.typeTransaction == "Dépense" && 
-                        uiState.enveloppesFiltrees.isNotEmpty()) {
-                        
-                        SelecteurGenerique(
-                            options = uiState.enveloppesFiltrees.values.flatten(),
-                            optionSelectionnee = uiState.enveloppeSelectionnee,
-                            onSelectionChange = viewModel::onEnveloppeSelected,
-                            libelle = "Enveloppe à débiter",
-                            obtenirTextePourOption = { "${it.nom} (${it.solde}$)" },
-                            icone = Icons.Default.Category,
-                            itemComposable = { enveloppe -> 
-                                EnveloppeDropdownItem(enveloppeUi = enveloppe)
-                            }
-                        )
-                    }
-
-                    // Note
+                    // 5. Champ note facultatif
                     ChampNoteTransaction(
                         note = uiState.note,
                         onNoteChange = viewModel::onNoteChanged,
@@ -185,37 +155,68 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Bouton de sauvegarde (gardé comme dans votre version originale)
-                if (!uiState.transactionReussie) {
+                // Bouton de sauvegarde fixé en bas
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
+                            Color(0xFF6366F1)
+                        } else {
+                            Color(0xFF404040)
+                        }
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
                     Button(
-                        onClick = { viewModel.sauvegarderTransaction() },
-                        enabled = uiState.montant.isNotBlank() && 
-                                 uiState.compteSelectionne != null &&
-                                 (uiState.modeOperation != "Standard" || 
-                                  uiState.typeTransaction != "Dépense" || 
-                                  uiState.enveloppeSelectionnee != null),
+                        onClick = viewModel::sauvegarderTransaction,
+                        enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text("💾 Sauvegarder la transaction")
-                    }
-                } else {
-                    // Indication de succès avec bouton pour créer une nouvelle transaction
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "✅ Transaction sauvegardée avec succès !",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = Color.White.copy(alpha = 0.5f)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { viewModel.nouvelleTransaction() }
-                        ) {
-                            Text("➕ Nouvelle transaction")
+                    ) {
+                        if (uiState.estEnTrainDeSauvegarder) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Sauvegarde...",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        } else {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = null
+                                )
+                                Text(
+                                    text = if (uiState.typeTransaction == TypeTransaction.Depense) {
+                                        "Enregistrer la dépense"
+                                    } else {
+                                        "Enregistrer le revenu"
+                                    },
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -224,85 +225,3 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
     }
 }
 
-/**
- * Obtient le libellé du montant selon le mode et type sélectionnés.
- */
-private fun obtenirLibelleMontant(uiState: AjoutTransactionUiState): String {
-    return when (uiState.modeOperation) {
-        "Standard" -> {
-            if (uiState.typeTransaction == "Dépense") "Montant de la dépense"
-            else "Montant du revenu"
-        }
-        "Prêt" -> {
-            if (uiState.typePret == "Prêt accordé") "Montant du prêt accordé"
-            else "Montant du remboursement reçu"
-        }
-        "Dette" -> {
-            if (uiState.typeDette == "Dette contractée") "Montant de la dette contractée"
-            else "Montant du remboursement donné"
-        }
-        "Paiement" -> "Montant du paiement"
-        else -> "Montant"
-    }
-}
-
-/**
- * Obtient l'icône du montant selon le mode et type sélectionnés.
- */
-private fun obtenirIconeMontant(uiState: AjoutTransactionUiState) = when (uiState.modeOperation) {
-    "Standard" -> {
-        if (uiState.typeTransaction == "Dépense") Icons.Default.ShoppingCart
-        else Icons.Default.TrendingUp
-    }
-    "Prêt" -> {
-        if (uiState.typePret == "Prêt accordé") Icons.Default.CallMade
-        else Icons.Default.CallReceived
-    }
-    "Dette" -> {
-        if (uiState.typeDette == "Dette contractée") Icons.Default.CallReceived
-        else Icons.Default.CallMade
-    }
-    "Paiement" -> Icons.Default.Payment
-    else -> Icons.Default.AttachMoney
-}
-
-/**
- * Obtient la couleur du montant selon le mode et type sélectionnés.
- */
-private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
-    return when (uiState.modeOperation) {
-        "Standard" -> {
-            if (uiState.typeTransaction == "Dépense") Color(0xFFE57373)
-            else Color(0xFF81C784)
-        }
-        "Prêt" -> {
-            if (uiState.typePret == "Prêt accordé") Color(0xFFFF8A65)
-            else Color(0xFF81C784)
-        }
-        "Dette" -> {
-            if (uiState.typeDette == "Dette contractée") Color(0xFF81C784)
-            else Color(0xFFE57373)
-        }
-        "Paiement" -> Color(0xFFE57373)
-        else -> Color(0xFF81C784)
-    }
-}
-
-/**
- * Obtient le label du champ tiers selon le mode et type sélectionnés.
- */
-private fun obtenirLabelTiers(uiState: AjoutTransactionUiState): String {
-    return when (uiState.modeOperation) {
-        "Standard" -> "Payé à"
-        "Prêt" -> {
-            if (uiState.typePret == "Prêt accordé") "Prêté à"
-            else "Remboursement de"
-        }
-        "Dette" -> {
-            if (uiState.typeDette == "Dette contractée") "Emprunté à"
-            else "Remboursement à"
-        }
-        "Paiement" -> "Payé à"
-        else -> "Tiers"
-    }
-}

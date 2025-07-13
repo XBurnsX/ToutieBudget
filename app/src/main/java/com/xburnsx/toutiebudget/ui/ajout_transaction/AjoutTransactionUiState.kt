@@ -21,7 +21,7 @@ data class AjoutTransactionUiState(
     
     // --- Modes et types de transaction ---
     val modeOperation: String = "Standard", // Standard, Prêt, Dette, Paiement
-    val typeTransaction: String = "Dépense", // Dépense, Revenu (pour mode Standard)
+    val typeTransaction: TypeTransaction = TypeTransaction.Depense, // Dépense, Revenu (pour mode Standard)
     val typePret: String = "Prêt accordé", // Prêt accordé, Remboursement reçu
     val typeDette: String = "Dette contractée", // Dette contractée, Remboursement donné
     
@@ -54,8 +54,8 @@ data class AjoutTransactionUiState(
         val compteEstSelectionne = compteSelectionne != null
         val enveloppeEstValideOuPasRequise = when (modeOperation) {
             "Standard" -> when (typeTransaction) {
-                "Dépense" -> enveloppeSelectionnee != null
-                "Revenu" -> true
+                TypeTransaction.Depense -> enveloppeSelectionnee != null
+                TypeTransaction.Revenu -> true
                 else -> true
             }
             else -> true // Pas d'enveloppe requise pour les autres modes

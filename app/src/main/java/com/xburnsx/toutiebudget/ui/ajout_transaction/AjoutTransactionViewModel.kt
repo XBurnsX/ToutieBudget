@@ -156,7 +156,7 @@ class AjoutTransactionViewModel(
     /**
      * Met à jour le type de transaction sélectionné (pour mode Standard).
      */
-    fun onTypeTransactionChanged(nouveauType: String) {
+    fun onTypeTransactionChanged(nouveauType: TypeTransaction) {
         _uiState.update { state ->
             state.copy(
                 typeTransaction = nouveauType,
@@ -290,15 +290,15 @@ class AjoutTransactionViewModel(
                     ?: throw Exception("Aucun compte sélectionné")
                 
                 // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
-                val enveloppeId = if (state.typeTransaction == "Depense") {
+                val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
                     state.enveloppeSelectionnee?.id 
                         ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
                 } else {
                     null
                 }
                 
-                // Convertir le type de transaction String vers TypeTransaction
-                val typeTransaction = TypeTransaction.valueOf(state.typeTransaction)
+                // Utiliser directement l'enum TypeTransaction
+                val typeTransaction = state.typeTransaction
                 
                 // Enregistrer la transaction
                 val result = enregistrerTransactionUseCase.executer(
