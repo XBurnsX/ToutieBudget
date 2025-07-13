@@ -91,7 +91,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                                 onTypeChange = viewModel::onTypePretChanged
                             )
                         }
-                        "Dette" -> {
+                        "Emprunt" -> {
                             TypeDetteSelector(
                                 typeSelectionne = uiState.typeDette,
                                 onTypeChange = viewModel::onTypeDetteChanged
@@ -246,7 +246,7 @@ private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
                 else -> Color(0xFF10B981) // Vert par défaut
             }
         }
-        "Dette" -> {
+        "Emprunt" -> {
             when (uiState.typeDette) {
                 "Dette contractée" -> Color(0xFF10B981) // Vert pour dette contractée
                 "Remboursement donné" -> Color(0xFFEF4444) // Rouge pour remboursement donné
