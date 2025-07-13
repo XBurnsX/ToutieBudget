@@ -107,6 +107,9 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                     onCategoriesClick = {
                         bottomBarNavController.navigate(Screen.Categories.route)
                     },
+                    onVirementClick = {
+                        bottomBarNavController.navigate(Screen.VirerArgent.route)
+                    },
                     onLogout = {
                         // Redirige immédiatement vers l'écran de login
                         mainNavController.navigate("login_flow") {

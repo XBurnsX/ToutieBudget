@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,7 +43,8 @@ import androidx.compose.material3.TextButton
 fun BudgetScreen(
     viewModel: BudgetViewModel,
     onCategoriesClick: (() -> Unit)? = null,
-    onLogout: (() -> Unit)? = null
+    onLogout: (() -> Unit)? = null,
+    onVirementClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -60,9 +62,15 @@ fun BudgetScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
                 actions = {
+                    // Icône de virement
+                    IconButton(onClick = { onVirementClick?.invoke() }) {
+                        Icon(Icons.Default.SwapHoriz, contentDescription = "Virement d'argent", tint = Color.White)
+                    }
+                    // Icône des catégories
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {
                         Icon(Icons.Default.Category, contentDescription = "Catégories", tint = Color.White)
                     }
+                    // Icône de déconnexion
                     IconButton(onClick = {
                         PocketBaseClient.deconnecter(context)
                         onLogout?.invoke()
