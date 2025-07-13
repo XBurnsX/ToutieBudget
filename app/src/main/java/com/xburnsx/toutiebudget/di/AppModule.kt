@@ -46,16 +46,16 @@
  
      // ===== NOUVEAU USE CASE POUR LES TRANSACTIONS =====
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy { 
-         EnregistrerTransactionUseCase(enveloppeRepository, argentService) 
+         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository) 
      }
  
      // ===== VIEWMODELS =====
      // CORRECTION : Ordre des paramètres corrigés selon les constructeurs
      private val budgetViewModel: BudgetViewModel by lazy { 
          BudgetViewModel(
-             categorieRepository = categorieRepository,
-             enveloppeRepository = enveloppeRepository, 
              compteRepository = compteRepository,
+             enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository,
              verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
          ) 
      }
@@ -68,14 +68,15 @@
          AjoutTransactionViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase
          ) 
      }
      
      private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { 
          CategoriesEnveloppesViewModel(
-             categorieRepository = categorieRepository,
-             enveloppeRepository = enveloppeRepository
+             enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository
          ) 
      }
      
@@ -83,6 +84,7 @@
          VirerArgentViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository,
              argentService = argentService
          ) 
      }
