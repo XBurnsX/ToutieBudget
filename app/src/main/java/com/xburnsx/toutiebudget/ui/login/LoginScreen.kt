@@ -105,8 +105,10 @@ fun LoginScreen(
         Image(
             painter = painterResource(id = R.drawable.login),
             contentDescription = "Fond de connexion",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            modifier = Modifier
+                .fillMaxSize()
+                .height(IntrinsicSize.Max),
+            contentScale = ContentScale.FillBounds
         )
 
         // Overlay semi-transparent
@@ -236,7 +238,7 @@ fun LoginScreen(
                     modifier = Modifier.padding(12.dp)
                 ) {
                     Text(
-                        text = "🔒 Connexion sécurisée\nGérez votre budget en toute confiance",
+                        text = "🔒 Connexion sécurisée\nGérez votre budget en toute confiance\navec Toutie! Meow!",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.9f),
                         textAlign = TextAlign.Center
