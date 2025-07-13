@@ -61,11 +61,7 @@ fun SelecteurEnveloppe(
                 .fillMaxWidth()
                 .clickable { dialogOuvert = true },
             colors = CardDefaults.cardColors(
-                containerColor = if (enveloppeSelectionnee != null) {
-                    Color(0xFF1F1F1F)
-                } else {
-                    Color(0xFF2D1B69).copy(alpha = 0.3f)
-                }
+                containerColor = Color(0xFF1F1F1F)
             ),
             shape = RoundedCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(
