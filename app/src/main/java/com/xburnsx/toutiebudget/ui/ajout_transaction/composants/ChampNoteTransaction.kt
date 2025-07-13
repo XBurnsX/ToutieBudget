@@ -1,4 +1,4 @@
-// chemin/simule: /ui/ajout_transaction/composants/ChampTiers.kt
+// chemin/simule: /ui/ajout_transaction/composants/ChampNoteTransaction.kt
 // Dépendances: Jetpack Compose, Material3
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
@@ -16,14 +16,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Composant pour saisir le tiers (personne/entité) de la transaction.
+ * Composant pour saisir une note facultative pour la transaction.
  * Utilise un TextField Material3 avec un style adapté au thème sombre.
  */
 @Composable
-fun ChampTiers(
-    valeur: String,
-    onValeurChange: (String) -> Unit,
-    libelle: String,
+fun ChampNoteTransaction(
+    note: String,
+    onNoteChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -31,7 +30,7 @@ fun ChampTiers(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = libelle,
+            text = "Note (facultatif)",
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             color = Color.White,
@@ -39,12 +38,12 @@ fun ChampTiers(
         )
         
         OutlinedTextField(
-            value = valeur,
-            onValueChange = onValeurChange,
+            value = note,
+            onValueChange = onNoteChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = {
                 Text(
-                    text = "Ex: Jean Dupont, Metro, Banque...",
+                    text = "Ex: Épicerie Metro, Essence, Restaurant...",
                     color = Color.White.copy(alpha = 0.5f)
                 )
             },
@@ -58,17 +57,27 @@ fun ChampTiers(
                 unfocusedContainerColor = Color(0xFF1F1F1F),
                 cursorColor = Color(0xFF6366F1)
             ),
-            singleLine = true
+            maxLines = 3,
+            singleLine = false
+        )
+        
+        // Compteur de caractères
+        Text(
+            text = "${note.length}/200",
+            fontSize = 12.sp,
+            color = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 4.dp)
         )
     }
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable
-private fun PreviewChampTiers() {
-    ChampTiers(
-        valeur = "Metro",
-        onValeurChange = { },
-        libelle = "Payé à"
+private fun PreviewChampNoteTransaction() {
+    ChampNoteTransaction(
+        note = "Épicerie Metro - Courses de la semaine",
+        onNoteChange = { }
     )
 }

@@ -1,4 +1,6 @@
 // chemin/simule: /ui/historique/HistoriqueCompteViewModel.kt
+// Dépendances: ViewModel, SavedStateHandle, Repositories, Coroutines
+
 package com.xburnsx.toutiebudget.ui.historique
 
 import androidx.lifecycle.SavedStateHandle
@@ -13,6 +15,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Date
 
+/**
+ * ViewModel pour l'écran d'historique des transactions d'un compte.
+ * Charge et affiche les transactions associées à un compte spécifique.
+ */
 class HistoriqueCompteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
@@ -35,14 +41,28 @@ class HistoriqueCompteViewModel(
         }
     }
 
+    /**
+     * Charge les transactions pour un compte spécifique.
+     */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val transactions = transactionRepository.recupererTransactionsPourCompte(compteId, collectionCompte).getOrThrow()
-                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                val allocations = enveloppeRepository.recupererAllocationsPourMois(Date()).getOrThrow()
+                // Récupérer les transactions du compte
+                val resultTransactions = transactionRepository.recupererTransactionsPourCompte(compteId, collectionCompte)
+                if (resultTransactions.isFailure) {
+                    throw resultTransactions.exceptionOrNull() ?: Exception("Erreur lors du chargement des transactions")
+                }
+                
+                val transactions = resultTransactions.getOrNull() ?: emptyList()
+                
+                // Récupérer les enveloppes pour les noms
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull() ?: emptyList()
+                
+                // Récupérer les allocations pour le mois actuel
+                val allocations = enveloppeRepository.recupererAllocationsPourMois(Date()).getOrNull() ?: emptyList()
 
+                // Transformer en TransactionUi
                 val transactionsUi = transactions.map { transaction ->
                     val allocation = allocations.find { it.id == transaction.allocationMensuelleId }
                     val nomEnveloppe = enveloppes.find { it.id == allocation?.enveloppeId }?.nom

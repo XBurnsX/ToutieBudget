@@ -12,6 +12,7 @@ import com.xburnsx.toutiebudget.di.UrlResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -176,25 +177,8 @@ class CompteRepositoryImpl : CompteRepository {
 
     override suspend fun getCompteById(compteId: String, collection: String): Compte? = withContext(Dispatchers.IO) {
         try {
-            val token = client.obtenirToken() ?: return@withContext null
-            val urlBase = UrlResolver.obtenirUrlActive()
-            val requete = Request.Builder()
-                .url("$urlBase/api/collections/$collection/records/$compteId")
-                .addHeader("Authorization", "Bearer $token")
-                .get()
-                .build()
-            httpClient.newCall(requete).execute().use { reponse ->
-                if (!reponse.isSuccessful) return@withContext null
-                val corps = reponse.body!!.string()
-                // Utilise Gson pour désérialiser en fonction de la collection
-                return@withContext when (collection) {
-                    Collections.CHEQUE -> gson.fromJson(corps, CompteCheque::class.java)
-                    Collections.CREDIT -> gson.fromJson(corps, CompteCredit::class.java)
-                    Collections.DETTE -> gson.fromJson(corps, CompteDette::class.java)
-                    Collections.INVESTISSEMENT -> gson.fromJson(corps, CompteInvestissement::class.java)
-                    else -> null
-                }
-            }
+            val result = recupererCompteParId(compteId, collection)
+            result.getOrNull()
         } catch (e: Exception) {
             null
         }
@@ -202,18 +186,107 @@ class CompteRepositoryImpl : CompteRepository {
 
     override suspend fun mettreAJourSolde(compteId: String, collection: String, nouveauSolde: Double) = withContext(Dispatchers.IO) {
         try {
-            val token = client.obtenirToken() ?: return@withContext
+            val token = client.obtenirToken() ?: throw Exception("Token manquant")
             val urlBase = UrlResolver.obtenirUrlActive()
-            val corpsJson = "{\"solde\":$nouveauSolde}" // patch minimal
+
+            val donneesUpdate = mapOf("solde" to nouveauSolde)
+            val corpsRequete = gson.toJson(donneesUpdate)
+
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records/$compteId")
                 .addHeader("Authorization", "Bearer $token")
-                .patch(corpsJson.toRequestBody("application/json".toMediaType()))
+                .addHeader("Content-Type", "application/json")
+                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
                 .build()
-            httpClient.newCall(requete).execute().close()
-        } catch (_: Exception) {
+
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) {
+                    throw Exception("Erreur lors de la mise à jour: ${reponse.code}")
+                }
+            }
+        } catch (e: Exception) {
+            throw e
         }
     }
+
+    // ===== NOUVELLES MÉTHODES POUR LES TRANSACTIONS =====
+
+    override suspend fun mettreAJourSoldeAvecVariation(compteId: String, collectionCompte: String, variationSolde: Double): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+
+        try {
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = UrlResolver.obtenirUrlActive()
+
+            // 1. Récupérer le solde actuel
+            val resultCompte = recupererCompteParId(compteId, collectionCompte)
+            if (resultCompte.isFailure) {
+                throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
+            }
+
+            val compte = resultCompte.getOrNull() 
+                ?: throw Exception("Compte non trouvé")
+
+            // 2. Calculer le nouveau solde
+            val nouveauSolde = compte.solde + variationSolde
+
+            // 3. Préparer les données de mise à jour
+            val donneesUpdate = mapOf("solde" to nouveauSolde)
+            val corpsRequete = gson.toJson(donneesUpdate)
+
+            val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la mise à jour du solde: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun recupererCompteParId(compteId: String, collectionCompte: String): Result<Compte> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = UrlResolver.obtenirUrlActive()
+
+            val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération du compte: ${reponse.code}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val compte = deserialiserCompte(corpsReponse, collectionCompte)
+                ?: throw Exception("Erreur lors de la désérialisation du compte")
+
+            return@withContext Result.success(compte)
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
+    }
+
+    // ===== MÉTHODES UTILITAIRES =====
 
     private fun obtenirCollectionPourCompte(compte: Compte): String {
         return when (compte) {
@@ -221,6 +294,24 @@ class CompteRepositoryImpl : CompteRepository {
             is CompteCredit -> Collections.CREDIT
             is CompteDette -> Collections.DETTE
             is CompteInvestissement -> Collections.INVESTISSEMENT
+            else -> throw Exception("Type de compte non supporté")
+        }
+    }
+
+    /**
+     * Désérialise un compte depuis JSON PocketBase selon sa collection.
+     */
+    private fun deserialiserCompte(json: String, collection: String): Compte? {
+        return try {
+            when (collection) {
+                Collections.CHEQUE -> gson.fromJson(json, CompteCheque::class.java)
+                Collections.CREDIT -> gson.fromJson(json, CompteCredit::class.java)
+                Collections.DETTE -> gson.fromJson(json, CompteDette::class.java)
+                Collections.INVESTISSEMENT -> gson.fromJson(json, CompteInvestissement::class.java)
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 }

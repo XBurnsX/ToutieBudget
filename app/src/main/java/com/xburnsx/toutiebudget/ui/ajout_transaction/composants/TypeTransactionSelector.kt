@@ -6,9 +6,6 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Sélecteur de type de transaction (Dépense/Revenu) pour le mode Standard.
+ * Sélecteur de type de transaction : Dépense ou Revenu.
+ * Affiché uniquement quand le mode "Standard" est sélectionné.
  */
 @Composable
 fun TypeTransactionSelector(
@@ -26,6 +24,11 @@ fun TypeTransactionSelector(
     onTypeChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val types = listOf(
+        "Dépense" to "📤",
+        "Revenu" to "📥"
+    )
+    
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -33,89 +36,50 @@ fun TypeTransactionSelector(
         Text(
             text = "Type de transaction",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Bouton Dépense
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .selectable(
-                        selected = typeSelectionne == "Dépense",
-                        onClick = { onTypeChange("Dépense") }
-                    ),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (typeSelectionne == "Dépense") 
-                        Color(0xFFE57373)  // Rouge clair
-                    else 
-                        Color.White.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
+            types.forEach { (type, emoji) ->
+                val estSelectionne = type == typeSelectionne
+                
+                Card(
                     modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Dépense",
-                        tint = if (typeSelectionne == "Dépense") Color.White else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Dépense",
-                        color = if (typeSelectionne == "Dépense") Color.White else MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (typeSelectionne == "Dépense") FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            }
-            
-            // Bouton Revenu
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .selectable(
-                        selected = typeSelectionne == "Revenu",
-                        onClick = { onTypeChange("Revenu") }
+                        .weight(1f)
+                        .selectable(
+                            selected = estSelectionne,
+                            onClick = { onTypeChange(type) }
+                        ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (estSelectionne) {
+                            if (type == "Dépense") Color(0xFFEF4444) else Color(0xFF10B981)
+                        } else {
+                            Color(0xFF2A2A2A)
+                        }
                     ),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (typeSelectionne == "Revenu") 
-                        Color(0xFF81C784)  // Vert clair
-                    else 
-                        Color.White.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.TrendingUp,
-                        contentDescription = "Revenu",
-                        tint = if (typeSelectionne == "Revenu") Color.White else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Revenu",
-                        color = if (typeSelectionne == "Revenu") Color.White else MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (typeSelectionne == "Revenu") FontWeight.Bold else FontWeight.Normal
-                    )
+                    Column(
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = type,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                 }
             }
         }

@@ -61,4 +61,37 @@ interface EnveloppeRepository {
      * @return Result indiquant le succès ou l'échec
      */
     suspend fun supprimerEnveloppe(id: String): Result<Unit>
+    
+    // ===== NOUVELLES MÉTHODES POUR LES TRANSACTIONS =====
+    
+    /**
+     * Ajoute une dépense à une allocation mensuelle.
+     * Soustrait le montant du solde et l'ajoute aux dépenses.
+     * @param allocationMensuelleId ID de l'allocation mensuelle
+     * @param montantDepense Montant de la dépense
+     * @return Result indiquant le succès ou l'échec
+     */
+    suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit>
+    
+    /**
+     * Récupère une allocation mensuelle spécifique.
+     * @param enveloppeId ID de l'enveloppe
+     * @param mois Premier jour du mois concerné
+     * @return Result contenant l'allocation ou null si non trouvée
+     */
+    suspend fun recupererAllocationMensuelle(enveloppeId: String, mois: Date): Result<AllocationMensuelle?>
+    
+    /**
+     * Crée une nouvelle allocation mensuelle.
+     * @param allocation L'allocation à créer
+     * @return Result contenant l'allocation créée avec son ID
+     */
+    suspend fun creerAllocationMensuelle(allocation: AllocationMensuelle): Result<AllocationMensuelle>
+    
+    /**
+     * Récupère les allocations par mois (alias pour compatibilité).
+     * @param mois Le mois pour lequel récupérer les allocations
+     * @return Result contenant la liste des allocations
+     */
+    suspend fun recupererAllocationsParMois(mois: Date): Result<List<AllocationMensuelle>> = recupererAllocationsPourMois(mois)
 }

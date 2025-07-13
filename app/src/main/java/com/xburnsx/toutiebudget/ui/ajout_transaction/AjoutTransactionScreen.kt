@@ -100,15 +100,15 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         // "Paiement" n'a pas de sous-types
                     }
 
-                    // *** CHAMP DE MONTANT AVEC VOTRE CLAVIER ORIGINAL ***
+                    // Champ de montant avec votre clavier original
                     ChampMontantUniversel(
                         montant = uiState.montant.toLongOrNull() ?: 0L,
                         onMontantChange = { nouveauMontant ->
                             viewModel.onMontantDirectChange(nouveauMontant.toString())
                         },
                         libelle = obtenirLibelleMontant(uiState),
-                        nomDialog = obtenirLibelleMontant(uiState), // Titre de la dialog
-                        isMoney = true, // C'est de l'argent
+                        nomDialog = obtenirLibelleMontant(uiState),
+                        isMoney = true,
                         icone = obtenirIconeMontant(uiState),
                         estObligatoire = true,
                         tailleMontant = 20.sp,
@@ -125,11 +125,10 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         icone = Icons.Default.AccountBalance
                     )
 
-                    // *** CORRECTION 1 : CHAMP TIERS POUR STANDARD/DÉPENSE ***
                     // Champ de tiers (pour Standard/Dépense ET tous les autres modes sauf Standard/Revenu)
                     val doitAfficherTiers = when (uiState.modeOperation) {
-                        "Standard" -> uiState.typeTransaction == "Dépense"  // NOUVEAU : Tiers pour les dépenses
-                        else -> true  // Autres modes gardent le comportement actuel
+                        "Standard" -> uiState.typeTransaction == "Dépense"
+                        else -> true
                     }
                     
                     if (doitAfficherTiers) {
@@ -142,71 +141,85 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         )
                     }
 
-                    // *** CORRECTION 2 : SÉLECTEUR D'ENVELOPPE POUR STANDARD/DÉPENSE ***
                     // Sélection de l'enveloppe (uniquement pour les dépenses en mode Standard)
                     if (uiState.modeOperation == "Standard" && 
                         uiState.typeTransaction == "Dépense" && 
-                        uiState.compteSelectionne != null) {
+                        uiState.enveloppesFiltrees.isNotEmpty()) {
                         
-                        // Affichage des enveloppes groupées par catégorie
-                        if (uiState.enveloppesFiltrees.isNotEmpty()) {
-                            SelecteurEnveloppeAvecCategories(
-                                enveloppesFiltrees = uiState.enveloppesFiltrees,
-                                enveloppeSelectionnee = uiState.enveloppeSelectionnee,
-                                onEnveloppeSelected = viewModel::onEnveloppeSelected,
-                                libelle = "Choisir une enveloppe"
-                            )
-                        } else {
-                            // Message si aucune enveloppe disponible
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                                )
-                            ) {
-                                Text(
-                                    text = "Aucune enveloppe disponible pour ce compte. Créez des enveloppes ou allouez de l'argent.",
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                        SelecteurGenerique(
+                            options = uiState.enveloppesFiltrees.values.flatten(),
+                            optionSelectionnee = uiState.enveloppeSelectionnee,
+                            onSelectionChange = viewModel::onEnveloppeSelected,
+                            libelle = "Enveloppe à débiter",
+                            obtenirTextePourOption = { "${it.nom} (${it.solde}$)" },
+                            icone = Icons.Default.Category,
+                            itemComposable = { enveloppe -> 
+                                EnveloppeDropdownItem(enveloppeUi = enveloppe)
                             }
-                        }
+                        )
                     }
 
-                    // Champ de note optionnel (toujours affiché)
-                    ChampNote(
-                        valeur = uiState.note,
-                        onValeurChange = viewModel::onNoteChanged
+                    // Note
+                    ChampNoteTransaction(
+                        note = uiState.note,
+                        onNoteChange = viewModel::onNoteChanged,
+                        modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Affichage d'erreur si nécessaire
+                    if (uiState.erreur != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Text(
+                                text = uiState.erreur,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Boutons d'actions
-                ActionsBoutons(
-                    onFractionnerClick = { /* TODO: Implémenter le fractionnement */ },
-                    onSauvegarderClick = { viewModel.sauvegarderTransaction() },
-                    estSauvegardeActive = peutSauvegarder(uiState)
-                )
+                // Bouton de sauvegarde (gardé comme dans votre version originale)
+                if (!uiState.transactionReussie) {
+                    Button(
+                        onClick = { viewModel.sauvegarderTransaction() },
+                        enabled = uiState.montant.isNotBlank() && 
+                                 uiState.compteSelectionne != null &&
+                                 (uiState.modeOperation != "Standard" || 
+                                  uiState.typeTransaction != "Dépense" || 
+                                  uiState.enveloppeSelectionnee != null),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text("💾 Sauvegarder la transaction")
+                    }
+                } else {
+                    // Indication de succès avec bouton pour créer une nouvelle transaction
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "✅ Transaction sauvegardée avec succès !",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.nouvelleTransaction() }
+                        ) {
+                            Text("➕ Nouvelle transaction")
+                        }
+                    }
+                }
             }
-        }
-    }
-
-    // Gestion des messages d'erreur
-    if (uiState.erreur != null) {
-        LaunchedEffect(uiState.erreur) {
-            // TODO: Afficher une Snackbar avec l'erreur
-            // snackbarHostState.showSnackbar(uiState.erreur)
-        }
-    }
-
-    // Gestion du succès de transaction
-    if (uiState.transactionReussie) {
-        LaunchedEffect(uiState.transactionReussie) {
-            // Réinitialiser le formulaire après un délai
-            viewModel.reinitialiserFormulaire()
-            // TODO: Afficher un message de succès ou naviguer vers un autre écran
         }
     }
 }
@@ -242,12 +255,12 @@ private fun obtenirIconeMontant(uiState: AjoutTransactionUiState) = when (uiStat
         else Icons.Default.TrendingUp
     }
     "Prêt" -> {
-        if (uiState.typePret == "Prêt accordé") Icons.Default.CallMade  // Flèche sortante
-        else Icons.Default.CallReceived  // Flèche entrante
+        if (uiState.typePret == "Prêt accordé") Icons.Default.CallMade
+        else Icons.Default.CallReceived
     }
     "Dette" -> {
-        if (uiState.typeDette == "Dette contractée") Icons.Default.CallReceived  // Flèche entrante
-        else Icons.Default.CallMade  // Flèche sortante
+        if (uiState.typeDette == "Dette contractée") Icons.Default.CallReceived
+        else Icons.Default.CallMade
     }
     "Paiement" -> Icons.Default.Payment
     else -> Icons.Default.AttachMoney
@@ -259,73 +272,37 @@ private fun obtenirIconeMontant(uiState: AjoutTransactionUiState) = when (uiStat
 private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
     return when (uiState.modeOperation) {
         "Standard" -> {
-            if (uiState.typeTransaction == "Dépense") Color(0xFFE57373) // Rouge
-            else Color(0xFF81C784) // Vert
+            if (uiState.typeTransaction == "Dépense") Color(0xFFE57373)
+            else Color(0xFF81C784)
         }
         "Prêt" -> {
-            if (uiState.typePret == "Prêt accordé") Color(0xFFFF8A65) // Orange (sortie)
-            else Color(0xFF81C784) // Vert (entrée)
+            if (uiState.typePret == "Prêt accordé") Color(0xFFFF8A65)
+            else Color(0xFF81C784)
         }
         "Dette" -> {
-            if (uiState.typeDette == "Dette contractée") Color(0xFF81C784) // Vert (entrée)
-            else Color(0xFFE57373) // Rouge (sortie)
+            if (uiState.typeDette == "Dette contractée") Color(0xFF81C784)
+            else Color(0xFFE57373)
         }
-        "Paiement" -> Color(0xFFE57373) // Rouge (sortie)
-        else -> Color(0xFF81C784) // Vert par défaut
+        "Paiement" -> Color(0xFFE57373)
+        else -> Color(0xFF81C784)
     }
 }
 
 /**
- * *** CORRECTION 3 : LABEL TIERS POUR STANDARD/DÉPENSE ***
  * Obtient le label du champ tiers selon le mode et type sélectionnés.
  */
 private fun obtenirLabelTiers(uiState: AjoutTransactionUiState): String {
     return when (uiState.modeOperation) {
-        "Standard" -> {
-            if (uiState.typeTransaction == "Dépense") "Payé à (lieu/magasin/personne)"
-            else "Reçu de"
-        }
+        "Standard" -> "Payé à"
         "Prêt" -> {
             if (uiState.typePret == "Prêt accordé") "Prêté à"
-            else "Remboursé par"
+            else "Remboursement de"
         }
         "Dette" -> {
             if (uiState.typeDette == "Dette contractée") "Emprunté à"
-            else "Remboursé à"
+            else "Remboursement à"
         }
         "Paiement" -> "Payé à"
-        else -> "Payé à / Reçu de"
-    }
-}
-
-/**
- * *** CORRECTION 4 : VALIDATION POUR STANDARD/DÉPENSE ***
- * Détermine si le bouton sauvegarder peut être activé.
- */
-private fun peutSauvegarder(uiState: AjoutTransactionUiState): Boolean {
-    val montantValide = (uiState.montant.toLongOrNull() ?: 0L) > 0
-    val compteSelectionne = uiState.compteSelectionne != null
-    
-    return when (uiState.modeOperation) {
-        "Standard" -> {
-            if (uiState.typeTransaction == "Dépense") {
-                // CORRECTION : Pour les dépenses, il faut montant + compte + enveloppe + tiers
-                montantValide && compteSelectionne && 
-                uiState.enveloppeSelectionnee != null && 
-                uiState.tiers.isNotBlank()
-            } else {
-                // Pour les revenus, il faut seulement montant + compte
-                montantValide && compteSelectionne
-            }
-        }
-        "Prêt", "Dette" -> {
-            montantValide && compteSelectionne && uiState.tiers.isNotBlank()
-        }
-        "Paiement" -> {
-            montantValide && compteSelectionne && uiState.tiers.isNotBlank()
-        }
-        else -> {
-            montantValide && compteSelectionne
-        }
+        else -> "Tiers"
     }
 }

@@ -24,9 +24,9 @@ fun TypeDetteSelector(
     onTypeChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val typesDette = listOf(
-        "Dette contractée" to "📈",
-        "Remboursement donné" to "📉"
+    val types = listOf(
+        "Dette contractée" to "📥",
+        "Remboursement donné" to "📤"
     )
     
     Column(
@@ -36,15 +36,15 @@ fun TypeDetteSelector(
         Text(
             text = "Type de dette",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            typesDette.forEach { (type, emoji) ->
+            types.forEach { (type, emoji) ->
                 val estSelectionne = type == typeSelectionne
                 
                 Card(
@@ -55,12 +55,13 @@ fun TypeDetteSelector(
                             onClick = { onTypeChange(type) }
                         ),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (estSelectionne) 
-                            MaterialTheme.colorScheme.tertiary 
-                        else 
-                            Color.White.copy(alpha = 0.1f)
+                        containerColor = if (estSelectionne) {
+                            if (type == "Dette contractée") Color(0xFF10B981) else Color(0xFFEF4444)
+                        } else {
+                            Color(0xFF2A2A2A)
+                        }
                     ),
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -72,16 +73,11 @@ fun TypeDetteSelector(
                             text = emoji,
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = type,
-                            color = if (estSelectionne) 
-                                MaterialTheme.colorScheme.onTertiary 
-                            else 
-                                MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 2
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal
                         )
                     }
                 }

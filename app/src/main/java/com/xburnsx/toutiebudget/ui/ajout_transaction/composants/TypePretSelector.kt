@@ -24,9 +24,9 @@ fun TypePretSelector(
     onTypeChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val typesPret = listOf(
-        "Prêt accordé" to "💸",
-        "Remboursement reçu" to "💰"
+    val types = listOf(
+        "Prêt accordé" to "📤",
+        "Remboursement reçu" to "📥"
     )
     
     Column(
@@ -36,15 +36,15 @@ fun TypePretSelector(
         Text(
             text = "Type de prêt",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
         
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            typesPret.forEach { (type, emoji) ->
+            types.forEach { (type, emoji) ->
                 val estSelectionne = type == typeSelectionne
                 
                 Card(
@@ -55,12 +55,13 @@ fun TypePretSelector(
                             onClick = { onTypeChange(type) }
                         ),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (estSelectionne) 
-                            MaterialTheme.colorScheme.secondary 
-                        else 
-                            Color.White.copy(alpha = 0.1f)
+                        containerColor = if (estSelectionne) {
+                            if (type == "Prêt accordé") Color(0xFFFF8A65) else Color(0xFF10B981)
+                        } else {
+                            Color(0xFF2A2A2A)
+                        }
                     ),
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -72,16 +73,11 @@ fun TypePretSelector(
                             text = emoji,
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = type,
-                            color = if (estSelectionne) 
-                                MaterialTheme.colorScheme.onSecondary 
-                            else 
-                                MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 2
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal
                         )
                     }
                 }

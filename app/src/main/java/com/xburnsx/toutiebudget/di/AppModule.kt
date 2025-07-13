@@ -1,4 +1,6 @@
 // chemin/simule: /di/AppModule.kt
+// Dépendances: Tous les repositories, services, use cases et ViewModels
+
 package com.xburnsx.toutiebudget.di
 
 import com.xburnsx.toutiebudget.data.repositories.*
@@ -14,8 +16,13 @@ import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
 import com.xburnsx.toutiebudget.ui.login.LoginViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
 
+/**
+ * Module d'injection de dépendances pour l'application Toutie Budget.
+ * Gère l'instanciation de tous les repositories, services, use cases et ViewModels.
+ */
 object AppModule {
-    // Repositories
+    
+    // ===== REPOSITORIES =====
     private val compteRepository: CompteRepository by lazy { CompteRepositoryImpl() }
     private val enveloppeRepository: EnveloppeRepository by lazy { EnveloppeRepositoryImpl() }
     private val categorieRepository: CategorieRepository by lazy { CategorieRepositoryImpl() }
@@ -23,11 +30,11 @@ object AppModule {
     private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
     private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
 
-    // Services
+    // ===== SERVICES =====
     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository) }
     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
 
-    // Use Cases
+    // ===== USE CASES EXISTANTS =====
     private val enregistrerDepenseUseCase: EnregistrerDepenseUseCase by lazy { EnregistrerDepenseUseCaseImpl(argentService) }
     private val enregistrerRevenuUseCase: EnregistrerRevenuUseCase by lazy { EnregistrerRevenuUseCaseImpl(argentService) }
     private val enregistrerPretAccordeUseCase: EnregistrerPretAccordeUseCase by lazy { EnregistrerPretAccordeUseCaseImpl(argentService) }
@@ -35,7 +42,16 @@ object AppModule {
     private val enregistrerPaiementDetteUseCase: EnregistrerPaiementDetteUseCase by lazy { EnregistrerPaiementDetteUseCaseImpl(argentService) }
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
 
-    // *** ViewModels avec les VRAIS constructeurs selon votre code existant ***
+    // ===== NOUVEAU USE CASE POUR LES TRANSACTIONS =====
+    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
+        EnregistrerTransactionUseCase(
+            transactionRepository = transactionRepository,
+            compteRepository = compteRepository,
+            enveloppeRepository = enveloppeRepository
+        )
+    }
+
+    // ===== VIEWMODELS =====
     private val budgetViewModel: BudgetViewModel by lazy {
         BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
     }
@@ -58,16 +74,13 @@ object AppModule {
         }
     }
     
+    // ===== NOUVEAU VIEWMODEL POUR L'AJOUT DE TRANSACTIONS =====
     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
         AjoutTransactionViewModel(
-            compteRepository,
-            enveloppeRepository,
-            categorieRepository,
-            enregistrerDepenseUseCase,
-            enregistrerRevenuUseCase,
-            enregistrerPretAccordeUseCase,
-            enregistrerDetteContracteeUseCase,
-            enregistrerPaiementDetteUseCase
+            compteRepository = compteRepository,
+            enveloppeRepository = enveloppeRepository,
+            categorieRepository = categorieRepository,
+            enregistrerTransactionUseCase = enregistrerTransactionUseCase
         )
     }
     
@@ -75,7 +88,30 @@ object AppModule {
         VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService) 
     }
 
-    // *** ViewModel Factories avec les VRAIS noms de méthodes ***
+    // ===== PROVIDERS PUBLICS =====
+
+    // Repositories
+    fun provideCompteRepository(): CompteRepository = compteRepository
+    fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
+    fun provideCategorieRepository(): CategorieRepository = categorieRepository
+    fun provideTransactionRepository(): TransactionRepository = transactionRepository
+    fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
+    fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
+
+    // Services
+    fun provideArgentService(): ArgentService = argentService
+    fun provideRolloverService(): RolloverService = rolloverService
+
+    // Use Cases
+    fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
+    fun provideEnregistrerRevenuUseCase(): EnregistrerRevenuUseCase = enregistrerRevenuUseCase
+    fun provideEnregistrerPretAccordeUseCase(): EnregistrerPretAccordeUseCase = enregistrerPretAccordeUseCase
+    fun provideEnregistrerDetteContracteeUseCase(): EnregistrerDetteContracteeUseCase = enregistrerDetteContracteeUseCase
+    fun provideEnregistrerPaiementDetteUseCase(): EnregistrerPaiementDetteUseCase = enregistrerPaiementDetteUseCase
+    fun provideVerifierEtExecuterRolloverUseCase(): VerifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
+    fun provideEnregistrerTransactionUseCase(): EnregistrerTransactionUseCase = enregistrerTransactionUseCase
+
+    // ViewModels
     fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
     fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
     fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
@@ -83,6 +119,9 @@ object AppModule {
     fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
     fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
     
+    /**
+     * Nettoie les singletons (pas nécessaire avec lazy mais gardé pour compatibilité).
+     */
     fun nettoyerSingletons() {
         // Pas besoin de nettoyer car on utilise lazy
     }

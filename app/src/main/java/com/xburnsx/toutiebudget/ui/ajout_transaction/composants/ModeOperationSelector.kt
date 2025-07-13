@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 /**
  * Sélecteur de mode d'opération pour les transactions.
  * Permet de choisir entre Standard, Prêt, Dette et Paiement.
- * Les modes Prêt et Dette ont des sous-types, similaire au mode Standard.
  */
 @Composable
 fun ModesOperationSelector(
@@ -39,7 +38,7 @@ fun ModesOperationSelector(
         Text(
             text = "Type d'opération",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = Color.White,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
@@ -60,9 +59,9 @@ fun ModesOperationSelector(
                         ),
                     colors = CardDefaults.cardColors(
                         containerColor = if (estSelectionne) 
-                            MaterialTheme.colorScheme.primary 
+                            Color(0xFF6366F1)
                         else 
-                            Color.White.copy(alpha = 0.1f)
+                            Color(0xFF2A2A2A)
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -78,10 +77,7 @@ fun ModesOperationSelector(
                         )
                         Text(
                             text = mode,
-                            color = if (estSelectionne) 
-                                MaterialTheme.colorScheme.onPrimary 
-                            else 
-                                MaterialTheme.colorScheme.onSurface,
+                            color = if (estSelectionne) Color.White else Color.White.copy(alpha = 0.7f),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = if (estSelectionne) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 2

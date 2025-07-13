@@ -1,4 +1,6 @@
 // chemin/simule: /data/repositories/impl/TransactionRepositoryImpl.kt
+// Dépendances: PocketBaseClient, Gson, SafeDateAdapter, OkHttp3, Transaction, TypeTransaction
+
 package com.xburnsx.toutiebudget.data.repositories.impl
 
 import com.google.gson.Gson
@@ -7,24 +9,84 @@ import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.net.URLEncoder
-import java.util.Date
-import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaType
+import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+/**
+ * Implémentation du repository des transactions avec PocketBase.
+ * Gère la création, récupération et suppression des transactions.
+ */
 class TransactionRepositoryImpl : TransactionRepository {
     
     private val client = PocketBaseClient
-    private val gson = Gson()
+    private val gson = com.google.gson.GsonBuilder()
+        .registerTypeAdapter(Date::class.java, SafeDateAdapter())
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
     private val httpClient = okhttp3.OkHttpClient()
+    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
     // Noms des collections dans PocketBase
     private object Collections {
         const val TRANSACTIONS = "transactions"
+    }
+
+    override suspend fun creerTransaction(transaction: Transaction): Result<Transaction> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+        
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
+
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            // Préparer les données pour PocketBase
+            val donneesTransaction = mapOf(
+                "utilisateur_id" to utilisateurId,
+                "type" to transaction.type.valeurPocketBase,
+                "montant" to transaction.montant,
+                "date" to dateFormatter.format(transaction.date),
+                "note" to (transaction.note ?: ""),
+                "compte_id" to transaction.compteId,
+                "collection_compte" to transaction.collectionCompte,
+                "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: "")
+            )
+
+            val corpsRequete = gson.toJson(donneesTransaction)
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .post(corpsRequete.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la création de la transaction: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val transactionCreee = deserialiserTransaction(corpsReponse)
+                ?: throw Exception("Erreur lors de la désérialisation de la transaction créée")
+
+            Result.success(transactionCreee)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date): Result<List<Transaction>> = withContext(Dispatchers.IO) {
@@ -34,14 +96,21 @@ class TransactionRepositoryImpl : TransactionRepository {
         
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
 
-            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
+            val dateDebut = dateFormatter.format(debut)
+            val dateFin = dateFormatter.format(fin)
+            
             // Filtre pour ne récupérer que les transactions de l'utilisateur connecté dans la période
-            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId' && date >= '$debut' && date <= '$fin'", "UTF-8")
-            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=100&sort=-date"
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && date >= '$dateDebut' && date <= '$dateFin'", 
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
 
             val requete = Request.Builder()
                 .url(url)
@@ -55,10 +124,9 @@ class TransactionRepositoryImpl : TransactionRepository {
             }
 
             val corpsReponse = reponse.body!!.string()
-            val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Transaction::class.java).type
-            val resultatPagine: ListeResultats<Transaction> = gson.fromJson(corpsReponse, typeReponse)
+            val transactions = deserialiserListeTransactions(corpsReponse)
 
-            Result.success(resultatPagine.items)
+            Result.success(transactions)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -71,14 +139,18 @@ class TransactionRepositoryImpl : TransactionRepository {
         
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
 
-            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
-            // Filtre pour ne récupérer que les transactions du compte spécifié
-            val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId' && compte_id = '$compteId'", "UTF-8")
-            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=100&sort=-date"
+            // Filtre pour récupérer les transactions d'un compte spécifique
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && compte_id = '$compteId' && collection_compte = '$collectionCompte'", 
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
 
             val requete = Request.Builder()
                 .url(url)
@@ -88,45 +160,126 @@ class TransactionRepositoryImpl : TransactionRepository {
 
             val reponse = httpClient.newCall(requete).execute()
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la récupération des transactions: ${reponse.code} ${reponse.body?.string()}")
+                throw Exception("Erreur lors de la récupération des transactions du compte: ${reponse.code} ${reponse.body?.string()}")
             }
 
             val corpsReponse = reponse.body!!.string()
-            val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, Transaction::class.java).type
-            val resultatPagine: ListeResultats<Transaction> = gson.fromJson(corpsReponse, typeReponse)
+            val transactions = deserialiserListeTransactions(corpsReponse)
 
-            Result.success(resultatPagine.items)
+            Result.success(transactions)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun creerTransaction(transaction: Transaction): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun recupererTransactionsParAllocation(allocationId: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.success(emptyList())
+        }
+        
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé pour la création."))
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
 
-            // Injecte l'ID de l'utilisateur dans l'objet transaction
-            val transactionAvecUtilisateur = transaction.copy(utilisateurId = utilisateurId)
-            val corpsJson = gson.toJson(transactionAvecUtilisateur)
-            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
+            // Filtre pour récupérer les transactions d'une allocation spécifique
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && allocation_mensuelle_id = '$allocationId'", 
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
+
             val requete = Request.Builder()
-                .url("$urlBase/api/collections/${Collections.TRANSACTIONS}/records")
+                .url(url)
                 .addHeader("Authorization", "Bearer $token")
-                .post(corpsJson.toRequestBody("application/json".toMediaType()))
+                .get()
                 .build()
 
-            httpClient.newCall(requete).execute().use { reponse ->
-                if (!reponse.isSuccessful) {
-                    return@withContext Result.failure(Exception("Échec de la création: ${reponse.body?.string()}"))
-                }
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération des transactions de l'allocation: ${reponse.code} ${reponse.body?.string()}")
             }
-            
+
+            val corpsReponse = reponse.body!!.string()
+            val transactions = deserialiserListeTransactions(corpsReponse)
+
+            Result.success(transactions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun supprimerTransaction(transactionId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+        
+        try {
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records/$transactionId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .delete()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la suppression de la transaction: ${reponse.code} ${reponse.body?.string()}")
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Désérialise une transaction simple depuis JSON PocketBase.
+     */
+    private fun deserialiserTransaction(json: String): Transaction? {
+        return try {
+            val jsonObject = gson.fromJson(json, com.google.gson.JsonObject::class.java)
+            
+            Transaction(
+                id = jsonObject.get("id")?.asString ?: "",
+                utilisateurId = jsonObject.get("utilisateur_id")?.asString ?: "",
+                type = TypeTransaction.depuisValeurPocketBase(jsonObject.get("type")?.asString),
+                montant = jsonObject.get("montant")?.asDouble ?: 0.0,
+                date = gson.fromJson(jsonObject.get("date"), Date::class.java) ?: Date(),
+                note = jsonObject.get("note")?.asString?.takeIf { it.isNotBlank() },
+                compteId = jsonObject.get("compte_id")?.asString ?: "",
+                collectionCompte = jsonObject.get("collection_compte")?.asString ?: "",
+                allocationMensuelleId = jsonObject.get("allocation_mensuelle_id")?.asString?.takeIf { it.isNotBlank() },
+                created = gson.fromJson(jsonObject.get("created"), Date::class.java),
+                updated = gson.fromJson(jsonObject.get("updated"), Date::class.java)
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Désérialise une liste de transactions depuis JSON PocketBase.
+     */
+    private fun deserialiserListeTransactions(json: String): List<Transaction> {
+        return try {
+            val jsonObject = gson.fromJson(json, com.google.gson.JsonObject::class.java)
+            val itemsArray = jsonObject.getAsJsonArray("items")
+            
+            itemsArray.map { item ->
+                val transactionJson = item.toString()
+                deserialiserTransaction(transactionJson)
+            }.filterNotNull()
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }
