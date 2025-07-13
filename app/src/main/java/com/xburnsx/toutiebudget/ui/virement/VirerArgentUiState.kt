@@ -2,14 +2,14 @@
 package com.xburnsx.toutiebudget.ui.virement
 
 import com.xburnsx.toutiebudget.data.modeles.Compte
-import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 
 sealed class ItemVirement {
     abstract val nom: String
     data class CompteItem(val compte: Compte) : ItemVirement() {
         override val nom: String get() = compte.nom
     }
-    data class EnveloppeItem(val enveloppe: Enveloppe, val solde: Double, val couleurProvenance: String?) : ItemVirement() {
+    data class EnveloppeItem(val enveloppe: EnveloppeUi) : ItemVirement() {
         override val nom: String get() = enveloppe.nom
     }
 }

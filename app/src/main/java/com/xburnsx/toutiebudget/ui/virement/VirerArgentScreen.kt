@@ -19,29 +19,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
-import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurVirementSheet
+import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-
-    // Affichage du sélecteur en bas de page si ouvert
-    if (uiState.selecteurOuvert != SelecteurOuvert.AUCUN) {
-        val (titre, items) = if (uiState.selecteurOuvert == SelecteurOuvert.SOURCE) {
-            "Sélectionner une source" to uiState.sourcesDisponibles
-        } else {
-            "Sélectionner une destination" to uiState.destinationsDisponibles
-        }
-        SelecteurVirementSheet(
-            titre = titre,
-            itemsGroupes = items,
-            onItemSelected = { item ->
-                viewModel.onItemSelected(item)
-            },
-            onDismiss = { viewModel.fermerSelecteur() }
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -82,12 +65,31 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Sélecteur de source
-                ChampSelecteur(
-                    label = "Source (d'où vient l'argent)",
-                    valeur = uiState.sourceSelectionnee?.nom ?: "Sélectionner une source",
-                    icone = Icons.Default.TrendingDown,
-                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) }
+                // Sélecteur de source - MÊME LOGIQUE QUE CELUI DU BAS
+                val sourcesEnveloppes = uiState.destinationsDisponibles
+                    .flatMap { (categorie, items) ->
+                        items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
+                            .map { it.enveloppe }
+                    }
+                    .groupBy { enveloppe ->
+                        // Trouver la catégorie de l'enveloppe
+                        val categorie = uiState.destinationsDisponibles.entries
+                            .find { (_, items) -> 
+                                items.any { item -> 
+                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem && 
+                                    item.enveloppe.id == enveloppe.id 
+                                }
+                            }?.key ?: "Autre"
+                        categorie
+                    }
+                
+                SelecteurEnveloppeVirement(
+                    enveloppes = sourcesEnveloppes,
+                    enveloppeSelectionnee = (uiState.sourceSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
+                    onEnveloppeChange = { enveloppeUi ->
+                        viewModel.onEnveloppeSelected(enveloppeUi, isSource = true)
+                    },
+                    obligatoire = true
                 )
                 
                 // Flèche indicative
@@ -103,12 +105,31 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                     )
                 }
                 
-                // Sélecteur de destination
-                ChampSelecteur(
-                    label = "Destination (où va l'argent)",
-                    valeur = uiState.destinationSelectionnee?.nom ?: "Sélectionner une destination",
-                    icone = Icons.Default.TrendingUp,
-                    onClick = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) }
+                // Sélecteur de destination - CELUI QUI MARCHE
+                val destinationsEnveloppes = uiState.destinationsDisponibles
+                    .flatMap { (categorie, items) ->
+                        items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
+                            .map { it.enveloppe }
+                    }
+                    .groupBy { enveloppe ->
+                        // Trouver la catégorie de l'enveloppe
+                        val categorie = uiState.destinationsDisponibles.entries
+                            .find { (_, items) -> 
+                                items.any { item -> 
+                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem && 
+                                    item.enveloppe.id == enveloppe.id 
+                                }
+                            }?.key ?: "Autre"
+                        categorie
+                    }
+                
+                SelecteurEnveloppeVirement(
+                    enveloppes = destinationsEnveloppes,
+                    enveloppeSelectionnee = (uiState.destinationSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
+                    onEnveloppeChange = { enveloppeUi ->
+                        viewModel.onEnveloppeSelected(enveloppeUi, isSource = false)
+                    },
+                    obligatoire = true
                 )
             }
             
