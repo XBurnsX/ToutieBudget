@@ -120,8 +120,8 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 4. Sélecteur d'enveloppe (seulement pour les dépenses)
-                    if (uiState.typeTransaction == TypeTransaction.Depense) {
+                    // 4. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
+                    if (uiState.modeOperation == "Standard" && uiState.typeTransaction == TypeTransaction.Depense) {
                         SelecteurEnveloppe(
                             enveloppes = uiState.enveloppesFiltrees,
                             enveloppeSelectionnee = uiState.enveloppeSelectionnee,
