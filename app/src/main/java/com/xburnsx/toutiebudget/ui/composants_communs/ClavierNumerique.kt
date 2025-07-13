@@ -238,38 +238,7 @@ private fun ClavierModerneDialog(
                 )
             }
             
-            // Affichage secondaire (comme votre image)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = montantAffiche,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color.White
-                )
-                
-                // Icône de validation rouge (comme votre image)
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFFE74C3C), CircleShape)
-                        .clickable { onFermer() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Valider",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            
+            Spacer(modifier = Modifier.height(20.dp)) // Espacement entre le clavier et les boutons
             // VOTRE clavier avec boutons ronds gris !
             VotreClavierOriginal(onKeyPress = onKeyPress)
             
@@ -278,12 +247,12 @@ private fun ClavierModerneDialog(
             // Boutons Annuler et Valider (comme votre image)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp) // Espacement entre les boutons
             ) {
                 // Bouton Annuler
                 OutlinedButton(
                     onClick = onFermer,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f), // Poids 1 pour le bouton Annuler
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White
                     ),
