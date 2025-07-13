@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,7 +97,7 @@ fun LoginScreen(
         }
     }
 
-    // Interface utilisateur avec image de fond
+    // Interface utilisateur avec image de fond et cartes
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -107,48 +109,142 @@ fun LoginScreen(
             contentScale = ContentScale.Crop
         )
 
-        // Contenu par-dessus l'image
-        Column(
+        // Overlay semi-transparent
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .background(Color.Black.copy(alpha = 0.2f))
+        )
+
+        // Contenu avec cartes
+        Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Bouton de connexion Google
-            GoogleSignInButton(
-                onClick = {
-                    lanceurConnexionGoogle.launch(
-                        GoogleSignIn.getClient(contexte, optionsConnexionGoogle).signInIntent
+            Spacer(modifier = Modifier.weight(0.05f))
+
+            // Titre avec fond semi-transparent pour lisibilité
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Black.copy(alpha = 0.7f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "💰",
+                        style = MaterialTheme.typography.headlineLarge
                     )
-                },
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                    Text(
+                        text = "Toutie Budget",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Votre compagnon financier",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Bouton de connexion Google avec fond
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Transparent
+                )
+            ) {
+                GoogleSignInButton(
+                    onClick = {
+                        lanceurConnexionGoogle.launch(
+                            GoogleSignIn.getClient(contexte, optionsConnexionGoogle).signInIntent
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Se connecter avec Google"
+                )
+            }
+
+            // Affichage de l'erreur, s'il y en a une
+            etatUi.erreur?.let { erreur ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Text(
+                        text = erreur,
+                        color = MaterialTheme.colorScheme.onError,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
 
             // Indicateur de chargement
             if (etatUi.estEnChargement) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.padding(16.dp)
-                )
-                Text(
-                    text = etatUi.messageChargement,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.Black.copy(alpha = 0.7f)
+                    ),
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(20.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+
+                        if (etatUi.messageChargement.isNotBlank()) {
+                            Text(
+                                text = etatUi.messageChargement,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
             }
 
-            // Message d'erreur
-            etatUi.erreur?.let { erreur ->
-                Text(
-                    text = erreur,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Red,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 16.dp)
+            Spacer(modifier = Modifier.weight(0.3f))
+
+            // Note en bas de page
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Black.copy(alpha = 0.5f)
                 )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Text(
+                        text = "🔒 Connexion sécurisée\nGérez votre budget en toute confiance",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
