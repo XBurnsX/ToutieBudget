@@ -1,4 +1,4 @@
-// chemin/simule: /ui/ajout_transaction/composants/ModesOperationSelector.kt
+// chemin/simule: /ui/ajout_transaction/composants/TypePretSelector.kt
 // Dépendances: Jetpack Compose, Material3
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
@@ -15,21 +15,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Sélecteur de mode d'opération pour les transactions.
- * Permet de choisir entre Standard, Prêt, Dette et Paiement.
- * Les modes Prêt et Dette ont des sous-types, similaire au mode Standard.
+ * Sélecteur de type de prêt : Prêt accordé ou Remboursement reçu.
+ * Affiché uniquement quand le mode "Prêt" est sélectionné.
  */
 @Composable
-fun ModesOperationSelector(
-    modeSelectionne: String,
-    onModeChange: (String) -> Unit,
+fun TypePretSelector(
+    typeSelectionne: String,
+    onTypeChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val modes = listOf(
-        "Standard" to "💳",
-        "Prêt" to "🤝", 
-        "Dette" to "📊",
-        "Paiement" to "💰"
+    val typesPret = listOf(
+        "Prêt accordé" to "💸",
+        "Remboursement reçu" to "💰"
     )
     
     Column(
@@ -37,38 +34,37 @@ fun ModesOperationSelector(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Type d'opération",
+            text = "Type de prêt",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         )
         
-        // Ligne principale avec les 4 modes
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            modes.forEach { (mode, emoji) ->
-                val estSelectionne = mode == modeSelectionne
+            typesPret.forEach { (type, emoji) ->
+                val estSelectionne = type == typeSelectionne
                 
                 Card(
                     modifier = Modifier
                         .weight(1f)
                         .selectable(
                             selected = estSelectionne,
-                            onClick = { onModeChange(mode) }
+                            onClick = { onTypeChange(type) }
                         ),
                     colors = CardDefaults.cardColors(
                         containerColor = if (estSelectionne) 
-                            MaterialTheme.colorScheme.primary 
+                            MaterialTheme.colorScheme.secondary 
                         else 
                             Color.White.copy(alpha = 0.1f)
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Column(
                         modifier = Modifier
-                            .padding(8.dp)
+                            .padding(12.dp)
                             .fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -76,10 +72,11 @@ fun ModesOperationSelector(
                             text = emoji,
                             style = MaterialTheme.typography.titleMedium
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = mode,
+                            text = type,
                             color = if (estSelectionne) 
-                                MaterialTheme.colorScheme.onPrimary 
+                                MaterialTheme.colorScheme.onSecondary 
                             else 
                                 MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall,

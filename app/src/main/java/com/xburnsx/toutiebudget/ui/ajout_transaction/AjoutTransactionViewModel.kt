@@ -44,6 +44,8 @@ class AjoutTransactionViewModel(
         chargerDonneesInitiales()
     }
 
+    // ===== CHARGEMENT DES DONNÉES =====
+
     /**
      * Charge les comptes, enveloppes et allocations depuis les repositories.
      */
@@ -83,9 +85,21 @@ class AjoutTransactionViewModel(
         }
     }
 
+    // ===== GESTION DU MONTANT =====
+
     /**
-     * Gère la saisie sur le clavier numérique.
-     * Gère intelligemment le point décimal et les chiffres.
+     * Gère les changements de montant directs depuis le composant ChampArgent.
+     * Le montant est déjà en centimes, pas besoin de conversion.
+     */
+    fun onMontantDirectChange(montantEnCentimes: String) {
+        _uiState.update { currentState ->
+            currentState.copy(montant = montantEnCentimes)
+        }
+    }
+
+    /**
+     * Gère la saisie sur le clavier numérique (conservé pour compatibilité).
+     * Construit le montant en centimes pour éviter les erreurs de virgule flottante.
      */
     fun onClavierKeyPress(key: String) {
         _uiState.update { currentState ->
@@ -100,14 +114,11 @@ class AjoutTransactionViewModel(
                     }
                 }
                 "." -> {
-                    // Ajouter le point décimal seulement s'il n'y en a pas déjà et si ce n'est pas le premier caractère
-                    if (!montantActuel.contains('.') && montantActuel.isNotEmpty()) {
-                        montantActuel += key
-                    }
+                    // Ignorer le point décimal (on travaille en centimes)
                 }
                 else -> {
-                    // Ajouter un chiffre (maximum 8 chiffres pour éviter les débordements)
-                    if (montantActuel.length < 8) {
+                    // Ajouter un chiffre (maximum 9 chiffres = 99,999.99$)
+                    if (montantActuel.length < 9) {
                         montantActuel += key
                     }
                 }
@@ -115,6 +126,59 @@ class AjoutTransactionViewModel(
             currentState.copy(montant = montantActuel)
         }
     }
+
+    // ===== GESTION DES MODES ET TYPES =====
+
+    /**
+     * Change le mode d'opération (Standard, Prêt, Dette, Paiement).
+     */
+    fun onModeOperationChanged(nouveauMode: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                modeOperation = nouveauMode,
+                // Réinitialiser certains champs selon le mode
+                enveloppeSelectionnee = null,
+                tiers = if (nouveauMode == "Standard") "" else currentState.tiers
+            )
+        }
+    }
+
+    /**
+     * Change le type de transaction (Dépense/Revenu) pour le mode Standard.
+     */
+    fun onTypeTransactionChanged(nouveauType: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                typeTransaction = nouveauType,
+                enveloppeSelectionnee = null  // Réinitialiser l'enveloppe
+            )
+        }
+        
+        // Recharger les enveloppes si un compte est sélectionné
+        _uiState.value.compteSelectionne?.let { compte ->
+            mettreAJourEnveloppesFiltrees(compte)
+        }
+    }
+
+    /**
+     * Change le type de prêt (Prêt accordé/Remboursement reçu).
+     */
+    fun onTypePretChanged(nouveauType: String) {
+        _uiState.update { currentState ->
+            currentState.copy(typePret = nouveauType)
+        }
+    }
+
+    /**
+     * Change le type de dette (Dette contractée/Remboursement donné).
+     */
+    fun onTypeDetteChanged(nouveauType: String) {
+        _uiState.update { currentState ->
+            currentState.copy(typeDette = nouveauType)
+        }
+    }
+
+    // ===== GESTION DES SÉLECTIONS =====
 
     /**
      * Sélectionne un compte et met à jour les enveloppes disponibles.
@@ -132,61 +196,35 @@ class AjoutTransactionViewModel(
     }
 
     /**
-     * Change le mode d'opération (Standard, Prêt, Dette, Remboursement).
+     * Modifie le champ tiers (payé à / reçu de).
      */
-    fun onModeOperationSelected(mode: String) {
-        _uiState.update { it.copy(modeOperation = mode) }
-    }
-
-    /**
-     * Change le type de transaction (Dépense/Revenu).
-     */
-    fun onTypeTransactionSelected(type: String) {
-        _uiState.update { it.copy(typeTransaction = type) }
-        // Réinitialiser l'enveloppe sélectionnée si on passe en mode Revenu
-        if (type == "Revenu") {
-            _uiState.update { it.copy(enveloppeSelectionnee = null) }
+    fun onTiersChanged(nouveauTiers: String) {
+        _uiState.update { currentState ->
+            currentState.copy(tiers = nouveauTiers)
         }
     }
 
     /**
-     * Met à jour le champ tiers (payé à / reçu de).
+     * Modifie le champ note.
      */
-    fun onTiersChanged(tiers: String) {
-        _uiState.update { it.copy(tiers = tiers) }
-    }
-
-    /**
-     * Met à jour le champ note optionnel.
-     */
-    fun onNoteChanged(note: String) {
-        _uiState.update { it.copy(note = note) }
-    }
-
-    /**
-     * Appelé quand l'utilisateur termine la saisie du montant.
-     */
-    fun onMontantTermine(montant: String) {
-        _uiState.update { it.copy(montant = montant) }
-    }
-
-    /**
-     * Filtre les enveloppes selon le compte sélectionné.
-     * Affiche seulement les enveloppes vides ou compatibles avec ce compte.
-     */
-    private fun mettreAJourEnveloppesFiltrees(compteSelectionne: Compte?) {
-        if (compteSelectionne == null) {
-            _uiState.update { it.copy(enveloppesFiltrees = emptyMap()) }
-            return
+    fun onNoteChanged(nouvelleNote: String) {
+        _uiState.update { currentState ->
+            currentState.copy(note = nouvelleNote)
         }
+    }
 
-        // Créer les EnveloppeUi avec leurs statuts
+    // ===== LOGIQUE MÉTIER =====
+
+    /**
+     * Met à jour la liste des enveloppes disponibles selon le compte sélectionné.
+     * Filtre les enveloppes vides OU celles qui contiennent de l'argent du même compte.
+     */
+    private fun mettreAJourEnveloppesFiltrees(compteSelectionne: Compte) {
         val enveloppesUi = allEnveloppes.map { enveloppe ->
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             val compteSource = allocation?.compteSourceId?.let { id ->
                 allComptes.find { it.id == id }
             }
-
             val solde = allocation?.solde ?: 0.0
             val objectif = enveloppe.objectifMontant
 
@@ -224,6 +262,8 @@ class AjoutTransactionViewModel(
 
         _uiState.update { it.copy(enveloppesFiltrees = enveloppesGroupees) }
     }
+
+    // ===== SAUVEGARDE =====
 
     /**
      * Sauvegarde la transaction selon le mode et type sélectionnés.
@@ -335,5 +375,18 @@ class AjoutTransactionViewModel(
             note = state.note.ifBlank { null },
             tiers = state.tiers.ifBlank { null }
         )
+    }
+
+    // ===== RÉINITIALISATION =====
+
+    /**
+     * Réinitialise le formulaire après une transaction réussie.
+     */
+    fun reinitialiserFormulaire() {
+        _uiState.update {
+            AjoutTransactionUiState(
+                comptesDisponibles = allComptes
+            )
+        }
     }
 }

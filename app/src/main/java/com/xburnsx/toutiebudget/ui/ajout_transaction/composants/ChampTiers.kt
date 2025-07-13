@@ -1,4 +1,6 @@
 // chemin/simule: /ui/ajout_transaction/composants/ChampTiers.kt
+// Dépendances: Jetpack Compose, Material3
+
 package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
 
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,14 +15,26 @@ import androidx.compose.ui.graphics.Color
 fun ChampTiers(
     valeur: String,
     onValeurChange: (String) -> Unit,
+    libelle: String = "Payé à / Reçu de",
     modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
         value = valeur,
         onValueChange = onValeurChange,
         modifier = modifier.fillMaxWidth(),
-        label = { Text("Payé à / Reçu de") },
+        label = { Text(libelle) },
         leadingIcon = { Icon(Icons.Default.Person, "Tiers") },
+        placeholder = { 
+            Text(
+                when (libelle) {
+                    "Prêté à" -> "Ex: Katherine"
+                    "Remboursé par" -> "Ex: Katherine"
+                    "Emprunté à" -> "Ex: Papa"
+                    "Remboursé à" -> "Ex: Papa"
+                    else -> "Nom de la personne"
+                }
+            ) 
+        },
         singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,

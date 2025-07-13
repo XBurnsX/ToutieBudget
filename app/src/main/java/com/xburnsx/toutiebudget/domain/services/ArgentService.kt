@@ -65,4 +65,40 @@ interface ArgentService {
         collectionCompteDest: String,
         montant: Double
     ): Result<Unit>
+
+    /**
+     * Effectue un virement d'un compte vers un autre compte.
+     */
+    suspend fun effectuerVirementCompteVersCompte(
+        compteSource: com.xburnsx.toutiebudget.data.modeles.Compte,
+        compteDestination: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit>
+
+    /**
+     * Effectue un virement d'un compte vers une enveloppe.
+     */
+    suspend fun effectuerVirementCompteVersEnveloppe(
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        montant: Double
+    ): Result<Unit>
+
+    /**
+     * Effectue un virement d'une enveloppe vers un compte.
+     */
+    suspend fun effectuerVirementEnveloppeVersCompte(
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit>
+
+    /**
+     * Effectue un virement d'une enveloppe vers une autre enveloppe.
+     */
+    suspend fun effectuerVirementEnveloppeVersEnveloppe(
+        enveloppeSource: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        enveloppeDestination: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        montant: Double
+    ): Result<Unit>
 }

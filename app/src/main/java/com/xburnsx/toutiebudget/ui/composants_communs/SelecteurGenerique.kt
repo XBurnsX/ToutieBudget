@@ -1,10 +1,10 @@
+// chemin/simule: /ui/composants_communs/SelecteurGenerique.kt
+// Dépendances: Jetpack Compose, Material3
+
 package com.xburnsx.toutiebudget.ui.composants_communs
 
-import androidx.compose.foundation.layout.padding
-
-// chemin/simule: /ui/composants_communs/SelecteurGenerique.kt
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -12,66 +12,74 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
+/**
+ * Composant générique pour la sélection d'options avec dropdown.
+ * Peut être utilisé pour les comptes, enveloppes, etc.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> SelecteurGenerique(
-    label: String,
-    icone: ImageVector,
-    itemsGroupes: Map<String, List<T>>,
-    itemSelectionne: T?,
-    onItemSelected: (T) -> Unit,
-    itemToString: (T) -> String,
-    enabled: Boolean = true,
-    customItemContent: @Composable (T) -> Unit
+    options: List<T>,
+    optionSelectionnee: T?,
+    onSelectionChange: (T) -> Unit,
+    libelle: String,
+    obtenirTextePourOption: (T) -> String,
+    icone: ImageVector? = null,
+    itemComposable: (@Composable (T) -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { if (enabled) expanded = !expanded }
-    ) {
-        OutlinedTextField(
-            value = if (itemSelectionne != null) itemToString(itemSelectionne) else "",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-            label = { Text(label) },
-            leadingIcon = { Icon(imageVector = icone, contentDescription = label) },
-            trailingIcon = { if (enabled) ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                cursorColor = MaterialTheme.colorScheme.primary,
-                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                focusedContainerColor = Color.White.copy(alpha = 0.05f),
-                disabledTextColor = Color.Gray,
-                disabledLabelColor = Color.DarkGray,
-                disabledLeadingIconColor = Color.DarkGray
-            )
+    
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Étiquette
+        Text(
+            text = libelle,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
         )
-        if (enabled) {
+        
+        // Menu déroulant
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = optionSelectionnee?.let { obtenirTextePourOption(it) } ?: "Sélectionner...",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(libelle) },
+                leadingIcon = icone?.let { { Icon(it, contentDescription = libelle) } },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f)
+                )
+            )
+            
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                itemsGroupes.forEach { (categorie, items) ->
-                    Text(
-                        text = categorie.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        onClick = {
+                            onSelectionChange(option)
+                            expanded = false
+                        },
+                        text = {
+                            if (itemComposable != null) {
+                                itemComposable(option)
+                            } else {
+                                Text(obtenirTextePourOption(option))
+                            }
+                        }
                     )
-                    items.forEach { item ->
-                        DropdownMenuItem(
-                            text = { customItemContent(item) },
-                            onClick = {
-                                onItemSelected(item)
-                                expanded = false
-                            },
-                            contentPadding = PaddingValues(0.dp)
-                        )
-                    }
                 }
             }
         }

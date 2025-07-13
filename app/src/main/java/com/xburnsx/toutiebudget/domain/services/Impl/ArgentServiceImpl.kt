@@ -223,4 +223,193 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transactionSource)
         transactionRepository.creerTransaction(transactionDest)
     }
+
+    override suspend fun effectuerVirementCompteVersCompte(
+        compteSource: com.xburnsx.toutiebudget.data.modeles.Compte,
+        compteDestination: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        
+        if (compteSource.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte source.")
+        }
+        
+        // Mettre à jour les soldes
+        val nouveauSoldeSource = compteSource.solde - montant
+        val nouveauSoldeDest = compteDestination.solde + montant
+        
+        compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, nouveauSoldeSource)
+        compteRepository.mettreAJourSolde(compteDestination.id, compteDestination.collection, nouveauSoldeDest)
+        
+        // Créer les transactions
+        val transactionSource = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = compteSource.utilisateurId,
+            type = TypeTransaction.Pret,
+            montant = montant,
+            date = Date(),
+            compteId = compteSource.id,
+            collectionCompte = compteSource.collection,
+            allocationMensuelleId = null,
+            note = "Virement vers ${compteDestination.nom}"
+        )
+        
+        val transactionDest = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = compteDestination.utilisateurId,
+            type = TypeTransaction.Emprunt,
+            montant = montant,
+            date = Date(),
+            compteId = compteDestination.id,
+            collectionCompte = compteDestination.collection,
+            allocationMensuelleId = null,
+            note = "Virement depuis ${compteSource.nom}"
+        )
+        
+        transactionRepository.creerTransaction(transactionSource)
+        transactionRepository.creerTransaction(transactionDest)
+    }
+
+    override suspend fun effectuerVirementCompteVersEnveloppe(
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        
+        if (compte.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte source.")
+        }
+        
+        // Mettre à jour le solde du compte
+        val nouveauSoldeCompte = compte.solde - montant
+        compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
+        
+        // Créer une allocation mensuelle pour l'enveloppe
+        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+            enveloppeId = enveloppe.id,
+            mois = Date()
+        )
+        
+        // Mettre à jour l'allocation
+        val nouveauSoldeAllocation = allocation.solde + montant
+        val nouvelleAllocation = allocation.copy(
+            solde = nouveauSoldeAllocation,
+            alloue = allocation.alloue + montant,
+            compteSourceId = compte.id,
+            collectionCompteSource = compte.collection
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+        
+        // Créer la transaction
+        val transaction = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = compte.utilisateurId,
+            type = TypeTransaction.Depense,
+            montant = montant,
+            date = Date(),
+            compteId = compte.id,
+            collectionCompte = compte.collection,
+            allocationMensuelleId = allocation.id,
+            note = "Virement vers enveloppe ${enveloppe.nom}"
+        )
+        
+        transactionRepository.creerTransaction(transaction)
+    }
+
+    override suspend fun effectuerVirementEnveloppeVersCompte(
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        
+        // Récupérer l'allocation mensuelle de l'enveloppe
+        val allocation = allocationMensuelleRepository.getAllocationById(enveloppe.id)
+            ?: throw IllegalArgumentException("Aucune allocation trouvée pour l'enveloppe ${enveloppe.nom}")
+        
+        if (allocation.solde < montant) {
+            throw IllegalStateException("Solde insuffisant dans l'enveloppe ${enveloppe.nom}.")
+        }
+        
+        // Mettre à jour le solde du compte
+        val nouveauSoldeCompte = compte.solde + montant
+        compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
+        
+        // Mettre à jour l'allocation
+        val nouveauSoldeAllocation = allocation.solde - montant
+        val nouvelleAllocation = allocation.copy(
+            solde = nouveauSoldeAllocation,
+            depense = allocation.depense + montant
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+        
+        // Créer la transaction
+        val transaction = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = compte.utilisateurId,
+            type = TypeTransaction.Revenu,
+            montant = montant,
+            date = Date(),
+            compteId = compte.id,
+            collectionCompte = compte.collection,
+            allocationMensuelleId = allocation.id,
+            note = "Virement depuis enveloppe ${enveloppe.nom}"
+        )
+        
+        transactionRepository.creerTransaction(transaction)
+    }
+
+    override suspend fun effectuerVirementEnveloppeVersEnveloppe(
+        enveloppeSource: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        enveloppeDestination: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        
+        // Récupérer les allocations mensuelles
+        val allocationSource = allocationMensuelleRepository.getAllocationById(enveloppeSource.id)
+            ?: throw IllegalArgumentException("Aucune allocation trouvée pour l'enveloppe source ${enveloppeSource.nom}")
+        
+        val allocationDest = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+            enveloppeId = enveloppeDestination.id,
+            mois = Date()
+        )
+        
+        if (allocationSource.solde < montant) {
+            throw IllegalStateException("Solde insuffisant dans l'enveloppe source ${enveloppeSource.nom}.")
+        }
+        
+        // Mettre à jour l'allocation source
+        val nouveauSoldeSource = allocationSource.solde - montant
+        val nouvelleAllocationSource = allocationSource.copy(
+            solde = nouveauSoldeSource,
+            depense = allocationSource.depense + montant
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocationSource)
+        
+        // Mettre à jour l'allocation destination
+        val nouveauSoldeDest = allocationDest.solde + montant
+        val nouvelleAllocationDest = allocationDest.copy(
+            solde = nouveauSoldeDest,
+            alloue = allocationDest.alloue + montant
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocationDest)
+        
+        // Créer une transaction fictive pour tracer le virement
+        val transaction = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = enveloppeSource.utilisateurId,
+            type = TypeTransaction.Depense,
+            montant = montant,
+            date = Date(),
+            compteId = "", // Pas de compte impliqué
+            collectionCompte = "",
+            allocationMensuelleId = allocationSource.id,
+            note = "Virement vers enveloppe ${enveloppeDestination.nom}"
+        )
+        
+        transactionRepository.creerTransaction(transaction)
+    }
 }
