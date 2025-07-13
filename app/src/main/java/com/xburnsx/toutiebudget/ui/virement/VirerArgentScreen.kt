@@ -71,6 +71,11 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                         items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
                             .map { it.enveloppe }
                     }
+                    .filter { enveloppe ->
+                        // Cacher l'enveloppe si elle est sélectionnée dans la destination
+                        val destinationEnveloppe = (uiState.destinationSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe
+                        enveloppe.id != destinationEnveloppe?.id
+                    }
                     .groupBy { enveloppe ->
                         // Trouver la catégorie de l'enveloppe
                         val categorie = uiState.destinationsDisponibles.entries
@@ -110,6 +115,11 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                     .flatMap { (categorie, items) ->
                         items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
                             .map { it.enveloppe }
+                    }
+                    .filter { enveloppe ->
+                        // Cacher l'enveloppe si elle est sélectionnée dans la source
+                        val sourceEnveloppe = (uiState.sourceSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe
+                        enveloppe.id != sourceEnveloppe?.id
                     }
                     .groupBy { enveloppe ->
                         // Trouver la catégorie de l'enveloppe
