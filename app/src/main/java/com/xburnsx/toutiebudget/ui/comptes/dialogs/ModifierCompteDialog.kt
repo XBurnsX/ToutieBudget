@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampArgent
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
 
 @Composable
 fun ModifierCompteDialog(
@@ -41,7 +41,7 @@ fun ModifierCompteDialog(
                 )
                 
                 // *** NOUVEAU : Champ argent pour le solde ***
-                ChampArgent(
+                ChampMontantUniversel(
                     montant = soldeEnCentimes.toLong(),
                     onMontantChange = { nouveauMontantEnCentimes ->
                         val nouveauSoldeEnDollars = nouveauMontantEnCentimes / 100.0

@@ -1,5 +1,5 @@
 // chemin/simule: /ui/ajout_transaction/AjoutTransactionScreen.kt
-// Dépendances: Jetpack Compose, ViewModel, Composants communs, ChampArgent
+// Dépendances: Jetpack Compose, ViewModel, Composants communs, ChampMontantUniversel
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampArgent
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
 import com.xburnsx.toutiebudget.ui.composants_communs.EnveloppeDropdownItem
 import com.xburnsx.toutiebudget.ui.composants_communs.SelecteurGenerique
 
@@ -100,18 +100,19 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         // "Paiement" n'a pas de sous-types
                     }
 
-                    // *** CHAMP D'ARGENT UNIVERSEL ***
-                    ChampArgent(
+                    // *** CHAMP DE MONTANT AVEC VOTRE CLAVIER ORIGINAL ***
+                    ChampMontantUniversel(
                         montant = uiState.montant.toLongOrNull() ?: 0L,
                         onMontantChange = { nouveauMontant ->
                             viewModel.onMontantDirectChange(nouveauMontant.toString())
                         },
                         libelle = obtenirLibelleMontant(uiState),
+                        nomDialog = obtenirLibelleMontant(uiState), // Titre de la dialog
+                        isMoney = true, // C'est de l'argent
                         icone = obtenirIconeMontant(uiState),
                         estObligatoire = true,
-                        tailleMontant = 32.sp,  // Gros montant pour bien voir
-                        couleurMontant = obtenirCouleurMontant(uiState),
-                        modifier = Modifier.fillMaxWidth()
+                        tailleMontant = 20.sp,
+                        couleurMontant = obtenirCouleurMontant(uiState)
                     )
 
                     // Sélection du compte
@@ -124,74 +125,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                         icone = Icons.Default.AccountBalance
                     )
 
-                    // Sélection de l'enveloppe (uniquement pour les dépenses en mode Standard)
-                    if (uiState.modeOperation == "Standard" && 
-                        uiState.typeTransaction == "Dépense" && 
-                        uiState.compteSelectionne != null) {
-                        
-                        // Titre des enveloppes
-                        Text(
-                            text = "Enveloppes disponibles",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                        )
-                        
-                        // Affichage des enveloppes groupées par catégorie
-                        uiState.enveloppesFiltrees.forEach { (nomCategorie, enveloppes) ->
-                            if (enveloppes.isNotEmpty()) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    // En-tête de catégorie
-                                    Text(
-                                        text = nomCategorie,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    )
-
-                                    // Liste des enveloppes dans cette catégorie
-                                    SelecteurGenerique(
-                                        options = enveloppes,
-                                        optionSelectionnee = uiState.enveloppeSelectionnee,
-                                        onSelectionChange = viewModel::onEnveloppeSelected,
-                                        libelle = "Choisir une enveloppe",
-                                        obtenirTextePourOption = { it.nom },
-                                        icone = Icons.Default.Folder,
-                                        itemComposable = { enveloppeUi ->
-                                            EnveloppeDropdownItem(enveloppeUi = enveloppeUi)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        
-                        // Message si aucune enveloppe disponible
-                        if (uiState.enveloppesFiltrees.isEmpty() || 
-                            uiState.enveloppesFiltrees.all { it.value.isEmpty() }) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
-                            ) {
-                                Text(
-                                    text = "Aucune enveloppe disponible pour ce compte.\nVeuillez d'abord allouer de l'argent aux enveloppes.",
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
+                    // *** CORRECTION 1 : CHAMP TIERS POUR STANDARD/DÉPENSE ***
+                    // Champ de tiers (pour Standard/Dépense ET tous les autres modes sauf Standard/Revenu)
+                    val doitAfficherTiers = when (uiState.modeOperation) {
+                        "Standard" -> uiState.typeTransaction == "Dépense"  // NOUVEAU : Tiers pour les dépenses
+                        else -> true  // Autres modes gardent le comportement actuel
                     }
-
-                    // Champ de tiers (pour tous les modes sauf Standard)
-                    if (uiState.modeOperation != "Standard") {
+                    
+                    if (doitAfficherTiers) {
                         val labelTiers = obtenirLabelTiers(uiState)
                         
                         ChampTiers(
@@ -199,6 +140,38 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel) {
                             onValeurChange = viewModel::onTiersChanged,
                             libelle = labelTiers
                         )
+                    }
+
+                    // *** CORRECTION 2 : SÉLECTEUR D'ENVELOPPE POUR STANDARD/DÉPENSE ***
+                    // Sélection de l'enveloppe (uniquement pour les dépenses en mode Standard)
+                    if (uiState.modeOperation == "Standard" && 
+                        uiState.typeTransaction == "Dépense" && 
+                        uiState.compteSelectionne != null) {
+                        
+                        // Affichage des enveloppes groupées par catégorie
+                        if (uiState.enveloppesFiltrees.isNotEmpty()) {
+                            SelecteurEnveloppeAvecCategories(
+                                enveloppesFiltrees = uiState.enveloppesFiltrees,
+                                enveloppeSelectionnee = uiState.enveloppeSelectionnee,
+                                onEnveloppeSelected = viewModel::onEnveloppeSelected,
+                                libelle = "Choisir une enveloppe"
+                            )
+                        } else {
+                            // Message si aucune enveloppe disponible
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                )
+                            ) {
+                                Text(
+                                    text = "Aucune enveloppe disponible pour ce compte. Créez des enveloppes ou allouez de l'argent.",
+                                    modifier = Modifier.padding(16.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
                     }
 
                     // Champ de note optionnel (toujours affiché)
@@ -303,10 +276,15 @@ private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
 }
 
 /**
+ * *** CORRECTION 3 : LABEL TIERS POUR STANDARD/DÉPENSE ***
  * Obtient le label du champ tiers selon le mode et type sélectionnés.
  */
 private fun obtenirLabelTiers(uiState: AjoutTransactionUiState): String {
     return when (uiState.modeOperation) {
+        "Standard" -> {
+            if (uiState.typeTransaction == "Dépense") "Payé à (lieu/magasin/personne)"
+            else "Reçu de"
+        }
         "Prêt" -> {
             if (uiState.typePret == "Prêt accordé") "Prêté à"
             else "Remboursé par"
@@ -321,6 +299,7 @@ private fun obtenirLabelTiers(uiState: AjoutTransactionUiState): String {
 }
 
 /**
+ * *** CORRECTION 4 : VALIDATION POUR STANDARD/DÉPENSE ***
  * Détermine si le bouton sauvegarder peut être activé.
  */
 private fun peutSauvegarder(uiState: AjoutTransactionUiState): Boolean {
@@ -330,8 +309,12 @@ private fun peutSauvegarder(uiState: AjoutTransactionUiState): Boolean {
     return when (uiState.modeOperation) {
         "Standard" -> {
             if (uiState.typeTransaction == "Dépense") {
-                montantValide && compteSelectionne && uiState.enveloppeSelectionnee != null
+                // CORRECTION : Pour les dépenses, il faut montant + compte + enveloppe + tiers
+                montantValide && compteSelectionne && 
+                uiState.enveloppeSelectionnee != null && 
+                uiState.tiers.isNotBlank()
             } else {
+                // Pour les revenus, il faut seulement montant + compte
                 montantValide && compteSelectionne
             }
         }

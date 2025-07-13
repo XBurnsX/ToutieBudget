@@ -5,15 +5,16 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
-import com.xburnsx.toutiebudget.data.repositories.CompteRepository
-import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
-import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.usecases.*
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.Date
 
 /**
@@ -34,7 +35,7 @@ class AjoutTransactionViewModel(
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
     val uiState: StateFlow<AjoutTransactionUiState> = _uiState.asStateFlow()
 
-    // Données mise en cache pour éviter les rechargements
+    // Cache des données pour éviter les rechargements
     private var allComptes: List<Compte> = emptyList()
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
@@ -44,10 +45,8 @@ class AjoutTransactionViewModel(
         chargerDonneesInitiales()
     }
 
-    // ===== CHARGEMENT DES DONNÉES =====
-
     /**
-     * Charge les comptes, enveloppes et allocations depuis les repositories.
+     * Charge toutes les données nécessaires au démarrage de l'écran.
      */
     fun chargerDonneesInitiales() {
         viewModelScope.launch {
@@ -131,26 +130,31 @@ class AjoutTransactionViewModel(
 
     /**
      * Change le mode d'opération (Standard, Prêt, Dette, Paiement).
+     * *** CORRECTION : Ne plus vider le champ tiers pour le mode Standard ***
      */
     fun onModeOperationChanged(nouveauMode: String) {
         _uiState.update { currentState ->
             currentState.copy(
                 modeOperation = nouveauMode,
                 // Réinitialiser certains champs selon le mode
-                enveloppeSelectionnee = null,
-                tiers = if (nouveauMode == "Standard") "" else currentState.tiers
+                enveloppeSelectionnee = null
+                // SUPPRIMÉ : tiers = if (nouveauMode == "Standard") "" else currentState.tiers
+                // Le champ tiers est maintenant gardé pour Standard/Dépense
             )
         }
     }
 
     /**
      * Change le type de transaction (Dépense/Revenu) pour le mode Standard.
+     * *** CORRECTION : Vider le tiers seulement pour Standard/Revenu ***
      */
     fun onTypeTransactionChanged(nouveauType: String) {
         _uiState.update { currentState ->
             currentState.copy(
                 typeTransaction = nouveauType,
-                enveloppeSelectionnee = null  // Réinitialiser l'enveloppe
+                enveloppeSelectionnee = null,  // Réinitialiser l'enveloppe
+                // NOUVEAU : Vider le tiers seulement si on passe en "Revenu"
+                tiers = if (nouveauType == "Revenu") "" else currentState.tiers
             )
         }
         
@@ -274,64 +278,46 @@ class AjoutTransactionViewModel(
 
             // Convertir le montant de centimes en dollars
             val montant = (state.montant.toLongOrNull() ?: 0L) / 100.0
-            val compte = state.compteSelectionne
 
-            // Validation de base
-            if (montant <= 0) {
-                _uiState.update {
-                    it.copy(erreur = "Veuillez entrer un montant valide.")
-                }
-                return@launch
-            }
-
-            if (compte == null) {
-                _uiState.update {
-                    it.copy(erreur = "Veuillez sélectionner un compte.")
-                }
-                return@launch
-            }
-
-            // Choisir la bonne action selon le mode
-            val resultat: Result<Unit> = when (state.modeOperation) {
-                "Standard" -> {
-                    if (state.typeTransaction == "Dépense") {
-                        sauvegarderDepense(montant)
-                    } else {
-                        sauvegarderRevenu(montant)
+            try {
+                when (state.modeOperation) {
+                    "Standard" -> {
+                        if (state.typeTransaction == "Dépense") {
+                            sauvegarderDepense(montant)
+                        } else {
+                            sauvegarderRevenu(montant)
+                        }
+                    }
+                    "Prêt" -> {
+                        if (state.typePret == "Prêt accordé") {
+                            sauvegarderPretAccorde(montant)
+                        } else {
+                            sauvegarderRemboursementRecu(montant)
+                        }
+                    }
+                    "Dette" -> {
+                        if (state.typeDette == "Dette contractée") {
+                            sauvegarderDetteContractee(montant)
+                        } else {
+                            sauvegarderRemboursementDonne(montant)
+                        }
+                    }
+                    "Paiement" -> {
+                        sauvegarderPaiement(montant)
                     }
                 }
-                "Prêt" -> {
-                    enregistrerPretAccordeUseCase(montant, compte, compte.collection, state.tiers, state.note)
-                }
-                "Dette" -> {
-                    enregistrerDetteContracteeUseCase(montant, compte, compte.collection, state.tiers, state.note)
-                }
-                "Paiement" -> {
-                    enregistrerPaiementDetteUseCase(montant, compte, compte.collection, state.tiers, state.note)
-                }
-                else -> {
-                    Result.failure(Exception("Type d'opération inconnu: ${state.modeOperation}"))
-                }
-            }
 
-            // Traiter le résultat
-            resultat.onSuccess {
+                _uiState.update { it.copy(transactionReussie = true) }
+            } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        transactionReussie = true,
-                        erreur = null
-                    )
-                }
-            }.onFailure { erreur ->
-                _uiState.update {
-                    it.copy(erreur = erreur.message)
+                    it.copy(erreur = "Erreur lors de la sauvegarde: ${e.message}")
                 }
             }
         }
     }
 
     /**
-     * Sauvegarde une dépense vers une enveloppe.
+     * Sauvegarde une dépense standard avec soustraction de l'enveloppe.
      */
     private suspend fun sauvegarderDepense(montant: Double): Result<Unit> {
         val state = _uiState.value
@@ -377,7 +363,88 @@ class AjoutTransactionViewModel(
         )
     }
 
-    // ===== RÉINITIALISATION =====
+    /**
+     * Sauvegarde un prêt accordé.
+     */
+    private suspend fun sauvegarderPretAccorde(montant: Double): Result<Unit> {
+        val state = _uiState.value
+        val compte = state.compteSelectionne!!
+
+        return enregistrerPretAccordeUseCase(
+            montant = montant,
+            compteSource = compte,
+            collectionCompteSource = compte.collection,
+            tiers = state.tiers,
+            note = state.note.ifBlank { null }
+        )
+    }
+
+    /**
+     * Sauvegarde un remboursement reçu (comme un revenu).
+     */
+    private suspend fun sauvegarderRemboursementRecu(montant: Double): Result<Unit> {
+        val state = _uiState.value
+        val compte = state.compteSelectionne!!
+
+        return enregistrerRevenuUseCase(
+            montant = montant,
+            compteCible = compte,
+            collectionCompteCible = compte.collection,
+            dateTransaction = Date(),
+            note = "Remboursement reçu de ${state.tiers}. ${state.note}".trim(),
+            tiers = state.tiers
+        )
+    }
+
+    /**
+     * Sauvegarde une dette contractée.
+     */
+    private suspend fun sauvegarderDetteContractee(montant: Double): Result<Unit> {
+        val state = _uiState.value
+        val compte = state.compteSelectionne!!
+
+        return enregistrerDetteContracteeUseCase(
+            montant = montant,
+            compteCible = compte,
+            collectionCompteCible = compte.collection,
+            tiers = state.tiers,
+            note = state.note.ifBlank { null }
+        )
+    }
+
+    /**
+     * Sauvegarde un remboursement donné.
+     */
+    private suspend fun sauvegarderRemboursementDonne(montant: Double): Result<Unit> {
+        val state = _uiState.value
+        val compte = state.compteSelectionne!!
+
+        return enregistrerPaiementDetteUseCase(
+            montant = montant,
+            compteSource = compte,
+            collectionCompteSource = compte.collection,
+            tiers = state.tiers,
+            note = state.note.ifBlank { null }
+        )
+    }
+
+    /**
+     * Sauvegarde un paiement.
+     */
+    private suspend fun sauvegarderPaiement(montant: Double): Result<Unit> {
+        val state = _uiState.value
+        val compte = state.compteSelectionne!!
+
+        return enregistrerPaiementDetteUseCase(
+            montant = montant,
+            compteSource = compte,
+            collectionCompteSource = compte.collection,
+            tiers = state.tiers,
+            note = state.note.ifBlank { null }
+        )
+    }
+
+    // ===== UTILITAIRES =====
 
     /**
      * Réinitialise le formulaire après une transaction réussie.
@@ -385,8 +452,16 @@ class AjoutTransactionViewModel(
     fun reinitialiserFormulaire() {
         _uiState.update {
             AjoutTransactionUiState(
-                comptesDisponibles = allComptes
+                comptesDisponibles = allComptes,
+                transactionReussie = false
             )
         }
+    }
+
+    /**
+     * Efface le message d'erreur.
+     */
+    fun effacerErreur() {
+        _uiState.update { it.copy(erreur = null) }
     }
 }

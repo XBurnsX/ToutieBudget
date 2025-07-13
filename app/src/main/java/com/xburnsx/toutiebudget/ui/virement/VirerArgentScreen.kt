@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampArgent
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurVirementSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,7 +66,7 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             
             // *** NOUVEAU : Champ d'argent pour le montant du virement ***
-            ChampArgent(
+            ChampMontantUniversel(
                 montant = uiState.montant.toLongOrNull() ?: 0L,
                 onMontantChange = { nouveauMontantEnCentimes ->
                     viewModel.onMontantChange(nouveauMontantEnCentimes.toString())
@@ -74,7 +74,6 @@ fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
                 libelle = "Montant à virer",
                 icone = Icons.Default.SwapHoriz,
                 estObligatoire = true,
-                couleurFond = Color.White.copy(alpha = 0.1f),
                 modifier = Modifier.fillMaxWidth()
             )
             

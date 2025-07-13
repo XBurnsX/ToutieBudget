@@ -17,7 +17,7 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.ui.categories.ObjectifFormState
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourMois
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourSemaine
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampArgent
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,7 +47,7 @@ fun DefinirObjectifDialog(
                 )
                 
                 // *** NOUVEAU : Champ d'argent pour le montant objectif ***
-                ChampArgent(
+                ChampMontantUniversel(
                     montant = montantEnCentimes.toLong(),
                     onMontantChange = { nouveauMontantEnCentimes ->
                         val nouveauMontantEnDollars = nouveauMontantEnCentimes / 100.0

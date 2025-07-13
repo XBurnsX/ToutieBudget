@@ -1,3 +1,6 @@
+// chemin/simule: /ui/composants_communs/ClavierNumerique.kt
+// Dépendances: Jetpack Compose, Material3, Dialog
+
 package com.xburnsx.toutiebudget.ui.composants_communs
 
 import android.content.res.Configuration
@@ -10,213 +13,441 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
-import com.xburnsx.toutiebudget.utils.formatToCurrency
+import java.text.NumberFormat
+import java.util.Locale
 
-// <<< CONTRÔLE DE LA TAILLE >>>
-private val hauteurBoutonClavier: Dp = 42.dp
-private val policeBoutonClavier: TextUnit = 24.sp
-private val policeAfficheur: TextUnit = 40.sp
-private val espacementVertical: Dp = 8.dp
-private val espacementHorizontal: Dp = 8.dp
-// <<< FIN DU CONTRÔLE >>>
-
+/**
+ * 🎯 COMPOSANT UNIVERSEL POUR TOUS LES CHAMPS DE MONTANT
+ * 
+ * Avec MON clavier moderne que j'avais créé pour AjoutTransaction !
+ * 
+ * @param montant Le montant actuel (en centimes si isMoney=true, valeur normale si isMoney=false)
+ * @param onMontantChange Callback appelé quand le montant change
+ * @param libelle Le texte d'étiquette à afficher
+ * @param nomDialog Le titre à afficher dans la dialog du clavier (optionnel, utilise libelle par défaut)
+ * @param isMoney Si true, traite comme de l'argent (1234 = 12.34$), si false traite comme valeur normale (12 = 12)
+ * @param suffix Suffixe à ajouter après la valeur (ex: "%", " mois", etc.) - ignoré si isMoney=true
+ * @param icone L'icône à afficher (optionnel)
+ * @param estObligatoire Si true, affiche un indicateur visuel d'obligation
+ * @param couleurMontant Couleur du texte du montant (optionnel)
+ * @param tailleMontant Taille du texte du montant (optionnel)
+ * @param modifier Modificateur Compose standard
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BlocSaisieMontant(
-    modifier: Modifier = Modifier,
-    onTermine: (String) -> Unit,
-    montantInitial: String = "",
-    onFermer: (() -> Unit)? = null
+fun ChampMontantUniversel(
+    montant: Long,
+    onMontantChange: (Long) -> Unit,
+    libelle: String,
+    nomDialog: String = libelle, // Valeur par défaut = libelle
+    isMoney: Boolean = true,
+    suffix: String = "",
+    icone: ImageVector = Icons.Default.AttachMoney,
+    estObligatoire: Boolean = false,
+    couleurMontant: Color? = null,
+    tailleMontant: TextUnit? = null,
+    modifier: Modifier = Modifier
 ) {
-    var montant by remember { mutableStateOf(montantInitial) }
-
-    // Synchroniser le montant local avec le montant initial
-    LaunchedEffect(montantInitial) {
-        montant = montantInitial
+    var showDialog by remember { mutableStateOf(false) }
+    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
+    
+    // Formatage selon le type (argent ou valeur normale)
+    val montantAffiche = if (montant > 0) {
+        if (isMoney) {
+            formateurMonetaire.format(montant / 100.0)
+        } else {
+            "$montant$suffix"
+        }
+    } else {
+        if (isMoney) "0,00 $" else "0$suffix"
     }
+    
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Étiquette avec indicateur d'obligation
+        if (libelle.isNotEmpty()) {
+            Text(
+                text = if (estObligatoire) "$libelle *" else libelle,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        
+        // TextField cliquable qui ouvre la dialog
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null // Pas d'effet de ripple sur la Box
+                ) { showDialog = true }
+        ) {
+            OutlinedTextField(
+                value = montantAffiche,
+                onValueChange = { }, // Lecture seule
+                readOnly = true,
+                enabled = false, // Empêche le focus
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(libelle) },
+                leadingIcon = if (icone != null) {
+                    { Icon(icone, contentDescription = libelle) }
+                } else null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledTextColor = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
+                    disabledContainerColor = Color.Transparent
+                ),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = tailleMontant ?: 16.sp,
+                    color = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+    }
+    
+    // Dialog avec MON clavier moderne
+    if (showDialog) {
+        Dialog(onDismissRequest = { showDialog = false }) {
+            ClavierModerneDialog(
+                montantInitial = montant,
+                nomDialog = nomDialog, // ✅ CORRECTION : Passage du paramètre nomDialog
+                isMoney = isMoney,
+                suffix = suffix,
+                onMontantChange = { nouveauMontant ->
+                    onMontantChange(nouveauMontant)
+                },
+                onFermer = { showDialog = false }
+            )
+        }
+    }
+}
 
+/**
+ * Dialog avec VOTRE clavier original que vous voulez !
+ * Affichage en temps réel du montant formaté selon le type (argent ou valeur).
+ */
+@Composable
+private fun ClavierModerneDialog(
+    montantInitial: Long,
+    nomDialog: String,
+    isMoney: Boolean,
+    suffix: String,
+    onMontantChange: (Long) -> Unit,
+    onFermer: () -> Unit
+) {
+    var montantValeur by remember { mutableStateOf(montantInitial) }
+    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
+    
     val onKeyPress = { key: String ->
         val nouveauMontant = when (key) {
-            "del" -> montant.dropLast(1)
-            // La touche "." est maintenant ignorée
-            "." -> montant
-            else -> if (montant.length > 8) montant else if (montant == "0") key else "$montant$key"
+            "del" -> {
+                // Supprimer le dernier chiffre (diviser par 10)
+                if (montantValeur > 0) montantValeur / 10 else 0L
+            }
+            "." -> {
+                // Pour l'argent, ignorer le point (on travaille en centimes)
+                montantValeur
+            }
+            else -> {
+                // Ajouter un chiffre (multiplier par 10 et ajouter)
+                val chiffre = key.toLongOrNull() ?: 0L
+                val limite = if (isMoney) 999999999L else 999999L
+                if (montantValeur < limite) {
+                    montantValeur * 10 + chiffre
+                } else {
+                    montantValeur
+                }
+            }
         }
-        montant = nouveauMontant
-        // Mettre à jour automatiquement le montant
-        onTermine(nouveauMontant)
+        montantValeur = nouveauMontant
+        onMontantChange(nouveauMontant)
     }
 
-    // --- DÉFINITION DES STYLES ---
-    val cardBrush = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF2C2C2C), // Charcoal foncé
-            Color(0xFF1A1A1A)  // Charcoal très foncé
-        )
-    )
-    // --- FIN DES STYLES ---
+    // Formatage selon le type pour l'affichage
+    val montantAffiche = if (isMoney) {
+        formateurMonetaire.format(montantValeur / 100.0)
+    } else {
+        "$montantValeur$suffix"
+    }
 
-    Box {
-        Card(
-            modifier = modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(cardBrush),
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    // VOTRE DESIGN ORIGINAL !
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2E2E2E) // Fond gris foncé comme votre image
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-                // Rangée du haut : Afficheur + Bouton "Fermer" (optionnel)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            // Titre personnalisable (comme "Montant de la dépense")
+            Text(
+                text = nomDialog,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // Barre violette avec le montant (comme votre image)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF6A4C93) // Violet comme votre image
+                )
+            ) {
+                Text(
+                    text = montantAffiche,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
+                )
+            }
+            
+            // Affichage secondaire (comme votre image)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = montantAffiche,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White
+                )
+                
+                // Icône de validation rouge (comme votre image)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(0xFFE74C3C), CircleShape)
+                        .clickable { onFermer() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Afficheur du montant
-                    Text(
-                        text = formatToCurrency(montant),
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Start,
-                        fontSize = policeAfficheur,
-                        fontWeight = FontWeight.Light,
-                        maxLines = 1,
-                        color = Color.White
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Valider",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
-                    
-                    // Bouton Fermer (seulement si onFermer est fourni)
-                    if (onFermer != null) {
-                        Box(
-                            modifier = Modifier
-                                .shadow(elevation = 8.dp, shape = CircleShape, spotColor = MaterialTheme.colorScheme.primary)
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .clickable(onClick = onFermer)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Fermer",
-                                tint = Color.White,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        }
-                    }
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Le clavier numérique
-                ClavierInterne(onKeyPress = onKeyPress)
+            }
+            
+            // VOTRE clavier avec boutons ronds gris !
+            VotreClavierOriginal(onKeyPress = onKeyPress)
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Boutons Annuler et Valider (comme votre image)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Bouton Annuler
+                OutlinedButton(
+                    onClick = onFermer,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                ) {
+                    Text("Annuler")
+                }
+                
+                // Bouton Valider
+                Button(
+                    onClick = onFermer,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE74C3C) // Rouge comme votre image
+                    )
+                ) {
+                    Text("Valider", color = Color.White)
+                }
             }
         }
     }
 }
 
+/**
+ * VOTRE clavier original avec boutons ronds gris comme dans l'image !
+ */
 @Composable
-private fun ClavierInterne(onKeyPress: (String) -> Unit) {
+private fun VotreClavierOriginal(onKeyPress: (String) -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val buttons = listOf(
+    
+    val touches = listOf(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf(".", "0", "del")
+        listOf(".", "0", "⌫") // Utilise le symbole backspace
     )
-
+    
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(espacementVertical)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        buttons.forEach { row ->
+        touches.forEach { rangee ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(espacementHorizontal)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                row.forEach { key ->
-                    val isFunctionKey = key == "." || key == "del"
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(hauteurBoutonClavier)
-                            .clip(CircleShape)
-                            .background(
-                                if (isFunctionKey) Color(0xFF3A3A3A) else Color(0xFF4A4A4A)
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = rememberRipple(bounded = true),
-                                onClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onKeyPress(key)
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (key == "del") {
-                            Icon(
-                                Icons.Default.Backspace,
-                                contentDescription = "Effacer",
-                                tint = Color(0xFFCCCCCC)
-                            )
-                        } else {
-                            Text(
-                                text = key,
-                                fontSize = policeBoutonClavier,
-                                fontWeight = if (isFunctionKey) FontWeight.Normal else FontWeight.Medium,
-                                color = if (isFunctionKey) Color(0xFFCCCCCC) else Color.White
-                            )
-                        }
-                    }
+                rangee.forEach { touche ->
+                    VotreToucheOriginale(
+                        texte = touche,
+                        onPressed = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            // Convertir le symbole backspace en "del"
+                            val key = if (touche == "⌫") "del" else touche
+                            onKeyPress(key)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * VOTRE touche originale - ronde et grise comme dans l'image !
+ */
+@Composable
+private fun VotreToucheOriginale(
+    texte: String,
+    onPressed: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(60.dp) // Taille comme dans votre image
+            .background(
+                Color(0xFF4A4A4A), // Gris comme dans votre image
+                CircleShape
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = rememberRipple(bounded = true),
+                onClick = onPressed
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (texte == "⌫") {
+            Icon(
+                Icons.Default.Backspace,
+                contentDescription = "Effacer",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        } else {
+            Text(
+                text = texte,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
         }
     }
 }
 
 // --- PREVIEWS ---
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Clair")
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Champ Montant avec VOTRE clavier")
 @Composable
-fun BlocSaisieMontantPreview() {
+fun ChampMontantUniverselPreview() {
     ToutieBudgetTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            Box(
-                contentAlignment = Alignment.BottomCenter,
-                modifier = Modifier.padding(16.dp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                BlocSaisieMontant(onTermine = {})
+                ChampMontantUniversel(
+                    montant = 123456L, // 1234.56$
+                    onMontantChange = {},
+                    libelle = "Montant de la dépense",
+                    nomDialog = "Montant de la dépense", // Titre personnalisé
+                    isMoney = true,
+                    estObligatoire = true
+                )
+                
+                ChampMontantUniversel(
+                    montant = 12L, // 12 mois
+                    onMontantChange = {},
+                    libelle = "Durée en mois",
+                    nomDialog = "Durée du prêt", // Titre personnalisé
+                    isMoney = false,
+                    suffix = " mois",
+                    icone = Icons.Default.AttachMoney
+                )
+                
+                ChampMontantUniversel(
+                    montant = 525L, // 525%
+                    onMontantChange = {},
+                    libelle = "Taux d'intérêt",
+                    nomDialog = "Taux d'intérêt annuel", // Titre personnalisé
+                    isMoney = false,
+                    suffix = "%",
+                    icone = Icons.Default.AttachMoney
+                )
             }
         }
     }
 }
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Sombre")
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Dialog MON Clavier")
 @Composable
-fun BlocSaisieMontantDarkPreview() {
+fun ClavierModerneDialogPreview() {
     ToutieBudgetTheme(darkTheme = true) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
-                contentAlignment = Alignment.BottomCenter,
+                contentAlignment = Alignment.Center,
                 modifier = Modifier.padding(16.dp)
             ) {
-                BlocSaisieMontant(onTermine = {})
+                ClavierModerneDialog(
+                    montantInitial = 123456L,
+                    nomDialog = "Montant de la dépense",
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = {},
+                    onFermer = {}
+                )
             }
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +25,7 @@ import java.util.Locale
 
 /**
  * Composant d'affichage d'une enveloppe dans un dropdown/menu déroulant.
+ * Version adaptée pour les thèmes sombres et l'utilisation dans SelecteurGenerique.
  * Affiche le nom, le solde disponible, et la couleur de provenance de l'argent.
  *
  * @param enveloppeUi Les données de l'enveloppe à afficher
@@ -35,14 +37,14 @@ fun EnveloppeDropdownItem(enveloppeUi: EnveloppeUi) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp), // Padding réduit pour dropdown
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Barre colorée de statut à gauche
         Box(
             modifier = Modifier
-                .width(4.dp)
-                .height(40.dp)
+                .width(3.dp) // Plus fine pour dropdown
+                .height(32.dp) // Plus petite pour dropdown  
                 .clip(RoundedCornerShape(2.dp))
                 .background(
                     when (enveloppeUi.statutObjectif) {
@@ -53,23 +55,26 @@ fun EnveloppeDropdownItem(enveloppeUi: EnveloppeUi) {
                 )
         )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp)) // Espacement réduit
 
         // Contenu principal de l'enveloppe
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = enveloppeUi.nom,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                color = Color.Black
+                fontSize = 14.sp, // Police plus petite pour dropdown
+                color = MaterialTheme.colorScheme.onSurface // Adapté au thème
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = "Disponible: ${formateurMonetaire.format(enveloppeUi.solde)}",
-                fontSize = 14.sp,
-                color = if (enveloppeUi.solde > 0) Color.DarkGray else Color.Gray
+                fontSize = 12.sp, // Police plus petite
+                color = if (enveloppeUi.solde > 0) 
+                    MaterialTheme.colorScheme.onSurfaceVariant 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }
 
@@ -77,7 +82,7 @@ fun EnveloppeDropdownItem(enveloppeUi: EnveloppeUi) {
         if (enveloppeUi.couleurProvenance != null) {
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(12.dp) // Plus petite pour dropdown
                     .clip(CircleShape)
                     .background(enveloppeUi.couleurProvenance.toColor())
             )

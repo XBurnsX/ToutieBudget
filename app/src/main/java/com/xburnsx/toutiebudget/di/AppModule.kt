@@ -35,10 +35,11 @@ object AppModule {
     private val enregistrerPaiementDetteUseCase: EnregistrerPaiementDetteUseCase by lazy { EnregistrerPaiementDetteUseCaseImpl(argentService) }
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
 
-    // Singletons pour éviter la recréation et donc le rechargement visible lorsque l'utilisateur change d'onglet.
+    // *** ViewModels avec les VRAIS constructeurs selon votre code existant ***
     private val budgetViewModel: BudgetViewModel by lazy {
         BudgetViewModel(compteRepository, enveloppeRepository, categorieRepository, verifierEtExecuterRolloverUseCase)
     }
+    
     private val comptesViewModel: ComptesViewModel by lazy {
         ComptesViewModel(compteRepository).apply {
             // Configurer la notification au BudgetViewModel quand un compte est créé/modifié
@@ -47,6 +48,7 @@ object AppModule {
             }
         }
     }
+    
     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy {
         CategoriesEnveloppesViewModel(enveloppeRepository, categorieRepository).apply {
             // Configurer la notification au BudgetViewModel quand une enveloppe est créée/modifiée
@@ -55,6 +57,7 @@ object AppModule {
             }
         }
     }
+    
     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
         AjoutTransactionViewModel(
             compteRepository,
@@ -67,13 +70,20 @@ object AppModule {
             enregistrerPaiementDetteUseCase
         )
     }
-    private val virerArgentViewModel: VirerArgentViewModel by lazy { VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService) }
+    
+    private val virerArgentViewModel: VirerArgentViewModel by lazy { 
+        VirerArgentViewModel(compteRepository, enveloppeRepository, categorieRepository, argentService) 
+    }
 
-    // ViewModel Factories
+    // *** ViewModel Factories avec les VRAIS noms de méthodes ***
     fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
     fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
     fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
     fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
     fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
     fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
+    
+    fun nettoyerSingletons() {
+        // Pas besoin de nettoyer car on utilise lazy
+    }
 }
