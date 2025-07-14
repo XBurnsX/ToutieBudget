@@ -149,7 +149,22 @@ fun MainAppScaffold(mainNavController: NavHostController) {
             }
             composable(Screen.VirerArgent.route) {
                 val viewModel = AppModule.provideVirerArgentViewModel()
-                VirerArgentScreen(viewModel = viewModel)
+                val budgetViewModel = AppModule.provideBudgetViewModel()
+                VirerArgentScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = {
+                        println("[DEBUG] 🔄 onNavigateBack appelé dans Navigation.kt")
+                        // Actualiser les données du budget avant de naviguer
+                        println("[DEBUG] 📊 Appel budgetViewModel.rafraichirDonnees()...")
+                        budgetViewModel.rafraichirDonnees()
+                        println("[DEBUG] 🏠 Navigation vers la page budget...")
+                        // Retourner à la page budget
+                        bottomBarNavController.navigate(Screen.Budget.route) {
+                            popUpTo(Screen.Budget.route) { inclusive = true }
+                        }
+                        println("[DEBUG] ✅ Navigation terminée")
+                    }
+                )
             }
         }
     }

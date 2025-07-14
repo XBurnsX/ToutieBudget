@@ -9,10 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,10 +25,45 @@ import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeViremen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VirerArgentScreen(viewModel: VirerArgentViewModel) {
+fun VirerArgentScreen(
+    viewModel: VirerArgentViewModel,
+    onNavigateBack: () -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Afficher message de succès avant navigation
+    androidx.compose.runtime.LaunchedEffect(uiState.virementReussi) {
+        if (uiState.virementReussi) {
+            println("[DEBUG] 🎉 Virement réussi détecté, affichage du message...")
+            snackbarHostState.showSnackbar(
+                message = "✅ Virement effectué avec succès !",
+                duration = SnackbarDuration.Short
+            )
+            println("[DEBUG] 📱 Message affiché, attente de 1.5 secondes...")
+            // Délai pour laisser le temps de voir le message
+            kotlinx.coroutines.delay(1500)
+            println("[DEBUG] 🔄 Appel de onNavigateBack()...")
+            onNavigateBack()
+            println("[DEBUG] ✅ Navigation terminée, reset du flag...")
+            viewModel.resetVirementReussi() // Reset pour éviter la navigation en boucle
+        }
+    }
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                snackbar = { snackbarData ->
+                    Snackbar(
+                        snackbarData = snackbarData,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                        actionColor = Color.White
+                    )
+                }
+            )
+        },
         topBar = {
             TopAppBar(
                 title = { Text("Virer de l'argent", fontWeight = FontWeight.Bold) },

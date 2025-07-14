@@ -391,4 +391,11 @@ class VirerArgentViewModel(
     private fun extraireCompteIdDepuisPretAPlacer(enveloppeId: String): String {
         return enveloppeId.removePrefix("pret_a_placer_")
     }
+
+    /**
+     * Reset le flag de virement réussi pour éviter la navigation en boucle.
+     */
+    fun resetVirementReussi() {
+        _uiState.update { it.copy(virementReussi = false) }
+    }
 }
