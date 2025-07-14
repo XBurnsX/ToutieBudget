@@ -41,4 +41,9 @@ interface AllocationMensuelleRepository {
         compteSourceId: String,
         collectionCompteSource: String
     )
+
+    /**
+     * Crée une nouvelle allocation mensuelle dans PocketBase.
+     */
+    suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle
 }

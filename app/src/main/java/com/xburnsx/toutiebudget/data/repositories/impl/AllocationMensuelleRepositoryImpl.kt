@@ -58,7 +58,6 @@
              val corpsReponse = reponse.body?.string() ?: return@withContext null
              deserialiserAllocation(corpsReponse)
          } catch (e: Exception) {
-             println("[DEBUG] Erreur getAllocationById: ${e.message}")
              null
          }
      }
@@ -81,10 +80,10 @@
                  .addHeader("Authorization", "Bearer $token")
                  .patch(bodyJson.toRequestBody("application/json".toMediaType()))
                  .build()
-                 
+
              httpClient.newCall(requete).execute().close()
          } catch (e: Exception) {
-             println("[DEBUG] Erreur mettreAJourAllocation: ${e.message}")
+
          }
      }
  
@@ -105,7 +104,7 @@
                  
              httpClient.newCall(requete).execute().close()
          } catch (e: Exception) {
-             println("[DEBUG] Erreur mettreAJourAllocation complète: ${e.message}")
+
          }
      }
  
@@ -130,7 +129,7 @@
                  
              httpClient.newCall(requete).execute().close()
          } catch (e: Exception) {
-             println("[DEBUG] Erreur mettreAJourCompteSource: ${e.message}")
+
          }
      }
  
@@ -154,31 +153,24 @@
          }
          val premierJourMois = calendrier.time
  
-         println("[DEBUG] === RECHERCHE/CRÉATION ALLOCATION ===")
-         println("[DEBUG] EnveloppeId: '$enveloppeId'")
-         println("[DEBUG] Mois demandé: $mois")
-         println("[DEBUG] Premier jour calculé: $premierJourMois")
- 
          // 2. Chercher les allocations existantes pour cette enveloppe et ce mois
          val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(enveloppeId, premierJourMois)
          
          when {
              // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
              allocationsExistantes.isEmpty() -> {
-                 println("[DEBUG] Aucune allocation trouvée, création d'une nouvelle")
+
                  creerNouvelleAllocation(enveloppeId, premierJourMois)
              }
              
              // Cas 2: Une seule allocation trouvée -> La retourner
              allocationsExistantes.size == 1 -> {
-                 println("[DEBUG] Une allocation trouvée, utilisation de celle-ci")
+
                  allocationsExistantes.first()
              }
              
              // Cas 3: PROBLÈME - Plusieurs allocations trouvées -> Fusionner et nettoyer
              else -> {
-                 println("[DEBUG] ⚠️ PROBLÈME: ${allocationsExistantes.size} allocations trouvées pour la même enveloppe/mois")
-                 println("[DEBUG] Fusion et nettoyage en cours...")
                  fusionnerEtNettoyerAllocations(allocationsExistantes, enveloppeId, premierJourMois)
              }
          }
@@ -205,7 +197,7 @@
              val filtre = java.net.URLEncoder.encode("enveloppe_id='$enveloppeId' && mois='$moisIso'", "UTF-8")
              val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500"
              
-             println("[DEBUG] URL recherche: $url")
+
  
              val requete = Request.Builder()
                  .url(url)
@@ -222,14 +214,14 @@
              val listType = com.google.gson.reflect.TypeToken.getParameterized(java.util.List::class.java, AllocationMensuelle::class.java).type
              val allocations: List<AllocationMensuelle> = gson.fromJson(data, listType)
  
-             println("[DEBUG] ${allocations.size} allocations trouvées pour enveloppe '$enveloppeId'")
+
              allocations.forEach { allocation ->
-                 println("[DEBUG] - ID: ${allocation.id}, solde: ${allocation.solde}, dépense: ${allocation.depense}")
+
              }
  
              allocations
          } catch (e: Exception) {
-             println("[DEBUG] Erreur lors de la recherche: ${e.message}")
+
              emptyList()
          }
      }
@@ -243,8 +235,6 @@
          premierJourMois: Date
      ): AllocationMensuelle = withContext(Dispatchers.IO) {
          
-         println("[DEBUG] === FUSION DES ALLOCATIONS ===")
-         
          // 1. Calculer les totaux de toutes les allocations
          val soldeTotal = allocations.sumOf { it.solde }
          val alloueTotal = allocations.sumOf { it.alloue }
@@ -253,10 +243,7 @@
          // 2. Prendre les informations de la première allocation (pour les métadonnées)
          val premiereAllocation = allocations.first()
          
-         println("[DEBUG] Fusion de ${allocations.size} allocations:")
-         println("[DEBUG] - Solde total: $soldeTotal")
-         println("[DEBUG] - Alloué total: $alloueTotal") 
-         println("[DEBUG] - Dépense total: $depenseTotal")
+
  
          // 3. Créer une nouvelle allocation fusionnée
          val allocationFusionnee = AllocationMensuelle(
@@ -273,22 +260,18 @@
  
          try {
              // 4. Supprimer toutes les anciennes allocations
-             println("[DEBUG] Suppression des ${allocations.size} allocations existantes...")
+
              allocations.forEach { allocation ->
                  supprimerAllocation(allocation.id)
              }
  
              // 5. Créer la nouvelle allocation fusionnée
-             println("[DEBUG] Création de l'allocation fusionnée...")
+
              val nouvelleAllocation = creerAllocationMensuelleInterne(allocationFusionnee)
-             
-             println("[DEBUG] ✅ Allocation fusionnée créée avec succès: ${nouvelleAllocation.id}")
-             println("[DEBUG] - Solde final: ${nouvelleAllocation.solde}")
-             println("[DEBUG] - Dépense finale: ${nouvelleAllocation.depense}")
              nouvelleAllocation
              
          } catch (e: Exception) {
-             println("[DEBUG] ❌ Erreur lors de la fusion: ${e.message}")
+
              // En cas d'erreur, retourner la première allocation
              premiereAllocation
          }
@@ -311,12 +294,12 @@
  
              val reponse = httpClient.newCall(requete).execute()
              if (reponse.isSuccessful) {
-                 println("[DEBUG] Allocation $allocationId supprimée")
+
              } else {
-                 println("[DEBUG] Erreur suppression: ${reponse.code}")
+
              }
          } catch (e: Exception) {
-             println("[DEBUG] Erreur suppression allocation $allocationId: ${e.message}")
+
          }
      }
  
@@ -351,28 +334,21 @@
          val token = client.obtenirToken() ?: throw Exception("Token manquant")
          val urlBase = UrlResolver.obtenirUrlActive()
  
-         val moisIso = DATE_FORMAT.format(allocation.mois)
-         println("[DEBUG] === CRÉATION ALLOCATION ===")
-         println("[DEBUG] Date reçue: ${allocation.mois}")
-         println("[DEBUG] Date formatée pour PocketBase: '$moisIso'")
-         println("[DEBUG] EnveloppeId: '${allocation.enveloppeId}'")
-         println("[DEBUG] ================================")
- 
-         val bodyJson = gson.toJson(
-             AllocationMensuelle(
-                 id = "", // PocketBase en généra un
-                 utilisateurId = utilisateurId,
-                 enveloppeId = allocation.enveloppeId,
-                 mois = allocation.mois,
-                 solde = allocation.solde,
-                 alloue = allocation.alloue,
-                 depense = allocation.depense,
-                 compteSourceId = allocation.compteSourceId,
-                 collectionCompteSource = allocation.collectionCompteSource
-             )
+         // Préparer les données pour PocketBase avec le bon format (comme TransactionRepositoryImpl)
+         val donneesAllocation = mapOf(
+             "utilisateur_id" to utilisateurId,
+             "enveloppe_id" to allocation.enveloppeId,
+             "mois" to DATE_FORMAT.format(allocation.mois),
+             "solde" to allocation.solde,
+             "alloue" to allocation.alloue,
+             "depense" to allocation.depense,
+             "compte_source_id" to allocation.compteSourceId,
+             "collection_compte_source" to allocation.collectionCompteSource
          )
+
+         val bodyJson = gson.toJson(donneesAllocation)
          
-         println("[DEBUG] Données envoyées à PocketBase: $bodyJson")
+
  
          val createReq = Request.Builder()
              .url("$urlBase/api/collections/$COLLECTION/records")
@@ -384,14 +360,28 @@
              if (!resp.isSuccessful) throw Exception("Erreur création allocation: ${resp.code} ${resp.body?.string()}")
              
              val corpsReponse = resp.body!!.string()
-             println("[DEBUG] Réponse PocketBase: ${corpsReponse.take(300)}...")
+
+             // Parser manuellement pour gérer le format de date de PocketBase (comme dans TransactionRepositoryImpl)
+             val jsonObject = gson.fromJson(corpsReponse, com.google.gson.JsonObject::class.java)
+
+             // Nettoyer la date (enlever .000Z)
+             val moisString = jsonObject.get("mois").asString
+             val dateClean = moisString.replace(".000Z", "")
+             val dateParsee = DATE_FORMAT.parse(dateClean)
+
+             val allocationCreee = AllocationMensuelle(
+                 id = jsonObject.get("id").asString,
+                 utilisateurId = jsonObject.get("utilisateur_id").asString,
+                 enveloppeId = jsonObject.get("enveloppe_id").asString,
+                 mois = dateParsee,
+                 solde = jsonObject.get("solde").asDouble,
+                 alloue = jsonObject.get("alloue").asDouble,
+                 depense = jsonObject.get("depense").asDouble,
+                 compteSourceId = jsonObject.get("compte_source_id")?.asString ?: "",
+                 collectionCompteSource = jsonObject.get("collection_compte_source")?.asString ?: ""
+             )
              
-             val allocationCreee = gson.fromJson(corpsReponse, AllocationMensuelle::class.java)
-             
-             println("[DEBUG] === ALLOCATION CRÉÉE ===")
-             println("[DEBUG] ID créé: '${allocationCreee.id}'")
-             println("[DEBUG] Date stockée: ${allocationCreee.mois}")
-             println("[DEBUG] ============================")
+
              
              return@withContext allocationCreee
          }
@@ -402,5 +392,9 @@
       */
      private fun deserialiserAllocation(source: String): AllocationMensuelle {
          return gson.fromJson(source, AllocationMensuelle::class.java)
+     }
+
+     override suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle {
+         return creerAllocationMensuelleInterne(allocation)
      }
  }

@@ -61,10 +61,10 @@ class CategorieRepositoryImpl : CategorieRepository {
             val body = response.body?.string() ?: throw Exception("Réponse vide")
             val resultat = gson.fromJson(body, CategorieListResult::class.java)
             
-            println("[DEBUG] Catégories récupérées: ${resultat.items.size}")
+
             Result.success(resultat.items)
         } catch (e: Exception) {
-            println("[ERROR] Erreur récupération catégories: ${e.message}")
+
             Result.failure(e)
         }
     }
@@ -87,7 +87,7 @@ class CategorieRepositoryImpl : CategorieRepository {
             )
             
             val json = gson.toJson(donnees)
-            println("[DEBUG] Création catégorie avec données: $json")
+
             
             val body = json.toRequestBody("application/json".toMediaType())
             val requete = Request.Builder()
@@ -106,8 +106,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             // Récupérer la catégorie créée avec son vrai ID
             val responseBody = response.body?.string() ?: throw Exception("Réponse vide")
             val categorieCreee = gson.fromJson(responseBody, Categorie::class.java)
-            
-            println("[DEBUG] Catégorie créée: ID=${categorieCreee.id}, nom=${categorieCreee.nom}")
             Result.success(categorieCreee)
             
         } catch (e: Exception) {
@@ -127,7 +125,7 @@ class CategorieRepositoryImpl : CategorieRepository {
             val urlBase = client.obtenirUrlBaseActive()
             val url = "$urlBase/api/collections/categorie/records/$id"
             
-            println("[DEBUG] Suppression catégorie ID: $id")
+
             
             val requete = Request.Builder()
                 .url(url)
@@ -142,7 +140,7 @@ class CategorieRepositoryImpl : CategorieRepository {
                 throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
             }
             
-            println("[DEBUG] Catégorie supprimée avec succès")
+
             Result.success(Unit)
             
         } catch (e: Exception) {

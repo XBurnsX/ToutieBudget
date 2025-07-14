@@ -79,7 +79,7 @@ class CategoriesEnveloppesViewModel(
                     )
                 }
                 
-                println("[DEBUG] Données chargées: ${categories.size} catégories, ${enveloppesList.size} enveloppes")
+
                 
             } catch (e: Exception) {
                 println("[ERROR] Erreur lors du chargement: ${e.message}")
@@ -206,8 +206,7 @@ class CategoriesEnveloppesViewModel(
                     
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
-                    
-                    println("[DEBUG] Catégorie créée avec succès: ${categorieCreee.nom}")
+
                     
                 }.onFailure { erreur ->
                     // Supprimer la catégorie temporaire en cas d'erreur
@@ -294,8 +293,7 @@ class CategoriesEnveloppesViewModel(
                     objectifDate = null,               // Pas de date d'échéance
                     objectifJour = null                // Pas de jour spécifique
                 )
-                
-                println("[DEBUG] Création enveloppe vide: nom='$nom', objectifType=${enveloppeVide.objectifType}")
+
                 
                 // Mise à jour optimiste de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
@@ -328,7 +326,6 @@ class CategoriesEnveloppesViewModel(
                     // Notifier le BudgetViewModel du changement
                     onEnveloppeChange?.invoke()
 
-                    println("[DEBUG] Enveloppe vide créée: ${enveloppeCreee.nom} dans catégorie ${categorie.nom}")
                     
                 }.onFailure { erreur ->
                     // Supprimer l'enveloppe temporaire en cas d'erreur
@@ -438,7 +435,7 @@ class CategoriesEnveloppesViewModel(
                 
                 // Envoyer à PocketBase
                 enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee).onSuccess {
-                    println("[DEBUG] Objectif sauvegardé pour ${enveloppe.nom}")
+
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur sauvegarde objectif: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -490,7 +487,7 @@ class CategoriesEnveloppesViewModel(
                 
                 // Envoyer à PocketBase
                 enveloppeRepository.supprimerEnveloppe(enveloppe.id).onSuccess {
-                    println("[DEBUG] Enveloppe supprimée: ${enveloppe.nom}")
+
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -549,7 +546,6 @@ class CategoriesEnveloppesViewModel(
                 categorieRepository.supprimerCategorie(categorieObj.id).onSuccess {
                     // Mettre à jour le cache
                     categoriesMap = categoriesMap.filterNot { it.key == categorieObj.id }
-                    println("[DEBUG] Catégorie supprimée: $nomCategorie")
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur

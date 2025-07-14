@@ -189,8 +189,7 @@ fun CategoriesEnveloppesScreen(
                             }
                         }
                         
-                        println("[DEBUG] 🔧 Catégories pour debug: $categoriesReelles")
-                        println("[DEBUG] 🔧 Enveloppes pour debug: ${toutesLesEnveloppes.map { "${it.nom} → ${it.categorieId}" }}")
+
                         
                         DebugInfoComposant(
                             enveloppes = toutesLesEnveloppes,

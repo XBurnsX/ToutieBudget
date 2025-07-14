@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
+import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import java.util.*
 import javax.inject.Inject
 
@@ -17,7 +18,8 @@ class ArgentServiceImpl @Inject constructor(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val transactionRepository: TransactionRepository,
-    private val allocationMensuelleRepository: AllocationMensuelleRepository
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
+    private val virementUseCase: VirementUseCase
 ) : ArgentService {
 
     /**
@@ -424,106 +426,15 @@ class ArgentServiceImpl @Inject constructor(
         compteId: String,
         enveloppeId: String,
         montant: Double
-    ): Result<Unit> = runCatching {
-        // EXACTEMENT comme allouerArgentEnveloppe mais avec pret_a_placer au lieu du solde
-
-        // 1. Récupérer le compte chèque
-        val resultCompte = compteRepository.recupererCompteParId(compteId, "comptes_cheque")
-        if (resultCompte.isFailure) {
-            throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
-        }
-
-        val compte = resultCompte.getOrNull() as? com.xburnsx.toutiebudget.data.modeles.CompteCheque
-            ?: throw Exception("Le compte n'est pas un compte chèque")
-
-        // 2. Vérifier que le montant prêt à placer est suffisant
-        if (compte.pretAPlacer < montant) {
-            throw IllegalStateException("Montant prêt à placer insuffisant.")
-        }
-
-        // 3. Récupérer ou créer l'allocation mensuelle pour cette enveloppe et ce mois
-        println("[DEBUG] Récupération allocation pour enveloppe $enveloppeId")
-        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
-            enveloppeId = enveloppeId,
-            mois = Date()
-        )
-        println("[DEBUG] Allocation récupérée: id=${allocation.id}, solde=${allocation.solde}, alloue=${allocation.alloue}")
-
-        // 4. Diminuer le pret_a_placer du compte (au lieu du solde comme dans allouerArgentEnveloppe)
-        println("[DEBUG] Diminution pret_a_placer de $montant")
-        compteRepository.mettreAJourPretAPlacerSeulement(compteId, -montant)
-        println("[DEBUG] Pret_a_placer mis à jour")
-
-        // 5. Mettre à jour l'allocation mensuelle (EXACTEMENT comme allouerArgentEnveloppe)
-        val nouveauSoldeAllocation = allocation.solde + montant
-        println("[DEBUG] Nouveau solde allocation: ${allocation.solde} + $montant = $nouveauSoldeAllocation")
-        val nouvelleAllocation = allocation.copy(
-            solde = nouveauSoldeAllocation,
-            alloue = allocation.alloue + montant,
-            compteSourceId = compteId,
-            collectionCompteSource = "comptes_cheque"
-        )
-        println("[DEBUG] Mise à jour allocation dans PocketBase...")
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
-        println("[DEBUG] Allocation mise à jour avec succès")
-
-        // 6. Créer une transaction pour cette allocation (EXACTEMENT comme allouerArgentEnveloppe)
-        val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
-            utilisateurId = compte.utilisateurId,
-            type = TypeTransaction.Depense,
-            montant = montant,
-            date = Date(),
-            compteId = compteId,
-            collectionCompte = "comptes_cheque",
-            allocationMensuelleId = allocation.id,
-            note = "Virement prêt à placer vers enveloppe"
-        )
-
-        transactionRepository.creerTransaction(transaction)
+    ): Result<Unit> {
+        return virementUseCase.effectuerVirementPretAPlacerVersEnveloppe(compteId, enveloppeId, montant)
     }
 
     override suspend fun effectuerVirementEnveloppeVersPretAPlacer(
         enveloppeId: String,
         compteId: String,
         montant: Double
-    ): Result<Unit> = runCatching {
-        // Utiliser ajouterDepenseAllocation pour diminuer l'enveloppe et augmenter pret_a_placer
-
-        // 1. Récupérer l'allocation mensuelle pour cette enveloppe
-        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
-            enveloppeId = enveloppeId,
-            mois = Date()
-        )
-
-        // 2. Vérifier que l'enveloppe a suffisamment de fonds
-        if (allocation.solde < montant) {
-            throw IllegalStateException("Solde insuffisant dans l'enveloppe.")
-        }
-
-        // 3. Diminuer le solde de l'enveloppe (comme une dépense)
-        enveloppeRepository.ajouterDepenseAllocation(allocation.id, montant)
-
-        // 4. Augmenter le pret_a_placer du compte
-        compteRepository.mettreAJourPretAPlacerSeulement(compteId, montant)
-
-        // 5. Créer une transaction pour traçabilité
-        val resultCompte = compteRepository.recupererCompteParId(compteId, "comptes_cheque")
-        val compte = resultCompte.getOrNull() as? com.xburnsx.toutiebudget.data.modeles.CompteCheque
-            ?: throw Exception("Le compte n'est pas un compte chèque")
-
-        val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
-            utilisateurId = compte.utilisateurId,
-            type = TypeTransaction.Revenu,
-            montant = montant,
-            date = Date(),
-            compteId = compteId,
-            collectionCompte = "comptes_cheque",
-            allocationMensuelleId = allocation.id,
-            note = "Virement depuis enveloppe vers prêt à placer"
-        )
-
-        transactionRepository.creerTransaction(transaction)
+    ): Result<Unit> {
+        return virementUseCase.effectuerVirementEnveloppeVersPretAPlacer(enveloppeId, compteId, montant)
     }
 }

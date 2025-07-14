@@ -67,7 +67,7 @@
              "Echeance" -> TypeObjectif.Echeance
              "Annuel" -> TypeObjectif.Annuel
              else -> {
-                 println("[DEBUG] Valeur objectif_type inconnue: '$str', utilisation de AUCUN par défaut")
+
                  TypeObjectif.Aucun
              }
          }
@@ -123,11 +123,11 @@
                  )
              }.filter { !it.estArchive }
  
-             println("[DEBUG] Enveloppes récupérées: ${enveloppes.size}")
+
              Result.success(enveloppes)
              
          } catch (e: Exception) {
-             println("[ERROR] Erreur récupération enveloppes: ${e.message}")
+
              Result.failure(e)
          }
      }
@@ -159,16 +159,13 @@
              }
              val premierJourMois = calendrier.time
  
-             println("[DEBUG] === RECHERCHE ALLOCATIONS ===")
-             println("[DEBUG] Date de recherche reçue: $mois")
-             println("[DEBUG] Date formatée pour recherche: '${formateurDate.format(premierJourMois)}'")
+
  
              val dateFormatee = formateurDate.format(premierJourMois)
              val filtre = "utilisateur_id = '$utilisateurId' && mois ~ '$dateFormatee'"
              val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtre&perPage=500"
              
-             println("[DEBUG] recupererAllocationsPourMois: mois=$mois, dateFormatee=$dateFormatee")
-             println("[DEBUG] recupererAllocationsPourMois: URL=$url")
+
  
              val requete = Request.Builder()
                  .url(url)
@@ -182,7 +179,7 @@
              }
  
              val corpsReponse = reponse.body?.string() ?: ""
-             println("[DEBUG] Réponse recherche: ${corpsReponse.take(200)}...")
+
  
              val json = JsonParser.parseString(corpsReponse).asJsonObject
              val items = json.getAsJsonArray("items")
@@ -192,7 +189,7 @@
                  deserialiserAllocation(item.asJsonObject)
              }
  
-             println("[DEBUG] recupererAllocationsPourMois: ${toutesLesAllocations.size} allocations trouvées")
+
  
              // *** CORRECTION PRINCIPALE ***
              // Grouper par enveloppeId et fusionner les doublons
@@ -203,9 +200,7 @@
                          // Une seule allocation pour cette enveloppe -> OK
                          allocationsGroupe.first()
                      } else {
-                         // Plusieurs allocations pour la même enveloppe -> Fusionner
-                         println("[DEBUG] ⚠️ ${allocationsGroupe.size} allocations trouvées pour enveloppe $enveloppeId")
-                         println("[DEBUG] Fusion automatique en cours...")
+
                          
                          // Calculer les totaux
                          val soldeTotal = allocationsGroupe.sumOf { it.solde }
@@ -222,16 +217,15 @@
                      }
                  }
  
-             println("[DEBUG] Allocations après dédoublonnage: ${allocationsUniques.size}")
+
              allocationsUniques.forEach { allocation ->
-                 println("[DEBUG] - Allocation: id='${allocation.id}' enveloppeId='${allocation.enveloppeId}' solde=${allocation.solde}")
-                 println("[DEBUG]  - enveloppeId=${allocation.enveloppeId}, solde=${allocation.solde}, depense=${allocation.depense}")
+
              }
-             println("[DEBUG] ===============================")
+
  
              Result.success(allocationsUniques)
          } catch (e: Exception) {
-             println("[DEBUG] Erreur recupererAllocationsPourMois: ${e.message}")
+
              Result.failure(e)
          }
      }
@@ -297,7 +291,7 @@
              )
              
              val json = gson.toJson(donnees)
-             println("[DEBUG] Création enveloppe: $json")
+
              
              val body = json.toRequestBody("application/json".toMediaType())
              val requete = Request.Builder()
@@ -431,22 +425,18 @@
              val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
              val urlBase = client.obtenirUrlBaseActive()
  
-             println("[DEBUG] ajouterDepenseAllocation: début - allocationId=$allocationMensuelleId, montant=$montantDepense")
-             
-             // 1. Récupérer l'allocation actuelle
-             println("[DEBUG] Récupération allocation actuelle")
+
+
              val allocation = recupererAllocationParId(allocationMensuelleId).getOrNull()
                  ?: throw Exception("Allocation non trouvée")
              
-             println("[DEBUG] Allocation trouvée: solde=${allocation.solde}, depense=${allocation.depense}")
+
              
              // 2. Calculer les nouveaux montants
              val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
              val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
              
-             println("[DEBUG] Nouveaux montants calculés: solde=$nouveauSolde, depense=$nouvelleDépense")
-             println("[DEBUG] Vérification calcul: ${allocation.solde} - $montantDepense = $nouveauSolde")
-             println("[DEBUG] Vérification calcul: ${allocation.depense} + $montantDepense = $nouvelleDépense")
+
              
              // 3. Préparer les données de mise à jour
              val donneesUpdate = mapOf(
@@ -456,8 +446,7 @@
              val corpsRequete = gson.toJson(donneesUpdate)
              
              val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
-             println("[DEBUG] URL mise à jour: $url")
-             println("[DEBUG] Données envoyées: $donneesUpdate")
+
              
              val requete = Request.Builder()
                  .url(url)
@@ -469,16 +458,15 @@
              val reponse = httpClient.newCall(requete).execute()
              if (!reponse.isSuccessful) {
                  val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
-                 println("[DEBUG] $erreur")
+
                  throw Exception(erreur)
              }
  
              val corpsReponse = reponse.body?.string() ?: ""
-             println("[DEBUG] Réponse mise à jour: ${corpsReponse.take(200)}...")
-             println("[DEBUG] ajouterDepenseAllocation: succès")
+
              Result.success(Unit)
          } catch (e: Exception) {
-             println("[DEBUG] ajouterDepenseAllocation: erreur - ${e.message}")
+
              Result.failure(e)
          }
      }
@@ -542,11 +530,7 @@
              val urlBase = client.obtenirUrlBaseActive()
  
              val moisFormate = formateurDate.format(allocation.mois)
-             println("[DEBUG] === CRÉATION ALLOCATION ===")
-             println("[DEBUG] Date reçue: ${allocation.mois}")
-             println("[DEBUG] Date formatée pour PocketBase: '$moisFormate'")
-             println("[DEBUG] EnveloppeId: '${allocation.enveloppeId}'")
-             println("[DEBUG] ================================")
+
  
              val donnees = mapOf(
                  "utilisateur_id" to utilisateurId,
@@ -559,7 +543,7 @@
                  "collection_compte_source" to (allocation.collectionCompteSource ?: "")
              )
  
-             println("[DEBUG] Données envoyées à PocketBase: $donnees")
+
  
              val corpsRequete = gson.toJson(donnees)
              val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records"
@@ -577,19 +561,15 @@
              }
  
              val corpsReponse = reponse.body!!.string()
-             println("[DEBUG] Réponse PocketBase: ${corpsReponse.take(300)}...")
+
              
              val allocationCreee = deserialiserAllocation(corpsReponse)
              
-             println("[DEBUG] === ALLOCATION CRÉÉE ===")
-             println("[DEBUG] ID créé: '${allocationCreee.id}'")
-             println("[DEBUG] Date stockée: ${allocationCreee.mois}")
-             println("[DEBUG] Date stockée formatée: '${formateurDate.format(allocationCreee.mois)}'")
-             println("[DEBUG] ============================")
+
              
              Result.success(allocationCreee)
          } catch (e: Exception) {
-             println("[DEBUG] Erreur lors de la création de l'allocation: ${e.message}")
+
              Result.failure(e)
          }
      }
@@ -628,7 +608,7 @@
          return try {
              gson.fromJson(json, Enveloppe::class.java)
          } catch (e: Exception) {
-             println("[DEBUG] Erreur désérialisation enveloppe: ${e.message}")
+
              null
          }
      }
@@ -645,14 +625,14 @@
  
          // Gestion de la date avec debug
          val moisString = json.get("mois").asString
-         println("[DEBUG] deserialiserAllocation: moisString reçu='$moisString'")
+
          
          // Nettoyer la date (enlever le .000Z si présent)
          val dateClean = moisString.replace(".000Z", "").replace("T", " ")
-         println("[DEBUG] deserialiserAllocation: dateClean='$dateClean'")
+
          
          val dateParsee = formateurDate.parse(dateClean) ?: Date()
-         println("[DEBUG] deserialiserAllocation: dateParsee=$dateParsee")
+
  
          return AllocationMensuelle(
              id = json.get("id").asString,
