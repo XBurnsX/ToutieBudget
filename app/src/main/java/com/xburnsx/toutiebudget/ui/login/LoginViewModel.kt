@@ -6,6 +6,7 @@ package com.xburnsx.toutiebudget.ui.login
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,6 +117,10 @@ class LoginViewModel : ViewModel() {
                             messageChargement = "Connexion réussie !"
                         )
                     }
+
+                    // 🚀 Démarrer le service temps réel après connexion réussie
+                    AppModule.provideRealtimeSyncService().startAfterLogin()
+
                     return@launch
                 }.onFailure { erreur ->
                     // Message d'erreur plus explicite pour l'utilisateur
@@ -205,6 +210,9 @@ class LoginViewModel : ViewModel() {
                     messageChargement = "Reconnexion automatique..."
                 )
             }
+
+            // 🚀 Démarrer le service temps réel après reconnexion automatique
+            AppModule.provideRealtimeSyncService().startAfterLogin()
         }
     }
 

@@ -13,6 +13,7 @@ import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,8 @@ class BudgetViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase
+    private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     // --- Cache en mémoire pour éviter les écrans de chargement ---
@@ -62,6 +64,14 @@ class BudgetViewModel(
                 }
             } catch (e: Exception) {
                 // BudgetEvents peut ne pas exister, on ignore cette erreur
+            }
+        }
+
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
+        viewModelScope.launch {
+            realtimeSyncService.budgetUpdated.collectLatest {
+                println("[REALTIME] 🔄 Budget mis à jour automatiquement")
+                chargerDonneesBudget(moisSelectionne)
             }
         }
     }

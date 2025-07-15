@@ -2,7 +2,7 @@
 // Ce fichier configure les plugins pour l'ensemble du projet.
 
 plugins {
-    id("com.android.application") version "8.2.2" apply false
+    id("com.android.application") version "8.10.1" apply false
     // ⬇️ CHANGEMENT : Kotlin 1.9.22 → 2.0.20
     id("org.jetbrains.kotlin.android") version "2.0.20" apply false
     // ⬇️ AJOUT : Plugin Compose pour Kotlin 2.0

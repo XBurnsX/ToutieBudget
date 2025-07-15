@@ -5,7 +5,9 @@ package com.xburnsx.toutiebudget.domain.usecases
 
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
+import com.xburnsx.toutiebudget.di.AppModule
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
@@ -108,6 +110,18 @@ class VirementUseCase @Inject constructor(
                 val resultTransaction = transactionRepository.creerTransaction(transaction)
                 if (resultTransaction.isFailure) {
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur création transaction")
+                }
+
+                // 🚀 DÉCLENCHER MANUELLEMENT L'ÉVÉNEMENT TEMPS RÉEL
+                println("[DEBUG] 🔄 Déclenchement manuel de l'événement temps réel...")
+                try {
+                    val realtimeService = AppModule.provideRealtimeSyncService()
+                    // Forcer la mise à jour du budget après virement
+                    kotlinx.coroutines.GlobalScope.launch {
+                        realtimeService.triggerBudgetUpdate()
+                    }
+                } catch (e: Exception) {
+                    println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
                 }
 
             } catch (e: Exception) {

@@ -15,6 +15,7 @@ import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             // On applique notre thème personnalisé
             ToutieBudgetTheme {

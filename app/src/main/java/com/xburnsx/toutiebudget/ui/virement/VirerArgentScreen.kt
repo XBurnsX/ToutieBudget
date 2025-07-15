@@ -32,20 +32,16 @@ fun VirerArgentScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Afficher message de succès avant navigation
+    // Afficher message de succès et navigation automatique
     androidx.compose.runtime.LaunchedEffect(uiState.virementReussi) {
         if (uiState.virementReussi) {
-            println("[DEBUG] 🎉 Virement réussi détecté, affichage du message...")
             snackbarHostState.showSnackbar(
                 message = "✅ Virement effectué avec succès !",
                 duration = SnackbarDuration.Short
             )
-            println("[DEBUG] 📱 Message affiché, attente de 1.5 secondes...")
             // Délai pour laisser le temps de voir le message
             kotlinx.coroutines.delay(1500)
-            println("[DEBUG] 🔄 Appel de onNavigateBack()...")
             onNavigateBack()
-            println("[DEBUG] ✅ Navigation terminée, reset du flag...")
             viewModel.resetVirementReussi() // Reset pour éviter la navigation en boucle
         }
     }

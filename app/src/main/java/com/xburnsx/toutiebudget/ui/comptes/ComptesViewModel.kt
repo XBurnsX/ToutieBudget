@@ -9,7 +9,9 @@ import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -17,7 +19,8 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class ComptesViewModel(
-    private val compteRepository: CompteRepository
+    private val compteRepository: CompteRepository,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     // Callback pour notifier les autres ViewModels des changements
@@ -28,6 +31,14 @@ class ComptesViewModel(
 
     init {
         chargerComptes()
+
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
+        viewModelScope.launch {
+            realtimeSyncService.comptesUpdated.collectLatest {
+                println("[REALTIME] 🔄 Comptes mis à jour automatiquement")
+                chargerComptes()
+            }
+        }
     }
 
     fun chargerComptes() {

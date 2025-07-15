@@ -153,16 +153,11 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                 VirerArgentScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
-                        println("[DEBUG] 🔄 onNavigateBack appelé dans Navigation.kt")
-                        // Actualiser les données du budget avant de naviguer
-                        println("[DEBUG] 📊 Appel budgetViewModel.rafraichirDonnees()...")
-                        budgetViewModel.rafraichirDonnees()
-                        println("[DEBUG] 🏠 Navigation vers la page budget...")
-                        // Retourner à la page budget
+                        // Le temps réel va automatiquement actualiser les données !
+                        // Plus besoin d'appeler manuellement rafraichirDonnees()
                         bottomBarNavController.navigate(Screen.Budget.route) {
                             popUpTo(Screen.Budget.route) { inclusive = true }
                         }
-                        println("[DEBUG] ✅ Navigation terminée")
                     }
                 )
             }

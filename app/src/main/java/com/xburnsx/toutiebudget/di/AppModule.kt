@@ -7,6 +7,7 @@
 
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
+ import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
@@ -35,6 +36,9 @@
      // ===== SERVICES =====
      private val virementUseCase: VirementUseCase by lazy { VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository) }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
+
+     // Service de synchronisation temps réel
+     private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
  
      // ===== USE CASES EXISTANTS =====
@@ -52,17 +56,21 @@
  
      // ===== VIEWMODELS =====
      // CORRECTION : Ordre des paramètres corrigés selon les constructeurs
-     private val budgetViewModel: BudgetViewModel by lazy { 
+     private val budgetViewModel: BudgetViewModel by lazy {
          BudgetViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
-             verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
-         ) 
+             verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
+             realtimeSyncService = realtimeSyncService
+         )
      }
      
-     private val comptesViewModel: ComptesViewModel by lazy { 
-         ComptesViewModel(compteRepository = compteRepository) 
+     private val comptesViewModel: ComptesViewModel by lazy {
+         ComptesViewModel(
+             compteRepository = compteRepository,
+             realtimeSyncService = realtimeSyncService
+         )
      }
      
      private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy { 
@@ -103,6 +111,7 @@
      // Services
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService
+     fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
  
      // Use Cases
      fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
