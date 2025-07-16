@@ -132,33 +132,50 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     Text(
                         text = enveloppe.nom,
                         fontWeight = FontWeight.Bold, // Texte en gras.
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         color = Color.White,
                         modifier = Modifier.weight(1f) // Le texte prend l'espace restant pour pousser la bulle à droite.
                     )
 
-                    // --- BULLE DE MONTANT ---
+                    // --- BULLE DE MONTANT (RÉDUITE) ---
                     // Box est utilisé comme conteneur pour la bulle afin de pouvoir lui donner un fond et une forme.
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50)) // Découpe la Box en une forme de pilule (coins très arrondis).
                             .background(couleurBulle) // Applique la couleur de fond calculée plus tôt.
-                            .padding(horizontal = 16.dp, vertical = 6.dp) // Espace à l'intérieur de la bulle.
+                            .padding(horizontal = 12.dp, vertical = 4.dp) // Espace réduit à l'intérieur de la bulle.
                     ) {
                         // Texte affichant le montant formaté en devise.
                         Text(
                             text = formatteurMonetaire.format(montant),
                             color = couleurTexteBulle, // Applique la couleur de texte calculée.
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 14.sp // Taille réduite
                         )
                     }
                 }
 
-                // Affiche la section de l'objectif seulement si un objectif est défini (montant > 0).
+                // Afficher le texte de l'objectif directement sous le nom si un objectif est défini
                 if (objectif > 0) {
-                    // Ajoute un espace vertical entre la ligne du nom/montant et la barre de progression.
-                    Spacer(modifier = Modifier.height(12.dp))
+                    // Espace réduit entre le nom et l'objectif
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Texte de l'objectif avec la date
+                    val texteObjectif = if (enveloppe.dateObjectif != null) {
+                        "${formatteurMonetaire.format(objectif)} pour le ${enveloppe.dateObjectif}"
+                    } else {
+                        "Objectif: ${formatteurMonetaire.format(objectif)}"
+                    }
+
+                    Text(
+                        text = texteObjectif,
+                        color = Color.LightGray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Ajoute un espace vertical entre le texte d'objectif et la barre de progression.
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Vérifie si le montant dépensé est exactement égal à l'objectif.
                     val estDepenseComplete = enveloppe.depense == objectif
@@ -183,7 +200,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         else -> Color.Gray
                     }
 
-                    // Appelle le composant qui s'occupe d'afficher la barre de progression et les textes associés.
+                    // Appelle le composant qui s'occupe d'afficher la barre de progression et le pourcentage seulement
                     ProgressBarreObjectif(
                         progression = progression,
                         objectif = formatteurMonetaire.format(objectif), // Passe l'objectif formaté en texte.
@@ -230,25 +247,12 @@ private fun ProgressBarreObjectif(
 
     // Column arrange le texte et la barre de progression verticalement.
     Column {
-        // Row pour les textes au-dessus de la barre de progression.
+        // Row pour le pourcentage seulement (le texte d'objectif est maintenant affiché ailleurs)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End // Aligner le pourcentage à droite
         ) {
-            // Utilise la date d'objectif si disponible, sinon affiche juste l'objectif
-            val texteObjectif = if (dateObjectif != null) {
-                "$objectif pour le $dateObjectif"
-            } else {
-                "Objectif: $objectif"
-            }
-
-            // Texte affichant le montant de l'objectif avec la date choisie
-            Text(
-                text = texteObjectif,
-                color = Color.LightGray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(1f) // Pousse le texte du pourcentage à droite.
-            )
 
             // Calcule le pourcentage entier (ex: 0.75 -> 75).
             val progressionEntiere = (progression * 100).toInt()
