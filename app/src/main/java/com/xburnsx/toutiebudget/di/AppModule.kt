@@ -91,11 +91,12 @@
      
      private val virerArgentViewModel: VirerArgentViewModel by lazy { 
          VirerArgentViewModel(
-             compteRepository = compteRepository,
-             enveloppeRepository = enveloppeRepository,
-             categorieRepository = categorieRepository,
-             argentService = argentService
-         ) 
+             compteRepository = provideCompteRepository(),
+             enveloppeRepository = provideEnveloppeRepository(),
+             categorieRepository = provideCategorieRepository(),
+             argentService = provideArgentService(),
+             realtimeSyncService = provideRealtimeSyncService()
+         )
      }
  
      // ===== FONCTIONS PUBLIQUES =====

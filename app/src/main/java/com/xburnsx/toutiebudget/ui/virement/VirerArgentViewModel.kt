@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -27,7 +28,8 @@ class VirerArgentViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val argentService: ArgentService
+    private val argentService: ArgentService,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VirerArgentUiState())
@@ -344,6 +346,9 @@ class VirerArgentViewModel(
 
                 // Recharger les données après le virement
                 chargerSourcesEtDestinations()
+
+                // Déclencher la mise à jour du budget en temps réel
+                realtimeSyncService.declencherMiseAJourBudget()
 
             } catch (e: Exception) {
                 _uiState.update {

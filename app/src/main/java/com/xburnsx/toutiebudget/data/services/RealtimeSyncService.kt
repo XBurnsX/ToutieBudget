@@ -86,6 +86,17 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
+    /**
+     * Déclenche une mise à jour du budget (méthode publique).
+     * Utilisée par les ViewModels pour notifier les changements.
+     */
+    fun declencherMiseAJourBudget() {
+        serviceScope.launch {
+            println("[REALTIME] 🔄 Déclenchement manuel de la mise à jour budget")
+            _budgetUpdated.emit(Unit)
+        }
+    }
+
     private suspend fun connectWebSocket() {
         println("[REALTIME] 🔍 Vérification de la connexion client...")
 
