@@ -62,8 +62,6 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     val montant = enveloppe.solde
     // Récupère le montant de l'objectif, s'il y en a un.
     val objectif = enveloppe.objectif
-    // Calcule le montant total alloué à cette enveloppe (solde + ce qui a déjà été dépensé).
-    val montantAlloue = enveloppe.solde + enveloppe.depense
 
     // --- LOGIQUE POUR LA BULLE DE MONTANT ---
     // Détermine la couleur de fond de la bulle qui affiche le solde.
@@ -82,13 +80,14 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
         montant > 0 -> Color.White // Texte blanc pour les couleurs
         else -> Color.LightGray // Texte gris clair pour le gris
     }
+
     // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
     val couleurStatut = when {
-        // Vert : L'objectif est défini et le montant alloué est supérieur ou égal à l'objectif.
-        objectif > 0 && montantAlloue >= objectif -> Color(0xFF4CAF50)
-        // Jaune : L'objectif est défini et il y a de l'argent alloué, mais l'objectif n'est pas encore atteint.
-        objectif > 0 && montantAlloue > 0 -> Color(0xFFFFC107)
+        // Vert : L'objectif est défini et le solde atteint ou dépasse l'objectif.
+        objectif > 0 && enveloppe.solde >= objectif -> Color(0xFF4CAF50)
+        // Jaune : L'objectif est défini et il y a de l'argent dans l'enveloppe, mais l'objectif n'est pas encore atteint.
+        objectif > 0 && enveloppe.solde > 0 -> Color(0xFFFFC107)
         // Jaune : Pas d'objectif, mais il y a de l'argent dans l'enveloppe.
         objectif <= 0 && montant > 0 -> Color(0xFFFFC107)
         // Gris : Cas par défaut (pas d'objectif et pas d'argent).
@@ -166,9 +165,8 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     val progression = if (estDepenseComplete) {
                         1.0f // Si tout est dépensé, la progression est à 100%.
                     } else {
-                        // Sinon, calcule le ratio (montant alloué / objectif).
-                        // .coerceIn(0.0, 1.0) s'assure que le résultat reste entre 0 et 1, même si on a dépassé l'objectif.
-                        (montantAlloue / objectif).coerceIn(0.0, 1.0).toFloat()
+                        // Calcul basé sur le solde de l'enveloppe uniquement
+                        (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat()
                     }
 
                     // Détermine la couleur de la barre de progression.
@@ -176,9 +174,9 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         // Si l'objectif est marqué comme entièrement dépensé, on utilise la couleur du compte.
                         estDepenseComplete -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
                         // Vert si l'objectif est atteint ou dépassé.
-                        montantAlloue >= objectif -> Color(0xFF4CAF50)
+                        enveloppe.solde >= objectif -> Color(0xFF4CAF50)
                         // Jaune si en cours de remplissage.
-                        montantAlloue > 0 -> Color(0xFFFFC107)
+                        enveloppe.solde > 0 -> Color(0xFFFFC107)
                         // Gris si rien n'a encore été alloué.
                         else -> Color.Gray
                     }

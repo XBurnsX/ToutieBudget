@@ -50,20 +50,15 @@ class RealtimeSyncService @Inject constructor() {
      * Appelé automatiquement au démarrage de l'app.
      */
     fun startRealtimeSync() {
-        println("[REALTIME] 🚀 Démarrage du service temps réel...")
-
         if (isConnected) {
-            println("[REALTIME] ⚠️ Déjà connecté, ignoré")
             return
         }
 
         serviceScope.launch {
             try {
-                println("[REALTIME] 🔄 Tentative de connexion WebSocket...")
                 connectWebSocket()
             } catch (e: Exception) {
-                println("[REALTIME] ❌ Erreur connexion WebSocket: ${e.message}")
-                println("[REALTIME] 🔄 Retry dans 5 secondes...")
+                println("[REALTIME] ❌ Erreur connexion: ${e.message}")
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
                 startRealtimeSync()
@@ -92,31 +87,22 @@ class RealtimeSyncService @Inject constructor() {
      */
     fun declencherMiseAJourBudget() {
         serviceScope.launch {
-            println("[REALTIME] 🔄 Déclenchement manuel de la mise à jour budget")
             _budgetUpdated.emit(Unit)
         }
     }
 
     private suspend fun connectWebSocket() {
-        println("[REALTIME] 🔍 Vérification de la connexion client...")
-
         if (!client.estConnecte()) {
-            println("[REALTIME] ⚠️ Client non connecté, retry dans 3 secondes...")
             kotlinx.coroutines.delay(3000)
             startRealtimeSync() // Retry
             return
         }
-        println("[REALTIME] ✅ Client connecté")
 
         val token = client.obtenirToken()
         if (token == null) {
-            println("[REALTIME] ❌ Token manquant, abandon")
             return
         }
-        println("[REALTIME] ✅ Token récupéré: ${token.take(10)}...")
 
-        // 🚀 VRAIE SOLUTION TEMPS RÉEL : Server-Sent Events (SSE)
-        println("[REALTIME] 🔄 Connexion SSE temps réel à PocketBase...")
         startServerSentEvents(token)
     }
 
@@ -143,8 +129,6 @@ class RealtimeSyncService @Inject constructor() {
                 val collectionsParam = collections.joinToString(",")
                 val sseUrl = "$urlBase/api/realtime?subscribe=$collectionsParam"
 
-                println("[REALTIME] 🌐 URL SSE: $sseUrl")
-
                 val request = Request.Builder()
                     .url(sseUrl)
                     .addHeader("Authorization", "Bearer $token")
@@ -157,36 +141,32 @@ class RealtimeSyncService @Inject constructor() {
 
                 if (response.isSuccessful) {
                     isConnected = true
-                    println("[REALTIME] ✅ Connexion SSE établie")
-                    println("[REALTIME] ✅ Abonné aux collections: $collectionsParam")
+                    println("[REALTIME] ✅ Connexion établie")
 
                     // Lire le stream en temps réel
                     response.body?.source()?.let { source ->
                         while (isConnected && !source.exhausted()) {
                             try {
                                 val line = source.readUtf8Line()
-                                if (line != null) {
-                                    println("[REALTIME] 📥 Ligne reçue: $line")
-                                    if (line.startsWith("data: ")) {
-                                        val data = line.substring(6) // Enlever "data: "
+                                if (line != null && line.startsWith("data: ")) {
+                                    val data = line.substring(6) // Enlever "data: "
+                                    if (data.isNotEmpty() && data != "{\"clientId\":") {
                                         handleRealtimeEvent(data)
                                     }
                                 }
                             } catch (e: Exception) {
-                                println("[REALTIME] ⚠️ Erreur lecture SSE: ${e.message}")
                                 break
                             }
                         }
                     }
                 } else {
-                    println("[REALTIME] ❌ Erreur SSE: ${response.code} ${response.message}")
+                    println("[REALTIME] ❌ Erreur connexion: ${response.code}")
                     // Retry après 5 secondes
                     kotlinx.coroutines.delay(5000)
                     startRealtimeSync()
                 }
 
             } catch (e: Exception) {
-                println("[REALTIME] ❌ Erreur connexion SSE: ${e.message}")
                 isConnected = false
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
@@ -200,37 +180,33 @@ class RealtimeSyncService @Inject constructor() {
      */
     private suspend fun handleRealtimeEvent(data: String) {
         try {
-            println("[REALTIME] 📨 Événement reçu: $data")
-
             val jsonEvent = gson.fromJson(data, JsonObject::class.java)
             val action = jsonEvent.get("action")?.asString
             val record = jsonEvent.get("record")?.asJsonObject
             val collection = record?.get("collectionName")?.asString
 
-            println("[REALTIME] 🔄 Action: $action, Collection: $collection")
-
             // Notifier les ViewModels selon la collection modifiée
             when (collection) {
                 "allocations_mensuelles" -> {
-                    println("[REALTIME] 💰 Mise à jour budget (allocations)")
+                    println("[REALTIME] 💰 Budget mis à jour")
                     _budgetUpdated.emit(Unit)
                 }
                 "comptes_cheque", "comptes_dette" -> {
-                    println("[REALTIME] 🏦 Mise à jour comptes")
+                    println("[REALTIME] 🏦 Comptes mis à jour")
                     _comptesUpdated.emit(Unit)
-                    _budgetUpdated.emit(Unit) // Budget dépend aussi des comptes
+                    _budgetUpdated.emit(Unit)
                 }
                 "enveloppes" -> {
-                    println("[REALTIME] 📮 Mise à jour budget (enveloppes)")
+                    println("[REALTIME] 📮 Enveloppes mises à jour")
                     _budgetUpdated.emit(Unit)
                 }
                 "categories" -> {
-                    println("[REALTIME] 📂 Mise à jour catégories")
+                    println("[REALTIME] 📂 Catégories mises à jour")
                     _categoriesUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)
                 }
                 "transactions" -> {
-                    println("[REALTIME] 💸 Mise à jour transactions")
+                    println("[REALTIME] 💸 Transactions mises à jour")
                     _transactionsUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)
                     _comptesUpdated.emit(Unit)
@@ -238,7 +214,7 @@ class RealtimeSyncService @Inject constructor() {
             }
 
         } catch (e: Exception) {
-            println("[REALTIME] ❌ Erreur parsing événement: ${e.message}")
+            // Ignorer les erreurs de parsing silencieusement
         }
     }
 
