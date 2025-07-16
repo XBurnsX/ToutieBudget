@@ -12,7 +12,8 @@ data class EnveloppeUi(
     val depense: Double,
     val objectif: Double,
     val couleurProvenance: String?,
-    val statutObjectif: StatutObjectif
+    val statutObjectif: StatutObjectif,
+    val dateObjectif: String? = null // Date choisie lors de la création de l'objectif
 )
 
 data class PretAPlacerUi(

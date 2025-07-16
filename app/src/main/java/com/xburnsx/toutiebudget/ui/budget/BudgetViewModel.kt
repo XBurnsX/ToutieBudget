@@ -280,6 +280,19 @@ class BudgetViewModel(
                 else -> StatutObjectif.GRIS
             }
             
+            // Formater la date d'objectif si elle existe
+            val dateObjectifFormatee = enveloppe.objectifDate?.let { date ->
+                val format = SimpleDateFormat("dd", Locale.getDefault())
+                val dateFormatee = format.format(date)
+                println("[DEBUG] Enveloppe '${enveloppe.nom}' - Date objectif: $date -> formatée: $dateFormatee")
+                dateFormatee
+            }
+
+            // Debug pour voir si la date est nulle
+            if (enveloppe.objectifDate == null) {
+                println("[DEBUG] Enveloppe '${enveloppe.nom}' - Pas de date d'objectif (null)")
+            }
+
             val enveloppeUi = EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
@@ -287,11 +300,13 @@ class BudgetViewModel(
                 depense = depense,
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
-                statutObjectif = statut
+                statutObjectif = statut,
+                dateObjectif = dateObjectifFormatee // Ajouter la date d'objectif formatée
             )
             
+            // Debug final pour voir ce qui est dans EnveloppeUi
+            println("[DEBUG] EnveloppeUi créée - '${enveloppeUi.nom}' - dateObjectif: ${enveloppeUi.dateObjectif}")
 
-            
             enveloppeUi
         }
         

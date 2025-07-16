@@ -109,6 +109,29 @@
  
              val enveloppes = items.map { item ->
                  val itemObject = item.asJsonObject
+
+                 // Récupérer la date d'objectif depuis PocketBase
+                 val objectifDateString = itemObject.get("objectif_date")?.asString
+                 val objectifDate = if (objectifDateString != null && objectifDateString.isNotBlank()) {
+                     try {
+                         // Si c'est juste un nombre (jour), créer une date avec ce jour
+                         if (objectifDateString.matches(Regex("\\d+"))) {
+                             val jour = objectifDateString.toInt()
+                             val calendar = Calendar.getInstance()
+                             calendar.set(Calendar.DAY_OF_MONTH, jour)
+                             calendar.time
+                         } else {
+                             // Sinon, essayer de parser comme une date complète
+                             formateurDate.parse(objectifDateString)
+                         }
+                     } catch (e: Exception) {
+                         println("[DEBUG] Erreur parsing date '$objectifDateString': ${e.message}")
+                         null
+                     }
+                 } else {
+                     null
+                 }
+
                  Enveloppe(
                      id = itemObject.get("id")?.asString ?: "",
                      utilisateurId = itemObject.get("utilisateur_id")?.asString ?: "",
@@ -118,7 +141,7 @@
                      ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
                      objectifType = pocketBaseVersTypeObjectif(itemObject.get("objectif_type")?.asString),
                      objectifMontant = itemObject.get("objectif_montant")?.asDouble ?: 0.0,
-                     objectifDate = null,
+                     objectifDate = objectifDate, // Utiliser la date récupérée
                      objectifJour = (itemObject.get("objectif_jour")?.asDouble)?.toInt()
                  )
              }.filter { !it.estArchive }

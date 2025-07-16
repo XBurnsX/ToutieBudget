@@ -33,6 +33,8 @@ import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import java.text.NumberFormat
 import java.util.Locale
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * Fonction d'extension pour la classe String.
@@ -186,7 +188,8 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         progression = progression,
                         objectif = formatteurMonetaire.format(objectif), // Passe l'objectif formaté en texte.
                         estDepenseComplete = estDepenseComplete,
-                        couleurBarre = couleurBarreProgression
+                        couleurBarre = couleurBarreProgression,
+                        dateObjectif = enveloppe.dateObjectif // Passe la date d'objectif
                     )
                 }
             }
@@ -215,7 +218,8 @@ private fun ProgressBarreObjectif(
     progression: Float,
     objectif: String,
     estDepenseComplete: Boolean,
-    couleurBarre: Color
+    couleurBarre: Color,
+    dateObjectif: String? // Changé de LocalDate? à String?
 ) {
     // Crée une valeur de type Float qui s'animera automatiquement vers sa `targetValue`.
     // Quand `progression` change, la barre grandira ou rétrécira avec une animation fluide.
@@ -231,9 +235,16 @@ private fun ProgressBarreObjectif(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Texte affichant le montant de l'objectif.
+            // Utilise la date d'objectif si disponible, sinon affiche juste l'objectif
+            val texteObjectif = if (dateObjectif != null) {
+                "$objectif pour le $dateObjectif"
+            } else {
+                "Objectif: $objectif"
+            }
+
+            // Texte affichant le montant de l'objectif avec la date choisie
             Text(
-                text = "$objectif pour le 31", // Note: La date "31" est codée en dur ici.
+                text = texteObjectif,
                 color = Color.LightGray,
                 fontSize = 14.sp,
                 modifier = Modifier.weight(1f) // Pousse le texte du pourcentage à droite.
