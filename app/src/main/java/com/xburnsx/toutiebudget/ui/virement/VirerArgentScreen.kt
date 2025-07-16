@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -63,6 +64,15 @@ fun VirerArgentScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Virer de l'argent", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { onNavigateBack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Retour",
+                            tint = Color.White
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF121212), 
                     titleContentColor = Color.White

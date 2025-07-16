@@ -60,8 +60,9 @@ fun FloatingTransformingBottomBar(navController: NavHostController) {
                     isSelected = isSelected,
                     onClick = {
                         navController.navigate(screen.route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
+                            // Permet de toujours retourner à Budget depuis n'importe quelle page
+                            popUpTo(Screen.Budget.route) {
+                                inclusive = (screen.route == Screen.Budget.route)
                             }
                             launchSingleTop = true
                             restoreState = true
