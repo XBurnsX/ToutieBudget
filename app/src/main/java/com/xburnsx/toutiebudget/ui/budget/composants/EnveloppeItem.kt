@@ -155,9 +155,23 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     }
                 }
 
+                // Afficher le montant dépensé sur toutes les enveloppes (pas seulement celles avec objectif)
+                if (enveloppe.depense > 0) {
+                    // Espace entre le nom/bulle et le montant dépensé
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Afficher le montant dépensé
+                    Text(
+                        text = "Dépensé: ${formatteurMonetaire.format(enveloppe.depense)}",
+                        color = Color(0xFFFF6B6B), // Couleur rouge/orange pour les dépenses
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 // Afficher le texte de l'objectif directement sous le nom si un objectif est défini
                 if (objectif > 0) {
-                    // Espace réduit entre le nom et l'objectif
+                    // Espace réduit entre le nom et l'objectif (ou entre dépensé et objectif)
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Row pour le texte de l'objectif et le pourcentage
@@ -407,7 +421,7 @@ fun ApercuEnveloppeItem() {
                     id = "2",
                     nom = "🏡 Sans objectif / Rien (Gris)",
                     solde = 0.0,
-                    depense = 0.0,
+                    depense = 34.23,
                     objectif = 0.0,
                     couleurProvenance = null,
                     statutObjectif = StatutObjectif.GRIS
