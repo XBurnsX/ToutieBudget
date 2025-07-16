@@ -49,13 +49,27 @@ class BudgetViewModel(
     init {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
-            verifierEtExecuterRolloverUseCase().onSuccess {
-                chargerDonneesBudget(Date())
-            }.onFailure { e ->
-                _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
+
+            // 🔄 ROLLOVER AUTOMATIQUE : Seulement si on est le 1er du mois
+            val aujourdhui = Calendar.getInstance()
+            val estPremierDuMois = aujourdhui.get(Calendar.DAY_OF_MONTH) == 1
+
+            if (estPremierDuMois) {
+                println("[ROLLOVER] 📅 1er du mois détecté - Vérification du rollover automatique")
+                verifierEtExecuterRolloverUseCase().onSuccess {
+                    println("[ROLLOVER] ✅ Rollover automatique effectué")
+                    chargerDonneesBudget(Date())
+                }.onFailure { e ->
+                    println("[ROLLOVER] ❌ Erreur rollover automatique: ${e.message}")
+                    _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
+                    chargerDonneesBudget(Date())
+                }
+            } else {
+                println("[ROLLOVER] 📅 Pas le 1er du mois - Chargement normal sans rollover")
                 chargerDonneesBudget(Date())
             }
         }
+
         // Abonnement à l'event bus pour rafraîchir le budget (si présent)
         viewModelScope.launch {
             try {
@@ -77,15 +91,17 @@ class BudgetViewModel(
     }
 
     /**
-     * Rafraîchit les données du budget pour le mois donné.
-     * Version avec diagnostic intégré pour identifier le problème des enveloppes à 0$.
+     * Charge les données du budget pour un mois spécifique.
+     * Affiche les données EXACTES du mois sans rollover automatique.
      */
     fun chargerDonneesBudget(moisCible: Date = Date()) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
             
             try {
-                
+                // ⚠️ PLUS DE ROLLOVER AUTOMATIQUE ICI
+                // Le rollover se fait seulement le 1er du mois dans init()
+
                 // 1. Charger les comptes
                 _uiState.update { it.copy(messageChargement = "Chargement des comptes...") }
                 val resultComptes = compteRepository.recupererTousLesComptes()
@@ -100,8 +116,6 @@ class BudgetViewModel(
                 val enveloppes = resultEnveloppes.getOrElse {
                     emptyList() 
                 }
-                enveloppes.forEachIndexed { index, env ->
-                }
                 cacheEnveloppes = enveloppes
 
                 // 3. Charger les catégories
@@ -110,31 +124,46 @@ class BudgetViewModel(
                 val categories = resultCategories.getOrElse {
                     emptyList() 
                 }
-                categories.forEachIndexed { index, cat ->
-                }
                 cacheCategories = categories
 
-                // 4. Charger les allocations pour le mois en cours
+                // 4. Charger les allocations EXACTES pour le mois spécifique UNIQUEMENT
                 _uiState.update { it.copy(messageChargement = "Chargement des allocations mensuelles...") }
                 val premierJourDuMois = obtenirPremierJourDuMois(moisCible)
-                
+                val dateFormatee = formatDatePourDebug(premierJourDuMois)
+                val moisActuel = obtenirPremierJourDuMois(Date())
+
+                // 🔍 DEBUG : Vérifier si on regarde un mois différent du mois actuel
+                val regardeMoisDifferent = premierJourDuMois.time != moisActuel.time
+                if (regardeMoisDifferent) {
+                    println("[BUDGET] 🔍 Navigation vers un mois différent:")
+                    println("[BUDGET] 📅 Mois sélectionné: $dateFormatee")
+                    println("[BUDGET] 📅 Mois actuel: ${formatDatePourDebug(moisActuel)}")
+                    println("[BUDGET] 💡 Affichage des données EXACTES du mois sélectionné")
+                } else {
+                    println("[BUDGET] 📅 Affichage du mois actuel: $dateFormatee")
+                }
+
                 val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(premierJourDuMois)
                 val allocations = resultAllocations.getOrElse {
                     emptyList() 
                 }
                 
+                println("[BUDGET] 📊 ${allocations.size} allocations trouvées pour $dateFormatee")
                 if (allocations.isEmpty()) {
+                    println("[BUDGET] 💡 Aucune allocation = toutes les enveloppes à 0$ pour ce mois")
                 } else {
-
-                    allocations.forEachIndexed { index, allocation ->
+                    println("[BUDGET] 💰 Allocations trouvées:")
+                    allocations.forEach { allocation ->
+                        println("[BUDGET]   • ${allocation.enveloppeId}: ${allocation.solde}$ (dépensé: ${allocation.depense}$)")
                     }
                 }
+
                 cacheAllocations = allocations
 
                 // 5. Créer les bandeaux "Prêt à placer"
                 val bandeauxPretAPlacer = creerBandeauxPretAPlacer(comptes)
 
-                // 6. Créer les enveloppes UI avec les allocations
+                // 6. Créer les enveloppes UI avec les allocations DU MOIS SPÉCIFIQUE
                 val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
                 
                 // Debug des enveloppes UI créées

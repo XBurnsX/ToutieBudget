@@ -158,13 +158,31 @@
                  set(Calendar.MILLISECOND, 0)
              }
              val premierJourMois = calendrier.time
- 
 
- 
-             val dateFormatee = formateurDate.format(premierJourMois)
-             val filtre = "utilisateur_id = '$utilisateurId' && mois ~ '$dateFormatee'"
+             // Calculer le dernier jour du mois pour un filtrage exact
+             val dernierJourMois = Calendar.getInstance().apply {
+                 time = premierJourMois
+                 add(Calendar.MONTH, 1)
+                 add(Calendar.DAY_OF_MONTH, -1)
+                 set(Calendar.HOUR_OF_DAY, 23)
+                 set(Calendar.MINUTE, 59)
+                 set(Calendar.SECOND, 59)
+                 set(Calendar.MILLISECOND, 999)
+             }.time
+
+             val dateDebutFormatee = formateurDate.format(premierJourMois)
+             val dateFinFormatee = formateurDate.format(dernierJourMois)
+
+             // Filtre EXACT pour le mois spécifique seulement
+             val filtre = URLEncoder.encode(
+                 "utilisateur_id = '$utilisateurId' && mois >= '$dateDebutFormatee' && mois <= '$dateFinFormatee'",
+                 "UTF-8"
+             )
              val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtre&perPage=500"
              
+             println("[REPO] 🔍 Filtre exact pour mois: $dateDebutFormatee à $dateFinFormatee")
+             println("[REPO] 🌐 URL: $url")
+
 
  
              val requete = Request.Builder()
