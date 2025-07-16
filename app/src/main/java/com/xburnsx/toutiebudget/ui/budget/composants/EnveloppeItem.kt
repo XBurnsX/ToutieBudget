@@ -160,54 +160,90 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     // Espace réduit entre le nom et l'objectif
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Texte de l'objectif avec la date
-                    val texteObjectif = if (enveloppe.dateObjectif != null) {
-                        "${formatteurMonetaire.format(objectif)} pour le ${enveloppe.dateObjectif}"
-                    } else {
-                        "Objectif: ${formatteurMonetaire.format(objectif)}"
+                    // Row pour le texte de l'objectif et le pourcentage
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Texte de l'objectif avec la date
+                        val texteObjectif = if (enveloppe.dateObjectif != null) {
+                            "${formatteurMonetaire.format(objectif)} pour le ${enveloppe.dateObjectif}"
+                        } else {
+                            "Objectif: ${formatteurMonetaire.format(objectif)}"
+                        }
+
+                        Text(
+                            text = texteObjectif,
+                            color = Color.LightGray,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Calculs pour le pourcentage
+                        val estDepenseComplete = enveloppe.depense == objectif
+                        val progression = if (estDepenseComplete) {
+                            1.0f
+                        } else {
+                            (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat()
+                        }
+
+                        // Couleur de la barre de progression
+                        val couleurBarreProgression = when {
+                            estDepenseComplete -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
+                            enveloppe.solde >= objectif -> Color(0xFF4CAF50)
+                            enveloppe.solde > 0 -> Color(0xFFFFC107)
+                            else -> Color.Gray
+                        }
+
+                        // Pourcentage à droite
+                        val progressionEntiere = (progression * 100).toInt()
+                        val texteAffichage = if(estDepenseComplete) "Dépensé ✓" else "$progressionEntiere %"
+
+                        val couleurTexte = if (progressionEntiere == 0 && !estDepenseComplete) {
+                            Color.LightGray
+                        } else {
+                            couleurBarreProgression
+                        }
+
+                        Text(
+                            text = texteAffichage,
+                            color = couleurTexte,
+                            fontWeight = if (estDepenseComplete) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 12.sp
+                        )
                     }
 
-                    Text(
-                        text = texteObjectif,
-                        color = Color.LightGray,
-                        fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth()
+                    // Espace réduit entre le texte et la barre de progression
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Barre de progression directement sous le texte
+                    val progressionAnimee by animateFloatAsState(
+                        targetValue = if (enveloppe.depense == objectif) 1.0f else (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat(),
+                        label = "Animation Barre de Progression"
                     )
 
-                    // Ajoute un espace vertical entre le texte d'objectif et la barre de progression.
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Vérifie si le montant dépensé est exactement égal à l'objectif.
-                    val estDepenseComplete = enveloppe.depense == objectif
-
-                    // Calcule la progression vers l'objectif en pourcentage (valeur de 0.0 à 1.0).
-                    val progression = if (estDepenseComplete) {
-                        1.0f // Si tout est dépensé, la progression est à 100%.
-                    } else {
-                        // Calcul basé sur le solde de l'enveloppe uniquement
-                        (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat()
-                    }
-
-                    // Détermine la couleur de la barre de progression.
-                    val couleurBarreProgression = when {
-                        // Si l'objectif est marqué comme entièrement dépensé, on utilise la couleur du compte.
-                        estDepenseComplete -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
-                        // Vert si l'objectif est atteint ou dépassé.
+                    val couleurBarre = when {
+                        enveloppe.depense == objectif -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
                         enveloppe.solde >= objectif -> Color(0xFF4CAF50)
-                        // Jaune si en cours de remplissage.
                         enveloppe.solde > 0 -> Color(0xFFFFC107)
-                        // Gris si rien n'a encore été alloué.
                         else -> Color.Gray
                     }
 
-                    // Appelle le composant qui s'occupe d'afficher la barre de progression et le pourcentage seulement
-                    ProgressBarreObjectif(
-                        progression = progression,
-                        objectif = formatteurMonetaire.format(objectif), // Passe l'objectif formaté en texte.
-                        estDepenseComplete = estDepenseComplete,
-                        couleurBarre = couleurBarreProgression,
-                        dateObjectif = enveloppe.dateObjectif // Passe la date d'objectif
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF333333))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction = progressionAnimee)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(couleurBarre)
+                        )
+                    }
                 }
             }
 
