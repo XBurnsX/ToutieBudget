@@ -11,13 +11,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
-import okhttp3.Response
 import okhttp3.WebSocket
-import okhttp3.WebSocketListener
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -121,7 +117,20 @@ class RealtimeSyncService @Inject constructor() {
         serviceScope.launch {
             try {
                 val urlBase = UrlResolver.obtenirUrlActive()
-                val sseUrl = "$urlBase/api/realtime"
+
+                // Collections à écouter
+                val collections = listOf(
+                    "allocations_mensuelles",
+                    "comptes_cheque",
+                    "comptes_dette",
+                    "enveloppes",
+                    "categories",
+                    "transactions"
+                )
+
+                // Construire l'URL SSE avec les collections en paramètres
+                val collectionsParam = collections.joinToString(",")
+                val sseUrl = "$urlBase/api/realtime?subscribe=$collectionsParam"
 
                 println("[REALTIME] 🌐 URL SSE: $sseUrl")
 
@@ -138,9 +147,7 @@ class RealtimeSyncService @Inject constructor() {
                 if (response.isSuccessful) {
                     isConnected = true
                     println("[REALTIME] ✅ Connexion SSE établie")
-
-                    // S'abonner aux collections importantes
-                    subscribeToCollections(token)
+                    println("[REALTIME] ✅ Abonné aux collections: $collectionsParam")
 
                     // Lire le stream en temps réel
                     response.body?.source()?.let { source ->
@@ -173,56 +180,6 @@ class RealtimeSyncService @Inject constructor() {
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
                 startRealtimeSync()
-            }
-        }
-    }
-
-    /**
-     * S'abonne aux collections importantes pour recevoir les événements temps réel.
-     */
-    private suspend fun subscribeToCollections(token: String) {
-        val collections = listOf(
-            "allocations_mensuelles",
-            "comptes_cheque",
-            "comptes_dette",
-            "enveloppes",
-            "categories",
-            "transactions"
-        )
-
-        collections.forEach { collection ->
-            try {
-                val urlBase = UrlResolver.obtenirUrlActive()
-                val subscribeUrl = "$urlBase/api/realtime"
-
-                val subscribeData = mapOf(
-                    "clientId" to "toutiebudget_${System.currentTimeMillis()}",
-                    "command" to "subscribe",
-                    "data" to mapOf("collection" to collection)
-                )
-
-                val requestBody = RequestBody.create(
-                    "application/json".toMediaTypeOrNull(),
-                    gson.toJson(subscribeData)
-                )
-
-                val request = Request.Builder()
-                    .url(subscribeUrl)
-                    .post(requestBody)
-                    .addHeader("Authorization", "Bearer $token")
-                    .addHeader("Content-Type", "application/json")
-                    .build()
-
-                val response = httpClient.newCall(request).execute()
-                if (response.isSuccessful) {
-                    println("[REALTIME] ✅ Abonné à la collection: $collection")
-                } else {
-                    println("[REALTIME] ❌ Erreur abonnement $collection: ${response.code}")
-                }
-                response.close()
-
-            } catch (e: Exception) {
-                println("[REALTIME] ❌ Erreur abonnement $collection: ${e.message}")
             }
         }
     }
@@ -273,7 +230,6 @@ class RealtimeSyncService @Inject constructor() {
             println("[REALTIME] ❌ Erreur parsing événement: ${e.message}")
         }
     }
-
 
 
     /**
