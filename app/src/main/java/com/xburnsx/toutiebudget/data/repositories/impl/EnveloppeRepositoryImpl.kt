@@ -112,6 +112,11 @@
 
                  // Récupérer la date d'objectif depuis PocketBase
                  val objectifDateString = itemObject.get("objectif_date")?.asString
+                 val objectifType = itemObject.get("objectif_type")?.asString
+                 val nom = itemObject.get("nom")?.asString ?: ""
+
+                println("[DEBUG] Enveloppe '$nom' - objectif_type: '$objectifType', objectif_date brut: '$objectifDateString'")
+
                  val objectifDate = if (objectifDateString != null && objectifDateString.isNotBlank()) {
                      try {
                          // Si c'est juste un nombre (jour), créer une date avec ce jour
@@ -119,16 +124,21 @@
                              val jour = objectifDateString.toInt()
                              val calendar = Calendar.getInstance()
                              calendar.set(Calendar.DAY_OF_MONTH, jour)
-                             calendar.time
+                             val dateCalculee = calendar.time
+                             println("[DEBUG] Enveloppe '$nom' - Date calculée pour jour $jour: $dateCalculee")
+                             dateCalculee
                          } else {
                              // Sinon, essayer de parser comme une date complète
-                             formateurDate.parse(objectifDateString)
+                             val dateParsee = formateurDate.parse(objectifDateString)
+                             println("[DEBUG] Enveloppe '$nom' - Date parsée: $dateParsee")
+                             dateParsee
                          }
                      } catch (e: Exception) {
                          println("[DEBUG] Erreur parsing date '$objectifDateString': ${e.message}")
                          null
                      }
                  } else {
+                     println("[DEBUG] Enveloppe '$nom' - Pas de date d'objectif (objectif_date vide ou null)")
                      null
                  }
 

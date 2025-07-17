@@ -256,6 +256,7 @@ class AjoutTransactionViewModel(
      * Met à jour l'enveloppe sélectionnée.
      */
     fun onEnveloppeChanged(nouvelleEnveloppe: EnveloppeUi?) {
+        println("[DEBUG] AjoutTransactionViewModel.onEnveloppeChanged - Nouvelle enveloppe sélectionnée: ${nouvelleEnveloppe?.nom} (ID: ${nouvelleEnveloppe?.id})")
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
         }
@@ -292,12 +293,16 @@ class AjoutTransactionViewModel(
                 
                 // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
                 val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
-                    state.enveloppeSelectionnee?.id 
+                    val enveloppeSelectionnee = state.enveloppeSelectionnee
+                    println("[DEBUG] sauvegarderTransaction - Enveloppe sélectionnée: ${enveloppeSelectionnee?.nom} (ID: ${enveloppeSelectionnee?.id})")
+                    enveloppeSelectionnee?.id
                         ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
                 } else {
                     null
                 }
                 
+                println("[DEBUG] sauvegarderTransaction - Montant: $montant, Compte: ${compte.nom}, EnveloppeId: $enveloppeId")
+
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 

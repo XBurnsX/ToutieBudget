@@ -4,6 +4,7 @@ package com.xburnsx.toutiebudget.ui.budget.composants
 // Importations des bibliothèques nécessaires pour créer des interfaces utilisateur avec Jetpack Compose.
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -122,6 +125,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                 modifier = Modifier
                     .weight(1f) // La colonne prend tout l'espace disponible dans la Row (après que la barre de statut ait pris sa largeur fixe).
                     .padding(horizontal = 16.dp, vertical = 12.dp) // Espace intérieur.
+                // SUPPRIMÉ verticalArrangement = Arrangement.spacedBy((-2).dp) - plus besoin !
             ) {
                 // Row pour le nom de l'enveloppe et la bulle de montant.
                 Row(
@@ -133,6 +137,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         text = enveloppe.nom,
                         fontWeight = FontWeight.Bold, // Texte en gras.
                         fontSize = 15.sp,
+                        lineHeight = 15.sp, // SUPPRIME l'espace vertical interne
                         color = Color.White,
                         modifier = Modifier.weight(1f) // Le texte prend l'espace restant pour pousser la bulle à droite.
                     )
@@ -150,29 +155,29 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             text = formatteurMonetaire.format(montant),
                             color = couleurTexteBulle, // Applique la couleur de texte calculée.
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp // Taille réduite
+                            fontSize = 14.sp, // Taille réduite
+                            lineHeight = 14.sp // SUPPRIME l'espace vertical interne
                         )
                     }
                 }
 
                 // Afficher le montant dépensé sur toutes les enveloppes (pas seulement celles avec objectif)
                 if (enveloppe.depense > 0) {
-                    // Espace entre le nom/bulle et le montant dépensé
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp)) // ESPACE CONTRÔLÉ entre nom et dépensé
 
                     // Afficher le montant dépensé
                     Text(
                         text = "Dépensé: ${formatteurMonetaire.format(enveloppe.depense)}",
                         color = Color(0xFFFF6B6B), // Couleur rouge/orange pour les dépenses
                         fontSize = 11.sp,
+                        lineHeight = 11.sp, // SUPPRIME l'espace vertical interne
                         fontWeight = FontWeight.Medium
                     )
                 }
 
                 // Afficher le texte de l'objectif directement sous le nom si un objectif est défini
                 if (objectif > 0) {
-                    // Espace réduit entre le nom et l'objectif (ou entre dépensé et objectif)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp)) // ESPACE CONTRÔLÉ entre dépensé et objectif
 
                     // Row pour le texte de l'objectif et le pourcentage
                     Row(
@@ -190,6 +195,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             text = texteObjectif,
                             color = Color.LightGray,
                             fontSize = 12.sp,
+                            lineHeight = 12.sp, // SUPPRIME l'espace vertical interne
                             modifier = Modifier.weight(1f)
                         )
 
@@ -223,12 +229,12 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             text = texteAffichage,
                             color = couleurTexte,
                             fontWeight = if (estDepenseComplete) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            lineHeight = 12.sp // SUPPRIME l'espace vertical interne
                         )
                     }
 
-                    // Espace réduit entre le texte et la barre de progression
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(3.dp)) // ESPACE CONTRÔLÉ entre objectif et barre
 
                     // Barre de progression directement sous le texte
                     val progressionAnimee by animateFloatAsState(
@@ -267,83 +273,6 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     .fillMaxHeight() // Remplit toute la hauteur de la carte.
                     .width(8.dp) // Largeur fixe.
                     .background(couleurStatut) // Applique la couleur de statut calculée au début.
-            )
-        }
-    }
-}
-
-/**
- * Un composant privé et réutilisable pour afficher la barre de progression,
- * le montant de l'objectif et le pourcentage d'accomplissement.
- * @param progression La progression de 0.0f à 1.0f.
- * @param objectif Le montant de l'objectif, déjà formaté en chaîne de caractères.
- * @param estDepenseComplete Booléen pour savoir si l'objectif est considéré comme totalement dépensé.
- * @param couleurBarre La couleur à utiliser pour la barre de progression et le texte du pourcentage.
- */
-@Composable
-private fun ProgressBarreObjectif(
-    progression: Float,
-    objectif: String,
-    estDepenseComplete: Boolean,
-    couleurBarre: Color,
-    dateObjectif: String? // Changé de LocalDate? à String?
-) {
-    // Crée une valeur de type Float qui s'animera automatiquement vers sa `targetValue`.
-    // Quand `progression` change, la barre grandira ou rétrécira avec une animation fluide.
-    val progressionAnimee by animateFloatAsState(
-        targetValue = progression,
-        label = "Animation Barre de Progression" // Libellé pour l'outil d'inspection de Compose.
-    )
-
-    // Column arrange le texte et la barre de progression verticalement.
-    Column {
-        // Row pour le pourcentage seulement (le texte d'objectif est maintenant affiché ailleurs)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End // Aligner le pourcentage à droite
-        ) {
-
-            // Calcule le pourcentage entier (ex: 0.75 -> 75).
-            val progressionEntiere = (progression * 100).toInt()
-            // Détermine le texte à afficher : "Dépensé ✓" si c'est le cas, sinon le pourcentage.
-            val texteAffichage = if(estDepenseComplete) "Dépensé ✓" else "$progressionEntiere %"
-
-            // Détermine la couleur du texte du pourcentage.
-            val couleurTexte = if (progressionEntiere == 0 && !estDepenseComplete) {
-                // Gris clair si la progression est à 0.
-                Color.LightGray
-            } else {
-                // Sinon, la même couleur que la barre de progression.
-                couleurBarre
-            }
-
-            // Texte affichant le pourcentage ou le statut "Dépensé".
-            Text(
-                text = texteAffichage,
-                color = couleurTexte,
-                fontWeight = if (estDepenseComplete) FontWeight.Bold else FontWeight.Medium, // Gras si dépensé.
-                fontSize = 14.sp
-            )
-        }
-        // Espace entre le texte et la barre de progression.
-        Spacer(modifier = Modifier.height(8.dp))
-        // Conteneur pour la barre de progression (fond + progression).
-        Box(
-            modifier = Modifier
-                .fillMaxWidth() // Prend toute la largeur.
-                .height(8.dp)   // Hauteur fixe de la barre.
-                .clip(RoundedCornerShape(50)) // Coins arrondis pour un aspect de pilule.
-                .background(Color(0xFF333333)) // Couleur de fond (la partie "vide" de la barre).
-        ) {
-            // La barre de progression colorée elle-même.
-            Box(
-                modifier = Modifier
-                    // Sa largeur est une fraction de la largeur totale, contrôlée par la valeur animée.
-                    .fillMaxWidth(fraction = progressionAnimee)
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(50)) // Coins arrondis également.
-                    .background(couleurBarre) // La couleur vive de la progression.
             )
         }
     }
