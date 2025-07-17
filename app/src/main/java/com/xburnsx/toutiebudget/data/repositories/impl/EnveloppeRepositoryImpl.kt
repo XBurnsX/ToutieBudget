@@ -538,10 +538,38 @@
                  ?: return@withContext Result.failure(Exception("Token manquant"))
              val urlBase = client.obtenirUrlBaseActive()
  
-             val dateFormatee = formateurDate.format(mois)
-             val filtre = "utilisateur_id = '$utilisateurId' && enveloppe_id = '$enveloppeId' && mois ~ '$dateFormatee'"
-             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtre&perPage=1"
- 
+             // Calculer le premier jour du mois et le dernier jour du mois
+             val calendrier = Calendar.getInstance().apply {
+                 time = mois
+                 set(Calendar.DAY_OF_MONTH, 1)
+                 set(Calendar.HOUR_OF_DAY, 0)
+                 set(Calendar.MINUTE, 0)
+                 set(Calendar.SECOND, 0)
+                 set(Calendar.MILLISECOND, 0)
+             }
+             val premierJourMois = calendrier.time
+
+             val dernierJourMois = Calendar.getInstance().apply {
+                 time = premierJourMois
+                 add(Calendar.MONTH, 1)
+                 add(Calendar.DAY_OF_MONTH, -1)
+                 set(Calendar.HOUR_OF_DAY, 23)
+                 set(Calendar.MINUTE, 59)
+                 set(Calendar.SECOND, 59)
+                 set(Calendar.MILLISECOND, 999)
+             }.time
+
+             val dateDebutFormatee = formateurDate.format(premierJourMois)
+             val dateFinFormatee = formateurDate.format(dernierJourMois)
+
+             // Utiliser un filtre exact avec des plages de dates au lieu de l'opérateur ~
+             val filtre = "utilisateur_id = '$utilisateurId' && enveloppe_id = '$enveloppeId' && mois >= '$dateDebutFormatee' && mois <= '$dateFinFormatee'"
+             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=${URLEncoder.encode(filtre, "UTF-8")}&perPage=1"
+
+             println("[DEBUG] recupererAllocationMensuelle - Recherche allocation pour enveloppeId: $enveloppeId")
+             println("[DEBUG] recupererAllocationMensuelle - Filtre CORRIGÉ: $filtre")
+             println("[DEBUG] recupererAllocationMensuelle - URL: $url")
+
              val requete = Request.Builder()
                  .url(url)
                  .addHeader("Authorization", "Bearer $token")
@@ -557,13 +585,25 @@
              val json = JsonParser.parseString(corpsReponse).asJsonObject
              val items = json.getAsJsonArray("items")
  
+             println("[DEBUG] recupererAllocationMensuelle - Nombre d'allocations trouvées: ${items.size()}")
+
              if (items.size() > 0) {
                  val allocation = deserialiserAllocation(items[0].asJsonObject)
-                 Result.success(allocation)
+                 println("[DEBUG] recupererAllocationMensuelle - Allocation trouvée: ID=${allocation.id}, enveloppeId=${allocation.enveloppeId}")
+
+                 // Vérification de sécurité : s'assurer que l'allocation appartient bien à la bonne enveloppe
+                 if (allocation.enveloppeId == enveloppeId) {
+                     Result.success(allocation)
+                 } else {
+                     println("[DEBUG] recupererAllocationMensuelle - ERREUR: L'allocation trouvée appartient à une autre enveloppe!")
+                     Result.success(null)
+                 }
              } else {
+                 println("[DEBUG] recupererAllocationMensuelle - Aucune allocation trouvée")
                  Result.success(null)
              }
          } catch (e: Exception) {
+             println("[DEBUG] recupererAllocationMensuelle - Erreur: ${e.message}")
              Result.failure(e)
          }
      }
@@ -698,3 +738,4 @@
          )
      }
  }
+

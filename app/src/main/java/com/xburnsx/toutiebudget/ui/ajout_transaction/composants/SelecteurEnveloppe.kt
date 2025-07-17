@@ -207,7 +207,10 @@ private fun DialogSelectionEnveloppe(
                         items(enveloppesCategorie) { enveloppe ->
                             ItemEnveloppe(
                                 enveloppe = enveloppe,
-                                onClick = { onEnveloppeSelectionnee(enveloppe) }
+                                onClick = {
+                                    println("[DEBUG] DialogSelectionEnveloppe - Enveloppe sélectionnée: ${enveloppe.nom} (ID: ${enveloppe.id})")
+                                    onEnveloppeSelectionnee(enveloppe)
+                                }
                             )
                         }
                     }

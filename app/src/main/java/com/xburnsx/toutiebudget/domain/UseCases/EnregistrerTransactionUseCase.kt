@@ -156,6 +156,8 @@ class EnregistrerTransactionUseCase(
      * Crée une nouvelle allocation mensuelle.
      */
     private suspend fun creerNouvelleAllocation(enveloppeId: String, premierJourMois: Date): Result<String> {
+        println("[DEBUG] creerNouvelleAllocation - Création pour enveloppeId: $enveloppeId")
+
         val nouvelleAllocation = AllocationMensuelle(
             id = "",
             utilisateurId = "",
@@ -168,8 +170,13 @@ class EnregistrerTransactionUseCase(
             collectionCompteSource = null
         )
         
+        println("[DEBUG] creerNouvelleAllocation - Allocation à créer: enveloppeId=${nouvelleAllocation.enveloppeId}")
+
         return enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-            .map { it.id }
+            .map { allocationCreee ->
+                println("[DEBUG] creerNouvelleAllocation - Allocation créée: ID=${allocationCreee.id}, enveloppeId=${allocationCreee.enveloppeId}")
+                allocationCreee.id
+            }
     }
 
     /**

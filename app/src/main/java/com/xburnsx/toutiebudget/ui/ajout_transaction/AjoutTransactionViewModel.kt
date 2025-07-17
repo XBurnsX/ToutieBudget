@@ -121,10 +121,15 @@ class AjoutTransactionViewModel(
      * Construit la liste des enveloppes UI avec leurs allocations.
      */
     private fun construireEnveloppesUi(): List<EnveloppeUi> {
+        println("[DEBUG] construireEnveloppesUi - Début avec ${allEnveloppes.size} enveloppes")
+
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
             val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
+            println("[DEBUG] construireEnveloppesUi - Enveloppe: ${enveloppe.nom} (ID: ${enveloppe.id})")
+            println("[DEBUG] construireEnveloppesUi - Allocation trouvée: ${allocation?.id} pour enveloppeId: ${enveloppe.id}")
+
             EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
