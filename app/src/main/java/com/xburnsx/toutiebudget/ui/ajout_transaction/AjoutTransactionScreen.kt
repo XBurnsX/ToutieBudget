@@ -21,6 +21,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypeDetteSelecto
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurCompte
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurEnveloppe
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransaction
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
@@ -128,6 +129,16 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     )
 
                     // 3. Sélecteur de compte
+                    SelecteurTiers(
+                        tiersDisponibles = uiState.tiersDisponibles,
+                        tiersSelectionne = uiState.tiersSelectionne,
+                        onTiersChange = viewModel::onTiersChanged,
+                        onCreerTiers = viewModel::onCreerTiers,
+                        onRechercherTiers = viewModel::onRechercherTiers,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // 4. Sélecteur de compte
                     SelecteurCompte(
                         comptes = uiState.comptesDisponibles,
                         compteSelectionne = uiState.compteSelectionne,
@@ -135,7 +146,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 4. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
+                    // 5. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
                     if (uiState.modeOperation == "Standard" && uiState.typeTransaction == TypeTransaction.Depense) {
 
                         SelecteurEnveloppe(
@@ -150,7 +161,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         )
                     }
 
-                    // 5. Champ note facultatif
+                    // 6. Champ note facultatif
                     ChampNoteTransaction(
                         note = uiState.note,
                         onNoteChange = viewModel::onNoteChanged,

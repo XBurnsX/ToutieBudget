@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
+import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -27,6 +28,7 @@ class AjoutTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
+    private val tiersRepository: TiersRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase
 ) : ViewModel() {
 
@@ -38,6 +40,7 @@ class AjoutTransactionViewModel(
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var allCategories: List<Categorie> = emptyList()
+    private var allTiers: List<Tiers> = emptyList()
 
     init {
         chargerDonneesInitiales()
@@ -55,6 +58,7 @@ class AjoutTransactionViewModel(
                 val resultComptes = compteRepository.recupererTousLesComptes()
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
+                val resultTiers = tiersRepository.recupererTousLesTiers()
                 
                 // Calculer le mois actuel pour les allocations
                 val maintenant = Date()
@@ -80,11 +84,15 @@ class AjoutTransactionViewModel(
                 if (resultCategories.isFailure) {
                     throw Exception("Erreur lors du chargement des catégories: ${resultCategories.exceptionOrNull()?.message}")
                 }
+                if (resultTiers.isFailure) {
+                    throw Exception("Erreur lors du chargement des tiers: ${resultTiers.exceptionOrNull()?.message}")
+                }
                 
                 // Stocker les données dans le cache
                 allComptes = resultComptes.getOrNull() ?: emptyList()
                 allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 allCategories = resultCategories.getOrNull() ?: emptyList()
+                allTiers = resultTiers.getOrNull() ?: emptyList()
                 allAllocations = resultAllocations.getOrNull() ?: emptyList()
                 
                 // Construire les enveloppes UI
@@ -103,6 +111,7 @@ class AjoutTransactionViewModel(
                         comptesDisponibles = allComptes.filter { !it.estArchive },
                         enveloppesDisponibles = enveloppesUi,
                         enveloppesFiltrees = enveloppesFiltrees
+                        tiersDisponibles = allTiers
                     ).calculerValidite()
                 }
                 
@@ -262,6 +271,71 @@ class AjoutTransactionViewModel(
     }
 
     /**
+     * Met à jour le tiers sélectionné.
+     */
+    fun onTiersChanged(nouveauTiers: Tiers?) {
+        _uiState.update { state ->
+            state.copy(tiersSelectionne = nouveauTiers).calculerValidite()
+        }
+    }
+
+    /**
+     * Crée un nouveau tiers et le sélectionne.
+     */
+    fun onCreerTiers(nomTiers: String) {
+        viewModelScope.launch {
+            try {
+                val nouveauTiers = Tiers(
+                    nom = nomTiers.trim()
+                )
+                
+                val result = tiersRepository.creerTiers(nouveauTiers)
+                if (result.isSuccess) {
+                    val tiersCreee = result.getOrNull()!!
+                    
+                    // Mettre à jour le cache
+                    allTiers = allTiers + tiersCreee
+                    
+                    // Sélectionner le nouveau tiers
+                    _uiState.update { state ->
+                        state.copy(
+                            tiersDisponibles = allTiers,
+                            tiersSelectionne = tiersCreee
+                        ).calculerValidite()
+                    }
+                } else {
+                    _uiState.update { 
+                        it.copy(messageErreur = "Erreur lors de la création du tiers: ${result.exceptionOrNull()?.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(messageErreur = "Erreur: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Recherche des tiers selon le texte saisi.
+     */
+    fun onRechercherTiers(recherche: String) {
+        viewModelScope.launch {
+            try {
+                val result = tiersRepository.rechercherTiers(recherche)
+                if (result.isSuccess) {
+                    val tiersRecherches = result.getOrNull() ?: emptyList()
+                    _uiState.update { state ->
+                        state.copy(tiersDisponibles = tiersRecherches)
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignorer les erreurs de recherche silencieusement
+            }
+        }
+    }
+
+    /**
      * Met à jour la note saisie.
      */
     fun onNoteChanged(nouvelleNote: String) {
@@ -301,6 +375,9 @@ class AjoutTransactionViewModel(
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
+                // Récupérer l'ID du tiers sélectionné
+                val tiersId = state.tiersSelectionne?.id
+                
                 // Enregistrer la transaction
                 val result = enregistrerTransactionUseCase.executer(
                     typeTransaction = typeTransaction,
@@ -314,7 +391,8 @@ class AjoutTransactionViewModel(
                         else -> "comptes_cheque"
                     },
                     enveloppeId = enveloppeId,
-                    note = state.note.takeIf { it.isNotBlank() }
+                    note = state.note.takeIf { it.isNotBlank() },
+                    tiersId = tiersId
                 )
                 
                 if (result.isSuccess) {
@@ -326,7 +404,8 @@ class AjoutTransactionViewModel(
                         AjoutTransactionUiState(
                             isLoading = false,
                             comptesDisponibles = state.comptesDisponibles,
-                            enveloppesDisponibles = state.enveloppesDisponibles
+                            enveloppesDisponibles = state.enveloppesDisponibles,
+                            tiersDisponibles = state.tiersDisponibles
                         ).calculerValidite()
                     }
                     

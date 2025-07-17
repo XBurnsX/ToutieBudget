@@ -5,6 +5,7 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.data.modeles.Tiers
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 
 /**
@@ -32,6 +33,7 @@ data class AjoutTransactionUiState(
     // --- Sélections ---
     val compteSelectionne: Compte? = null,
     val enveloppeSelectionnee: EnveloppeUi? = null,
+    val tiersSelectionne: Tiers? = null,
     
     // --- Champs de saisie ---
     val tiers: String = "", // Payé à / Reçu de
@@ -41,6 +43,7 @@ data class AjoutTransactionUiState(
     val comptesDisponibles: List<Compte> = emptyList(),
     val enveloppesDisponibles: List<EnveloppeUi> = emptyList(),
     val enveloppesFiltrees: Map<String, List<EnveloppeUi>> = emptyMap(), // Groupées par catégorie
+    val tiersDisponibles: List<Tiers> = emptyList(),
     
     // --- Validation ---
     val peutSauvegarder: Boolean = false

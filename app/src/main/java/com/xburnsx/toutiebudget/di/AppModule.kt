@@ -7,6 +7,8 @@
 
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
+import com.xburnsx.toutiebudget.data.repositories.TiersRepository
+import com.xburnsx.toutiebudget.data.repositories.impl.TiersRepositoryImpl
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
@@ -32,6 +34,7 @@
      private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
+    private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
  
      // ===== SERVICES =====
      private val virementUseCase: VirementUseCase by lazy { VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository) }
@@ -78,6 +81,7 @@
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
+            tiersRepository = tiersRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase
          ) 
      }
@@ -108,6 +112,7 @@
      fun provideTransactionRepository(): TransactionRepository = transactionRepository
      fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
      fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
+    fun provideTiersRepository(): TiersRepository = tiersRepository
  
      // Services
      fun provideArgentService(): ArgentService = argentService
