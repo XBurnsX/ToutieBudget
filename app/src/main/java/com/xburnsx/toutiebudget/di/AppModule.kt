@@ -16,9 +16,11 @@
  import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
  import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
+ import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
  import com.xburnsx.toutiebudget.ui.login.LoginViewModel
  import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
- 
+ import androidx.lifecycle.SavedStateHandle
+
  /**
   * Module d'injection de dépendances pour l'application Toutie Budget.
   * Gère l'instanciation de tous les repositories, services, use cases et ViewModels.
@@ -130,7 +132,14 @@
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
-     
+     fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
+         return HistoriqueCompteViewModel(
+             transactionRepository = transactionRepository,
+             enveloppeRepository = enveloppeRepository,
+             savedStateHandle = savedStateHandle
+         )
+     }
+
      /**
       * Nettoie les singletons (pas nécessaire avec lazy mais gardé pour compatibilité).
       */

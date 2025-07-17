@@ -89,6 +89,46 @@ class TransactionRepositoryImpl : TransactionRepository {
         }
     }
 
+    override suspend fun recupererToutesLesTransactions(): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.success(emptyList())
+        }
+
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
+
+            val token = client.obtenirToken()
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            // Filtre pour récupérer toutes les transactions de l'utilisateur connecté
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId'",
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération de toutes les transactions: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val transactions = deserialiserListeTransactions(corpsReponse)
+
+            Result.success(transactions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
             return@withContext Result.success(emptyList())
@@ -145,12 +185,16 @@ class TransactionRepositoryImpl : TransactionRepository {
                 ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
+            println("DEBUG REPO: Recherche transactions pour compteId=$compteId, collectionCompte=$collectionCompte, utilisateurId=$utilisateurId")
+
             // Filtre pour récupérer les transactions d'un compte spécifique
             val filtreEncode = URLEncoder.encode(
                 "utilisateur_id = '$utilisateurId' && compte_id = '$compteId' && collection_compte = '$collectionCompte'", 
                 "UTF-8"
             )
             val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
+
+            println("DEBUG REPO: URL de requête: $url")
 
             val requete = Request.Builder()
                 .url(url)
@@ -159,15 +203,25 @@ class TransactionRepositoryImpl : TransactionRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
+
+            println("DEBUG REPO: Code de réponse: ${reponse.code}")
+
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la récupération des transactions du compte: ${reponse.code} ${reponse.body?.string()}")
+                val erreurCorps = reponse.body?.string() ?: "Erreur inconnue"
+                println("DEBUG REPO: Erreur dans la réponse: $erreurCorps")
+                throw Exception("Erreur lors de la récupération des transactions du compte: ${reponse.code} $erreurCorps")
             }
 
             val corpsReponse = reponse.body!!.string()
+            println("DEBUG REPO: Réponse brute: $corpsReponse")
+
             val transactions = deserialiserListeTransactions(corpsReponse)
+            println("DEBUG REPO: Nombre de transactions désérialisées: ${transactions.size}")
 
             Result.success(transactions)
         } catch (e: Exception) {
+            println("DEBUG REPO: Exception: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }

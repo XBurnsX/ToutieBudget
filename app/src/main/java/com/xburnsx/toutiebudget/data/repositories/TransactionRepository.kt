@@ -20,6 +20,12 @@ interface TransactionRepository {
     suspend fun creerTransaction(transaction: Transaction): Result<Transaction>
     
     /**
+     * Récupère toutes les transactions d'un utilisateur.
+     * @return Result contenant la liste de toutes les transactions, ou une erreur
+     */
+    suspend fun recupererToutesLesTransactions(): Result<List<Transaction>>
+
+    /**
      * Récupère toutes les transactions d'un utilisateur pour une période donnée.
      * @param debut Date de début de la période
      * @param fin Date de fin de la période

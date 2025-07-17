@@ -1,6 +1,8 @@
 // chemin/simule: /ui/historique/HistoriqueCompteScreen.kt
 package com.xburnsx.toutiebudget.ui.historique
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import com.xburnsx.toutiebudget.ui.historique.composants.TransactionItem
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoriqueCompteScreen(
     viewModel: HistoriqueCompteViewModel,
@@ -51,12 +55,32 @@ fun HistoriqueCompteScreen(
                 CircularProgressIndicator()
             } else if (uiState.erreur != null) {
                 Text(uiState.erreur!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-            } else if (uiState.transactions.isEmpty()) {
+            } else if (uiState.transactionsGroupees.isEmpty()) {
                 Text("Aucune transaction pour ce compte.", color = Color.Gray)
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(uiState.transactions, key = { it.id }) { transactionUi ->
-                        TransactionItem(transaction = transactionUi)
+                    // Convertir en liste ordonnée pour garantir l'ordre
+                    val datesList = uiState.transactionsGroupees.toList()
+
+                    datesList.forEach { (dateString, transactionsPourDate) ->
+                        // Séparateur de date
+                        stickyHeader(key = "header_$dateString") {
+                            Text(
+                                text = dateString,
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF1E1E1E))
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            )
+                        }
+
+                        // Transactions pour cette date
+                        items(transactionsPourDate, key = { "transaction_${it.id}" }) { transactionUi ->
+                            HistoriqueItem(transaction = transactionUi)
+                        }
                     }
                 }
             }

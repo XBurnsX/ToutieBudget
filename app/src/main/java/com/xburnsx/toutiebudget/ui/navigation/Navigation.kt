@@ -78,11 +78,24 @@ fun AppNavigation() {
                 navArgument("collectionCompte") { type = NavType.StringType },
                 navArgument("nomCompte") { type = NavType.StringType }
             )
-        ) {
-            // Pour les ViewModels avec arguments, une factory est nécessaire.
-            // En attendant, on ne peut pas l'instancier directement ici.
-            // HistoriqueCompteScreen(viewModel = ..., onNavigateBack = { navController.popBackStack() })
-            PlaceholderScreen("Historique")
+        ) { backStackEntry ->
+            val compteId = backStackEntry.arguments?.getString("compteId") ?: ""
+            val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
+            val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
+
+            // Créer le SavedStateHandle avec les arguments
+            val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
+                set("compteId", compteId)
+                set("collectionCompte", collectionCompte)
+                set("nomCompte", nomCompte)
+            }
+
+            val viewModel = AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
+
+            HistoriqueCompteScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

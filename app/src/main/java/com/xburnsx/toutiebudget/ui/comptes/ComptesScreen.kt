@@ -63,7 +63,22 @@ fun ComptesScreen(
                 items(listeDeComptes, key = { it.id }) { compte ->
                     CompteItem(
                         compte = compte,
-                        onClick = { onCompteClick(compte.id, compte.javaClass.simpleName.lowercase().replace("compte", ""), compte.nom) },
+                        onClick = {
+                            // Corriger la valeur de collection pour correspondre à ce qui est stocké dans PocketBase
+                            val collectionCompte = compte.javaClass.simpleName.lowercase().replace("compte", "comptes_")
+
+                            // Vérifications de sécurité pour éviter les paramètres null
+                            val compteId = compte.id ?: ""
+                            val nomCompte = compte.nom ?: "Compte sans nom"
+
+                            println("DEBUG CLICK: compteId=$compteId, collectionCompte=$collectionCompte, nomCompte=$nomCompte")
+
+                            if (compteId.isNotEmpty() && collectionCompte.isNotEmpty()) {
+                                onCompteClick(compteId, collectionCompte, nomCompte)
+                            } else {
+                                println("DEBUG CLICK: Paramètres invalides - compteId ou collectionCompte vide")
+                            }
+                        },
                         onLongClick = { viewModel.onCompteLongPress(compte) }
                     )
                 }

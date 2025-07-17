@@ -18,5 +18,6 @@ data class HistoriqueCompteUiState(
     val isLoading: Boolean = true,
     val nomCompte: String = "",
     val transactions: List<TransactionUi> = emptyList(),
+    val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
     val erreur: String? = null
 )
