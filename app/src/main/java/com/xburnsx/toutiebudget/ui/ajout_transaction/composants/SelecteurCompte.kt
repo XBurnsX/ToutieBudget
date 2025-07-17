@@ -47,7 +47,7 @@ fun SelecteurCompte(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Compte à débiter",
+            text = "Sélectionnez un compte",
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             color = Color.White,
