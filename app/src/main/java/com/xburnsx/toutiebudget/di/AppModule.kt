@@ -80,8 +80,9 @@
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
-             enregistrerTransactionUseCase = enregistrerTransactionUseCase
-         ) 
+             enregistrerTransactionUseCase = enregistrerTransactionUseCase,
+             realtimeSyncService = realtimeSyncService
+         )
      }
      
      private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { 

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -27,7 +28,8 @@ class AjoutTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase
+    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
@@ -329,8 +331,13 @@ class AjoutTransactionViewModel(
                 
                 if (result.isSuccess) {
                     _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
-                    // Émettre l’événement global de rafraîchissement du budget
+
+                    // Émettre l'événement global de rafraîchissement du budget
                     BudgetEvents.refreshBudget.tryEmit(Unit)
+
+                    // Déclencher la mise à jour des comptes dans les autres écrans
+                    realtimeSyncService.declencherMiseAJourBudget()
+
                     // Réinitialiser le formulaire après succès
                     _uiState.update { 
                         AjoutTransactionUiState(
