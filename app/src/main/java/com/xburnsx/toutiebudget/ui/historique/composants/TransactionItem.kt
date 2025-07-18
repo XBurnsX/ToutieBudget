@@ -12,11 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import java.text.NumberFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -47,7 +50,8 @@ fun TransactionItem(transaction: TransactionUi) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = transaction.tiers,
@@ -56,7 +60,6 @@ fun TransactionItem(transaction: TransactionUi) {
                         fontSize = 16.sp,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = formatteurMonetaire.format(transaction.montant),
                         fontWeight = FontWeight.Bold,
@@ -65,7 +68,11 @@ fun TransactionItem(transaction: TransactionUi) {
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (transaction.nomEnveloppe != null) {
                         Text(
                             text = transaction.nomEnveloppe,
@@ -90,4 +97,21 @@ fun TransactionItem(transaction: TransactionUi) {
             }
         }
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun TransactionItemPreview() {
+    TransactionItem(
+        transaction = TransactionUi(
+            id = "rec_1234567890",
+            type = TypeTransaction.Depense,
+            montant = 25.99,
+            date = Date(),
+            tiers = "Épicerie Metro",
+            nomEnveloppe = "Alimentation",
+            note = "Courses hebdomadaires"
+        )
+
+    )
 }

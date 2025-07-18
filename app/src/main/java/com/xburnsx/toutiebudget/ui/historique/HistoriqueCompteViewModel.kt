@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +26,7 @@ import java.util.Locale
 class HistoriqueCompteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val tiersRepository: TiersRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -80,10 +82,15 @@ class HistoriqueCompteViewModel(
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull() ?: emptyList()
                 println("DEBUG: Nombre d'enveloppes récupérées: ${enveloppes.size}")
 
+                // Récupérer tous les tiers pour résoudre les noms
+                val tiers = tiersRepository.recupererTousLesTiers().getOrNull() ?: emptyList()
+                println("DEBUG: Nombre de tiers récupérés: ${tiers.size}")
+
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
                     println("DEBUG: Transaction ID: ${transaction.id}, AllocationId: ${transaction.allocationMensuelleId}")
                     println("DEBUG: Transaction date: ${transaction.date}")
+                    println("DEBUG: Transaction tiersId: ${transaction.tiersId}")
 
                     // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
                     val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
@@ -95,14 +102,21 @@ class HistoriqueCompteViewModel(
                         null
                     }
 
+                    // Récupérer le nom du tiers ou utiliser une valeur par défaut
+                    val nomTiers = if (!transaction.tiersId.isNullOrEmpty()) {
+                        tiers.find { it.id == transaction.tiersId }?.nom ?: "Tiers inconnu"
+                    } else {
+                        "Transaction" // Valeur par défaut si pas de tiers
+                    }
+
                     TransactionUi(
                         id = transaction.id,
                         type = transaction.type,
                         montant = transaction.montant,
                         date = transaction.date ?: Date(), // Valeur par défaut si date est null
-                        tiers = transaction.note?.split(" - ")?.firstOrNull() ?: "Transaction",
+                        tiers = nomTiers, // Utiliser le nom du tiers au lieu de la note
                         nomEnveloppe = nomEnveloppe,
-                        note = transaction.note?.split(" - ")?.getOrNull(1)
+                        note = transaction.note // Garder la note complète
                     )
                 }.sortedByDescending { it.date }
 

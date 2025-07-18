@@ -140,6 +140,7 @@
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
+             tiersRepository = tiersRepository,
              savedStateHandle = savedStateHandle
          )
      }
