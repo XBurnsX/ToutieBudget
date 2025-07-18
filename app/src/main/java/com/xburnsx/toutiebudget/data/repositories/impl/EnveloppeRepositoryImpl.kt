@@ -12,6 +12,7 @@
  import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
  import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
  import com.xburnsx.toutiebudget.di.PocketBaseClient
+ import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.withContext
  import okhttp3.Request
@@ -311,6 +312,9 @@
                  throw Exception("Erreur lors de la mise à jour: ${reponse.code}")
              }
  
+             // Notification système d'événements après mise à jour
+             BudgetEvents.onAllocationUpdated(allocation.id)
+
              Result.success(Unit)
          } catch (e: Exception) {
              Result.failure(e)
@@ -738,4 +742,3 @@
          )
      }
  }
-

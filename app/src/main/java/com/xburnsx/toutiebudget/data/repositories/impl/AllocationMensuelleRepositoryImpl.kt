@@ -11,6 +11,7 @@
  import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
  import com.xburnsx.toutiebudget.di.PocketBaseClient
  import com.xburnsx.toutiebudget.di.UrlResolver
+ import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.withContext
  import okhttp3.MediaType.Companion.toMediaType
