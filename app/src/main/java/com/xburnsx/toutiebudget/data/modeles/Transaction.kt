@@ -19,7 +19,6 @@ data class Transaction(
     val compteId: String = "",
     val collectionCompte: String = "",
     val allocationMensuelleId: String? = null,
-    val tiersId: String? = null, // ID du tiers associé à cette transaction
     val created: Date? = null,
     val updated: Date? = null
 )

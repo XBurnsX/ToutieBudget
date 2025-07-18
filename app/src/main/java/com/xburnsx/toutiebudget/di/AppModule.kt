@@ -16,11 +16,9 @@
  import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
  import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
- import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
  import com.xburnsx.toutiebudget.ui.login.LoginViewModel
  import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
- import androidx.lifecycle.SavedStateHandle
-
+ 
  /**
   * Module d'injection de dépendances pour l'application Toutie Budget.
   * Gère l'instanciation de tous les repositories, services, use cases et ViewModels.
@@ -34,8 +32,7 @@
      private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
-     private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
-
+ 
      // ===== SERVICES =====
      private val virementUseCase: VirementUseCase by lazy { VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository) }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
@@ -81,10 +78,8 @@
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
-             tiersRepository = tiersRepository,
-             enregistrerTransactionUseCase = enregistrerTransactionUseCase,
-             realtimeSyncService = realtimeSyncService
-         )
+             enregistrerTransactionUseCase = enregistrerTransactionUseCase
+         ) 
      }
      
      private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { 
@@ -113,8 +108,7 @@
      fun provideTransactionRepository(): TransactionRepository = transactionRepository
      fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
      fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
-     fun provideTiersRepository(): TiersRepository = tiersRepository
-
+ 
      // Services
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService
@@ -136,15 +130,7 @@
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
-     fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
-         return HistoriqueCompteViewModel(
-             transactionRepository = transactionRepository,
-             enveloppeRepository = enveloppeRepository,
-             tiersRepository = tiersRepository,
-             savedStateHandle = savedStateHandle
-         )
-     }
-
+     
      /**
       * Nettoie les singletons (pas nécessaire avec lazy mais gardé pour compatibilité).
       */

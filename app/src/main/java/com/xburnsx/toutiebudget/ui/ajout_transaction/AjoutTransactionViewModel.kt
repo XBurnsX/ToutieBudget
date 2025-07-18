@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
-import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -28,9 +27,7 @@ class AjoutTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val tiersRepository: TiersRepository,
-    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
-    private val realtimeSyncService: RealtimeSyncService
+    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
@@ -41,7 +38,6 @@ class AjoutTransactionViewModel(
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var allCategories: List<Categorie> = emptyList()
-    private var allTiers: List<Tiers> = emptyList()
 
     init {
         chargerDonneesInitiales()
@@ -59,8 +55,7 @@ class AjoutTransactionViewModel(
                 val resultComptes = compteRepository.recupererTousLesComptes()
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
-                val resultTiers = tiersRepository.recupererTousLesTiers()
-
+                
                 // Calculer le mois actuel pour les allocations
                 val maintenant = Date()
                 val calendrier = Calendar.getInstance().apply {
@@ -91,8 +86,7 @@ class AjoutTransactionViewModel(
                 allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 allCategories = resultCategories.getOrNull() ?: emptyList()
                 allAllocations = resultAllocations.getOrNull() ?: emptyList()
-                allTiers = resultTiers.getOrNull() ?: emptyList()
-
+                
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
                 val enveloppesFiltrees = enveloppesUi.groupBy { enveloppe ->
@@ -108,8 +102,7 @@ class AjoutTransactionViewModel(
                         isLoading = false,
                         comptesDisponibles = allComptes.filter { !it.estArchive },
                         enveloppesDisponibles = enveloppesUi,
-                        enveloppesFiltrees = enveloppesFiltrees,
-                        tiersDisponibles = allTiers
+                        enveloppesFiltrees = enveloppesFiltrees
                     ).calculerValidite()
                 }
                 
@@ -128,15 +121,10 @@ class AjoutTransactionViewModel(
      * Construit la liste des enveloppes UI avec leurs allocations.
      */
     private fun construireEnveloppesUi(): List<EnveloppeUi> {
-        println("[DEBUG] construireEnveloppesUi - Début avec ${allEnveloppes.size} enveloppes")
-
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
             val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
-            println("[DEBUG] construireEnveloppesUi - Enveloppe: ${enveloppe.nom} (ID: ${enveloppe.id})")
-            println("[DEBUG] construireEnveloppesUi - Allocation trouvée: ${allocation?.id} pour enveloppeId: ${enveloppe.id}")
-
             EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
@@ -268,7 +256,6 @@ class AjoutTransactionViewModel(
      * Met à jour l'enveloppe sélectionnée.
      */
     fun onEnveloppeChanged(nouvelleEnveloppe: EnveloppeUi?) {
-        println("[DEBUG] AjoutTransactionViewModel.onEnveloppeChanged - Nouvelle enveloppe sélectionnée: ${nouvelleEnveloppe?.nom} (ID: ${nouvelleEnveloppe?.id})")
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
         }
@@ -280,109 +267,6 @@ class AjoutTransactionViewModel(
     fun onNoteChanged(nouvelleNote: String) {
         _uiState.update { state ->
             state.copy(note = nouvelleNote).calculerValidite()
-        }
-    }
-
-    // === MÉTHODES POUR LA GESTION DES TIERS ===
-
-    /**
-     * Met à jour le texte saisi dans le champ Tiers.
-     */
-    fun onTexteTiersSaisiChange(nouveauTexte: String) {
-        _uiState.update { state ->
-            state.copy(texteTiersSaisi = nouveauTexte).calculerValidite()
-        }
-    }
-
-    /**
-     * Sélectionne un tiers existant.
-     */
-    fun onTiersSelectionne(tiers: Tiers) {
-        _uiState.update { state ->
-            state.copy(
-                tiersSelectionne = tiers,
-                texteTiersSaisi = tiers.nom
-            ).calculerValidite()
-        }
-    }
-
-    /**
-     * Crée un nouveau tiers avec le nom fourni.
-     */
-    fun onCreerNouveauTiers(nomTiers: String) {
-        if (nomTiers.isBlank()) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingTiers = true) }
-
-            try {
-                val nouveauTiers = Tiers(nom = nomTiers.trim())
-                val result = tiersRepository.creerTiers(nouveauTiers)
-
-                if (result.isSuccess) {
-                    val tiersCreated = result.getOrThrow()
-
-                    // Mettre à jour le cache local
-                    allTiers = allTiers + tiersCreated
-
-                    // Mettre à jour l'état UI
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoadingTiers = false,
-                            tiersDisponibles = allTiers,
-                            tiersSelectionne = tiersCreated,
-                            texteTiersSaisi = tiersCreated.nom
-                        ).calculerValidite()
-                    }
-                } else {
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoadingTiers = false,
-                            messageErreur = "Erreur lors de la création du tiers: ${result.exceptionOrNull()?.message}"
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                _uiState.update { state ->
-                    state.copy(
-                        isLoadingTiers = false,
-                        messageErreur = "Erreur lors de la création du tiers: ${e.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * Recherche des tiers selon le texte saisi.
-     */
-    fun rechercherTiers(texteRecherche: String) {
-        if (texteRecherche.isBlank()) {
-            _uiState.update { state ->
-                state.copy(tiersDisponibles = allTiers)
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            try {
-                val result = tiersRepository.rechercherTiersParNom(texteRecherche)
-
-                if (result.isSuccess) {
-                    val tiersTrouves = result.getOrThrow()
-                    _uiState.update { state ->
-                        state.copy(tiersDisponibles = tiersTrouves)
-                    }
-                }
-            } catch (e: Exception) {
-                // En cas d'erreur, utiliser le filtrage local
-                val tiersFiltres = allTiers.filter { tiers ->
-                    tiers.nom.contains(texteRecherche, ignoreCase = true)
-                }
-                _uiState.update { state ->
-                    state.copy(tiersDisponibles = tiersFiltres)
-                }
-            }
         }
     }
 
@@ -408,16 +292,12 @@ class AjoutTransactionViewModel(
                 
                 // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
                 val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
-                    val enveloppeSelectionnee = state.enveloppeSelectionnee
-                    println("[DEBUG] sauvegarderTransaction - Enveloppe sélectionnée: ${enveloppeSelectionnee?.nom} (ID: ${enveloppeSelectionnee?.id})")
-                    enveloppeSelectionnee?.id
+                    state.enveloppeSelectionnee?.id 
                         ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
                 } else {
                     null
                 }
                 
-                println("[DEBUG] sauvegarderTransaction - Montant: $montant, Compte: ${compte.nom}, EnveloppeId: $enveloppeId")
-
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
@@ -439,13 +319,8 @@ class AjoutTransactionViewModel(
                 
                 if (result.isSuccess) {
                     _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
-
-                    // Émettre l'événement global de rafraîchissement du budget
+                    // Émettre l’événement global de rafraîchissement du budget
                     BudgetEvents.refreshBudget.tryEmit(Unit)
-
-                    // Déclencher la mise à jour des comptes dans les autres écrans
-                    realtimeSyncService.declencherMiseAJourBudget()
-
                     // Réinitialiser le formulaire après succès
                     _uiState.update { 
                         AjoutTransactionUiState(

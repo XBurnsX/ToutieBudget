@@ -41,6 +41,7 @@ class EnregistrerTransactionUseCase(
         collectionCompte: String,
         enveloppeId: String? = null,
         note: String? = null,
+        tiersId: String? = null,
         date: Date = Date()
     ): Result<Unit> {
         
@@ -73,7 +74,8 @@ class EnregistrerTransactionUseCase(
                     note = note,
                     compteId = compteId,
                     collectionCompte = collectionCompte,
-                    allocationMensuelleId = allocationMensuelleId
+                    allocationMensuelleId = allocationMensuelleId,
+                    tiersId = tiersId
                 )
 
                 println("[DEBUG] Création transaction avec allocationMensuelleId=$allocationMensuelleId")
