@@ -34,7 +34,8 @@
      private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
- 
+     private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
+
      // ===== SERVICES =====
      private val virementUseCase: VirementUseCase by lazy { VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository) }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
@@ -80,6 +81,7 @@
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
+             tiersRepository = tiersRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              realtimeSyncService = realtimeSyncService
          )
@@ -111,7 +113,8 @@
      fun provideTransactionRepository(): TransactionRepository = transactionRepository
      fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
      fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
- 
+     fun provideTiersRepository(): TiersRepository = tiersRepository
+
      // Services
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService

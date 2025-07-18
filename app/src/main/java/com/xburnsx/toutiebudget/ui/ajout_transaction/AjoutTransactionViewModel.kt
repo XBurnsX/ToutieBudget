@@ -28,6 +28,7 @@ class AjoutTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
+    private val tiersRepository: TiersRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
@@ -40,6 +41,7 @@ class AjoutTransactionViewModel(
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var allCategories: List<Categorie> = emptyList()
+    private var allTiers: List<Tiers> = emptyList()
 
     init {
         chargerDonneesInitiales()
@@ -57,7 +59,8 @@ class AjoutTransactionViewModel(
                 val resultComptes = compteRepository.recupererTousLesComptes()
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
-                
+                val resultTiers = tiersRepository.recupererTousLesTiers()
+
                 // Calculer le mois actuel pour les allocations
                 val maintenant = Date()
                 val calendrier = Calendar.getInstance().apply {
@@ -88,7 +91,8 @@ class AjoutTransactionViewModel(
                 allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 allCategories = resultCategories.getOrNull() ?: emptyList()
                 allAllocations = resultAllocations.getOrNull() ?: emptyList()
-                
+                allTiers = resultTiers.getOrNull() ?: emptyList()
+
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
                 val enveloppesFiltrees = enveloppesUi.groupBy { enveloppe ->
@@ -104,7 +108,8 @@ class AjoutTransactionViewModel(
                         isLoading = false,
                         comptesDisponibles = allComptes.filter { !it.estArchive },
                         enveloppesDisponibles = enveloppesUi,
-                        enveloppesFiltrees = enveloppesFiltrees
+                        enveloppesFiltrees = enveloppesFiltrees,
+                        tiersDisponibles = allTiers
                     ).calculerValidite()
                 }
                 
@@ -275,6 +280,109 @@ class AjoutTransactionViewModel(
     fun onNoteChanged(nouvelleNote: String) {
         _uiState.update { state ->
             state.copy(note = nouvelleNote).calculerValidite()
+        }
+    }
+
+    // === MÉTHODES POUR LA GESTION DES TIERS ===
+
+    /**
+     * Met à jour le texte saisi dans le champ Tiers.
+     */
+    fun onTexteTiersSaisiChange(nouveauTexte: String) {
+        _uiState.update { state ->
+            state.copy(texteTiersSaisi = nouveauTexte).calculerValidite()
+        }
+    }
+
+    /**
+     * Sélectionne un tiers existant.
+     */
+    fun onTiersSelectionne(tiers: Tiers) {
+        _uiState.update { state ->
+            state.copy(
+                tiersSelectionne = tiers,
+                texteTiersSaisi = tiers.nom
+            ).calculerValidite()
+        }
+    }
+
+    /**
+     * Crée un nouveau tiers avec le nom fourni.
+     */
+    fun onCreerNouveauTiers(nomTiers: String) {
+        if (nomTiers.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingTiers = true) }
+
+            try {
+                val nouveauTiers = Tiers(nom = nomTiers.trim())
+                val result = tiersRepository.creerTiers(nouveauTiers)
+
+                if (result.isSuccess) {
+                    val tiersCreated = result.getOrThrow()
+
+                    // Mettre à jour le cache local
+                    allTiers = allTiers + tiersCreated
+
+                    // Mettre à jour l'état UI
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoadingTiers = false,
+                            tiersDisponibles = allTiers,
+                            tiersSelectionne = tiersCreated,
+                            texteTiersSaisi = tiersCreated.nom
+                        ).calculerValidite()
+                    }
+                } else {
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoadingTiers = false,
+                            messageErreur = "Erreur lors de la création du tiers: ${result.exceptionOrNull()?.message}"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { state ->
+                    state.copy(
+                        isLoadingTiers = false,
+                        messageErreur = "Erreur lors de la création du tiers: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Recherche des tiers selon le texte saisi.
+     */
+    fun rechercherTiers(texteRecherche: String) {
+        if (texteRecherche.isBlank()) {
+            _uiState.update { state ->
+                state.copy(tiersDisponibles = allTiers)
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val result = tiersRepository.rechercherTiersParNom(texteRecherche)
+
+                if (result.isSuccess) {
+                    val tiersTrouves = result.getOrThrow()
+                    _uiState.update { state ->
+                        state.copy(tiersDisponibles = tiersTrouves)
+                    }
+                }
+            } catch (e: Exception) {
+                // En cas d'erreur, utiliser le filtrage local
+                val tiersFiltres = allTiers.filter { tiers ->
+                    tiers.nom.contains(texteRecherche, ignoreCase = true)
+                }
+                _uiState.update { state ->
+                    state.copy(tiersDisponibles = tiersFiltres)
+                }
+            }
         }
     }
 

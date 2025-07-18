@@ -20,6 +20,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypePretSelector
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypeDetteSelector
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurCompte
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurEnveloppe
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
@@ -127,7 +128,19 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         tailleMontant = 30.sp
                     )
 
-                    // 3. Sélecteur de compte
+                    // 3. Sélecteur de tiers (avant le compte)
+                    SelecteurTiers(
+                        tiersDisponibles = uiState.tiersDisponibles,
+                        tiersSelectionne = uiState.tiersSelectionne,
+                        texteSaisi = uiState.texteTiersSaisi,
+                        onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
+                        onTiersSelectionne = viewModel::onTiersSelectionne,
+                        onCreerNouveauTiers = viewModel::onCreerNouveauTiers,
+                        isLoading = uiState.isLoadingTiers,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // 4. Sélecteur de compte
                     SelecteurCompte(
                         comptes = uiState.comptesDisponibles,
                         compteSelectionne = uiState.compteSelectionne,
@@ -135,7 +148,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 4. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
+                    // 5. Sélecteur d'enveloppe (seulement pour Standard/Dépense)
                     if (uiState.modeOperation == "Standard" && uiState.typeTransaction == TypeTransaction.Depense) {
 
                         SelecteurEnveloppe(
@@ -150,7 +163,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         )
                     }
 
-                    // 5. Champ note facultatif
+                    // 6. Champ note facultatif
                     ChampNoteTransaction(
                         note = uiState.note,
                         onNoteChange = viewModel::onNoteChanged,
@@ -278,4 +291,3 @@ private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
         else -> Color(0xFF10B981) // Vert par défaut
     }
 }
-
