@@ -11,6 +11,9 @@ package com.xburnsx.toutiebudget.data.modeles
 data class Tiers(
     val id: String = "",
     val nom: String = "",
-    val dateCreation: String = "",
-    val dateModification: String = ""
+    val utilisateur_id: String = "",
+    val created: String = "",
+    val updated: String = "",
+    val collectionId: String = "",
+    val collectionName: String = ""
 )

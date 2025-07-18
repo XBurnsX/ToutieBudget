@@ -48,7 +48,7 @@ class TiersRepositoryImpl : TiersRepository {
             val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
             val urlBase = UrlResolver.obtenirUrlActive()
 
-            val filtreEncode = URLEncoder.encode("utilisateur='$utilisateurId'", "UTF-8")
+            val filtreEncode = URLEncoder.encode("utilisateur_id='$utilisateurId'", "UTF-8")
             val url = "$urlBase/api/collections/${Collections.TIERS}/records?filter=$filtreEncode&sort=nom&perPage=100"
 
             val request = Request.Builder()
@@ -85,8 +85,11 @@ class TiersRepositoryImpl : TiersRepository {
 
             val tiersData = mapOf(
                 "nom" to tiers.nom,
-                "utilisateur" to utilisateurId
+                "utilisateur_id" to utilisateurId
             )
+
+            println("[DEBUG] TiersRepository - Création tiers: $tiersData")
+            println("[DEBUG] TiersRepository - URL: $url")
 
             val jsonBody = gson.toJson(tiersData)
             val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
@@ -99,14 +102,24 @@ class TiersRepositoryImpl : TiersRepository {
 
             val response = httpClient.newCall(request).execute()
 
+            println("[DEBUG] TiersRepository - Response code: ${response.code}")
+
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
+                println("[DEBUG] TiersRepository - Response body: $responseBody")
+
                 val tiersCreated = gson.fromJson(responseBody, Tiers::class.java)
+                println("[DEBUG] TiersRepository - Tiers créé: $tiersCreated")
+
                 Result.success(tiersCreated)
             } else {
-                Result.failure(Exception("Erreur lors de la création du tiers: ${response.code}"))
+                val errorBody = response.body?.string()
+                println("[DEBUG] TiersRepository - Erreur: ${response.code} - $errorBody")
+                Result.failure(Exception("Erreur lors de la création du tiers: ${response.code} - $errorBody"))
             }
         } catch (e: Exception) {
+            println("[DEBUG] TiersRepository - Exception: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -122,7 +135,7 @@ class TiersRepositoryImpl : TiersRepository {
             val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
             val urlBase = UrlResolver.obtenirUrlActive()
 
-            val filtreEncode = URLEncoder.encode("utilisateur='$utilisateurId' && nom~'$recherche'", "UTF-8")
+            val filtreEncode = URLEncoder.encode("utilisateur_id='$utilisateurId' && nom~'$recherche'", "UTF-8")
             val url = "$urlBase/api/collections/${Collections.TIERS}/records?filter=$filtreEncode&sort=nom&perPage=100"
 
             val request = Request.Builder()

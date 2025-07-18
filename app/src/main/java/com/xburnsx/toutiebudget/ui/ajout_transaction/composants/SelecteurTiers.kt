@@ -75,7 +75,7 @@ fun SelecteurTiers(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Tiers (optionnel)",
+            text = "Tiers",
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             color = Color.White,
@@ -104,8 +104,16 @@ fun SelecteurTiers(
                     fontSize = 16.sp
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color(0xFF404040),
+                    focusedBorderColor = if (texteSaisi.isBlank()) {
+                        MaterialTheme.colorScheme.primary // Rouge quand vide
+                    } else {
+                        Color(0xFF404040) // Gris quand il y a du contenu
+                    },
+                    unfocusedBorderColor = if (texteSaisi.isBlank()) {
+                        MaterialTheme.colorScheme.primary // Rouge quand vide
+                    } else {
+                        Color(0xFF404040) // Gris quand il y a du contenu
+                    },
                     cursorColor = MaterialTheme.colorScheme.primary,
                     focusedContainerColor = Color(0xFF1F1F1F),
                     unfocusedContainerColor = Color(0xFF1F1F1F)
