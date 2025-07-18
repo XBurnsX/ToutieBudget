@@ -264,7 +264,9 @@ class BudgetViewModel(
             // Récupérer le compte source pour la couleur
             val compteSource = allocation?.compteSourceId?.let { mapComptes[it] }
             if (allocation?.compteSourceId != null) {
-
+                println("[DEBUG] Recherche compteSource - compteSourceId: ${allocation.compteSourceId}")
+                println("[DEBUG] mapComptes contient: ${mapComptes.keys}")
+                println("[DEBUG] compteSource trouvé: ${compteSource?.nom} - couleur: ${compteSource?.couleur}")
             }
             
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut

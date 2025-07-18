@@ -134,8 +134,14 @@ class AjoutTransactionViewModel(
             val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
+            // Récupérer la couleur du compte source depuis l'allocation
+            val compteSource = allocation?.compteSourceId?.let { compteId ->
+                allComptes.find { it.id == compteId }
+            }
+
             println("[DEBUG] construireEnveloppesUi - Enveloppe: ${enveloppe.nom} (ID: ${enveloppe.id})")
             println("[DEBUG] construireEnveloppesUi - Allocation trouvée: ${allocation?.id} pour enveloppeId: ${enveloppe.id}")
+            println("[DEBUG] construireEnveloppesUi - Compte source: ${compteSource?.nom} - couleur: ${compteSource?.couleur}")
 
             EnveloppeUi(
                 id = enveloppe.id,
@@ -143,8 +149,8 @@ class AjoutTransactionViewModel(
                 solde = allocation?.solde ?: 0.0,
                 depense = allocation?.depense ?: 0.0,
                 objectif = enveloppe.objectifMontant,
-                couleurProvenance = "#6366F1",  // Couleur par défaut
-                statutObjectif = StatutObjectif.GRIS  // Simplifié pour l'ajout de transaction
+                couleurProvenance = compteSource?.couleur, // ✅ VRAIE COULEUR DU COMPTE
+                statutObjectif = StatutObjectif.GRIS
             )
         }.sortedBy { enveloppe ->
             val categorie = allCategories.find { cat -> 
