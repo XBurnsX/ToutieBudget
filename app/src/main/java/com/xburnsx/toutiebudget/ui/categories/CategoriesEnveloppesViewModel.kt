@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +25,8 @@ import java.util.*
  */
 class CategoriesEnveloppesViewModel(
     private val enveloppeRepository: EnveloppeRepository,
-    private val categorieRepository: CategorieRepository
+    private val categorieRepository: CategorieRepository,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     // Callback pour notifier les autres ViewModels des changements
@@ -207,7 +209,11 @@ class CategoriesEnveloppesViewModel(
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
 
-                    
+                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
+                    realtimeSyncService.declencherMiseAJourBudget()
+
+                    println("[SYNC] Nouvelle catégorie créée et notification envoyée : ${categorieCreee.nom}")
+
                 }.onFailure { erreur ->
                     // Supprimer la catégorie temporaire en cas d'erreur
                     val groupesCorrigés = _uiState.value.enveloppesGroupees.toMutableMap()
@@ -323,10 +329,11 @@ class CategoriesEnveloppesViewModel(
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
                     
-                    // Notifier le BudgetViewModel du changement
-                    onEnveloppeChange?.invoke()
+                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
+                    realtimeSyncService.declencherMiseAJourBudget()
 
-                    
+                    println("[SYNC] Nouvelle enveloppe créée et notification envoyée : ${enveloppeCreee.nom}")
+
                 }.onFailure { erreur ->
                     // Supprimer l'enveloppe temporaire en cas d'erreur
                     val groupesCorrigés = _uiState.value.enveloppesGroupees.toMutableMap()
