@@ -18,7 +18,8 @@ import java.util.Date
 class EnregistrerTransactionUseCase(
     private val transactionRepository: TransactionRepository,
     private val compteRepository: CompteRepository,
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository
 ) {
 
     /**
@@ -121,7 +122,8 @@ class EnregistrerTransactionUseCase(
     }
 
     /**
-     * Récupère ou crée l'allocation mensuelle pour une enveloppe donnée.
+     * Crée TOUJOURS une nouvelle allocation mensuelle pour chaque action.
+     * Architecture : Chaque action = NOUVELLE allocation (pas de modification)
      */
     private suspend fun obtenirOuCreerAllocationMensuelle(enveloppeId: String, date: Date): Result<String> {
         // Calculer le premier jour du mois
@@ -135,21 +137,8 @@ class EnregistrerTransactionUseCase(
         }
         val premierJourMois = calendrier.time
 
-        // Essayer de récupérer l'allocation existante
-        val resultAllocation = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, premierJourMois)
-        
-        return if (resultAllocation.isSuccess) {
-            val allocation = resultAllocation.getOrNull()
-            if (allocation != null) {
-                Result.success(allocation.id)
-            } else {
-                // Créer une nouvelle allocation
-                creerNouvelleAllocation(enveloppeId, premierJourMois)
-            }
-        } else {
-            // En cas d'erreur, essayer de créer une nouvelle allocation
-            creerNouvelleAllocation(enveloppeId, premierJourMois)
-        }
+        // TOUJOURS créer une nouvelle allocation (principe de l'architecture)
+        return creerNouvelleAllocation(enveloppeId, premierJourMois)
     }
 
     /**
@@ -172,11 +161,14 @@ class EnregistrerTransactionUseCase(
         
         println("[DEBUG] creerNouvelleAllocation - Allocation à créer: enveloppeId=${nouvelleAllocation.enveloppeId}")
 
-        return enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-            .map { allocationCreee ->
-                println("[DEBUG] creerNouvelleAllocation - Allocation créée: ID=${allocationCreee.id}, enveloppeId=${allocationCreee.enveloppeId}")
-                allocationCreee.id
-            }
+        return try {
+            val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+            println("[DEBUG] creerNouvelleAllocation - Allocation créée: ID=${allocationCreee.id}, enveloppeId=${allocationCreee.enveloppeId}")
+            Result.success(allocationCreee.id)
+        } catch (e: Exception) {
+            println("[DEBUG] creerNouvelleAllocation - Erreur: ${e.message}")
+            Result.failure(e)
+        }
     }
 
     /**

@@ -54,7 +54,7 @@
  
      // ===== NOUVEAU USE CASE POUR LES TRANSACTIONS =====
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy { 
-         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository) 
+         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
  
      // ===== VIEWMODELS =====

@@ -24,13 +24,7 @@ class ArgentServiceImpl @Inject constructor(
 
     /**
      * Alloue un montant d'un compte source vers une enveloppe pour un mois donné.
-     *
-     * @param enveloppeId L'ID de l'enveloppe à créditer.
-     * @param compteSourceId L'ID du compte d'où provient l'argent.
-     * @param collectionCompteSource Le nom de la collection du compte source (ex: "comptes_cheque").
-     * @param montant Le montant à allouer.
-     * @param mois Le mois de l'allocation (le premier jour du mois).
-     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     * Architecture : Crée TOUJOURS une nouvelle allocation (pas de modification)
      */
     override suspend fun allouerArgentEnveloppe(
         enveloppeId: String,
@@ -50,27 +44,26 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalStateException("Solde insuffisant sur le compte source.")
         }
         
-        // 3. Récupérer ou créer l'allocation mensuelle pour cette enveloppe et ce mois
-        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+        // 3. CRÉER une nouvelle allocation mensuelle (pas de récupération)
+        val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = "",
             enveloppeId = enveloppeId,
-            mois = mois
+            mois = mois,
+            solde = montant,
+            alloue = montant,
+            depense = 0.0,
+            compteSourceId = compteSourceId,
+            collectionCompteSource = collectionCompteSource
         )
-        
+
+        val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
         compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSolde)
         
-        // 5. Mettre à jour l'allocation mensuelle
-        val nouveauSoldeAllocation = allocation.solde + montant
-        val nouvelleAllocation = allocation.copy(
-            solde = nouveauSoldeAllocation,
-            alloue = allocation.alloue + montant,
-            compteSourceId = compteSourceId,
-            collectionCompteSource = collectionCompteSource
-        )
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
-        
-        // 6. Créer une transaction pour cette allocation
+        // 5. Créer une transaction pour cette allocation
         val transaction = Transaction(
             id = UUID.randomUUID().toString(),
             utilisateurId = "", // À récupérer depuis un UserRepository ou une session
@@ -79,7 +72,7 @@ class ArgentServiceImpl @Inject constructor(
             date = Date(),
             compteId = compteSourceId,
             collectionCompte = collectionCompteSource,
-            allocationMensuelleId = allocation.id,
+            allocationMensuelleId = allocationCreee.id,
             note = "Allocation vers enveloppe #$enveloppeId"
         )
         
@@ -88,15 +81,7 @@ class ArgentServiceImpl @Inject constructor(
     
     /**
      * Enregistre une nouvelle transaction (dépense ou revenu) et met à jour les soldes correspondants.
-     *
-     * @param type Le type de transaction (Depense, Revenu, Pret, Emprunt).
-     * @param montant Le montant de la transaction.
-     * @param date La date de la transaction.
-     * @param compteId L'ID du compte affecté.
-     * @param collectionCompte Le nom de la collection du compte affecté.
-     * @param allocationMensuelleId (Optionnel) L'ID de l'allocation mensuelle si c'est une dépense liée à une enveloppe.
-     * @param note Une description pour la transaction.
-     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     * Architecture : Si c'est une dépense avec enveloppe, créer une NOUVELLE allocation
      */
     override suspend fun enregistrerTransaction(
         type: String,
@@ -104,7 +89,7 @@ class ArgentServiceImpl @Inject constructor(
         date: Date,
         compteId: String,
         collectionCompte: String,
-        allocationMensuelleId: String?,
+        enveloppeId: String?,
         note: String?
     ): Result<Unit> = runCatching {
         if (montant <= 0) throw IllegalArgumentException("Le montant de la transaction doit être positif.")
@@ -120,7 +105,26 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalArgumentException("Type de transaction invalide: $type. Valeurs acceptées: ${TypeTransaction.values().joinToString()}")
         }
         
-        // 3. Calculer le nouveau solde du compte selon le type de transaction
+        // 3. Créer une nouvelle allocation si c'est une dépense avec enveloppe
+        var allocationMensuelleId: String? = null
+        if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
+            val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+                id = "",
+                utilisateurId = "",
+                enveloppeId = enveloppeId,
+                mois = date,
+                solde = -montant, // Négatif car c'est une dépense
+                alloue = 0.0,
+                depense = montant,
+                compteSourceId = compteId,
+                collectionCompteSource = collectionCompte
+            )
+
+            val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+            allocationMensuelleId = allocationCreee.id
+        }
+
+        // 4. Calculer le nouveau solde du compte selon le type de transaction
         val nouveauSolde = when (typeTransaction) {
             TypeTransaction.Depense -> compte.solde - montant
             TypeTransaction.Revenu -> compte.solde + montant
@@ -133,22 +137,8 @@ class ArgentServiceImpl @Inject constructor(
             TypeTransaction.TransfertEntrant -> compte.solde + montant
         }
         
-        // 4. Mettre à jour le solde du compte
+        // 5. Mettre à jour le solde du compte
         compteRepository.mettreAJourSolde(compteId, collectionCompte, nouveauSolde)
-        
-        // 5. Si c'est une dépense liée à une enveloppe, mettre à jour l'allocation mensuelle
-        if (typeTransaction == TypeTransaction.Depense && allocationMensuelleId != null) {
-            val allocation = allocationMensuelleRepository.getAllocationById(allocationMensuelleId)
-                ?: throw IllegalArgumentException("Allocation mensuelle non trouvée: $allocationMensuelleId")
-            
-            val nouveauSoldeAllocation = allocation.solde - montant
-            val nouvelleAllocation = allocation.copy(
-                solde = nouveauSoldeAllocation,
-                depense = allocation.depense + montant
-            )
-            
-            allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
-        }
         
         // 6. Créer et enregistrer la transaction
         val transaction = Transaction(
@@ -280,6 +270,10 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transactionDest)
     }
 
+    /**
+     * Effectue un virement d'un compte vers une enveloppe.
+     * Architecture : Crée une NOUVELLE allocation (pas de récupération/modification)
+     */
     override suspend fun effectuerVirementCompteVersEnveloppe(
         compte: com.xburnsx.toutiebudget.data.modeles.Compte,
         enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
@@ -295,22 +289,21 @@ class ArgentServiceImpl @Inject constructor(
         val nouveauSoldeCompte = compte.solde - montant
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
-        // Créer une allocation mensuelle pour l'enveloppe
-        val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+        // CRÉER une nouvelle allocation mensuelle (pas de récupération)
+        val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = compte.utilisateurId,
             enveloppeId = enveloppe.id,
-            mois = Date()
-        )
-        
-        // Mettre à jour l'allocation
-        val nouveauSoldeAllocation = allocation.solde + montant
-        val nouvelleAllocation = allocation.copy(
-            solde = nouveauSoldeAllocation,
-            alloue = allocation.alloue + montant,
+            mois = Date(),
+            solde = montant,
+            alloue = montant,
+            depense = 0.0,
             compteSourceId = compte.id,
             collectionCompteSource = compte.collection
         )
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
-        
+
+        val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+
         // Créer la transaction
         val transaction = Transaction(
             id = UUID.randomUUID().toString(),
@@ -320,7 +313,7 @@ class ArgentServiceImpl @Inject constructor(
             date = Date(),
             compteId = compte.id,
             collectionCompte = compte.collection,
-            allocationMensuelleId = allocation.id,
+            allocationMensuelleId = allocationCreee.id,
             note = "Virement vers enveloppe ${enveloppe.nom}"
         )
         
@@ -370,6 +363,10 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transaction)
     }
 
+    /**
+     * Effectue un virement d'enveloppe vers enveloppe.
+     * Architecture : Crée une NOUVELLE allocation pour la destination (pas de récupération/modification)
+     */
     override suspend fun effectuerVirementEnveloppeVersEnveloppe(
         enveloppeSource: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
         enveloppeDestination: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
@@ -377,37 +374,46 @@ class ArgentServiceImpl @Inject constructor(
     ): Result<Unit> = runCatching {
         if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
         
-        // Récupérer les allocations mensuelles
+        // Récupérer l'allocation source (doit exister)
         val allocationSource = allocationMensuelleRepository.getAllocationById(enveloppeSource.id)
             ?: throw IllegalArgumentException("Aucune allocation trouvée pour l'enveloppe source ${enveloppeSource.nom}")
-        
-        val allocationDest = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
-            enveloppeId = enveloppeDestination.id,
-            mois = Date()
-        )
         
         if (allocationSource.solde < montant) {
             throw IllegalStateException("Solde insuffisant dans l'enveloppe source ${enveloppeSource.nom}.")
         }
         
-        // Mettre à jour l'allocation source
-        val nouveauSoldeSource = allocationSource.solde - montant
-        val nouvelleAllocationSource = allocationSource.copy(
-            solde = nouveauSoldeSource,
-            depense = allocationSource.depense + montant
+        // CRÉER une nouvelle allocation pour la destination (pas de récupération)
+        val nouvelleAllocationDest = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = enveloppeDestination.utilisateurId,
+            enveloppeId = enveloppeDestination.id,
+            mois = Date(),
+            solde = montant,
+            alloue = montant,
+            depense = 0.0,
+            compteSourceId = null,
+            collectionCompteSource = null
         )
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocationSource)
-        
-        // Mettre à jour l'allocation destination
-        val nouveauSoldeDest = allocationDest.solde + montant
-        val nouvelleAllocationDest = allocationDest.copy(
-            solde = nouveauSoldeDest,
-            alloue = allocationDest.alloue + montant
+
+        val allocationDestCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationDest)
+
+        // Créer une nouvelle allocation pour marquer la sortie de la source
+        val nouvelleAllocationSource = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = enveloppeSource.utilisateurId,
+            enveloppeId = enveloppeSource.id,
+            mois = Date(),
+            solde = -montant,
+            alloue = 0.0,
+            depense = montant,
+            compteSourceId = null,
+            collectionCompteSource = null
         )
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocationDest)
-        
-        // Créer une transaction fictive pour tracer le virement
-        val transaction = Transaction(
+
+        val allocationSourceCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationSource)
+
+        // Créer les transactions pour tracer les virements
+        val transactionSource = Transaction(
             id = UUID.randomUUID().toString(),
             utilisateurId = enveloppeSource.utilisateurId,
             type = TypeTransaction.Depense,
@@ -415,11 +421,24 @@ class ArgentServiceImpl @Inject constructor(
             date = Date(),
             compteId = "", // Pas de compte impliqué
             collectionCompte = "",
-            allocationMensuelleId = allocationSource.id,
+            allocationMensuelleId = allocationSourceCreee.id,
             note = "Virement vers enveloppe ${enveloppeDestination.nom}"
         )
         
-        transactionRepository.creerTransaction(transaction)
+        val transactionDest = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = enveloppeDestination.utilisateurId,
+            type = TypeTransaction.Revenu,
+            montant = montant,
+            date = Date(),
+            compteId = "", // Pas de compte impliqué
+            collectionCompte = "",
+            allocationMensuelleId = allocationDestCreee.id,
+            note = "Virement depuis enveloppe ${enveloppeSource.nom}"
+        )
+
+        transactionRepository.creerTransaction(transactionSource)
+        transactionRepository.creerTransaction(transactionDest)
     }
 
     override suspend fun effectuerVirementPretAPlacerVersEnveloppe(
