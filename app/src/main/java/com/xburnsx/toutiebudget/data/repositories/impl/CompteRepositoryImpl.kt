@@ -9,10 +9,10 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.di.UrlResolver
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -373,6 +373,10 @@ class CompteRepositoryImpl : CompteRepository {
             if (!reponse.isSuccessful) {
                 throw Exception("Erreur lors de la mise à jour: ${reponse.code} ${reponse.body?.string()}")
             }
+
+            // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
+            BudgetEvents.onCompteUpdated(compteId)
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Événement de rafraîchissement déclenché pour compte: $compteId")
 
             Result.success(Unit)
         } catch (e: Exception) {

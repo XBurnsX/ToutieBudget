@@ -480,18 +480,12 @@
              val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
              val urlBase = client.obtenirUrlBaseActive()
  
-
-
              val allocation = recupererAllocationParId(allocationMensuelleId).getOrNull()
                  ?: throw Exception("Allocation non trouvée")
-             
-
              
              // 2. Calculer les nouveaux montants
              val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
              val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
-             
-
              
              // 3. Préparer les données de mise à jour
              val donneesUpdate = mapOf(
@@ -502,7 +496,6 @@
              
              val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
 
-             
              val requete = Request.Builder()
                  .url(url)
                  .addHeader("Authorization", "Bearer $token")
@@ -513,11 +506,14 @@
              val reponse = httpClient.newCall(requete).execute()
              if (!reponse.isSuccessful) {
                  val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
-
                  throw Exception(erreur)
              }
  
              val corpsReponse = reponse.body?.string() ?: ""
+
+             // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
+             BudgetEvents.onAllocationUpdated(allocationMensuelleId)
+             println("[DEBUG] ajouterDepenseAllocation - Événement de rafraîchissement déclenché pour allocation: $allocationMensuelleId")
 
              Result.success(Unit)
          } catch (e: Exception) {
