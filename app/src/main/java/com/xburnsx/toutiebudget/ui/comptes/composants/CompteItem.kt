@@ -94,7 +94,7 @@ fun CompteItem(
                         )
                         if (compte is CompteCheque) {
                             Text(
-                                text = "Prêt à placer: ${formatteurMonetaire.format(compte.solde)}",
+                                text = "Prêt à placer: ${formatteurMonetaire.format(compte.pretAPlacer)}",
                                 fontSize = 13.sp,
                                 color = Color(0xFF66BB6A),
                                 fontWeight = FontWeight.SemiBold,
