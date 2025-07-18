@@ -4,6 +4,9 @@
 package com.xburnsx.toutiebudget.ui.composants_communs
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +34,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 import java.text.NumberFormat
 import java.util.Locale
@@ -127,12 +132,19 @@ fun ChampMontantUniversel(
         }
     }
     
-    // Dialog avec MON clavier moderne
+    // Clavier modal qui s'ouvre depuis le bas par-dessus la page
     if (showDialog) {
-        Dialog(onDismissRequest = { showDialog = false }) {
-            ClavierModerneDialog(
+        Dialog(
+            onDismissRequest = { showDialog = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false, // Utilise toute la largeur
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
+        ) {
+            ClavierBottomSheet(
                 montantInitial = montant,
-                nomDialog = nomDialog, // ✅ CORRECTION : Passage du paramètre nomDialog
+                nomDialog = nomDialog,
                 isMoney = isMoney,
                 suffix = suffix,
                 onMontantChange = { nouveauMontant ->
@@ -140,6 +152,210 @@ fun ChampMontantUniversel(
                 },
                 onFermer = { showDialog = false }
             )
+        }
+    }
+}
+
+/**
+ * 🎯 CLAVIER MODAL QUI S'OUVRE DEPUIS LE BAS
+ * Nouveau composant qui remplace le Dialog standard par une modale qui glisse depuis le bas
+ */
+@Composable
+private fun ClavierBottomSheet(
+    montantInitial: Long,
+    nomDialog: String,
+    isMoney: Boolean,
+    suffix: String,
+    onMontantChange: (Long) -> Unit,
+    onFermer: () -> Unit
+) {
+    // Overlay semi-transparent qui couvre tout l'écran
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onFermer() }
+            .zIndex(10f)
+    ) {
+        // Le clavier qui apparaît depuis le bas
+        AnimatedVisibility(
+            visible = true,
+            enter = slideInVertically(
+                initialOffsetY = { it } // Commence depuis le bas de l'écran
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it } // Sort vers le bas de l'écran
+            ),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            ClavierContent(
+                montantInitial = montantInitial,
+                nomDialog = nomDialog,
+                isMoney = isMoney,
+                suffix = suffix,
+                onMontantChange = onMontantChange,
+                onFermer = onFermer
+            )
+        }
+    }
+}
+
+/**
+ * Contenu du clavier (séparé pour une meilleure organisation)
+ */
+@Composable
+private fun ClavierContent(
+    montantInitial: Long,
+    nomDialog: String,
+    isMoney: Boolean,
+    suffix: String,
+    onMontantChange: (Long) -> Unit,
+    onFermer: () -> Unit
+) {
+    var montantValeur by remember { mutableStateOf(montantInitial) }
+    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
+
+    val onKeyPress = { key: String ->
+        val nouveauMontant = when (key) {
+            "del" -> {
+                // Supprimer le dernier chiffre (diviser par 10)
+                if (montantValeur > 0) montantValeur / 10 else 0L
+            }
+            "." -> {
+                // Pour l'argent, ignorer le point (on travaille en centimes)
+                montantValeur
+            }
+            else -> {
+                // Ajouter un chiffre (multiplier par 10 et ajouter)
+                val chiffre = key.toLongOrNull() ?: 0L
+                val limite = if (isMoney) 999999999L else 999999L
+                if (montantValeur < limite) {
+                    montantValeur * 10 + chiffre
+                } else {
+                    montantValeur
+                }
+            }
+        }
+        montantValeur = nouveauMontant
+        onMontantChange(nouveauMontant)
+    }
+
+    // Formatage selon le type pour l'affichage
+    val montantAffiche = if (isMoney) {
+        formateurMonetaire.format(montantValeur / 100.0)
+    } else {
+        "$montantValeur$suffix"
+    }
+
+    // Card qui s'ouvre depuis le bas avec coins arrondis uniquement en haut
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { }, // Empêche la fermeture quand on clique sur le clavier
+        shape = RoundedCornerShape(
+            topStart = 20.dp,
+            topEnd = 20.dp,
+            bottomStart = 0.dp,
+            bottomEnd = 0.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF2E2E2E) // Fond gris foncé
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Petite barre de glissement en haut pour indiquer que c'est un modal
+            Box(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(4.dp)
+                    .background(
+                        Color.Gray.copy(alpha = 0.5f),
+                        RoundedCornerShape(2.dp)
+                    )
+                    .padding(bottom = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Titre personnalisable (comme "Montant de la dépense")
+            Text(
+                text = nomDialog,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Barre avec le montant utilisant la couleur primaire du thème
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary // 🎨 Couleur primaire du thème
+                )
+            ) {
+                Text(
+                    text = montantAffiche,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // VOTRE clavier avec boutons ronds gris !
+            VotreClavierOriginal(onKeyPress = onKeyPress)
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Boutons Annuler et Valider (comme votre image)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp) // Espacement entre les boutons
+            ) {
+                // Bouton Annuler
+                OutlinedButton(
+                    onClick = onFermer,
+                    modifier = Modifier.weight(1f), // Poids 1 pour le bouton Annuler
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
+                ) {
+                    Text("Annuler")
+                }
+
+                // Bouton Valider
+                Button(
+                    onClick = onFermer,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE74C3C) // Rouge comme votre image
+                    )
+                ) {
+                    Text("Valider", color = Color.White)
+                }
+            }
+
+            // Espacement supplémentaire pour éviter les barres de navigation
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
