@@ -5,6 +5,7 @@ package com.xburnsx.toutiebudget.domain.usecases
 
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -125,6 +126,10 @@ class EnregistrerTransactionUseCase(
                 }
                 println("[DEBUG] EnregistrerTransactionUseCase: succès complet")
 
+                // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
+                BudgetEvents.refreshManual()
+                println("[DEBUG] EnregistrerTransactionUseCase: événement de rafraîchissement déclenché")
+
                 Result.success(Unit)
             }
         } catch (e: Exception) {
@@ -206,6 +211,8 @@ class EnregistrerTransactionUseCase(
         montant: Double
     ): Result<Unit> {
 
+        println("[DEBUG] mettreAJourSoldeCompte - DÉBUT: compteId=$compteId, collection=$collectionCompte, type=$typeTransaction, montant=$montant")
+
         // Calculer la variation du solde
         val variationSolde = when (typeTransaction) {
             TypeTransaction.Depense -> -montant  // Dépense = soustraction
@@ -219,6 +226,8 @@ class EnregistrerTransactionUseCase(
             TypeTransaction.TransfertEntrant -> montant   // Transfert entrant = addition
         }
 
+        println("[DEBUG] mettreAJourSoldeCompte - Variation calculée: $variationSolde")
+
         // Déterminer si on doit aussi mettre à jour le "prêt à placer"
         // Seulement pour les transactions qui ajoutent de l'argent au compte
         val mettreAJourPretAPlacer = when (typeTransaction) {
@@ -230,12 +239,22 @@ class EnregistrerTransactionUseCase(
             else -> false
         }
 
-        return compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+        println("[DEBUG] mettreAJourSoldeCompte - Mise à jour prêt à placer: $mettreAJourPretAPlacer")
+
+        val resultat = compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
             compteId,
             collectionCompte,
             variationSolde,
             mettreAJourPretAPlacer
         )
+
+        if (resultat.isSuccess) {
+            println("[DEBUG] mettreAJourSoldeCompte - SUCCÈS: Solde mis à jour avec variation $variationSolde")
+        } else {
+            println("[DEBUG] mettreAJourSoldeCompte - ÉCHEC: ${resultat.exceptionOrNull()?.message}")
+        }
+
+        return resultat
     }
 
     /**

@@ -91,6 +91,16 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
+    /**
+     * Déclenche une mise à jour des comptes (méthode publique).
+     * Utilisée par les repositories pour notifier les changements.
+     */
+    fun declencherMiseAJourComptes() {
+        serviceScope.launch {
+            _comptesUpdated.emit(Unit)
+        }
+    }
+
     private suspend fun connectWebSocket() {
         if (!client.estConnecte()) {
             kotlinx.coroutines.delay(3000)

@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.di.UrlResolver
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
@@ -326,41 +327,58 @@ class CompteRepositoryImpl : CompteRepository {
         mettreAJourPretAPlacer: Boolean
     ): Result<Unit> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - ERREUR: Utilisateur non connecté")
             return@withContext Result.failure(Exception("Utilisateur non connecté"))
         }
 
         try {
             val token = client.obtenirToken()
-                ?: return@withContext Result.failure(Exception("Token manquant"))
+            if (token == null) {
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - ERREUR: Token manquant")
+                return@withContext Result.failure(Exception("Token manquant"))
+            }
+
             val urlBase = UrlResolver.obtenirUrlActive()
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - URL: $urlBase, compteId=$compteId, variation=$variationSolde")
 
             // 1. Récupérer le compte actuel
             val resultCompte = recupererCompteParId(compteId, collectionCompte)
             if (resultCompte.isFailure) {
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - ERREUR: Impossible de récupérer le compte: ${resultCompte.exceptionOrNull()?.message}")
                 throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
             }
 
             val compte = resultCompte.getOrNull()
-                ?: throw Exception("Compte non trouvé")
+            if (compte == null) {
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - ERREUR: Compte non trouvé")
+                throw Exception("Compte non trouvé")
+            }
+
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Compte récupéré: solde actuel=${compte.solde}")
 
             // 2. Calculer le nouveau solde
             val nouveauSolde = compte.solde + variationSolde
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Nouveau solde calculé: $nouveauSolde (${compte.solde} + $variationSolde)")
 
             // 3. Préparer les données de mise à jour
             val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {
                 // Pour les comptes chèque, mettre à jour aussi pret_a_placer si demandé
                 val nouveauPretAPlacer = compte.pretAPlacer + variationSolde
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Mise à jour avec prêt à placer: $nouveauPretAPlacer")
                 mapOf(
                     "solde" to nouveauSolde,
                     "pret_a_placer" to nouveauPretAPlacer
                 )
             } else {
                 // Sinon, mettre à jour seulement le solde
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Mise à jour solde seulement")
                 mapOf("solde" to nouveauSolde)
             }
             val corpsRequete = gson.toJson(donneesUpdate)
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Corps de la requête: $corpsRequete")
 
             val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - URL de mise à jour: $url")
 
             val requete = Request.Builder()
                 .url(url)
@@ -370,16 +388,28 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Code de réponse: ${reponse.code}")
+
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la mise à jour: ${reponse.code} ${reponse.body?.string()}")
+                val messageErreur = reponse.body?.string() ?: "Erreur inconnue"
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - ERREUR HTTP: ${reponse.code} - $messageErreur")
+                throw Exception("Erreur lors de la mise à jour: ${reponse.code} $messageErreur")
             }
 
-            // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Mise à jour réussie")
+
+            // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
             BudgetEvents.onCompteUpdated(compteId)
-            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Événement de rafraîchissement déclenché pour compte: $compteId")
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Événement budget déclenché pour compte: $compteId")
+
+            // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
+            val realtimeService = AppModule.provideRealtimeSyncService()
+            realtimeService.declencherMiseAJourComptes()
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Événement comptes déclenché pour compte: $compteId")
 
             Result.success(Unit)
         } catch (e: Exception) {
+            println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - EXCEPTION: ${e.message}")
             Result.failure(e)
         }
     }
