@@ -271,8 +271,8 @@ private fun ClavierFlutterIdentique(
     }
 
     /**
-     * ⌫ LOGIQUE IDENTIQUE FLUTTER : _onBackspace
-     * Reproduit EXACTEMENT la fonction de suppression du Flutter
+     * ⌫ LOGIQUE BACKSPACE CORRIGÉE : Efface chiffre par chiffre SANS EXCEPTION
+     * Plus de reset à 0 - efface vraiment chiffre par chiffre jusqu'au bout
      */
     val gererBackspace = {
         if (isMoney) {
@@ -285,18 +285,30 @@ private fun ClavierFlutterIdentique(
                 texteActuelTravail
             }.replace(".", "")
 
-            if (textePositif.length <= 3) {
-                texteActuel = if (estNegatif) "-0.00 \$" else "0.00 \$"
+            // ✅ CORRECTION : Efface chiffre par chiffre jusqu'à 0, jamais de reset brutal
+            if (textePositif.length <= 1) {
+                // Si on arrive au dernier chiffre, on va à 0.00
+                texteActuel = "0.00 \$"
             } else {
+                // Sinon on enlève le dernier chiffre et on reforme le montant
                 val nouveauTexte = textePositif.substring(0, textePositif.length - 1)
-                val partieEntiere = nouveauTexte.substring(0, nouveauTexte.length - 2)
-                val partieDecimale = nouveauTexte.substring(nouveauTexte.length - 2)
+
+                // S'assurer qu'on a au moins 3 caractères pour former XX.XX
+                val texteFormate = if (nouveauTexte.length < 3) {
+                    nouveauTexte.padStart(3, '0')
+                } else {
+                    nouveauTexte
+                }
+
+                val partieEntiere = texteFormate.substring(0, texteFormate.length - 2)
+                val partieDecimale = texteFormate.substring(texteFormate.length - 2)
 
                 val resultat = "$partieEntiere.$partieDecimale \$"
                 texteActuel = if (estNegatif) "-$resultat" else resultat
             }
         } else {
-            if (texteActuel.isNotEmpty()) {
+            // Mode normal : efface simplement le dernier caractère
+            if (texteActuel.isNotEmpty() && texteActuel != "0") {
                 texteActuel = texteActuel.substring(0, texteActuel.length - 1)
                 if (texteActuel.isEmpty()) {
                     texteActuel = "0"
@@ -511,7 +523,7 @@ private fun ClavierToucheFlutter(
         MaterialTheme.colorScheme.onPrimary // Contraste pour boutons chiffres
     }
 
-    // 🥞 BOUTONS ÉCRASÉS EN HAUTEUR (ovales aplatis)
+    // 🥞 BOUTONS ENCORE PLUS ÉCRASÉS EN HAUTEUR
     ElevatedButton(
         onClick = {
             retourHaptique.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -519,8 +531,8 @@ private fun ClavierToucheFlutter(
         },
         modifier = Modifier
             .width(85.dp)     // Largeur normale
-            .height(65.dp),   // ✅ HAUTEUR ÉCRASÉE (plus petite)
-        shape = RoundedCornerShape(32.dp), // Très arrondi pour faire ovale
+            .height(55.dp),   // ✅ HAUTEUR ENCORE PLUS ÉCRASÉE (était 65dp)
+        shape = RoundedCornerShape(28.dp), // Coins adaptés à la nouvelle hauteur
         colors = ButtonDefaults.elevatedButtonColors(
             containerColor = couleurBouton, // ✅ Blanc pour actions, thème pour chiffres
             contentColor = couleurTexte     // ✅ Couleur thème pour icônes, blanc pour chiffres
