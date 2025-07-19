@@ -4,19 +4,17 @@
 package com.xburnsx.toutiebudget.ui.composants_communs
 
 import android.content.res.Configuration
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.outlined.Backspace
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,21 +28,16 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
-import java.text.NumberFormat
-import java.util.Locale
 
 /**
  * 🎯 COMPOSANT UNIVERSEL POUR TOUS LES CHAMPS DE MONTANT
- * 
- * Avec MON clavier moderne que j'avais créé pour AjoutTransaction !
- * 
+ *
+ * Avec clavier IDENTIQUE au NumericKeyboard Flutter !
+ *
  * @param montant Le montant actuel (en centimes si isMoney=true, valeur normale si isMoney=false)
  * @param onMontantChange Callback appelé quand le montant change
  * @param libelle Le texte d'étiquette à afficher
@@ -63,86 +56,94 @@ fun ChampMontantUniversel(
     montant: Long,
     onMontantChange: (Long) -> Unit,
     libelle: String,
-    nomDialog: String = libelle, // Valeur par défaut = libelle
+    nomDialog: String = libelle,
     isMoney: Boolean = true,
     suffix: String = "",
     icone: ImageVector = Icons.Default.AttachMoney,
     estObligatoire: Boolean = false,
     couleurMontant: Color? = null,
-    tailleMontant: TextUnit? = null,
+    tailleMontant: androidx.compose.ui.unit.TextUnit? = null,
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
-    
-    // Formatage selon le type (argent ou valeur normale)
-    val montantAffiche = if (montant > 0) {
-        if (isMoney) {
-            formateurMonetaire.format(montant / 100.0)
-        } else {
-            "$montant$suffix"
-        }
+
+    // Formatage pour l'affichage
+    val montantAffiche = if (isMoney) {
+        String.format("%.2f \$", montant / 100.0)
     } else {
-        if (isMoney) "0,00 $" else "0$suffix"
+        "$montant$suffix"
     }
-    
-    Column(modifier = modifier.fillMaxWidth()) {
+
+    Column(modifier = modifier) {
         // Étiquette avec indicateur d'obligation
-        if (libelle.isNotEmpty()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
+            Icon(
+                imageVector = icone,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .size(20.dp)
+                    .padding(end = 8.dp)
+            )
             Text(
                 text = if (estObligatoire) "$libelle *" else libelle,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-        
-        // TextField cliquable qui ouvre la dialog
-        Box(
+
+        // Champ cliquable pour ouvrir le clavier - APPROCHE SIMPLE ET FIABLE
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null // Pas d'effet de ripple sur la Box
-                ) { showDialog = true }
+                .clickable { showDialog = true },
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            shape = RoundedCornerShape(4.dp)
         ) {
-            OutlinedTextField(
-                value = montantAffiche,
-                onValueChange = { }, // Lecture seule
-                readOnly = true,
-                enabled = false, // Empêche le focus
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(libelle) },
-                leadingIcon = if (icone != null) {
-                    { Icon(icone, contentDescription = libelle) }
-                } else null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledTextColor = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
-                    disabledContainerColor = Color.Transparent
-                ),
-                textStyle = LocalTextStyle.current.copy(
-                    fontSize = tailleMontant ?: 16.sp,
-                    color = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icone,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(end = 8.dp)
                 )
-            )
+                Text(
+                    text = montantAffiche,
+                    style = LocalTextStyle.current.copy(
+                        fontSize = tailleMontant ?: 16.sp,
+                        color = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
-    
-    // Clavier modal qui s'ouvre depuis le bas par-dessus la page
+
+    // Bottom Sheet avec clavier IDENTIQUE Flutter (monte du bas !)
     if (showDialog) {
-        Dialog(
+        ModalBottomSheet(
             onDismissRequest = { showDialog = false },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false, // Utilise toute la largeur
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            )
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface, // ✅ Couleur du thème
+            contentColor = MaterialTheme.colorScheme.onSurface, // ✅ Couleur du thème
+            dragHandle = null, // Pas de handle, le clavier gère sa propre fermeture
+            windowInsets = WindowInsets(0) // Pas d'insets pour coller au bas
         ) {
-            ClavierBottomSheet(
+            ClavierFlutterIdentique(
                 montantInitial = montant,
                 nomDialog = nomDialog,
                 isMoney = isMoney,
@@ -150,18 +151,20 @@ fun ChampMontantUniversel(
                 onMontantChange = { nouveauMontant ->
                     onMontantChange(nouveauMontant)
                 },
-                onFermer = { showDialog = false }
+                onFermer = {
+                    showDialog = false
+                }
             )
         }
     }
 }
 
 /**
- * 🎯 CLAVIER MODAL QUI S'OUVRE DEPUIS LE BAS
- * Nouveau composant qui remplace le Dialog standard par une modale qui glisse depuis le bas
+ * 🎯 CLAVIER IDENTIQUE AU FLUTTER NumericKeyboard
+ * Reproduit EXACTEMENT le comportement, l'apparence et la logique
  */
 @Composable
-private fun ClavierBottomSheet(
+private fun ClavierFlutterIdentique(
     montantInitial: Long,
     nomDialog: String,
     isMoney: Boolean,
@@ -169,404 +172,380 @@ private fun ClavierBottomSheet(
     onMontantChange: (Long) -> Unit,
     onFermer: () -> Unit
 ) {
-    // Overlay semi-transparent qui couvre tout l'écran
+    // 📱 STATE IDENTIQUE FLUTTER : Utilise String comme Flutter
+    var texteActuel by remember {
+        mutableStateOf(
+            if (isMoney) {
+                if (montantInitial == 0L) "0.00 \$"
+                else {
+                    val montantFormate = (montantInitial / 100.0)
+                    String.format("%.2f \$", montantFormate)
+                }
+            } else {
+                montantInitial.toString()
+            }
+        )
+    }
+
+    /**
+     * 🔢 LOGIQUE IDENTIQUE FLUTTER : _onKeyTap
+     * Reproduit EXACTEMENT la fonction du NumericKeyboard Flutter
+     */
+    val gererToucheNumerique = { touche: String ->
+        if (isMoney) {
+            // === LOGIQUE EXACTE DU FLUTTER MODE ARGENT ===
+            var texteActuelTravail = texteActuel
+            if (texteActuelTravail != "0.00 \$") {
+                texteActuelTravail = texteActuelTravail.replace("\$", "").replace(" ", "")
+            }
+
+            when {
+                texteActuelTravail == "0.00" || texteActuelTravail == "0.00 \$" || texteActuelTravail.isEmpty() -> {
+                    texteActuel = if (touche == "-") {
+                        "-0.00 \$"
+                    } else {
+                        "0.0$touche \$"
+                    }
+                }
+                touche == "-" -> {
+                    texteActuel = if (texteActuelTravail.startsWith("-")) {
+                        "${texteActuelTravail.substring(1)} \$"
+                    } else {
+                        "-$texteActuelTravail \$"
+                    }
+                }
+                else -> {
+                    val estNegatif = texteActuelTravail.startsWith("-")
+                    val textePositif = if (estNegatif) {
+                        texteActuelTravail.substring(1)
+                    } else {
+                        texteActuelTravail
+                    }.replace(".", "")
+
+                    var nouveauTexte = textePositif + touche
+
+                    // Supprimer les zéros de tête (sauf si un seul caractère)
+                    while (nouveauTexte.length > 1 && nouveauTexte.startsWith("0")) {
+                        nouveauTexte = nouveauTexte.substring(1)
+                    }
+
+                    // Assurer au moins 3 caractères pour les centimes
+                    if (nouveauTexte.length < 3) {
+                        nouveauTexte = nouveauTexte.padStart(3, '0')
+                    }
+
+                    val partieEntiere = nouveauTexte.substring(0, nouveauTexte.length - 2)
+                    val partieDecimale = nouveauTexte.substring(nouveauTexte.length - 2)
+
+                    val resultat = "$partieEntiere.$partieDecimale \$"
+                    texteActuel = if (estNegatif) "-$resultat" else resultat
+                }
+            }
+        } else {
+            // === LOGIQUE EXACTE DU FLUTTER MODE NORMAL ===
+            when (touche) {
+                "." -> {
+                    if (!texteActuel.contains(".")) {
+                        texteActuel = if (texteActuel.isEmpty()) "0." else "$texteActuel."
+                    }
+                }
+                else -> {
+                    texteActuel = if (texteActuel == "0") {
+                        touche
+                    } else {
+                        texteActuel + touche
+                    }
+                }
+            }
+        }
+
+        // Convertir vers Long pour le callback
+        val valeurLong = if (isMoney) {
+            val texteNettoye = texteActuel.replace("\$", "").replace(" ", "")
+            val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
+            (valeurDouble * 100).toLong()
+        } else {
+            texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
+        }
+        onMontantChange(valeurLong)
+    }
+
+    /**
+     * ⌫ LOGIQUE IDENTIQUE FLUTTER : _onBackspace
+     * Reproduit EXACTEMENT la fonction de suppression du Flutter
+     */
+    val gererBackspace = {
+        if (isMoney) {
+            val texteActuelTravail = texteActuel.replace("\$", "").replace(" ", "")
+
+            val estNegatif = texteActuelTravail.startsWith("-")
+            val textePositif = if (estNegatif) {
+                texteActuelTravail.substring(1)
+            } else {
+                texteActuelTravail
+            }.replace(".", "")
+
+            if (textePositif.length <= 3) {
+                texteActuel = if (estNegatif) "-0.00 \$" else "0.00 \$"
+            } else {
+                val nouveauTexte = textePositif.substring(0, textePositif.length - 1)
+                val partieEntiere = nouveauTexte.substring(0, nouveauTexte.length - 2)
+                val partieDecimale = nouveauTexte.substring(nouveauTexte.length - 2)
+
+                val resultat = "$partieEntiere.$partieDecimale \$"
+                texteActuel = if (estNegatif) "-$resultat" else resultat
+            }
+        } else {
+            if (texteActuel.isNotEmpty()) {
+                texteActuel = texteActuel.substring(0, texteActuel.length - 1)
+                if (texteActuel.isEmpty()) {
+                    texteActuel = "0"
+                }
+            }
+        }
+
+        // Convertir vers Long pour le callback
+        val valeurLong = if (isMoney) {
+            val texteNettoye = texteActuel.replace("\$", "").replace(" ", "")
+            val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
+            (valeurDouble * 100).toLong()
+        } else {
+            texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
+        }
+        onMontantChange(valeurLong)
+    }
+
+    // Affichage du texte EXACT comme Flutter
+    val montantAffiche = if (isMoney) {
+        texteActuel
+    } else {
+        "$texteActuel$suffix"
+    }
+
+    // 🎨 DESIGN VISUEL AVEC COULEURS DU THÈME
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onFermer() }
-            .zIndex(10f)
-    ) {
-        // Le clavier qui apparaît depuis le bas
-        AnimatedVisibility(
-            visible = true,
-            enter = slideInVertically(
-                initialOffsetY = { it } // Commence depuis le bas de l'écran
-            ),
-            exit = slideOutVertically(
-                targetOffsetY = { it } // Sort vers le bas de l'écran
-            ),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            ClavierContent(
-                montantInitial = montantInitial,
-                nomDialog = nomDialog,
-                isMoney = isMoney,
-                suffix = suffix,
-                onMontantChange = onMontantChange,
-                onFermer = onFermer
-            )
-        }
-    }
-}
-
-/**
- * Contenu du clavier (séparé pour une meilleure organisation)
- */
-@Composable
-private fun ClavierContent(
-    montantInitial: Long,
-    nomDialog: String,
-    isMoney: Boolean,
-    suffix: String,
-    onMontantChange: (Long) -> Unit,
-    onFermer: () -> Unit
-) {
-    var montantValeur by remember { mutableStateOf(montantInitial) }
-    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
-
-    val onKeyPress = { key: String ->
-        val nouveauMontant = when (key) {
-            "del" -> {
-                // Supprimer le dernier chiffre (diviser par 10)
-                if (montantValeur > 0) montantValeur / 10 else 0L
-            }
-            "." -> {
-                // Pour l'argent, ignorer le point (on travaille en centimes)
-                montantValeur
-            }
-            else -> {
-                // Ajouter un chiffre (multiplier par 10 et ajouter)
-                val chiffre = key.toLongOrNull() ?: 0L
-                val limite = if (isMoney) 999999999L else 999999L
-                if (montantValeur < limite) {
-                    montantValeur * 10 + chiffre
-                } else {
-                    montantValeur
-                }
-            }
-        }
-        montantValeur = nouveauMontant
-        onMontantChange(nouveauMontant)
-    }
-
-    // Formatage selon le type pour l'affichage
-    val montantAffiche = if (isMoney) {
-        formateurMonetaire.format(montantValeur / 100.0)
-    } else {
-        "$montantValeur$suffix"
-    }
-
-    // Card qui s'ouvre depuis le bas avec coins arrondis uniquement en haut
-    Card(
-        modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { }, // Empêche la fermeture quand on clique sur le clavier
-        shape = RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 20.dp,
-            bottomStart = 0.dp,
-            bottomEnd = 0.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2E2E2E) // Fond gris foncé
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Petite barre de glissement en haut pour indiquer que c'est un modal
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .background(
-                        Color.Gray.copy(alpha = 0.5f),
-                        RoundedCornerShape(2.dp)
-                    )
-                    .padding(bottom = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Titre personnalisable (comme "Montant de la dépense")
-            Text(
-                text = nomDialog,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            // Barre avec le montant utilisant la couleur primaire du thème
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary // 🎨 Couleur primaire du thème
-                )
-            ) {
-                Text(
-                    text = montantAffiche,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // VOTRE clavier avec boutons ronds gris !
-            VotreClavierOriginal(onKeyPress = onKeyPress)
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Boutons Annuler et Valider (comme votre image)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp) // Espacement entre les boutons
-            ) {
-                // Bouton Annuler
-                OutlinedButton(
-                    onClick = onFermer,
-                    modifier = Modifier.weight(1f), // Poids 1 pour le bouton Annuler
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
-                ) {
-                    Text("Annuler")
-                }
-
-                // Bouton Valider
-                Button(
-                    onClick = onFermer,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE74C3C) // Rouge comme votre image
-                    )
-                ) {
-                    Text("Valider", color = Color.White)
-                }
-            }
-
-            // Espacement supplémentaire pour éviter les barres de navigation
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-/**
- * Dialog avec VOTRE clavier original que vous voulez !
- * Affichage en temps réel du montant formaté selon le type (argent ou valeur).
- */
-@Composable
-private fun ClavierModerneDialog(
-    montantInitial: Long,
-    nomDialog: String,
-    isMoney: Boolean,
-    suffix: String,
-    onMontantChange: (Long) -> Unit,
-    onFermer: () -> Unit
-) {
-    var montantValeur by remember { mutableStateOf(montantInitial) }
-    val formateurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
-    
-    val onKeyPress = { key: String ->
-        val nouveauMontant = when (key) {
-            "del" -> {
-                // Supprimer le dernier chiffre (diviser par 10)
-                if (montantValeur > 0) montantValeur / 10 else 0L
-            }
-            "." -> {
-                // Pour l'argent, ignorer le point (on travaille en centimes)
-                montantValeur
-            }
-            else -> {
-                // Ajouter un chiffre (multiplier par 10 et ajouter)
-                val chiffre = key.toLongOrNull() ?: 0L
-                val limite = if (isMoney) 999999999L else 999999L
-                if (montantValeur < limite) {
-                    montantValeur * 10 + chiffre
-                } else {
-                    montantValeur
-                }
-            }
-        }
-        montantValeur = nouveauMontant
-        onMontantChange(nouveauMontant)
-    }
-
-    // Formatage selon le type pour l'affichage
-    val montantAffiche = if (isMoney) {
-        formateurMonetaire.format(montantValeur / 100.0)
-    } else {
-        "$montantValeur$suffix"
-    }
-
-    // VOTRE DESIGN ORIGINAL !
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2E2E2E) // Fond gris foncé comme votre image
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Titre personnalisable (comme "Montant de la dépense")
-            Text(
-                text = nomDialog,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            // Barre avec le montant utilisant la couleur primaire du thème
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary // 🎨 Couleur primaire du thème
-                )
-            ) {
-                Text(
-                    text = montantAffiche,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp)) // Espacement entre le clavier et les boutons
-            // VOTRE clavier avec boutons ronds gris !
-            VotreClavierOriginal(onKeyPress = onKeyPress)
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Boutons Annuler et Valider (comme votre image)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp) // Espacement entre les boutons
-            ) {
-                // Bouton Annuler
-                OutlinedButton(
-                    onClick = onFermer,
-                    modifier = Modifier.weight(1f), // Poids 1 pour le bouton Annuler
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
-                ) {
-                    Text("Annuler")
-                }
-                
-                // Bouton Valider
-                Button(
-                    onClick = onFermer,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE74C3C) // Rouge comme votre image
-                    )
-                ) {
-                    Text("Valider", color = Color.White)
-                }
-            }
-        }
-    }
-}
-
-/**
- * VOTRE clavier original avec boutons ronds gris comme dans l'image !
- */
-@Composable
-private fun VotreClavierOriginal(onKeyPress: (String) -> Unit) {
-    val haptics = LocalHapticFeedback.current
-    
-    val touches = listOf(
-        listOf("1", "2", "3"),
-        listOf("4", "5", "6"),
-        listOf("7", "8", "9"),
-        listOf(".", "0", "⌫") // Utilise le symbole backspace
-    )
-    
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        touches.forEach { rangee ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                rangee.forEach { touche ->
-                    VotreToucheOriginale(
-                        texte = touche,
-                        onPressed = {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            // Convertir le symbole backspace en "del"
-                            val key = if (touche == "⌫") "del" else touche
-                            onKeyPress(key)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * VOTRE touche originale - ronde et grise comme dans l'image !
- */
-@Composable
-private fun VotreToucheOriginale(
-    texte: String,
-    onPressed: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(60.dp) // Taille comme dans votre image
+            .wrapContentHeight()
             .background(
-                Color(0xFF4A4A4A), // Gris comme dans votre image
-                CircleShape
+                color = MaterialTheme.colorScheme.surface, // ✅ Couleur du thème
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = true),
-                onClick = onPressed
-            ),
-        contentAlignment = Alignment.Center
+            .padding(top = 12.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
     ) {
-        if (texte == "⌫") {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // === ZONE D'AFFICHAGE AVEC COULEURS DU THÈME ===
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                // Zone d'affichage du montant
+                Column(
+                    modifier = Modifier.width(213.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = montantAffiche,
+                        style = LocalTextStyle.current.copy(
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface // ✅ Couleur du thème
+                        ),
+                        textAlign = TextAlign.Left,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Ligne sous le texte avec couleur du thème
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(213.dp)
+                            .height(2.dp)
+                            .background(MaterialTheme.colorScheme.primary) // ✅ Couleur primaire du thème
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(35.dp))
+
+                // Bouton Backspace avec couleurs du thème
+                ClavierToucheFlutter(
+                    texte = "",
+                    icone = Icons.Outlined.Backspace,
+                    onPressed = gererBackspace,
+                    estAction = true // Bouton d'action
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp)) // Plus d'espace
+
+            // === CLAVIER COMPLET COMME FLUTTER (TOUS LES CHIFFRES) ===
+            // Rangée 1-2-3 (COMPLÈTE)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ClavierToucheFlutter(
+                    texte = "1",
+                    onPressed = { gererToucheNumerique("1") }
+                )
+                ClavierToucheFlutter(
+                    texte = "2",
+                    onPressed = { gererToucheNumerique("2") }
+                )
+                ClavierToucheFlutter(
+                    texte = "3",
+                    onPressed = { gererToucheNumerique("3") }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Rangée 4-5-6 (COMPLÈTE)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ClavierToucheFlutter(
+                    texte = "4",
+                    onPressed = { gererToucheNumerique("4") }
+                )
+                ClavierToucheFlutter(
+                    texte = "5",
+                    onPressed = { gererToucheNumerique("5") }
+                )
+                ClavierToucheFlutter(
+                    texte = "6",
+                    onPressed = { gererToucheNumerique("6") }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Rangée 7-8-9 (COMPLÈTE)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ClavierToucheFlutter(
+                    texte = "7",
+                    onPressed = { gererToucheNumerique("7") }
+                )
+                ClavierToucheFlutter(
+                    texte = "8",
+                    onPressed = { gererToucheNumerique("8") }
+                )
+                ClavierToucheFlutter(
+                    texte = "9",
+                    onPressed = { gererToucheNumerique("9") }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Rangée finale : - - 0 - ✓ (comme votre image)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Bouton moins (si mode argent)
+                if (isMoney) {
+                    ClavierToucheFlutter(
+                        texte = "-",
+                        onPressed = { gererToucheNumerique("-") }
+                    )
+                } else {
+                    ClavierToucheFlutter(
+                        texte = ".",
+                        onPressed = { gererToucheNumerique(".") }
+                    )
+                }
+
+                ClavierToucheFlutter(
+                    texte = "0",
+                    onPressed = { gererToucheNumerique("0") }
+                )
+
+                // Bouton Done BLANC OBLONG comme votre image
+                ClavierToucheFlutter(
+                    texte = "",
+                    icone = Icons.Default.Check,
+                    onPressed = onFermer,
+                    estAction = true // Bouton blanc oblong
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp)) // Espacement final exact Flutter
+        }
+    }
+}
+
+/**
+ * 🔘 BOUTON DE CLAVIER ÉCRASÉ EN HAUTEUR - COULEURS DU THÈME
+ * Boutons d'action : fond blanc + icône colorée selon le thème !
+ */
+@Composable
+private fun ClavierToucheFlutter(
+    texte: String,
+    icone: ImageVector? = null,
+    onPressed: () -> Unit = {},
+    estAction: Boolean = false, // true pour X et ✓
+    paddingZero: Boolean = false
+) {
+    val retourHaptique = LocalHapticFeedback.current
+
+    // 🎨 COULEURS SPÉCIALES POUR BOUTONS D'ACTION
+    val couleurBouton = if (estAction) {
+        Color.White // ✅ FOND BLANC pour X et ✓
+    } else {
+        MaterialTheme.colorScheme.primary // Couleur primaire du thème pour chiffres
+    }
+
+    val couleurTexte = if (estAction) {
+        MaterialTheme.colorScheme.primary // ✅ ICÔNE COLORÉE selon le thème
+    } else {
+        MaterialTheme.colorScheme.onPrimary // Contraste pour boutons chiffres
+    }
+
+    // 🥞 BOUTONS ÉCRASÉS EN HAUTEUR (ovales aplatis)
+    ElevatedButton(
+        onClick = {
+            retourHaptique.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onPressed()
+        },
+        modifier = Modifier
+            .width(85.dp)     // Largeur normale
+            .height(65.dp),   // ✅ HAUTEUR ÉCRASÉE (plus petite)
+        shape = RoundedCornerShape(32.dp), // Très arrondi pour faire ovale
+        colors = ButtonDefaults.elevatedButtonColors(
+            containerColor = couleurBouton, // ✅ Blanc pour actions, thème pour chiffres
+            contentColor = couleurTexte     // ✅ Couleur thème pour icônes, blanc pour chiffres
+        ),
+        elevation = ButtonDefaults.elevatedButtonElevation(
+            defaultElevation = if (estAction) 4.dp else 2.dp, // Plus d'élévation pour boutons blancs
+            pressedElevation = 2.dp
+        ),
+        contentPadding = if (paddingZero) PaddingValues(0.dp) else ButtonDefaults.ContentPadding
+    ) {
+        if (icone != null) {
             Icon(
-                Icons.Default.Backspace,
-                contentDescription = "Effacer",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                imageVector = icone,
+                contentDescription = null,
+                tint = couleurTexte, // ✅ Icône colorée selon le thème
+                modifier = Modifier.size(22.dp)
             )
         } else {
             Text(
                 text = texte,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White
+                style = LocalTextStyle.current.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = couleurTexte // ✅ Texte coloré selon le thème
             )
         }
     }
@@ -574,7 +553,7 @@ private fun VotreToucheOriginale(
 
 // --- PREVIEWS ---
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Champ Montant avec VOTRE clavier")
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Champ Montant Flutter")
 @Composable
 fun ChampMontantUniverselPreview() {
     ToutieBudgetTheme {
@@ -587,26 +566,26 @@ fun ChampMontantUniverselPreview() {
                     montant = 123456L, // 1234.56$
                     onMontantChange = {},
                     libelle = "Montant de la dépense",
-                    nomDialog = "Montant de la dépense", // Titre personnalisé
+                    nomDialog = "Montant de la dépense",
                     isMoney = true,
                     estObligatoire = true
                 )
-                
+
                 ChampMontantUniversel(
                     montant = 12L, // 12 mois
                     onMontantChange = {},
                     libelle = "Durée en mois",
-                    nomDialog = "Durée du prêt", // Titre personnalisé
+                    nomDialog = "Durée du prêt",
                     isMoney = false,
                     suffix = " mois",
                     icone = Icons.Default.AttachMoney
                 )
-                
+
                 ChampMontantUniversel(
                     montant = 525L, // 525%
                     onMontantChange = {},
                     libelle = "Taux d'intérêt",
-                    nomDialog = "Taux d'intérêt annuel", // Titre personnalisé
+                    nomDialog = "Taux d'intérêt annuel",
                     isMoney = false,
                     suffix = "%",
                     icone = Icons.Default.AttachMoney
@@ -616,16 +595,16 @@ fun ChampMontantUniverselPreview() {
     }
 }
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Dialog MON Clavier")
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Clavier Flutter Identique")
 @Composable
-fun ClavierModerneDialogPreview() {
+fun ClavierFlutterIdentiquePreview() {
     ToutieBudgetTheme(darkTheme = true) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.padding(16.dp)
             ) {
-                ClavierModerneDialog(
+                ClavierFlutterIdentique(
                     montantInitial = 123456L,
                     nomDialog = "Montant de la dépense",
                     isMoney = true,
