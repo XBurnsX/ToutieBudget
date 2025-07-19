@@ -30,11 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
+import kotlinx.coroutines.launch
 
 /**
- * 🎯 COMPOSANT UNIVERSEL POUR TOUS LES CHAMPS DE MONTANT
+ * 🎯 CHAMP DE SAISIE UNIVERSEL POUR MONTANTS
  *
  * Avec clavier IDENTIQUE au NumericKeyboard Flutter !
  *
@@ -65,13 +65,15 @@ fun ChampMontantUniversel(
     tailleMontant: androidx.compose.ui.unit.TextUnit? = null,
     modifier: Modifier = Modifier
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showKeyboard by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Formatage pour l'affichage
-    val montantAffiche = if (isMoney) {
-        String.format("%.2f \$", montant / 100.0)
-    } else {
-        "$montant$suffix"
+    val montantAffiche = remember(montant, isMoney, suffix) {
+        if (isMoney) {
+            String.format("%.2f \$", montant / 100.0)
+        } else {
+            "$montant$suffix"
+        }
     }
 
     Column(modifier = modifier) {
@@ -99,7 +101,7 @@ fun ChampMontantUniversel(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showDialog = true },
+                .clickable { showKeyboard = true },
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -133,17 +135,16 @@ fun ChampMontantUniversel(
         }
     }
 
-    // Bottom Sheet avec clavier IDENTIQUE Flutter (monte du bas !)
-    if (showDialog) {
+    if (showKeyboard) {
         ModalBottomSheet(
-            onDismissRequest = { showDialog = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface, // ✅ Couleur du thème
-            contentColor = MaterialTheme.colorScheme.onSurface, // ✅ Couleur du thème
-            dragHandle = null, // Pas de handle, le clavier gère sa propre fermeture
-            windowInsets = WindowInsets(0) // Pas d'insets pour coller au bas
+            onDismissRequest = { showKeyboard = false },
+            sheetState = sheetState,
+            scrimColor = Color.Transparent, // ✅ PAS D'ASSOMBRISSEMENT
+            dragHandle = null, // On gère la fermeture nous-mêmes
+            windowInsets = WindowInsets(0, 0, 0, 0) // ✅ Stabilité de la vue
         ) {
-            ClavierFlutterIdentique(
+            // Le clavier lui-même
+            ClavierNumerique(
                 montantInitial = montant,
                 nomDialog = nomDialog,
                 isMoney = isMoney,
@@ -151,9 +152,7 @@ fun ChampMontantUniversel(
                 onMontantChange = { nouveauMontant ->
                     onMontantChange(nouveauMontant)
                 },
-                onFermer = {
-                    showDialog = false
-                }
+                onFermer = { showKeyboard = false }
             )
         }
     }
@@ -164,7 +163,7 @@ fun ChampMontantUniversel(
  * Reproduit EXACTEMENT le comportement, l'apparence et la logique
  */
 @Composable
-private fun ClavierFlutterIdentique(
+private fun ClavierNumerique(
     montantInitial: Long,
     nomDialog: String,
     isMoney: Boolean,
@@ -616,7 +615,7 @@ fun ClavierFlutterIdentiquePreview() {
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.padding(16.dp)
             ) {
-                ClavierFlutterIdentique(
+                ClavierNumerique(
                     montantInitial = 123456L,
                     nomDialog = "Montant de la dépense",
                     isMoney = true,
