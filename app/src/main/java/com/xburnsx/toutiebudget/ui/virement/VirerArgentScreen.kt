@@ -100,7 +100,8 @@ fun VirerArgentScreen(
                 libelle = "Montant à virer",
                 icone = Icons.Default.SwapHoriz,
                 estObligatoire = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isMoney = true
             )
             
             // Champs de sélection source et destination
