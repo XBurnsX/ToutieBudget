@@ -1,7 +1,11 @@
 // chemin/simule: /ui/budget/BudgetScreen.kt
+// Dépendances: ClavierBudgetEnveloppe, BudgetViewModel
+// INTÉGRATION du clavier spécialisé dans la page Budget existante
+
 package com.xburnsx.toutiebudget.ui.budget
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,10 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,15 +29,11 @@ import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
+import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
+import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,32 +47,69 @@ fun BudgetScreen(
     val context = LocalContext.current
     var moisSelectionne by remember { mutableStateOf(Date()) }
 
+    // 🆕 ÉTATS POUR LE CLAVIER ENVELOPPE
+    var enveloppeSelectionnee by remember { mutableStateOf<EnveloppeUi?>(null) }
+    var showClavierEnveloppe by remember { mutableStateOf(false) }
+    var comptesDisponibles by remember { mutableStateOf<List<CompteBudget>>(emptyList()) }
+
+    // 🆕 CHARGER LES COMPTES POUR LE CLAVIER
+    LaunchedEffect(uiState.bandeauxPretAPlacer) {
+        comptesDisponibles = uiState.bandeauxPretAPlacer
+            .filter { it.montant > 0.0 } // Seulement les comptes avec de l'argent
+            .map { bandeau ->
+                CompteBudget(
+                    id = bandeau.compteId,
+                    nom = bandeau.nomCompte,
+                    pretAPlacer = bandeau.montant,
+                    couleur = bandeau.couleurCompte
+                )
+            }
+    }
+
     Scaffold(
         containerColor = Color(0xFF121212),
         topBar = {
             TopAppBar(
                 title = {
-                    SelecteurMoisAnnee(moisSelectionne = moisSelectionne) {
-                        moisSelectionne = it
-                        viewModel.chargerDonneesBudget(it)
-                    }
+                    SelecteurMoisAnnee(
+                        moisSelectionne = moisSelectionne,
+                        onMoisChange = {
+                            moisSelectionne = it
+                            viewModel.chargerDonneesBudget(it)
+                        }
+                    )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF121212),
+                    titleContentColor = Color.White
+                ),
                 actions = {
                     // Icône de virement
                     IconButton(onClick = { onVirementClick?.invoke() }) {
-                        Icon(Icons.Default.SwapHoriz, contentDescription = "Virement d'argent", tint = Color.White)
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "Virement d'argent",
+                            tint = Color.White
+                        )
                     }
                     // Icône des catégories
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {
-                        Icon(Icons.Default.Category, contentDescription = "Catégories", tint = Color.White)
+                        Icon(
+                            Icons.Default.Category,
+                            contentDescription = "Catégories",
+                            tint = Color.White
+                        )
                     }
                     // Icône de déconnexion
                     IconButton(onClick = {
                         PocketBaseClient.deconnecter(context)
                         onLogout?.invoke()
                     }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Déconnexion", tint = Color.White)
+                        Icon(
+                            Icons.Default.Logout,
+                            contentDescription = "Déconnexion",
+                            tint = Color.White
+                        )
                     }
                 }
             )
@@ -110,13 +144,47 @@ fun BudgetScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     )
 
-                    // Enveloppes de cette catégorie
+                    // 🆕 ENVELOPPES CLIQUABLES POUR OUVRIR LE CLAVIER
                     categorie.enveloppes.forEach { enveloppe ->
-                        EnveloppeItem(enveloppe = enveloppe)
+                        Box(
+                            modifier = Modifier.clickable {
+                                enveloppeSelectionnee = enveloppe
+                                showClavierEnveloppe = true
+                            }
+                        ) {
+                            EnveloppeItem(enveloppe = enveloppe)
+                        }
                     }
                 }
             }
         }
+    }
+
+    // 🆕 CLAVIER BUDGET ENVELOPPE
+    if (showClavierEnveloppe && enveloppeSelectionnee != null) {
+        ClavierBudgetEnveloppe(
+            enveloppe = enveloppeSelectionnee!!,
+            comptesDisponibles = comptesDisponibles,
+            comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
+            onAssigner = { montantCentimes, compteSourceId ->
+                // 🎯 LOGIQUE D'ASSIGNATION - À IMPLÉMENTER DANS LE VIEWMODEL
+                // viewModel.assignerArgentAEnveloppe(
+                //     enveloppeId = enveloppeSelectionnee!!.id,
+                //     compteSourceId = compteSourceId,
+                //     montantCentimes = montantCentimes
+                // )
+
+                // Pour l'instant, juste fermer le clavier
+                showClavierEnveloppe = false
+                enveloppeSelectionnee = null
+
+                // TODO: Afficher un message de succès ou appeler la logique de virement
+            },
+            onFermer = {
+                showClavierEnveloppe = false
+                enveloppeSelectionnee = null
+            }
+        )
     }
 }
 
@@ -180,4 +248,18 @@ fun BudgetScreenPreview() {
             )
         )
     )
+
+    // Interface simplifiée pour le preview
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Budget Preview",
+            color = Color.White,
+            style = MaterialTheme.typography.headlineMedium
+        )
+    }
 }
