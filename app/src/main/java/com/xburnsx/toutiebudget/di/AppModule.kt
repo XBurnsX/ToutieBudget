@@ -18,6 +18,7 @@
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
  import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
  import com.xburnsx.toutiebudget.ui.login.LoginViewModel
+ import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
  import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
  import androidx.lifecycle.SavedStateHandle
 
@@ -37,12 +38,19 @@
      private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
 
      // ===== SERVICES =====
-     private val virementUseCase: VirementUseCase by lazy { VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository) }
+     private val virementUseCase: VirementUseCase by lazy {
+         VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
+     }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
 
      // Service de synchronisation temps réel
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
+
+     // Service de validation de provenance
+     private val validationProvenanceService: ValidationProvenanceService by lazy {
+         ValidationProvenanceService(allocationMensuelleRepository, enveloppeRepository, compteRepository)
+     }
 
      // Service de vérification du serveur
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
@@ -68,7 +76,8 @@
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
              verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
-             realtimeSyncService = realtimeSyncService
+             realtimeSyncService = realtimeSyncService,
+             validationProvenanceService = validationProvenanceService
          )
      }
      
@@ -104,7 +113,8 @@
              enveloppeRepository = provideEnveloppeRepository(),
              categorieRepository = provideCategorieRepository(),
              argentService = provideArgentService(),
-             realtimeSyncService = provideRealtimeSyncService()
+             realtimeSyncService = provideRealtimeSyncService(),
+             validationProvenanceService = provideValidationProvenanceService()
          )
      }
  
@@ -123,6 +133,7 @@
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
+     fun provideValidationProvenanceService(): ValidationProvenanceService = validationProvenanceService
      fun provideServerStatusService(): com.xburnsx.toutiebudget.data.services.ServerStatusService = serverStatusService
 
      // Use Cases
@@ -136,6 +147,7 @@
  
      // ViewModels
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
+     fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
      fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel

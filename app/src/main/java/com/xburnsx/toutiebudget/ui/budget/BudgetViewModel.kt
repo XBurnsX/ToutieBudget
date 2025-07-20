@@ -15,6 +15,7 @@ import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
+import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +32,8 @@ class BudgetViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val validationProvenanceService: ValidationProvenanceService
 ) : ViewModel() {
 
     // --- Cache en mémoire pour éviter les écrans de chargement ---
@@ -415,6 +417,18 @@ class BudgetViewModel(
                 val enveloppe = cacheEnveloppes.find { it.id == enveloppeId }
                 if (enveloppe == null) {
                     throw Exception("Enveloppe non trouvée")
+                }
+
+                // 🔒 VALIDATION DE PROVENANCE - Nouveau contrôle
+                val moisActuelValidation = obtenirPremierJourDuMois(moisSelectionne)
+                val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
+                    enveloppeId = enveloppeId,
+                    compteSourceId = compteSourceId,
+                    mois = moisActuelValidation
+                )
+
+                if (validationResult.isFailure) {
+                    throw Exception(validationResult.exceptionOrNull()?.message ?: "Erreur de validation de provenance")
                 }
 
                 // 3. Mettre à jour le compte source (retirer de "prêt à placer")

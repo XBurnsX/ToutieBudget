@@ -11,6 +11,7 @@ import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.ArgentService
+import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +30,8 @@ class VirerArgentViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
     private val argentService: ArgentService,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val validationProvenanceService: ValidationProvenanceService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VirerArgentUiState())
@@ -283,6 +285,65 @@ class VirerArgentViewModel(
 
         viewModelScope.launch {
             try {
+                _uiState.update { it.copy(isLoading = true) }
+
+                // 🔒 VALIDATIONS DE PROVENANCE - Nouvelles vérifications
+                val moisActuel = Date()
+
+                when {
+                    // Compte vers Enveloppe - Vérifier si l'enveloppe contient déjà de l'argent d'un autre compte
+                    source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
+                        val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
+                            enveloppeId = destination.enveloppe.id,
+                            compteSourceId = source.compte.id,
+                            mois = moisActuel
+                        )
+                        if (validationResult.isFailure) {
+                            throw Exception(validationResult.exceptionOrNull()?.message ?: "Conflit de provenance détecté")
+                        }
+                    }
+
+                    // Enveloppe vers Enveloppe - Vérifier les deux côtés
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
+                    destination is ItemVirement.EnveloppeItem && !estPretAPlacer(destination.enveloppe) -> {
+                        val validationResult = validationProvenanceService.validerTransfertEntreEnveloppes(
+                            enveloppeSourceId = source.enveloppe.id,
+                            enveloppeCibleId = destination.enveloppe.id,
+                            mois = moisActuel
+                        )
+                        if (validationResult.isFailure) {
+                            throw Exception(validationResult.exceptionOrNull()?.message ?: "Conflit de provenance entre enveloppes")
+                        }
+                    }
+
+                    // Enveloppe vers Compte - Vérifier que l'argent retourne vers son compte d'origine
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
+                    destination is ItemVirement.CompteItem -> {
+                        val validationResult = validationProvenanceService.validerRetourVersCompte(
+                            enveloppeId = source.enveloppe.id,
+                            compteDestinationId = destination.compte.id,
+                            mois = moisActuel
+                        )
+                        if (validationResult.isFailure) {
+                            throw Exception(validationResult.exceptionOrNull()?.message ?: "L'argent ne peut retourner que vers son compte d'origine")
+                        }
+                    }
+
+                    // Enveloppe vers Prêt à placer - Vérifier que l'argent retourne vers son compte d'origine
+                    source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
+                    destination is ItemVirement.EnveloppeItem && estPretAPlacer(destination.enveloppe) -> {
+                        val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
+                        val validationResult = validationProvenanceService.validerRetourVersCompte(
+                            enveloppeId = source.enveloppe.id,
+                            compteDestinationId = compteId,
+                            mois = moisActuel
+                        )
+                        if (validationResult.isFailure) {
+                            throw Exception(validationResult.exceptionOrNull()?.message ?: "L'argent ne peut retourner que vers son compte d'origine")
+                        }
+                    }
+                }
+
                 // Effectuer le virement selon les types source/destination
                 when {
                     // Compte vers Compte

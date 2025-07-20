@@ -5,6 +5,7 @@ package com.xburnsx.toutiebudget.domain.usecases
 
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
+import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.di.AppModule
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -20,7 +21,8 @@ class VirementUseCase @Inject constructor(
     private val compteRepository: CompteRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val transactionRepository: TransactionRepository,
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val validationProvenanceService: ValidationProvenanceService
 ) {
 
     /**
@@ -52,7 +54,7 @@ class VirementUseCase @Inject constructor(
                 throw IllegalArgumentException("Prêt à placer insuffisant (${compte.pretAPlacer}$ disponible)")
             }
 
-            // 3. Obtenir ou créer l'allocation mensuelle
+            // 🔒 VALIDATION DE PROVENANCE - Vérifier avant le virement
             val calendrier = Calendar.getInstance().apply {
                 time = Date()
                 set(Calendar.DAY_OF_MONTH, 1)
@@ -63,7 +65,49 @@ class VirementUseCase @Inject constructor(
             }
             val premierJourMois = calendrier.time
 
-            // 3. Mettre à jour le prêt à placer du compte
+            val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
+                enveloppeId = enveloppeId,
+                compteSourceId = compteId,
+                mois = premierJourMois
+            )
+
+            if (validationResult.isFailure) {
+                throw IllegalArgumentException(validationResult.exceptionOrNull()?.message ?: "Conflit de provenance détecté")
+            }
+
+            // 3. Obtenir ou créer l'allocation mensuelle
+            val allocationExistante = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, premierJourMois)
+                .getOrNull()
+
+            val allocationAMettreAJour: AllocationMensuelle = if (allocationExistante != null) {
+                // L'allocation existe déjà, on la met à jour
+                allocationExistante.copy(
+                    solde = allocationExistante.solde + montant,
+                    alloue = allocationExistante.alloue + montant
+                )
+            } else {
+                // L'allocation n'existe pas, on en crée une nouvelle
+                AllocationMensuelle(
+                    id = "", // PocketBase va générer un nouvel ID
+                    utilisateurId = compte.utilisateurId,
+                    enveloppeId = enveloppeId,
+                    mois = premierJourMois,
+                    solde = montant,
+                    alloue = montant,
+                    depense = 0.0,
+                    compteSourceId = compteId,
+                    collectionCompteSource = "comptes_cheque"
+                )
+            }
+
+            val resultAllocation = if (allocationExistante != null) {
+                // Créer une nouvelle allocation qui s'additionne automatiquement
+                enveloppeRepository.creerAllocationMensuelle(allocationAMettreAJour)
+            } else {
+                enveloppeRepository.creerAllocationMensuelle(allocationAMettreAJour)
+            }
+
+            // 4. Mettre à jour le prêt à placer du compte
             val resultCompte = compteRepository.mettreAJourPretAPlacerSeulement(
                 compteId = compteId,
                 variationPretAPlacer = -montant
@@ -73,62 +117,35 @@ class VirementUseCase @Inject constructor(
             }
 
 
-            // 4. Récupérer ou créer l'allocation mensuelle (EXACTEMENT comme allouerArgentEnveloppe)
+            // 5. Créer une transaction de traçabilité
+            println("[DEBUG] 📋 Création transaction de traçabilité...")
+            val transaction = Transaction(
+                type = TypeTransaction.Depense,
+                montant = montant,
+                date = Date(),
+                note = "Virement depuis Prêt à placer vers enveloppe",
+                compteId = compteId,
+                collectionCompte = "comptes_cheque",
+                allocationMensuelleId = allocationAMettreAJour.id
+            )
 
-            try {
-                println("[DEBUG] 🚀 CRÉATION d'une NOUVELLE allocation de +$montant pour enveloppe $enveloppeId")
-
-                // Créer une NOUVELLE allocation qui va s'additionner automatiquement
-                val nouvelleAllocation = AllocationMensuelle(
-                    id = "", // PocketBase va générer un nouvel ID
-                    utilisateurId = compte.utilisateurId,
-                    enveloppeId = enveloppeId,
-                    mois = premierJourMois,
-                    solde = montant, // +5$ qui va s'additionner aux -30$ existants
-                    alloue = montant,
-                    depense = 0.0,
-                    compteSourceId = compteId,
-                    collectionCompteSource = "comptes_cheque"
-                )
-
-                println("[DEBUG] 📝 Appel creerNouvelleAllocation() pour créer dans PocketBase...")
-                val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
-                println("[DEBUG] ✅ SUCCÈS! Nouvelle allocation créée avec ID: ${allocationCreee.id}")
-
-                // 5. Créer une transaction de traçabilité
-                println("[DEBUG] 📋 Création transaction de traçabilité...")
-                val transaction = Transaction(
-                    type = TypeTransaction.Depense,
-                    montant = montant,
-                    date = Date(),
-                    note = "Virement depuis Prêt à placer vers enveloppe",
-                    compteId = compteId,
-                    collectionCompte = "comptes_cheque",
-                    allocationMensuelleId = allocationCreee.id
-                )
-
-                val resultTransaction = transactionRepository.creerTransaction(transaction)
-                if (resultTransaction.isFailure) {
-                    throw resultTransaction.exceptionOrNull() ?: Exception("Erreur création transaction")
-                }
-
-                // 🚀 DÉCLENCHER MANUELLEMENT L'ÉVÉNEMENT TEMPS RÉEL
-                println("[DEBUG] 🔄 Déclenchement manuel de l'événement temps réel...")
-                try {
-                    val realtimeService = AppModule.provideRealtimeSyncService()
-                    // Forcer la mise à jour du budget après virement
-                    kotlinx.coroutines.GlobalScope.launch {
-                        realtimeService.triggerBudgetUpdate()
-                    }
-                } catch (e: Exception) {
-                    println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
-                }
-
-            } catch (e: Exception) {
-                println("[DEBUG] ❌ ERREUR CRITIQUE dans VirementUseCase: ${e.message}")
-                println("[DEBUG] 🔍 Stack trace: ${e.stackTraceToString()}")
-                throw e
+            val resultTransaction = transactionRepository.creerTransaction(transaction)
+            if (resultTransaction.isFailure) {
+                throw resultTransaction.exceptionOrNull() ?: Exception("Erreur création transaction")
             }
+
+            // 🚀 DÉCLENCHER MANUELLEMENT L'ÉVÉNEMENT TEMPS RÉEL
+            println("[DEBUG] 🔄 Déclenchement manuel de l'événement temps réel...")
+            try {
+                val realtimeService = AppModule.provideRealtimeSyncService()
+                // Forcer la mise à jour du budget après virement
+                kotlinx.coroutines.GlobalScope.launch {
+                    realtimeService.triggerBudgetUpdate()
+                }
+            } catch (e: Exception) {
+                println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
+            }
+
         }
     }
 
@@ -175,6 +192,17 @@ class VirementUseCase @Inject constructor(
             // 3. Vérifier que l'enveloppe a suffisamment d'argent
             if (allocation.solde < montant) {
                 throw IllegalArgumentException("Solde d'enveloppe insuffisant (${allocation.solde}$ disponible)")
+            }
+
+            // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
+            val validationResult = validationProvenanceService.validerRetourVersCompte(
+                enveloppeId = enveloppeId,
+                compteDestinationId = compteId,
+                mois = premierJourMois
+            )
+
+            if (validationResult.isFailure) {
+                throw IllegalArgumentException(validationResult.exceptionOrNull()?.message ?: "L'argent ne peut retourner que vers son compte d'origine")
             }
 
             // 4. Mettre à jour l'allocation mensuelle (diminuer)

@@ -185,6 +185,57 @@ object PocketBaseClient {
     }
 
     /**
+     * Vérifie si le serveur PocketBase est accessible
+     * @return true si le serveur répond, false sinon
+     */
+    suspend fun verifierConnexionServeur(): Boolean {
+        return try {
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val requete = Request.Builder()
+                .url("${urlBase.trimEnd('/')}/api/health")
+                .get()
+                .build()
+
+            val reponse = withContext(Dispatchers.IO) {
+                client.newCall(requete).execute()
+            }
+
+            reponse.isSuccessful
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Vérifie si l'utilisateur est déjà authentifié
+     * @return true si un token valide existe, false sinon
+     */
+    fun verifierAuthentification(): Boolean {
+        return tokenAuthentification != null && utilisateurConnecte != null
+    }
+
+    /**
+     * Charge les données d'authentification sauvegardées depuis les SharedPreferences
+     */
+    fun chargerAuthentificationSauvegardee(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val token = prefs.getString(KEY_TOKEN, null)
+        val userJson = prefs.getString(KEY_USER, null)
+
+        return if (token != null && userJson != null) {
+            try {
+                tokenAuthentification = token
+                utilisateurConnecte = gson.fromJson(userJson, EnregistrementUtilisateur::class.java)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /**
      * Déconnecte l'utilisateur
      */
     fun deconnecter(context: Context) {

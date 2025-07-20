@@ -27,6 +27,7 @@ import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.server.ServerStatusDialog
+import com.xburnsx.toutiebudget.ui.startup.StartupScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 
 // --- Définition des écrans ---
@@ -59,11 +60,21 @@ fun AppNavigation() {
     ) {
         // Écran de vérification du serveur au démarrage
         composable("startup_check") {
-            ServerStatusDialog(
+            val startupViewModel = AppModule.provideStartupViewModel()
+            StartupScreen(
+                viewModel = startupViewModel,
                 onNavigateToLogin = {
                     navController.navigate("login_flow") {
                         popUpTo("startup_check") { inclusive = true }
                     }
+                },
+                onNavigateToBudget = {
+                    navController.navigate("main_flow") {
+                        popUpTo("startup_check") { inclusive = true }
+                    }
+                },
+                onShowServerError = {
+                    // Reste sur l'écran de démarrage qui affiche l'erreur avec bouton "Réessayer"
                 }
             )
         }

@@ -52,18 +52,22 @@ fun BudgetScreen(
     var showClavierEnveloppe by remember { mutableStateOf(false) }
     var comptesDisponibles by remember { mutableStateOf<List<CompteBudget>>(emptyList()) }
 
-    // 🆕 CHARGER LES COMPTES POUR LE CLAVIER
-    LaunchedEffect(uiState.bandeauxPretAPlacer) {
-        comptesDisponibles = uiState.bandeauxPretAPlacer
-            .filter { it.montant > 0.0 } // Seulement les comptes avec de l'argent
-            .map { bandeau ->
-                CompteBudget(
-                    id = bandeau.compteId,
-                    nom = bandeau.nomCompte,
-                    pretAPlacer = bandeau.montant,
-                    couleur = bandeau.couleurCompte
-                )
-            }
+    // 🆕 CHARGER LES COMPTES POUR LE CLAVIER - CORRECTION
+    LaunchedEffect(uiState.bandeauxPretAPlacer, uiState.isLoading) {
+        // Mettre à jour la liste chaque fois que les données changent
+        if (!uiState.isLoading) {
+            comptesDisponibles = uiState.bandeauxPretAPlacer
+                .filter { it.montant > 0.0 } // Seulement les comptes avec de l'argent
+                .map { bandeau ->
+                    CompteBudget(
+                        id = bandeau.compteId,
+                        nom = bandeau.nomCompte,
+                        pretAPlacer = bandeau.montant,
+                        couleur = bandeau.couleurCompte
+                    )
+                }
+            println("[BUDGET] 🔄 Comptes mis à jour pour le clavier: ${comptesDisponibles.size} comptes disponibles")
+        }
     }
 
     Scaffold(
@@ -160,6 +164,19 @@ fun BudgetScreen(
         }
     }
 
+    // 🔄 FERMETURE AUTOMATIQUE DU CLAVIER EN CAS DE SUCCÈS
+    LaunchedEffect(uiState.isLoading, uiState.erreur) {
+        // Fermer le clavier seulement si :
+        // 1. Plus en cours de chargement (opération terminée)
+        // 2. Pas d'erreur (succès)
+        // 3. Le clavier est ouvert
+        if (!uiState.isLoading && uiState.erreur == null && showClavierEnveloppe) {
+            println("[BUDGET] ✅ Assignation réussie - Fermeture du clavier")
+            showClavierEnveloppe = false
+            enveloppeSelectionnee = null
+        }
+    }
+
     // 🆕 CLAVIER BUDGET ENVELOPPE
     if (showClavierEnveloppe && enveloppeSelectionnee != null) {
         ClavierBudgetEnveloppe(
@@ -167,21 +184,55 @@ fun BudgetScreen(
             comptesDisponibles = comptesDisponibles,
             comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
             onAssigner = { montantCentimes, compteSourceId ->
-                // 🎯 LOGIQUE D'ASSIGNATION - MAINTENANT ACTIVÉE !
+                // 🎯 LOGIQUE D'ASSIGNATION - AVEC GESTION D'ERREUR
+                println("[BUDGET] 🎯 Tentative d'assignation: ${montantCentimes/100.0}$ du compte $compteSourceId vers enveloppe ${enveloppeSelectionnee!!.id}")
+
                 viewModel.assignerArgentAEnveloppe(
                     enveloppeId = enveloppeSelectionnee!!.id,
                     compteSourceId = compteSourceId,
                     montantCentimes = montantCentimes
                 )
 
-                // Fermer le clavier après l'assignation
-                showClavierEnveloppe = false
-                enveloppeSelectionnee = null
+                // NE PAS fermer le clavier ici - on attend le résultat dans LaunchedEffect
             },
             onFermer = {
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
             }
+        )
+    }
+
+    // 🚨 AFFICHAGE DES ERREURS DE VALIDATION
+    uiState.erreur?.let { messageErreur ->
+        LaunchedEffect(messageErreur) {
+            // L'erreur sera affichée dans une SnackBar ou Dialog
+        }
+
+        // Dialog d'erreur pour les validations de provenance
+        AlertDialog(
+            onDismissRequest = { viewModel.effacerErreur() },
+            title = {
+                Text(
+                    text = "❌ Erreur de validation",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = messageErreur,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.effacerErreur() }
+                ) {
+                    Text("OK")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 }
