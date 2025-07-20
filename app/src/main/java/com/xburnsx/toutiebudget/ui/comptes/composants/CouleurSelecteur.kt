@@ -20,25 +20,40 @@ fun CouleurSelecteur(
     couleurSelectionnee: String,
     onCouleurSelected: (String) -> Unit
 ) {
-    Row(
+    // Organiser les couleurs en grille de 6 colonnes
+    val couleursParsLigne = couleurs.chunked(6)
+
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        couleurs.forEach { couleurHex ->
-            val isSelected = couleurHex == couleurSelectionnee
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(couleurHex.toColor())
-                    .border(
-                        width = if (isSelected) 3.dp else 0.dp,
-                        color = Color.White,
-                        shape = CircleShape
+        couleursParsLigne.forEach { ligneCouleurs ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ligneCouleurs.forEach { couleurHex ->
+                    val isSelected = couleurHex == couleurSelectionnee
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(couleurHex.toColor())
+                            .border(
+                                width = if (isSelected) 3.dp else 0.dp,
+                                color = Color.White,
+                                shape = CircleShape
+                            )
+                            .clickable { onCouleurSelected(couleurHex) }
                     )
-                    .clickable { onCouleurSelected(couleurHex) }
-            )
+                }
+
+                // Ajouter des espaces vides pour aligner les couleurs si la ligne n'est pas complète
+                repeat(6 - ligneCouleurs.size) {
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+            }
         }
     }
 }

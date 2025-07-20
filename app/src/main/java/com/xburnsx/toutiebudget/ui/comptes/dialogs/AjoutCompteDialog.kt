@@ -24,7 +24,32 @@ fun AjoutCompteDialog(
     onSave: () -> Unit
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
-    val couleursDisponibles = listOf("#F44336", "#E91E63", "#9C27B0", "#2196F3", "#4CAF50", "#FFC107")
+    val couleursDisponibles = listOf(
+        "#F44336", // Rouge vif
+        "#E91E63", // Rose
+        "#9C27B0", // Violet
+        "#673AB7", // Violet foncé
+        "#3F51B5", // Indigo
+        "#2196F3", // Bleu
+        "#03A9F4", // Bleu clair
+        "#00BCD4", // Cyan
+        "#009688", // Teal
+        "#4CAF50", // Vert
+        "#8BC34A", // Vert clair
+        "#CDDC39", // Lime
+        "#FFEB3B", // Jaune
+        "#FFC107", // Amber
+        "#FF9800", // Orange
+        "#FF5722", // Orange rouge
+        "#795548", // Brun
+        "#607D8B", // Bleu gris
+        "#FF6B6B", // Rouge coral
+        "#4ECDC4", // Turquoise
+        "#45B7D1", // Bleu océan
+        "#96CEB4", // Vert menthe
+        "#FFEAA7", // Jaune pâle
+        "#DDA0DD"  // Prune
+    )
     var expanded by remember { mutableStateOf(false) }
 
     // 🔧 CORRECTION : Conversion plus robuste entre format centimes et format texte
