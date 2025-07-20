@@ -38,25 +38,15 @@ fun HistoriqueItem(transaction: TransactionUi) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // ID de la transaction
-            Text(
-                text = "ID: ${transaction.id}",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Normal
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Ligne principale avec enveloppe et montant
+            // Ligne principale avec tiers et montant
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Enveloppe
+                // Tiers
                 Text(
-                    text = transaction.nomEnveloppe ?: "Aucune enveloppe",
+                    text = transaction.tiers,
                     fontSize = 16.sp,
                     color = Color.White,
                     fontWeight = FontWeight.Medium,
@@ -72,6 +62,33 @@ fun HistoriqueItem(transaction: TransactionUi) {
                     color = couleurMontant,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            // Informations secondaires (enveloppe et note)
+            if (transaction.nomEnveloppe != null || transaction.note != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (transaction.nomEnveloppe != null) {
+                        Text(
+                            text = transaction.nomEnveloppe,
+                            fontSize = 14.sp,
+                            color = Color.LightGray,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                    if (transaction.note != null) {
+                        Text(
+                            text = "• ${transaction.note}",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }

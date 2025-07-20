@@ -24,6 +24,9 @@ import java.util.Locale
 
 @Composable
 fun TransactionItem(transaction: TransactionUi) {
+    // DEBUG: Afficher les valeurs reçues
+    println("DEBUG TransactionItem: ID=${transaction.id}, tiers='${transaction.tiers}', montant=${transaction.montant}")
+
     val formatteurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
 
     val (icone, couleur) = when (transaction.type) {

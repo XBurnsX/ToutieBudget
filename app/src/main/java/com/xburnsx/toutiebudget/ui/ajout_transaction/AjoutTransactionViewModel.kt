@@ -428,6 +428,7 @@ class AjoutTransactionViewModel(
                 val typeTransaction = state.typeTransaction
                 
                 // Enregistrer la transaction
+                println("[DEBUG] Avant appel executer - tiersSelectionne: ${state.tiersSelectionne?.nom} (ID: ${state.tiersSelectionne?.id})")
                 val result = enregistrerTransactionUseCase.executer(
                     typeTransaction = typeTransaction,
                     montant = montant,
@@ -440,6 +441,7 @@ class AjoutTransactionViewModel(
                         else -> "comptes_cheque"
                     },
                     enveloppeId = enveloppeId,
+                    tiersId = state.tiersSelectionne?.id,
                     note = state.note.takeIf { it.isNotBlank() }
                 )
                 

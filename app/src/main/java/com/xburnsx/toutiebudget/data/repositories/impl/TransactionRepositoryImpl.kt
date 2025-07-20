@@ -61,7 +61,8 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,
-                "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: "")
+                "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
+                "tiers_id" to (transaction.tiersId ?: "")
             )
 
             val corpsRequete = gson.toJson(donneesTransaction)

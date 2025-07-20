@@ -103,11 +103,23 @@ class HistoriqueCompteViewModel(
                     }
 
                     // Récupérer le nom du tiers ou utiliser une valeur par défaut
-                    val nomTiers = if (!transaction.tiersId.isNullOrEmpty()) {
-                        tiers.find { it.id == transaction.tiersId }?.nom ?: "Tiers inconnu"
-                    } else {
-                        "Transaction" // Valeur par défaut si pas de tiers
+                    println("DEBUG: Transaction tiersId: '${transaction.tiersId}' (type: ${transaction.tiersId?.javaClass?.simpleName})")
+                    println("DEBUG: Nombre de tiers disponibles: ${tiers.size}")
+                    tiers.forEachIndexed { index, t ->
+                        println("DEBUG: Tiers[$index]: id='${t.id}', nom='${t.nom}'")
                     }
+
+                    val nomTiers = if (!transaction.tiersId.isNullOrEmpty()) {
+                        val tiersFound = tiers.find { it.id == transaction.tiersId }
+                        println("DEBUG: Recherche tiers avec ID '${transaction.tiersId}' -> trouvé: ${tiersFound?.nom}")
+                        tiersFound?.nom ?: "Tiers inconnu (ID: ${transaction.tiersId})"
+                    } else {
+                        println("DEBUG: Pas de tiersId, utilisation du premier tiers disponible")
+                        // Utiliser le premier tiers disponible au lieu de "Transaction"
+                        tiers.firstOrNull()?.nom ?: "Transaction"
+                    }
+
+                    println("DEBUG: Nom final du tiers: '$nomTiers'")
 
                     TransactionUi(
                         id = transaction.id,
