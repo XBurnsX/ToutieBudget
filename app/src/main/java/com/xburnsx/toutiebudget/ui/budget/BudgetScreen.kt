@@ -167,18 +167,16 @@ fun BudgetScreen(
             comptesDisponibles = comptesDisponibles,
             comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
             onAssigner = { montantCentimes, compteSourceId ->
-                // 🎯 LOGIQUE D'ASSIGNATION - À IMPLÉMENTER DANS LE VIEWMODEL
-                // viewModel.assignerArgentAEnveloppe(
-                //     enveloppeId = enveloppeSelectionnee!!.id,
-                //     compteSourceId = compteSourceId,
-                //     montantCentimes = montantCentimes
-                // )
+                // 🎯 LOGIQUE D'ASSIGNATION - MAINTENANT ACTIVÉE !
+                viewModel.assignerArgentAEnveloppe(
+                    enveloppeId = enveloppeSelectionnee!!.id,
+                    compteSourceId = compteSourceId,
+                    montantCentimes = montantCentimes
+                )
 
-                // Pour l'instant, juste fermer le clavier
+                // Fermer le clavier après l'assignation
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
-
-                // TODO: Afficher un message de succès ou appeler la logique de virement
             },
             onFermer = {
                 showClavierEnveloppe = false

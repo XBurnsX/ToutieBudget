@@ -372,4 +372,116 @@ class BudgetViewModel(
     fun effacerErreur() {
         _uiState.update { it.copy(erreur = null) }
     }
+
+    /**
+     * 💰 ASSIGNER DE L'ARGENT D'UN COMPTE VERS UNE ENVELOPPE
+     *
+     * Cette méthode effectue un virement interne :
+     * 1. Retire l'argent du "prêt à placer" du compte source
+     * 2. Ajoute l'argent au solde de l'enveloppe cible
+     * 3. Met à jour la couleur de provenance de l'enveloppe
+     *
+     * @param enveloppeId ID de l'enveloppe qui recevra l'argent
+     * @param compteSourceId ID du compte d'où vient l'argent
+     * @param montantCentimes Montant en centimes à transférer
+     */
+    fun assignerArgentAEnveloppe(
+        enveloppeId: String,
+        compteSourceId: String,
+        montantCentimes: Long
+    ) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true, messageChargement = "Assignation de l'argent...") }
+
+                val montantDollars = montantCentimes / 100.0
+
+                println("[BUDGET] 💰 Assignation d'argent:")
+                println("[BUDGET]   • Enveloppe: $enveloppeId")
+                println("[BUDGET]   • Compte source: $compteSourceId")
+                println("[BUDGET]   • Montant: ${montantDollars}$")
+
+                // 1. Vérifier que le compte source existe et a assez d'argent "prêt à placer"
+                val compteSource = cacheComptes.find { it.id == compteSourceId }
+                if (compteSource !is CompteCheque) {
+                    throw Exception("Compte source non trouvé ou n'est pas un compte chèque")
+                }
+
+                if (compteSource.pretAPlacer < montantDollars) {
+                    throw Exception("Montant insuffisant dans le compte (${compteSource.pretAPlacer}$ disponible)")
+                }
+
+                // 2. Vérifier que l'enveloppe existe
+                val enveloppe = cacheEnveloppes.find { it.id == enveloppeId }
+                if (enveloppe == null) {
+                    throw Exception("Enveloppe non trouvée")
+                }
+
+                // 3. Mettre à jour le compte source (retirer de "prêt à placer")
+                val nouveauPretAPlacer = compteSource.pretAPlacer - montantDollars
+                val compteModifie = compteSource.copy(
+                    pretAPlacerRaw = nouveauPretAPlacer,
+                    collection = compteSource.collection ?: "comptes_cheque" // Assurer qu'on a une collection
+                )
+
+                val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
+                if (resultCompte.isFailure) {
+                    throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
+                }
+
+                // 4. Vérifier s'il existe déjà une allocation pour ce mois
+                val moisActuel = obtenirPremierJourDuMois(moisSelectionne)
+                val resultAllocationExistante = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, moisActuel)
+
+                if (resultAllocationExistante.isFailure) {
+                    throw Exception("Erreur lors de la vérification de l'allocation: ${resultAllocationExistante.exceptionOrNull()?.message}")
+                }
+
+                val allocationExistante = resultAllocationExistante.getOrNull()
+
+                // 5. Créer la nouvelle allocation avec le bon solde
+                val nouveauSolde = if (allocationExistante != null) {
+                    allocationExistante.solde + montantDollars
+                } else {
+                    montantDollars
+                }
+
+                val nouvelleAllocation = AllocationMensuelle(
+                    id = "", // Sera généré par PocketBase
+                    utilisateurId = compteSource.utilisateurId,
+                    enveloppeId = enveloppeId,
+                    mois = moisActuel,
+                    solde = nouveauSolde,
+                    alloue = montantDollars, // Le montant qu'on vient de placer
+                    depense = allocationExistante?.depense ?: 0.0, // Garder les dépenses existantes
+                    compteSourceId = compteSourceId,
+                    collectionCompteSource = compteSource.collection ?: "comptes_cheque"
+                )
+
+                val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
+
+                if (resultAllocation.isFailure) {
+                    throw Exception("Erreur lors de la création de l'allocation: ${resultAllocation.exceptionOrNull()?.message}")
+                }
+
+                println("[BUDGET] ✅ Assignation réussie!")
+                println("[BUDGET]   • Nouveau prêt à placer du compte: ${nouveauPretAPlacer}$")
+                println("[BUDGET]   • Nouveau solde de l'enveloppe: ${nouveauSolde}$")
+
+                // 6. Recharger les données pour rafraîchir l'affichage
+                chargerDonneesBudget(moisSelectionne)
+
+            } catch (e: Exception) {
+                println("[BUDGET] ❌ Erreur lors de l'assignation: ${e.message}")
+                e.printStackTrace()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        erreur = "Erreur lors de l'assignation: ${e.message}",
+                        messageChargement = null
+                    )
+                }
+            }
+        }
+    }
 }
