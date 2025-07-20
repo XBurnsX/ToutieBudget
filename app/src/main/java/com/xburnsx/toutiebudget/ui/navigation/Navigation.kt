@@ -26,6 +26,7 @@ import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesScreen
 import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
+import com.xburnsx.toutiebudget.ui.server.ServerStatusDialog
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 
 // --- Définition des écrans ---
@@ -54,8 +55,19 @@ fun AppNavigation() {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = "login_flow"
+        startDestination = "startup_check"
     ) {
+        // Écran de vérification du serveur au démarrage
+        composable("startup_check") {
+            ServerStatusDialog(
+                onNavigateToLogin = {
+                    navController.navigate("login_flow") {
+                        popUpTo("startup_check") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("login_flow") {
             val loginViewModel = AppModule.provideLoginViewModel()
             LoginScreen(

@@ -285,6 +285,7 @@ object PocketBaseClient {
         }
     }
 
+
     // Classes de données pour la réponse d'authentification
     data class ReponseAuthentification(
         val token: String,

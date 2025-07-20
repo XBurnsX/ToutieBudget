@@ -43,7 +43,10 @@
      // Service de synchronisation temps réel
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
- 
+
+     // Service de vérification du serveur
+     private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
+
      // ===== USE CASES EXISTANTS =====
      private val enregistrerDepenseUseCase: EnregistrerDepenseUseCase by lazy { EnregistrerDepenseUseCaseImpl(argentService) }
      private val enregistrerRevenuUseCase: EnregistrerRevenuUseCase by lazy { EnregistrerRevenuUseCaseImpl(argentService) }
@@ -120,7 +123,8 @@
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
- 
+     fun provideServerStatusService(): com.xburnsx.toutiebudget.data.services.ServerStatusService = serverStatusService
+
      // Use Cases
      fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
      fun provideEnregistrerRevenuUseCase(): EnregistrerRevenuUseCase = enregistrerRevenuUseCase
@@ -143,6 +147,14 @@
              enveloppeRepository = enveloppeRepository,
              tiersRepository = tiersRepository,
              savedStateHandle = savedStateHandle
+         )
+     }
+
+     // ServerStatusViewModel
+     fun provideServerStatusViewModel(context: android.content.Context): com.xburnsx.toutiebudget.ui.server.ServerStatusViewModel {
+         return com.xburnsx.toutiebudget.ui.server.ServerStatusViewModel(
+             serverStatusService = serverStatusService,
+             context = context
          )
      }
 
