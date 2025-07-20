@@ -1,0 +1,14 @@
+{
+    "java.configuration.updateBuildConfiguration": "disabled",
+    "java.import.gradle.enabled": false,
+    "kotlin.languageServer.enabled": false,
+    "files.watcherExclude": {
+        "**/build/**": true,
+        "**/.gradle/**": true,
+        "**/node_modules/**": true
+    },
+    "search.exclude": {
+        "**/build/**": true,
+        "**/.gradle/**": true
+    }
+}
