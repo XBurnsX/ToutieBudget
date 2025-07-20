@@ -127,7 +127,6 @@ class VirerArgentViewModel(
      */
     private fun construireEnveloppesUi(): List<EnveloppeUi> {
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
-            val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
             EnveloppeUi(
@@ -287,11 +286,11 @@ class VirerArgentViewModel(
             try {
                 _uiState.update { it.copy(isLoading = true) }
 
-                // 🔒 VALIDATIONS DE PROVENANCE - Nouvelles vérifications
+                // 🔒 VALIDATIONS DE PROVENANCE - Couvrir TOUS les cas comme ClavierBudgetEnveloppe
                 val moisActuel = Date()
 
                 when {
-                    // Compte vers Enveloppe - Vérifier si l'enveloppe contient déjà de l'argent d'un autre compte
+                    // 1. Compte vers Enveloppe - Vérifier conflit de provenance
                     source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
                         val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
                             enveloppeId = destination.enveloppe.id,
@@ -303,7 +302,21 @@ class VirerArgentViewModel(
                         }
                     }
 
-                    // Enveloppe vers Enveloppe - Vérifier les deux côtés
+                    // 2. Prêt à placer vers Enveloppe - Vérifier conflit de provenance (CAS PRINCIPAL !)
+                    source is ItemVirement.EnveloppeItem && estPretAPlacer(source.enveloppe) &&
+                    destination is ItemVirement.EnveloppeItem && !estPretAPlacer(destination.enveloppe) -> {
+                        val compteId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
+                        val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
+                            enveloppeId = destination.enveloppe.id,
+                            compteSourceId = compteId,
+                            mois = moisActuel
+                        )
+                        if (validationResult.isFailure) {
+                            throw Exception(validationResult.exceptionOrNull()?.message ?: "Conflit de provenance détecté")
+                        }
+                    }
+
+                    // 3. Enveloppe vers Enveloppe - Vérifier transfert entre enveloppes
                     source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
                     destination is ItemVirement.EnveloppeItem && !estPretAPlacer(destination.enveloppe) -> {
                         val validationResult = validationProvenanceService.validerTransfertEntreEnveloppes(
@@ -316,7 +329,7 @@ class VirerArgentViewModel(
                         }
                     }
 
-                    // Enveloppe vers Compte - Vérifier que l'argent retourne vers son compte d'origine
+                    // 4. Enveloppe vers Compte - Vérifier retour vers compte d'origine
                     source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
                     destination is ItemVirement.CompteItem -> {
                         val validationResult = validationProvenanceService.validerRetourVersCompte(
@@ -329,7 +342,7 @@ class VirerArgentViewModel(
                         }
                     }
 
-                    // Enveloppe vers Prêt à placer - Vérifier que l'argent retourne vers son compte d'origine
+                    // 5. Enveloppe vers Prêt à placer - Vérifier retour vers compte d'origine
                     source is ItemVirement.EnveloppeItem && !estPretAPlacer(source.enveloppe) &&
                     destination is ItemVirement.EnveloppeItem && estPretAPlacer(destination.enveloppe) -> {
                         val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
@@ -412,14 +425,52 @@ class VirerArgentViewModel(
                 realtimeSyncService.declencherMiseAJourBudget()
 
             } catch (e: Exception) {
+                val messageErreurFormate = formaterMessageErreur(e.message ?: "Erreur inconnue")
                 _uiState.update {
-                    it.copy(erreur = "Erreur lors du virement: ${e.message}")
+                    it.copy(
+                        isLoading = false,
+                        virementReussi = false,
+                        erreur = "Erreur lors du virement: $messageErreurFormate"
+                    )
                 }
             }
         }
     }
 
     // ===== UTILITAIRES =====
+
+    /**
+     * Formate un message d'erreur en remplaçant les IDs de comptes par leurs noms
+     */
+    private suspend fun formaterMessageErreur(messageOriginal: String): String {
+        var messageFormate = messageOriginal
+
+        // Rechercher les patterns d'ID de compte dans le message
+        val regexId = Regex("""[a-zA-Z0-9]{15}""") // Pattern typique d'un ID PocketBase
+        val idsFound = regexId.findAll(messageOriginal).map { it.value }.toSet()
+
+        // Remplacer chaque ID trouvé par le nom du compte correspondant
+        for (id in idsFound) {
+            val nomCompte = obtenirNomCompteParId(id)
+            if (nomCompte != "Compte inconnu") {
+                messageFormate = messageFormate.replace(id, nomCompte)
+            }
+        }
+
+        return messageFormate
+    }
+
+    /**
+     * Récupère le nom d'un compte par son ID
+     */
+    private suspend fun obtenirNomCompteParId(compteId: String): String {
+        return try {
+            // Chercher dans tous les comptes chargés en cache
+            allComptes.find { it.id == compteId }?.nom ?: "Compte inconnu"
+        } catch (e: Exception) {
+            "Compte inconnu"
+        }
+    }
 
     /**
      * Obtient le solde d'un item (compte ou enveloppe).
@@ -463,5 +514,12 @@ class VirerArgentViewModel(
      */
     fun resetVirementReussi() {
         _uiState.update { it.copy(virementReussi = false) }
+    }
+
+    /**
+     * Efface l'erreur actuelle.
+     */
+    fun effacerErreur() {
+        _uiState.update { it.copy(erreur = null) }
     }
 }

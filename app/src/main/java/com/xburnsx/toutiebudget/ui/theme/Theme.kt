@@ -11,11 +11,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ToutieRed,
+    primary = ToutiePink,
     onPrimary = TextPrimary,
-    secondary = ToutieRed,
+    secondary = ToutiePink,
     onSecondary = TextPrimary,
-    error = ToutieRed,
+    error = ToutiePink,
     onError = TextPrimary,
     background = DarkBackground,
     onBackground = TextPrimary,

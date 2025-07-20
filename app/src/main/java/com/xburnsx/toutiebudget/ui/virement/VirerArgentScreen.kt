@@ -227,21 +227,34 @@ fun VirerArgentScreen(
                 )
             }
             
-            // Affichage d'erreur
-            uiState.erreur?.let { erreur ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = erreur,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+            // 🚨 AFFICHAGE DES ERREURS DE VALIDATION - IDENTIQUE AU CLAVIER BUDGET
+            uiState.erreur?.let { messageErreur ->
+                // Dialog d'erreur pour les validations de provenance
+                AlertDialog(
+                    onDismissRequest = { viewModel.effacerErreur() },
+                    title = {
+                        Text(
+                            text = "❌ Erreur de validation",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = messageErreur,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { viewModel.effacerErreur() }
+                        ) {
+                            Text("OK")
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    textContentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }
