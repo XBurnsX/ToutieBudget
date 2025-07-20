@@ -6,16 +6,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = ToutiePink,
+// Enum pour les couleurs de thème disponibles
+enum class CouleurTheme(val couleur: Color, val nom: String) {
+    PINK(ToutiePink, "Rose"),
+    RED(ToutieRed, "Rouge")
+}
+
+private fun createDarkColorScheme(couleurPrimaire: Color) = darkColorScheme(
+    primary = couleurPrimaire,
     onPrimary = TextPrimary,
-    secondary = ToutiePink,
+    secondary = couleurPrimaire,
     onSecondary = TextPrimary,
-    error = ToutiePink,
+    error = couleurPrimaire,
     onError = TextPrimary,
     background = DarkBackground,
     onBackground = TextPrimary,
@@ -26,9 +33,10 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun ToutieBudgetTheme(
     darkTheme: Boolean = true,
+    couleurTheme: CouleurTheme = CouleurTheme.PINK,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = DarkColorScheme
+    val colorScheme = createDarkColorScheme(couleurTheme.couleur)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

@@ -9,6 +9,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,7 +30,10 @@ import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.server.ServerStatusDialog
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
+import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
+import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
+import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -43,6 +48,7 @@ sealed class Screen(
     object Statistiques : Screen("statistiques", "Stats", Icons.Default.BarChart)
     object HistoriqueCompte : Screen("historique_compte/{compteId}/{collectionCompte}/{nomCompte}", "Historique", Icons.Default.History)
     object VirerArgent : Screen("virer_argent", "Virement", Icons.Default.SwapHoriz)
+    object Settings : Screen("settings", "Paramètres", Icons.Default.Settings)
 
 
     companion object {
@@ -54,78 +60,90 @@ sealed class Screen(
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    NavHost(
-        navController = navController,
-        startDestination = "startup_check"
-    ) {
-        // Écran de vérification du serveur au démarrage
-        composable("startup_check") {
-            val startupViewModel = AppModule.provideStartupViewModel()
-            StartupScreen(
-                viewModel = startupViewModel,
-                onNavigateToLogin = {
-                    navController.navigate("login_flow") {
-                        popUpTo("startup_check") { inclusive = true }
-                    }
-                },
-                onNavigateToBudget = {
-                    navController.navigate("main_flow") {
-                        popUpTo("startup_check") { inclusive = true }
-                    }
-                },
-                onShowServerError = {
-                    // Reste sur l'écran de démarrage qui affiche l'erreur avec bouton "Réessayer"
-                }
-            )
-        }
+    var couleurTheme by remember { mutableStateOf(CouleurTheme.PINK) }
 
-        composable("login_flow") {
-            val loginViewModel = AppModule.provideLoginViewModel()
-            LoginScreen(
-                viewModel = loginViewModel,
-                onLoginSuccess = {
-                    navController.navigate("main_flow") {
-                        popUpTo("login_flow") { inclusive = true }
+    // Appliquer le thème dynamique à toute l'application
+    ToutieBudgetTheme(couleurTheme = couleurTheme) {
+        NavHost(
+            navController = navController,
+            startDestination = "startup_check"
+        ) {
+            // Écran de vérification du serveur au démarrage
+            composable("startup_check") {
+                val startupViewModel = AppModule.provideStartupViewModel()
+                StartupScreen(
+                    viewModel = startupViewModel,
+                    onNavigateToLogin = {
+                        navController.navigate("login_flow") {
+                            popUpTo("startup_check") { inclusive = true }
+                        }
+                    },
+                    onNavigateToBudget = {
+                        navController.navigate("main_flow") {
+                            popUpTo("startup_check") { inclusive = true }
+                        }
+                    },
+                    onShowServerError = {
+                        // Reste sur l'écran de démarrage qui affiche l'erreur avec bouton "Réessayer"
                     }
-                }
-            )
-        }
-        composable("main_flow") {
-            MainAppScaffold(navController)
-        }
-        // Route pour l'historique qui est en dehors du Scaffold principal
-        composable(
-            route = Screen.HistoriqueCompte.route,
-            arguments = listOf(
-                navArgument("compteId") { type = NavType.StringType },
-                navArgument("collectionCompte") { type = NavType.StringType },
-                navArgument("nomCompte") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val compteId = backStackEntry.arguments?.getString("compteId") ?: ""
-            val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
-            val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
-
-            // Créer le SavedStateHandle avec les arguments
-            val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
-                set("compteId", compteId)
-                set("collectionCompte", collectionCompte)
-                set("nomCompte", nomCompte)
+                )
             }
 
-            val viewModel = AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
+            composable("login_flow") {
+                val loginViewModel = AppModule.provideLoginViewModel()
+                LoginScreen(
+                    viewModel = loginViewModel,
+                    onLoginSuccess = {
+                        navController.navigate("main_flow") {
+                            popUpTo("login_flow") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable("main_flow") {
+                MainAppScaffold(navController, couleurTheme) { nouvelleCouleur ->
+                    couleurTheme = nouvelleCouleur
+                }
+            }
+            // Route pour l'historique qui est en dehors du Scaffold principal
+            composable(
+                route = Screen.HistoriqueCompte.route,
+                arguments = listOf(
+                    navArgument("compteId") { type = NavType.StringType },
+                    navArgument("collectionCompte") { type = NavType.StringType },
+                    navArgument("nomCompte") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val compteId = backStackEntry.arguments?.getString("compteId") ?: ""
+                val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
+                val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
 
-            HistoriqueCompteScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
+                // Créer le SavedStateHandle avec les arguments
+                val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
+                    set("compteId", compteId)
+                    set("collectionCompte", collectionCompte)
+                    set("nomCompte", nomCompte)
+                }
+
+                val viewModel = AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
+
+                HistoriqueCompteScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
 
 @Composable
-fun MainAppScaffold(mainNavController: NavHostController) {
+fun MainAppScaffold(
+    mainNavController: NavHostController,
+    couleurTheme: CouleurTheme,
+    onCouleurThemeChange: (CouleurTheme) -> Unit
+) {
     val bottomBarNavController = rememberNavController()
+
     Scaffold(
         bottomBar = {
             FloatingTransformingBottomBar(navController = bottomBarNavController)
@@ -146,11 +164,30 @@ fun MainAppScaffold(mainNavController: NavHostController) {
                     onVirementClick = {
                         bottomBarNavController.navigate(Screen.VirerArgent.route)
                     },
+                    onSettingsClick = {
+                        bottomBarNavController.navigate(Screen.Settings.route)
+                    },
                     onLogout = {
                         // Redirige immédiatement vers l'écran de login
                         mainNavController.navigate("login_flow") {
                             popUpTo(0) { inclusive = true }
                         }
+                    }
+                )
+            }
+
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    couleurTheme = couleurTheme,
+                    onCouleurThemeChange = onCouleurThemeChange,
+                    onLogout = {
+                        // Redirige immédiatement vers l'écran de login
+                        mainNavController.navigate("login_flow") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onBack = {
+                        bottomBarNavController.popBackStack()
                     }
                 )
             }

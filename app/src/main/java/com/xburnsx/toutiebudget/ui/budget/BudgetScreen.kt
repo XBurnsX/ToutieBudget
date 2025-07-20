@@ -13,8 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +33,7 @@ import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
 import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
+import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -41,7 +44,8 @@ fun BudgetScreen(
     viewModel: BudgetViewModel,
     onCategoriesClick: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null,
-    onVirementClick: (() -> Unit)? = null
+    onVirementClick: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -96,7 +100,8 @@ fun BudgetScreen(
                             tint = Color.White
                         )
                     }
-                    // Icône des catégories
+
+                    // Icône des catégories (séparée)
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {
                         Icon(
                             Icons.Default.Category,
@@ -104,14 +109,12 @@ fun BudgetScreen(
                             tint = Color.White
                         )
                     }
-                    // Icône de déconnexion
-                    IconButton(onClick = {
-                        PocketBaseClient.deconnecter(context)
-                        onLogout?.invoke()
-                    }) {
+
+                    // Icône Settings (ouvre une page)
+                    IconButton(onClick = { onSettingsClick?.invoke() }) {
                         Icon(
-                            Icons.Default.Logout,
-                            contentDescription = "Déconnexion",
+                            Icons.Default.Settings,
+                            contentDescription = "Paramètres",
                             tint = Color.White
                         )
                     }
