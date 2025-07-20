@@ -22,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
-import com.xburnsx.toutiebudget.ui.categories.composants.DebugInfoComposant
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
@@ -162,42 +161,6 @@ fun CategoriesEnveloppesScreen(
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Composant de debug (en mode développement)
-                if (com.xburnsx.toutiebudget.BuildConfig.EST_MODE_DEBUG) {
-                    item(key = "debug_info") {
-                        // ✅ CORRECTION : Récupérer les vraies catégories depuis le ViewModel
-                        val toutesLesEnveloppes = uiState.enveloppesGroupees.values.flatten()
-                        
-                        // ✅ CORRECTION : Utiliser les vraies catégories avec leurs vrais IDs
-                        val categoriesReelles = mutableMapOf<String, String>()
-                        
-                        // Construire le map des catégories en se basant sur les enveloppes existantes
-                        toutesLesEnveloppes.forEach { enveloppe ->
-                            val nomCategorie = uiState.enveloppesGroupees.entries
-                                .find { (_, enveloppes) -> enveloppes.any { it.id == enveloppe.id } }
-                                ?.key
-                            
-                            if (nomCategorie != null) {
-                                categoriesReelles[nomCategorie] = enveloppe.categorieId
-                            }
-                        }
-                        
-                        // Ajouter les catégories vides
-                        uiState.enveloppesGroupees.keys.forEach { nomCategorie ->
-                            if (!categoriesReelles.containsKey(nomCategorie)) {
-                                categoriesReelles[nomCategorie] = "categorie_vide_$nomCategorie"
-                            }
-                        }
-                        
-
-                        
-                        DebugInfoComposant(
-                            enveloppes = toutesLesEnveloppes,
-                            categories = categoriesReelles
-                        )
-                    }
-                }
-                
                 // Message d'erreur si présent
                 if (uiState.erreur != null) {
                     item(key = "error_message") {
