@@ -28,6 +28,9 @@ import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.ui.theme.ToutiePink
 import com.xburnsx.toutiebudget.ui.theme.ToutieRed
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +42,15 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var isResetting by remember { mutableStateOf(false) }
+    var resetError by remember { mutableStateOf<String?>(null) }
+
+    // Service pour la réinitialisation
+    val realtimeSyncService = remember {
+        com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+    }
 
     Scaffold(
         containerColor = Color(0xFF121212),
@@ -135,7 +147,7 @@ fun SettingsScreen(
                         icone = Icons.Default.Delete,
                         couleurTexte = Color.Red,
                         onClick = {
-                            // TODO: Implémenter réinitialisation
+                            showResetDialog = true
                         }
                     )
                 }
@@ -221,6 +233,147 @@ fun SettingsScreen(
                     onClick = { showLogoutDialog = false }
                 ) {
                     Text("Annuler")
+                }
+            },
+            containerColor = Color(0xFF2C2C2E),
+            textContentColor = Color.White
+        )
+    }
+
+    // Dialog pour réinitialiser les données
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = {
+                Text(
+                    text = "Réinitialiser les données",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("Cette action supprimera toutes les données de l'application. Voulez-vous continuer ?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetDialog = false
+                        showResetConfirmDialog = true
+                    }
+                ) {
+                    Text("Réinitialiser", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showResetDialog = false }
+                ) {
+                    Text("Annuler")
+                }
+            },
+            containerColor = Color(0xFF2C2C2E),
+            textContentColor = Color.White
+        )
+    }
+
+    // Dialog de confirmation pour la réinitialisation
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Confirmation de réinitialisation",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                if (isResetting) {
+                    // Afficher un message de chargement pendant la réinitialisation
+                    Text("Réinitialisation en cours...")
+                } else {
+                    Text("Êtes-vous sûr de vouloir réinitialiser les données ?")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (!isResetting) {
+                            // Lancer la réinitialisation des données
+                            isResetting = true
+                            resetError = null
+
+                            // Exécuter la réinitialisation dans une coroutine
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                try {
+                                    realtimeSyncService.supprimerToutesLesDonnees().getOrThrow()
+
+                                    // Succès - fermer les dialogs et déconnecter l'utilisateur
+                                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                        showResetConfirmDialog = false
+                                        isResetting = false
+                                        // Déconnecter l'utilisateur après la réinitialisation
+                                        PocketBaseClient.deconnecter(context)
+                                        onLogout()
+                                    }
+                                } catch (e: Exception) {
+                                    // Erreur - afficher le message d'erreur
+                                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                        isResetting = false
+                                        resetError = "Erreur lors de la réinitialisation: ${e.message}"
+                                        showResetConfirmDialog = false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isResetting
+                ) {
+                    if (isResetting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.Red
+                        )
+                    } else {
+                        Text("Oui, réinitialiser", color = Color.Red)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showResetConfirmDialog = false }
+                ) {
+                    Text("Annuler")
+                }
+            },
+            containerColor = Color(0xFF2C2C2E),
+            textContentColor = Color.White
+        )
+    }
+
+    // Afficher un message d'erreur si la réinitialisation échoue
+    if (resetError != null) {
+        LaunchedEffect(resetError) {
+            // Afficher le message d'erreur pendant 3 secondes, puis le masquer
+            kotlinx.coroutines.delay(3000)
+            resetError = null
+        }
+
+        // Dialog pour afficher l'erreur
+        AlertDialog(
+            onDismissRequest = { resetError = null },
+            title = {
+                Text(
+                    text = "Erreur",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(resetError ?: "Une erreur inconnue est survenue.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { resetError = null }
+                ) {
+                    Text("OK")
                 }
             },
             containerColor = Color(0xFF2C2C2E),

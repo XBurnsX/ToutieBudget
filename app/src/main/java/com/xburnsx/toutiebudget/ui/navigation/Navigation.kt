@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -34,6 +35,7 @@ import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
+import com.xburnsx.toutiebudget.utils.ThemePreferences
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -60,7 +62,12 @@ sealed class Screen(
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    var couleurTheme by remember { mutableStateOf(CouleurTheme.PINK) }
+    val context = LocalContext.current
+
+    // Charger la couleur du thème sauvegardée au démarrage
+    var couleurTheme by remember {
+        mutableStateOf(ThemePreferences.chargerCouleurTheme(context))
+    }
 
     // Appliquer le thème dynamique à toute l'application
     ToutieBudgetTheme(couleurTheme = couleurTheme) {
@@ -103,6 +110,8 @@ fun AppNavigation() {
             composable("main_flow") {
                 MainAppScaffold(navController, couleurTheme) { nouvelleCouleur ->
                     couleurTheme = nouvelleCouleur
+                    // Sauvegarder la nouvelle couleur
+                    ThemePreferences.sauvegarderCouleurTheme(context, nouvelleCouleur)
                 }
             }
             // Route pour l'historique qui est en dehors du Scaffold principal

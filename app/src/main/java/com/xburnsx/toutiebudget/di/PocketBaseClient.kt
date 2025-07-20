@@ -336,6 +336,61 @@ object PocketBaseClient {
         }
     }
 
+    /**
+     * Effectue une requête GET avec paramètres optionnels
+     */
+    suspend fun effectuerRequeteGet(endpoint: String, parametres: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
+        val urlBase = obtenirUrlBaseActive()
+        var url = "${urlBase.trimEnd('/')}$endpoint"
+
+        // Ajouter les paramètres de requête
+        if (parametres.isNotEmpty()) {
+            val params = parametres.map { "${it.key}=${it.value}" }.joinToString("&")
+            url += "?$params"
+        }
+
+        val requeteBuilder = Request.Builder()
+            .url(url)
+            .get()
+
+        tokenAuthentification?.let { token ->
+            requeteBuilder.addHeader("Authorization", "Bearer $token")
+        }
+
+        val requete = requeteBuilder.build()
+        val reponse = client.newCall(requete).execute()
+
+        if (reponse.isSuccessful) {
+            reponse.body?.string() ?: ""
+        } else {
+            throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+        }
+    }
+
+    /**
+     * Effectue une requête DELETE
+     */
+    suspend fun effectuerRequeteDelete(endpoint: String): String = withContext(Dispatchers.IO) {
+        val urlBase = obtenirUrlBaseActive()
+        val url = "${urlBase.trimEnd('/')}$endpoint"
+
+        val requeteBuilder = Request.Builder()
+            .url(url)
+            .delete()
+
+        tokenAuthentification?.let { token ->
+            requeteBuilder.addHeader("Authorization", "Bearer $token")
+        }
+
+        val requete = requeteBuilder.build()
+        val reponse = client.newCall(requete).execute()
+
+        if (reponse.isSuccessful) {
+            reponse.body?.string() ?: ""
+        } else {
+            throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+        }
+    }
 
     // Classes de données pour la réponse d'authentification
     data class ReponseAuthentification(

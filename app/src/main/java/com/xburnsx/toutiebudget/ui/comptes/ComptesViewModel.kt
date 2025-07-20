@@ -151,6 +151,11 @@ class ComptesViewModel(
             compteRepository.creerCompte(nouveauCompte).onSuccess {
                 chargerComptes()
                 onFermerTousLesDialogues()
+
+                // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
+                realtimeSyncService.declencherMiseAJourBudget()
+                realtimeSyncService.declencherMiseAJourComptes()
+
                 // Notifier les autres ViewModels du changement
                 onCompteChange?.invoke()
             }.onFailure {
@@ -178,6 +183,11 @@ class ComptesViewModel(
             compteRepository.mettreAJourCompte(compteModifie).onSuccess {
                 onFermerTousLesDialogues()
                 chargerComptes()
+
+                // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
+                realtimeSyncService.declencherMiseAJourBudget()
+                realtimeSyncService.declencherMiseAJourComptes()
+
                 // Notifier les autres ViewModels du changement
                 onCompteChange?.invoke()
             }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }

@@ -2,6 +2,8 @@ package com.xburnsx.toutiebudget.data.services
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.di.UrlResolver
 import kotlinx.coroutines.CoroutineScope
@@ -245,5 +247,150 @@ class RealtimeSyncService @Inject constructor() {
     fun startAfterLogin() {
         println("[REALTIME] 🔑 Démarrage après login...")
         startRealtimeSync()
+    }
+
+    /**
+     * FONCTION DE DEBUG - Montre EXACTEMENT ce qui se passe
+     */
+    suspend fun debugSuppression(): Result<String> = runCatching {
+        val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
+        val debugLog = StringBuilder()
+
+        debugLog.appendLine("=== DEBUG SUPPRESSION ===")
+        debugLog.appendLine("Utilisateur connecté: $userId")
+        debugLog.appendLine("Token présent: ${client.obtenirToken() != null}")
+        debugLog.appendLine("")
+
+        // Test de base - est-ce que les méthodes HTTP fonctionnent?
+        try {
+            debugLog.appendLine("TEST 1: Méthodes HTTP de base")
+            val healthResponse = client.effectuerRequeteGet("/api/health", emptyMap())
+            debugLog.appendLine("✅ GET /api/health fonctionne: ${healthResponse.take(100)}")
+        } catch (e: Exception) {
+            debugLog.appendLine("❌ GET /api/health ÉCHOUE: ${e.message}")
+            return@runCatching debugLog.toString()
+        }
+
+        debugLog.appendLine("\n=== FIN DEBUG ===")
+        debugLog.toString()
+    }
+
+    /**
+     * VERSION INTELLIGENTE - Découvre automatiquement les VRAIS noms de collections et supprime seulement tes données
+     */
+    suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
+        val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
+
+        println("[RESET INTELLIGENT] 🧠 DÉCOUVERTE AUTOMATIQUE DES COLLECTIONS...")
+        println("[RESET INTELLIGENT] 👤 Utilisateur: $userId")
+        var totalSupprime = 0
+
+        // Liste de TOUS les noms possibles basés sur l'analyse de ton projet
+        val nomsCollectionsPossibles = listOf(
+            // Nom confirmé dans CategorieRepositoryImpl.kt
+            "categorie",
+
+            // Variations pour enveloppes (utilisé avec Collections.ENVELOPPES)
+            "enveloppe", "enveloppes", "Enveloppe", "Enveloppes",
+
+            // Variations pour allocations (utilisé avec Collections.ALLOCATIONS)
+            "allocation", "allocations", "allocation_mensuelle", "allocations_mensuelles",
+            "Allocation", "Allocations", "Allocation_Mensuelle", "Allocations_Mensuelles",
+
+            // Variations pour transactions (utilisé avec Collections.TRANSACTIONS)
+            "transaction", "transactions", "Transaction", "Transactions",
+
+            // Variations pour comptes
+            "compte", "comptes", "compte_cheque", "comptes_cheque",
+            "compte_epargne", "comptes_epargne", "compte_credit", "comptes_credit",
+            "compte_dette", "comptes_dette"
+        )
+
+        val collectionsExistantes = mutableListOf<String>()
+
+        // Phase 1: Découvrir quelles collections existent vraiment
+        println("[RESET INTELLIGENT] 🔍 Test de ${nomsCollectionsPossibles.size} noms possibles...")
+
+        for (nomCollection in nomsCollectionsPossibles) {
+            try {
+                val response = client.effectuerRequeteGet("/api/collections/$nomCollection/records", mapOf("perPage" to "1"))
+                // Si on arrive ici sans erreur 404, la collection existe !
+                collectionsExistantes.add(nomCollection)
+                println("[RESET INTELLIGENT] ✅ Collection trouvée: $nomCollection")
+            } catch (e: Exception) {
+                if (e.message?.contains("404") == true) {
+                    // Collection n'existe pas, c'est normal
+                } else {
+                    println("[RESET INTELLIGENT] ⚠️ Erreur pour $nomCollection: ${e.message}")
+                }
+            }
+        }
+
+        println("[RESET INTELLIGENT] 🎯 Collections existantes: ${collectionsExistantes.joinToString(", ")}")
+
+        // Phase 2: Supprimer SEULEMENT tes données dans chaque collection
+        for (collection in collectionsExistantes) {
+            try {
+                println("[RESET INTELLIGENT] 🗑️ Nettoyage de la collection: $collection")
+
+                // Récupérer TOUS les éléments de cette collection
+                val response = client.effectuerRequeteGet("/api/collections/$collection/records", mapOf(
+                    "perPage" to "500"
+                ))
+
+                val jsonResponse = gson.fromJson(response, JsonObject::class.java)
+                val items = jsonResponse.getAsJsonArray("items")
+
+                println("[RESET INTELLIGENT] 📋 Trouvé ${items.size()} éléments dans $collection")
+
+                if (items.size() > 0) {
+                    items.forEach { item: JsonElement ->
+                        try {
+                            val obj = item.asJsonObject
+                            val id = obj.get("id").asString
+                            val nom = obj.get("nom")?.asString
+                                ?: obj.get("name")?.asString
+                                ?: obj.get("titre")?.asString
+                                ?: "Élément"
+                            val itemUserId = obj.get("utilisateur_id")?.asString
+
+                            println("[RESET INTELLIGENT] 🔍 $collection: $nom (User: ${itemUserId ?: "AUCUN"})")
+
+                            // SUPPRIMER SEULEMENT SI C'EST TON UTILISATEUR
+                            if (itemUserId == userId) {
+                                try {
+                                    client.effectuerRequeteDelete("/api/collections/$collection/records/$id")
+                                    totalSupprime++
+                                    println("[RESET INTELLIGENT] ✅ SUPPRIMÉ: $nom (ton utilisateur)")
+                                } catch (deleteE: Exception) {
+                                    println("[RESET INTELLIGENT] ❌ Erreur suppression $nom: ${deleteE.message}")
+                                }
+                            } else {
+                                println("[RESET INTELLIGENT] ⏭️ IGNORÉ: $nom (utilisateur: $itemUserId)")
+                            }
+
+                        } catch (e: Exception) {
+                            println("[RESET INTELLIGENT] ❌ Erreur traitement élément: ${e.message}")
+                        }
+                    }
+                } else {
+                    println("[RESET INTELLIGENT] ⚠️ Collection $collection vide")
+                }
+
+            } catch (e: Exception) {
+                println("[RESET INTELLIGENT] ❌ Erreur pour collection $collection: ${e.message}")
+            }
+        }
+
+        println("[RESET INTELLIGENT] 🧠 DÉCOUVERTE ET NETTOYAGE TERMINÉS!")
+        println("[RESET INTELLIGENT] 📊 Collections découvertes: ${collectionsExistantes.size}")
+        println("[RESET INTELLIGENT] 📊 Éléments supprimés pour TOI: $totalSupprime")
+
+        if (totalSupprime == 0) {
+            println("[RESET INTELLIGENT] ⚠️ Aucune donnée trouvée pour ton utilisateur $userId")
+            println("[RESET INTELLIGENT] 📋 Collections testées: ${collectionsExistantes.joinToString(", ")}")
+        } else {
+            println("[RESET INTELLIGENT] 🎉 SUCCÈS! $totalSupprime éléments supprimés pour TOI SEULEMENT!")
+        }
     }
 }
