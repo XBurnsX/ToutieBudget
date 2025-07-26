@@ -12,6 +12,7 @@ import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,8 +71,8 @@ class CategoriesEnveloppesViewModel(
                 enveloppesList = enveloppes.filter { !it.estArchive }
                 
                 // Organiser les données pour l'affichage
-                val enveloppesGroupees = organiserEnveloppesParCategorie(categories, enveloppesList)
-                
+                val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(categories, enveloppesList)
+
                 // Mettre à jour l'interface
                 _uiState.update { currentState ->
                     currentState.copy(
@@ -95,83 +96,6 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
-    /**
-     * Organise les enveloppes par catégorie pour l'affichage.
-     */
-    private fun organiserEnveloppesParCategorie(
-        categories: List<Categorie>,
-        enveloppes: List<Enveloppe>
-    ): Map<String, List<Enveloppe>> {
-        val groupes = mutableMapOf<String, MutableList<Enveloppe>>()
-        
-        // Debug : afficher les catégories disponibles
-        println("[DEBUG] Catégories chargées (${categories.size}):")
-        categories.forEach { categorie ->
-            println("  - ID: '${categorie.id}', Nom: '${categorie.nom}', Ordre: ${categorie.ordre}")
-        }
-
-        // Trier les catégories par ordre avant de les initialiser
-        val categoriesTriees = categories.sortedBy { it.ordre }
-
-        // Initialiser toutes les catégories (même vides) dans le bon ordre
-        categoriesTriees.forEach { categorie ->
-            groupes[categorie.nom] = mutableListOf()
-        }
-        
-        // Ajouter "Sans catégorie" pour les enveloppes orphelines
-        groupes["Sans catégorie"] = mutableListOf()
-        
-        // Debug : afficher les enveloppes et leurs catégories
-        println("[DEBUG] Enveloppes chargées (${enveloppes.size}):")
-        enveloppes.forEach { enveloppe ->
-            println("  - Enveloppe: '${enveloppe.nom}', CategorieID: '${enveloppe.categorieId}'")
-        }
-
-        // Répartir les enveloppes dans leurs catégories
-        enveloppes.forEach { enveloppe ->
-            val categorie = categoriesMap[enveloppe.categorieId]
-            val nomCategorie = categorie?.nom ?: "Sans catégorie"
-            
-            // Debug : afficher la correspondance
-            if (categorie != null) {
-                println("[DEBUG] ✅ Enveloppe '${enveloppe.nom}' -> Catégorie '${nomCategorie}'")
-            } else {
-                println("[DEBUG] ❌ Enveloppe '${enveloppe.nom}' -> Aucune catégorie trouvée pour ID '${enveloppe.categorieId}'")
-            }
-
-            if (!groupes.containsKey(nomCategorie)) {
-                groupes[nomCategorie] = mutableListOf()
-            }
-            
-            groupes[nomCategorie]?.add(enveloppe)
-        }
-        
-        // Debug : afficher le résultat final
-        println("[DEBUG] Groupes finaux:")
-        groupes.forEach { (nomCategorie, enveloppesCategorie) ->
-            println("  - '$nomCategorie': ${enveloppesCategorie.size} enveloppes")
-            enveloppesCategorie.forEach { enveloppe ->
-                println("    * ${enveloppe.nom}")
-            }
-        }
-
-        // Supprimer "Sans catégorie" si elle est vide
-        if (groupes["Sans catégorie"]?.isEmpty() == true) {
-            groupes.remove("Sans catégorie")
-        }
-        
-        // Retourner les groupes dans l'ordre des catégories triées
-        return categoriesTriees.associate { categorie ->
-            categorie.nom to (groupes[categorie.nom] ?: emptyList())
-        }.let { ordonnees ->
-            // Ajouter "Sans catégorie" à la fin si elle existe
-            if (groupes.containsKey("Sans catégorie")) {
-                ordonnees + ("Sans catégorie" to groupes["Sans catégorie"]!!)
-            } else {
-                ordonnees
-            }
-        }
-    }
 
     // ===== GESTION DES CATÉGORIES =====
 

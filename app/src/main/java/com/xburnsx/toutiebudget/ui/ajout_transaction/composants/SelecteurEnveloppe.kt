@@ -32,6 +32,10 @@ import java.util.Locale
 /**
  * Composant pour sélectionner une enveloppe parmi la liste disponible.
  * Affiche l'enveloppe sélectionnée et permet d'ouvrir un dialog de sélection.
+ *
+ * IMPORTANT: Les enveloppes doivent être passées dans l'ordre défini par
+ * OrganisationEnveloppesUtils.organiserEnveloppesParCategorie() pour assurer
+ * un ordre cohérent avec l'écran CategoriesEnveloppesScreen.
  */
 @Composable
 fun SelecteurEnveloppe(

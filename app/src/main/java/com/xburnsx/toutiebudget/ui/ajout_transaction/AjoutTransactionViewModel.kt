@@ -17,6 +17,7 @@ import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import java.util.Calendar
 import java.util.Date
 
@@ -95,11 +96,18 @@ class AjoutTransactionViewModel(
 
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
-                val enveloppesFiltrees = enveloppesUi.groupBy { enveloppe ->
-                    val categorieNom = allCategories.find { cat -> 
-                        allEnveloppes.find { it.id == enveloppe.id }?.categorieId == cat.id 
-                    }?.nom ?: "Sans catégorie"
-                    categorieNom
+
+                // Utiliser OrganisationEnveloppesUtils pour assurer un ordre cohérent
+                val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
+
+                // Créer la map d'enveloppes filtrées en respectant l'ordre des catégories
+                val enveloppesFiltrees = enveloppesGroupees.mapValues { (_, enveloppesCategorie) ->
+                    enveloppesUi.filter { enveloppeUi ->
+                        enveloppesCategorie.any { it.id == enveloppeUi.id }
+                    }.sortedBy { enveloppeUi ->
+                        // Trier selon l'ordre des enveloppes dans la catégorie
+                        enveloppesCategorie.indexOfFirst { it.id == enveloppeUi.id }
+                    }
                 }
                 
                 // Mettre à jour l'état

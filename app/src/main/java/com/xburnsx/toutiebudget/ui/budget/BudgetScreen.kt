@@ -142,7 +142,7 @@ fun BudgetScreen(
                     // En-tête de catégorie
                     Text(
                         text = categorie.nomCategorie,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier

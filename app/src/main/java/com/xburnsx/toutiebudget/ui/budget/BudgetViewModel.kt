@@ -16,6 +16,7 @@ import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
+import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -171,17 +172,24 @@ class BudgetViewModel(
                 // Debug des enveloppes UI créées
                 enveloppesUi.forEachIndexed { index, env ->
                 }
-                // 7. Grouper par catégories
-                val groupesEnveloppes = enveloppesUi.groupBy { enveloppe ->
-                    val enveloppeComplete = cacheEnveloppes.find { env -> env.id == enveloppe.id }
-                    val categorie = categories.find { it.id == enveloppeComplete?.categorieId }
-                    categorie?.nom ?: "Autre"
-                }
-                val categoriesEnveloppesUi = cacheCategories.map { cat ->
-                    CategorieEnveloppesUi(cat.nom, groupesEnveloppes[cat.nom] ?: emptyList())
-                }.sortedBy { it.nomCategorie }
 
-                // 8. Mettre à jour l'état final
+                // 7. Grouper par catégories en utilisant la même logique que CategoriesEnveloppesScreen
+                val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(categories, enveloppes)
+
+                // 8. Créer les CategorieEnveloppesUi en respectant l'ordre des catégories
+                val categoriesEnveloppesUi = enveloppesGroupees.map { (nomCategorie, enveloppesCategorie) ->
+                    // Filtrer les enveloppes UI pour ne garder que celles de cette catégorie
+                    val enveloppesUiCategorie = enveloppesUi.filter { enveloppeUi ->
+                        enveloppesCategorie.any { it.id == enveloppeUi.id }
+                    }.sortedBy { enveloppeUi ->
+                        // Trier selon l'ordre des enveloppes dans la catégorie
+                        enveloppesCategorie.indexOfFirst { it.id == enveloppeUi.id }
+                    }
+
+                    CategorieEnveloppesUi(nomCategorie, enveloppesUiCategorie)
+                }
+
+                // 9. Mettre à jour l'état final
                 _uiState.update {
                     it.copy(
                         isLoading = false,

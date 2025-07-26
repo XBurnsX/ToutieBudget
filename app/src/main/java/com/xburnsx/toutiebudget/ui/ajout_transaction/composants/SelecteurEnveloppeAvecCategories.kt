@@ -32,6 +32,10 @@ sealed class ItemDropdown {
 
 /**
  * Sélecteur d'enveloppe avec catégories intégrées dans le même dropdown
+ *
+ * IMPORTANT: Les enveloppes doivent être passées dans l'ordre défini par
+ * OrganisationEnveloppesUtils.organiserEnveloppesParCategorie() pour assurer
+ * un ordre cohérent avec l'écran CategoriesEnveloppesScreen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
