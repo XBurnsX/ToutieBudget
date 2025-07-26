@@ -45,8 +45,8 @@ class CategorieRepositoryImpl : CategorieRepository {
             
             // Filtre pour récupérer seulement les catégories de l'utilisateur
             val filtreEncode = URLEncoder.encode("utilisateur_id = '$utilisateurId'", "UTF-8")
-            val url = "$urlBase/api/collections/categorie/records?filter=$filtreEncode&perPage=100&sort=nom"
-            
+            val url = "$urlBase/api/collections/categories/records?filter=$filtreEncode&perPage=100&sort=nom"
+
             val requete = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $token")
@@ -78,8 +78,8 @@ class CategorieRepositoryImpl : CategorieRepository {
         try {
             val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
             val urlBase = client.obtenirUrlBaseActive()
-            val url = "$urlBase/api/collections/categorie/records"
-            
+            val url = "$urlBase/api/collections/categories/records"  // Corriger ici aussi
+
             // Créer les données à envoyer (sans l'ID temporaire)
             val donnees = mapOf(
                 "utilisateur_id" to categorie.utilisateurId,
@@ -123,10 +123,10 @@ class CategorieRepositoryImpl : CategorieRepository {
         try {
             val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
             val urlBase = client.obtenirUrlBaseActive()
-            val url = "$urlBase/api/collections/categorie/records/$id"
-            
+            val url = "$urlBase/api/collections/categories/records/$id"  // Corriger ici aussi
 
-            
+
+
             val requete = Request.Builder()
                 .url(url)
                 .addHeader("Authorization", "Bearer $token")

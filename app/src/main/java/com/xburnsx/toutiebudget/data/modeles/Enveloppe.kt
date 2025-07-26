@@ -19,7 +19,7 @@ data class Enveloppe(
     @SerializedName("utilisateur_id")
     val utilisateurId: String,
     val nom: String,
-    @SerializedName("categorie_id")
+    @SerializedName("categorie_Id")  // Correspondre exactement au nom dans PocketBase
     val categorieId: String, // <-- référence à la catégorie
     @SerializedName("est_archive")
     val estArchive: Boolean,

@@ -99,15 +99,15 @@
          )
      }
      
-     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy { 
+     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy {
          CategoriesEnveloppesViewModel(
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
              realtimeSyncService = realtimeSyncService
          )
      }
-     
-     private val virerArgentViewModel: VirerArgentViewModel by lazy { 
+
+     private val virerArgentViewModel: VirerArgentViewModel by lazy {
          VirerArgentViewModel(
              compteRepository = provideCompteRepository(),
              enveloppeRepository = provideEnveloppeRepository(),

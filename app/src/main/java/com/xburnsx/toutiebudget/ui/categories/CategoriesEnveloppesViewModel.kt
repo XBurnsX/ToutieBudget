@@ -104,6 +104,12 @@ class CategoriesEnveloppesViewModel(
     ): Map<String, List<Enveloppe>> {
         val groupes = mutableMapOf<String, MutableList<Enveloppe>>()
         
+        // Debug : afficher les catégories disponibles
+        println("[DEBUG] Catégories chargées (${categories.size}):")
+        categories.forEach { categorie ->
+            println("  - ID: '${categorie.id}', Nom: '${categorie.nom}'")
+        }
+
         // Initialiser toutes les catégories (même vides)
         categories.forEach { categorie ->
             groupes[categorie.nom] = mutableListOf()
@@ -112,11 +118,24 @@ class CategoriesEnveloppesViewModel(
         // Ajouter "Sans catégorie" pour les enveloppes orphelines
         groupes["Sans catégorie"] = mutableListOf()
         
+        // Debug : afficher les enveloppes et leurs catégories
+        println("[DEBUG] Enveloppes chargées (${enveloppes.size}):")
+        enveloppes.forEach { enveloppe ->
+            println("  - Enveloppe: '${enveloppe.nom}', CategorieID: '${enveloppe.categorieId}'")
+        }
+
         // Répartir les enveloppes dans leurs catégories
         enveloppes.forEach { enveloppe ->
             val categorie = categoriesMap[enveloppe.categorieId]
             val nomCategorie = categorie?.nom ?: "Sans catégorie"
             
+            // Debug : afficher la correspondance
+            if (categorie != null) {
+                println("[DEBUG] ✅ Enveloppe '${enveloppe.nom}' -> Catégorie '${nomCategorie}'")
+            } else {
+                println("[DEBUG] ❌ Enveloppe '${enveloppe.nom}' -> Aucune catégorie trouvée pour ID '${enveloppe.categorieId}'")
+            }
+
             if (!groupes.containsKey(nomCategorie)) {
                 groupes[nomCategorie] = mutableListOf()
             }
@@ -124,6 +143,15 @@ class CategoriesEnveloppesViewModel(
             groupes[nomCategorie]?.add(enveloppe)
         }
         
+        // Debug : afficher le résultat final
+        println("[DEBUG] Groupes finaux:")
+        groupes.forEach { (nomCategorie, enveloppesCategorie) ->
+            println("  - '$nomCategorie': ${enveloppesCategorie.size} enveloppes")
+            enveloppesCategorie.forEach { enveloppe ->
+                println("    * ${enveloppe.nom}")
+            }
+        }
+
         // Supprimer "Sans catégorie" si elle est vide
         if (groupes["Sans catégorie"]?.isEmpty() == true) {
             groupes.remove("Sans catégorie")
