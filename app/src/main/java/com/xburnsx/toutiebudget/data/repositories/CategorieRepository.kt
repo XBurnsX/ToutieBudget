@@ -25,6 +25,13 @@ interface CategorieRepository {
     suspend fun creerCategorie(categorie: Categorie): Result<Categorie>
     
     /**
+     * Met à jour une catégorie existante.
+     * @param categorie La catégorie à mettre à jour
+     * @return Result contenant la catégorie mise à jour
+     */
+    suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie>
+
+    /**
      * Supprime une catégorie par son ID.
      * @param id L'ID de la catégorie à supprimer
      * @return Result indiquant le succès ou l'échec

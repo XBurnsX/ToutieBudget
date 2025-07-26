@@ -27,5 +27,17 @@ data class CategoriesEnveloppesUiState(
     val nomNouvelleCategorie: String = "",
     val nomNouvelleEnveloppe: String = "",
     val enveloppePourObjectif: Enveloppe? = null,
-    val objectifFormState: ObjectifFormState = ObjectifFormState()
+    val objectifFormState: ObjectifFormState = ObjectifFormState(),
+    // Nouveaux champs pour le mode édition
+    val isModeEdition: Boolean = false,
+    val categoriesOrdonnees: List<String> = emptyList(),
+    // Nouveaux champs pour le drag & drop
+    val isDragMode: Boolean = false,
+    val draggedItemId: String? = null,
+    val draggedItemType: DragItemType? = null
 )
+
+enum class DragItemType {
+    CATEGORIE,
+    ENVELOPPE
+}

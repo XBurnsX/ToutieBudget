@@ -1,6 +1,8 @@
 // chemin/simule: /ui/categories/composants/CategorieCard.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -11,11 +13,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 
@@ -23,10 +28,14 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 fun CategorieCard(
     nomCategorie: String,
     enveloppes: List<Enveloppe>,
+    isModeEdition: Boolean = false, // Nouveau paramètre pour le mode édition
+    isDragMode: Boolean = false,
     onAjouterEnveloppeClick: () -> Unit,
     onObjectifClick: (Enveloppe) -> Unit,
     onSupprimerEnveloppe: (Enveloppe) -> Unit = {},
-    onSupprimerCategorie: (String) -> Unit = {}
+    onSupprimerCategorie: (String) -> Unit = {},
+    onStartDragEnveloppe: (String) -> Unit = {},
+    draggedEnveloppeId: String? = null
 ) {
     var showCategorieMenu by remember { mutableStateOf(false) }
     
@@ -43,44 +52,72 @@ fun CategorieCard(
             ) {
                 Text(
                     text = nomCategorie.uppercase(),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = if (isModeEdition) Color.Red else MaterialTheme.colorScheme.primary, // Changer la couleur en mode édition
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onAjouterEnveloppeClick) {
-                        Icon(Icons.Default.AddCircle, contentDescription = "Ajouter une enveloppe", tint = Color.Gray)
-                    }
-                    
-                    // Menu pour la catégorie
-                    Box {
-                        IconButton(onClick = { showCategorieMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Plus d'options", tint = Color.Gray)
+                    if (isModeEdition) {
+                        // Mode édition : Afficher directement le bouton de suppression
+                        if (enveloppes.isEmpty()) {
+                            IconButton(
+                                onClick = { onSupprimerCategorie(nomCategorie) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Supprimer la catégorie",
+                                    tint = Color.Red
+                                )
+                            }
+                        } else {
+                            // Bouton grisé si la catégorie contient des enveloppes
+                            IconButton(
+                                onClick = { /* Ne rien faire */ },
+                                enabled = false
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Impossible de supprimer",
+                                    tint = Color.Gray
+                                )
+                            }
                         }
-                        
-                        DropdownMenu(
-                            expanded = showCategorieMenu,
-                            onDismissRequest = { showCategorieMenu = false }
-                        ) {
-                            if (enveloppes.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text("Supprimer la catégorie") },
-                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                    onClick = {
-                                        onSupprimerCategorie(nomCategorie)
-                                        showCategorieMenu = false
-                                    }
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Impossible de supprimer", color = Color.Gray) },
-                                    leadingIcon = { 
-                                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Gray) 
-                                    },
-                                    onClick = { showCategorieMenu = false },
-                                    enabled = false
-                                )
+                    } else {
+                        // Mode normal : Bouton d'ajout et menu
+                        IconButton(onClick = onAjouterEnveloppeClick) {
+                            Icon(Icons.Default.AddCircle, contentDescription = "Ajouter une enveloppe", tint = Color.Gray)
+                        }
+
+                        // Menu pour la catégorie
+                        Box {
+                            IconButton(onClick = { showCategorieMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Plus d'options", tint = Color.Gray)
+                            }
+
+                            DropdownMenu(
+                                expanded = showCategorieMenu,
+                                onDismissRequest = { showCategorieMenu = false }
+                            ) {
+                                if (enveloppes.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Supprimer la catégorie") },
+                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                        onClick = {
+                                            onSupprimerCategorie(nomCategorie)
+                                            showCategorieMenu = false
+                                        }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text("Impossible de supprimer", color = Color.Gray) },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Gray)
+                                        },
+                                        onClick = { showCategorieMenu = false },
+                                        enabled = false
+                                    )
+                                }
                             }
                         }
                     }
@@ -88,18 +125,70 @@ fun CategorieCard(
             }
             if (enveloppes.isEmpty()) {
                 Text(
-                    text = "Aucune enveloppe. Cliquez sur '+' pour en ajouter une.",
+                    text = if (isModeEdition)
+                        "Catégorie vide - Aucune enveloppe à archiver"
+                    else
+                        "Aucune enveloppe. Cliquez sur '+' pour en ajouter une.",
                     color = Color.Gray,
                     modifier = Modifier.padding(16.dp)
                 )
             } else {
                 enveloppes.forEach { enveloppe ->
-                    EnveloppeConfigItem(
-                        enveloppe = enveloppe, 
-                        onObjectifClick = { onObjectifClick(enveloppe) },
-                        onSupprimerClick = { onSupprimerEnveloppe(enveloppe) }
-                    )
-                    Divider(color = Color.DarkGray, thickness = 0.5.dp)
+                    val isDraggedEnveloppe = draggedEnveloppeId == enveloppe.id
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (isDraggedEnveloppe) {
+                                    Modifier
+                                        .zIndex(1f)
+                                        .shadow(4.dp)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .then(
+                                if (isModeEdition && !isDragMode) {
+                                    Modifier.pointerInput(enveloppe.id) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                onStartDragEnveloppe(enveloppe.id)
+                                            },
+                                            onDragEnd = {
+                                                // Le drag end est géré par le parent
+                                            },
+                                            onDrag = { _, _ ->
+                                                // Le drag visuel est géré par l'état isDraggedEnveloppe
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    ) {
+                        EnveloppeConfigItem(
+                            enveloppe = enveloppe,
+                            isModeEdition = isModeEdition,
+                            isDragMode = isDragMode,
+                            isDragged = isDraggedEnveloppe,
+                            onObjectifClick = if (!isDragMode) {
+                                { onObjectifClick(enveloppe) }
+                            } else {
+                                { /* Ne rien faire en mode drag */ }
+                            },
+                            onSupprimerClick = if (!isDragMode) {
+                                { onSupprimerEnveloppe(enveloppe) }
+                            } else {
+                                { /* Ne rien faire en mode drag */ }
+                            }
+                        )
+                    }
+
+                    if (!isDraggedEnveloppe) {
+                        Divider(color = Color.DarkGray, thickness = 0.5.dp)
+                    }
                 }
             }
         }

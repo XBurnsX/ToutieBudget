@@ -115,6 +115,51 @@ class CategorieRepositoryImpl : CategorieRepository {
     }
 
     /**
+     * Met à jour une catégorie existante dans PocketBase.
+     * @param categorie La catégorie à mettre à jour
+     * @return Result contenant la catégorie mise à jour ou une erreur
+     */
+    override suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: throw Exception("Token d'authentification manquant.")
+            val urlBase = client.obtenirUrlBaseActive()
+            val url = "$urlBase/api/collections/categories/records/${categorie.id}"
+
+            // Créer les données à envoyer
+            val donnees = mapOf(
+                "utilisateur_id" to categorie.utilisateurId,
+                "nom" to categorie.nom,
+                "ordre" to categorie.ordre
+            )
+
+            val json = gson.toJson(donnees)
+
+            val body = json.toRequestBody("application/json".toMediaType())
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .patch(body)
+                .build()
+
+            val response = httpClient.newCall(requete).execute()
+
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                throw Exception("Erreur PocketBase: ${response.code} - $errorBody")
+            }
+
+            // Récupérer la catégorie mise à jour
+            val responseBody = response.body?.string() ?: throw Exception("Réponse vide")
+            val categorieMiseAJour = gson.fromJson(responseBody, Categorie::class.java)
+            Result.success(categorieMiseAJour)
+
+        } catch (e: Exception) {
+            println("[ERROR] Erreur mise à jour catégorie: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Supprime une catégorie de PocketBase.
      * @param id L'ID de la catégorie à supprimer
      * @return Result indiquant le succès ou l'erreur

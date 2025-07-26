@@ -4,23 +4,36 @@
 package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
@@ -127,21 +140,50 @@ fun CategoriesEnveloppesScreen(
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    // Bouton de rechargement
-                    IconButton(onClick = { viewModel.chargerDonnees() }) {
-                        Icon(
-                            Icons.Default.Refresh, 
-                            contentDescription = "Recharger", 
-                            tint = Color.White
-                        )
-                    }
-                    // Bouton d'ajout de catégorie
-                    IconButton(onClick = { viewModel.onOuvrirAjoutCategorieDialog() }) {
-                        Icon(
-                            Icons.Default.Add, 
-                            contentDescription = "Ajouter une catégorie", 
-                            tint = Color.White
-                        )
+                    if (uiState.isModeEdition) {
+                        // Mode édition actif - Boutons Sauvegarder et Annuler
+                        IconButton(onClick = { viewModel.onSauvegarderOrdreCategories() }) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Sauvegarder l'ordre",
+                                tint = Color.Green
+                            )
+                        }
+                        IconButton(onClick = { viewModel.onAnnulerModeEdition() }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Annuler",
+                                tint = Color.Red
+                            )
+                        }
+                    } else {
+                        // Mode normal - Boutons habituels
+                        // Bouton mode édition (seulement si il y a des catégories)
+                        if (uiState.enveloppesGroupees.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onActiverModeEdition() }) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Réorganiser les catégories",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        // Bouton de rechargement
+                        IconButton(onClick = { viewModel.chargerDonnees() }) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = "Recharger",
+                                tint = Color.White
+                            )
+                        }
+                        // Bouton d'ajout de catégorie
+                        IconButton(onClick = { viewModel.onOuvrirAjoutCategorieDialog() }) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Ajouter une catégorie",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             )
@@ -237,26 +279,81 @@ fun CategoriesEnveloppesScreen(
                 }
                 
                 // Liste des catégories et leurs enveloppes
-                items(
+                itemsIndexed(
                     items = uiState.enveloppesGroupees.entries.toList(),
-                    key = { (categorie, _) -> "categorie_$categorie" }
-                ) { (nomCategorie, enveloppes) ->
-                    CategorieCard(
-                        nomCategorie = nomCategorie,
-                        enveloppes = enveloppes,
-                        onAjouterEnveloppeClick = { 
-                            viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie) 
-                        },
-                        onObjectifClick = { enveloppe -> 
-                            viewModel.onOuvrirObjectifDialog(enveloppe) 
-                        },
-                        onSupprimerEnveloppe = { enveloppe -> 
-                            viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe) 
-                        },
-                        onSupprimerCategorie = { nomCat -> 
-                            viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat) 
-                        }
-                    )
+                    key = { _, (categorie, _) -> "categorie_$categorie" }
+                ) { index, (nomCategorie, enveloppes) ->
+                    val hapticFeedback = LocalHapticFeedback.current
+                    val isDragged = uiState.isDragMode &&
+                                  uiState.draggedItemId == nomCategorie &&
+                                  uiState.draggedItemType == DragItemType.CATEGORIE
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (isDragged) {
+                                    Modifier
+                                        .zIndex(1f)
+                                        .shadow(8.dp)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .then(
+                                if (uiState.isModeEdition) {
+                                    Modifier.pointerInput(nomCategorie) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                viewModel.onStartDrag(nomCategorie, DragItemType.CATEGORIE)
+                                            },
+                                            onDragEnd = {
+                                                viewModel.onEndDrag()
+                                            },
+                                            onDrag = { _, _ ->
+                                                // Le drag visuel est géré par l'état isDragged
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    ) {
+                        CategorieCard(
+                            nomCategorie = nomCategorie,
+                            enveloppes = enveloppes,
+                            isModeEdition = uiState.isModeEdition,
+                            isDragMode = uiState.isDragMode,
+                            onAjouterEnveloppeClick = {
+                                if (!uiState.isDragMode) {
+                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
+                                }
+                            },
+                            onObjectifClick = { enveloppe ->
+                                if (!uiState.isDragMode) {
+                                    viewModel.onOuvrirObjectifDialog(enveloppe)
+                                }
+                            },
+                            onSupprimerEnveloppe = { enveloppe ->
+                                if (!uiState.isDragMode) {
+                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
+                                }
+                            },
+                            onSupprimerCategorie = { nomCat ->
+                                if (!uiState.isDragMode) {
+                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
+                                }
+                            },
+                            onStartDragEnveloppe = { enveloppeId ->
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.onStartDrag(enveloppeId, DragItemType.ENVELOPPE)
+                            },
+                            draggedEnveloppeId = if (uiState.draggedItemType == DragItemType.ENVELOPPE)
+                                                    uiState.draggedItemId else null
+                        )
+                    }
                 }
                 
                 // Espacement en bas pour éviter que le contenu soit coupé

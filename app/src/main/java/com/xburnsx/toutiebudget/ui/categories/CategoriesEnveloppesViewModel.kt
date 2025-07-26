@@ -107,11 +107,14 @@ class CategoriesEnveloppesViewModel(
         // Debug : afficher les catégories disponibles
         println("[DEBUG] Catégories chargées (${categories.size}):")
         categories.forEach { categorie ->
-            println("  - ID: '${categorie.id}', Nom: '${categorie.nom}'")
+            println("  - ID: '${categorie.id}', Nom: '${categorie.nom}', Ordre: ${categorie.ordre}")
         }
 
-        // Initialiser toutes les catégories (même vides)
-        categories.forEach { categorie ->
+        // Trier les catégories par ordre avant de les initialiser
+        val categoriesTriees = categories.sortedBy { it.ordre }
+
+        // Initialiser toutes les catégories (même vides) dans le bon ordre
+        categoriesTriees.forEach { categorie ->
             groupes[categorie.nom] = mutableListOf()
         }
         
@@ -157,13 +160,17 @@ class CategoriesEnveloppesViewModel(
             groupes.remove("Sans catégorie")
         }
         
-        // Trier les catégories par ordre alphabétique
-        return groupes.entries
-            .sortedWith(compareBy(
-                { it.key == "Sans catégorie" }, // Mettre "Sans catégorie" à la fin
-                { it.key } // Trier alphabétiquement
-            ))
-            .associate { it.toPair() }
+        // Retourner les groupes dans l'ordre des catégories triées
+        return categoriesTriees.associate { categorie ->
+            categorie.nom to (groupes[categorie.nom] ?: emptyList())
+        }.let { ordonnees ->
+            // Ajouter "Sans catégorie" à la fin si elle existe
+            if (groupes.containsKey("Sans catégorie")) {
+                ordonnees + ("Sans catégorie" to groupes["Sans catégorie"]!!)
+            } else {
+                ordonnees
+            }
+        }
     }
 
     // ===== GESTION DES CATÉGORIES =====
@@ -244,12 +251,12 @@ class CategoriesEnveloppesViewModel(
 
                 }.onFailure { erreur ->
                     // Supprimer la catégorie temporaire en cas d'erreur
-                    val groupesCorrigés = _uiState.value.enveloppesGroupees.toMutableMap()
-                    groupesCorrigés.remove(nom)
-                    
+                    val groupesCorriges = _uiState.value.enveloppesGroupees.toMutableMap()
+                    groupesCorriges.remove(nom)
+
                     _uiState.update { currentState ->
                         currentState.copy(
-                            enveloppesGroupees = groupesCorrigés,
+                            enveloppesGroupees = groupesCorriges,
                             erreur = "Erreur lors de la création: ${erreur.message}"
                         )
                     }
@@ -364,14 +371,14 @@ class CategoriesEnveloppesViewModel(
 
                 }.onFailure { erreur ->
                     // Supprimer l'enveloppe temporaire en cas d'erreur
-                    val groupesCorrigés = _uiState.value.enveloppesGroupees.toMutableMap()
-                    val enveloppesCorrigées = (groupesCorrigés[categorieNom] ?: emptyList())
+                    val groupesCorrigees = _uiState.value.enveloppesGroupees.toMutableMap()
+                    val enveloppesCorrigees = (groupesCorrigees[categorieNom] ?: emptyList())
                         .filterNot { it.id == enveloppeVide.id }
-                    groupesCorrigés[categorieNom] = enveloppesCorrigées
-                    
+                    groupesCorrigees[categorieNom] = enveloppesCorrigees
+
                     _uiState.update { currentState ->
                         currentState.copy(
-                            enveloppesGroupees = groupesCorrigés,
+                            enveloppesGroupees = groupesCorrigees,
                             erreur = "Erreur lors de la création: ${erreur.message}"
                         )
                     }
@@ -589,6 +596,129 @@ class CategoriesEnveloppesViewModel(
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 chargerDonnees()
+            }
+        }
+    }
+
+    // ===== GESTION DU MODE ÉDITION ET DRAG & DROP =====
+
+    fun onActiverModeEdition() {
+        _uiState.update { it.copy(isModeEdition = true) }
+    }
+
+    fun onAnnulerModeEdition() {
+        _uiState.update {
+            it.copy(
+                isModeEdition = false,
+                isDragMode = false,
+                draggedItemId = null,
+                draggedItemType = null
+            )
+        }
+        // Recharger les données pour annuler les changements temporaires
+        chargerDonnees()
+    }
+
+    fun onSauvegarderOrdreCategories() {
+        // TODO: Implémenter la sauvegarde de l'ordre des catégories
+        _uiState.update {
+            it.copy(
+                isModeEdition = false,
+                isDragMode = false,
+                draggedItemId = null,
+                draggedItemType = null
+            )
+        }
+    }
+
+    /**
+     * Démarre le mode drag pour un élément avec long tap
+     */
+    fun onStartDrag(itemId: String, itemType: DragItemType) {
+        _uiState.update {
+            it.copy(
+                isDragMode = true,
+                draggedItemId = itemId,
+                draggedItemType = itemType
+            )
+        }
+    }
+
+    /**
+     * Arrête le mode drag
+     */
+    fun onEndDrag() {
+        _uiState.update {
+            it.copy(
+                isDragMode = false,
+                draggedItemId = null,
+                draggedItemType = null
+            )
+        }
+    }
+
+    /**
+     * Déplace une catégorie vers une nouvelle position
+     */
+    fun onMoveCategorie(fromIndex: Int, toIndex: Int) {
+        val currentGroupes = _uiState.value.enveloppesGroupees
+        val categoriesList = currentGroupes.keys.toList()
+
+        if (fromIndex >= 0 && fromIndex < categoriesList.size &&
+            toIndex >= 0 && toIndex < categoriesList.size &&
+            fromIndex != toIndex) {
+
+            val mutableList = categoriesList.toMutableList()
+            val item = mutableList.removeAt(fromIndex)
+            mutableList.add(toIndex, item)
+
+            // Réorganiser les groupes selon le nouvel ordre
+            val nouveauxGroupes = linkedMapOf<String, List<Enveloppe>>()
+            mutableList.forEach { nomCategorie ->
+                nouveauxGroupes[nomCategorie] = currentGroupes[nomCategorie] ?: emptyList()
+            }
+
+            _uiState.update {
+                it.copy(enveloppesGroupees = nouveauxGroupes)
+            }
+        }
+    }
+
+    /**
+     * Déplace une enveloppe d'une catégorie à une autre
+     */
+    fun onMoveEnveloppe(enveloppeId: String, fromCategorie: String, toCategorie: String, toIndex: Int) {
+        val currentGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
+
+        // Trouver l'enveloppe à déplacer
+        val fromEnveloppes = currentGroupes[fromCategorie]?.toMutableList() ?: return
+        val enveloppe = fromEnveloppes.find { it.id == enveloppeId } ?: return
+
+        // Retirer l'enveloppe de la catégorie source
+        fromEnveloppes.remove(enveloppe)
+        currentGroupes[fromCategorie] = fromEnveloppes
+
+        // Ajouter l'enveloppe à la catégorie destination
+        val toEnveloppes = currentGroupes[toCategorie]?.toMutableList() ?: mutableListOf()
+        val safeIndex = minOf(toIndex, toEnveloppes.size)
+        toEnveloppes.add(safeIndex, enveloppe)
+        currentGroupes[toCategorie] = toEnveloppes
+
+        _uiState.update {
+            it.copy(enveloppesGroupees = currentGroupes)
+        }
+
+        // Mettre à jour la catégorie de l'enveloppe dans la base de données
+        viewModelScope.launch {
+            try {
+                val nouvelleCategorie = categoriesMap.values.find { it.nom == toCategorie }
+                if (nouvelleCategorie != null) {
+                    val enveloppeModifiee = enveloppe.copy(categorieId = nouvelleCategorie.id)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Erreur lors du déplacement: ${e.message}") }
+                chargerDonnees() // Recharger en cas d'erreur
             }
         }
     }
