@@ -9,6 +9,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
@@ -21,12 +25,14 @@ fun ModifierCompteDialog(
     onDismissRequest: () -> Unit,
     onValueChange: (String?, String?, String?, String?) -> Unit,
     onSave: () -> Unit,
-    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit // Nouveau callback pour ouvrir le clavier
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
 ) {
     val couleursDisponibles = listOf("#F44336", "#E91E63", "#9C27B0", "#2196F3", "#4CAF50", "#FFC107")
-    
+
     // Conversion entre format centimes et format texte pour ChampArgent
-    val soldeEnCentimes = (formState.solde.toDoubleOrNull() ?: 0.0) * 100
+    val soldeEnCentimes = remember(formState.solde) {
+        (formState.solde.toDoubleOrNull() ?: 0.0) * 100
+    }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -81,4 +87,6 @@ fun ModifierCompteDialog(
             } 
         }
     )
+
+    // SUPPRIMÉ : Le clavier est maintenant géré par ComptesScreen
 }

@@ -125,8 +125,8 @@ fun VirerArgentScreen(
                         val categorie = uiState.destinationsDisponibles.entries
                             .find { (_, items) -> 
                                 items.any { item -> 
-                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem && 
-                                    item.enveloppe.id == enveloppe.id 
+                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
+                                    item.enveloppe.id == enveloppe.id
                                 }
                             }?.key ?: "Autre"
                         categorie
@@ -178,8 +178,8 @@ fun VirerArgentScreen(
                         val categorie = uiState.destinationsDisponibles.entries
                             .find { (_, items) -> 
                                 items.any { item -> 
-                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem && 
-                                    item.enveloppe.id == enveloppe.id 
+                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
+                                    item.enveloppe.id == enveloppe.id
                                 }
                             }?.key ?: "Autre"
                         categorie

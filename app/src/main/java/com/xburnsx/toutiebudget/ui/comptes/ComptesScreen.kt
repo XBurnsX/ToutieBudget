@@ -15,6 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,10 +25,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.AjoutCompteDialog
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +39,12 @@ fun ComptesScreen(
     onCompteClick: (String, String, String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // États pour le clavier numérique
+    var showKeyboard by remember { mutableStateOf(false) }
+    var montantClavierInitial by remember { mutableStateOf(0L) }
+    var nomDialogClavier by remember { mutableStateOf("") }
+    var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
 
     Scaffold(
         containerColor = Color(0xFF121212),
@@ -92,7 +103,13 @@ fun ComptesScreen(
             formState = uiState.formState,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,
-            onSave = { viewModel.onSauvegarderCompte() }
+            onSave = { viewModel.onSauvegarderCompte() },
+            onOpenKeyboard = { montantActuel, onMontantChange ->
+                montantClavierInitial = montantActuel
+                nomDialogClavier = "Solde initial"
+                onMontantChangeCallback = onMontantChange
+                showKeyboard = true
+            }
         )
     }
 
@@ -101,7 +118,29 @@ fun ComptesScreen(
             formState = uiState.formState,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,
-            onSave = { viewModel.onSauvegarderCompte() }
+            onSave = { viewModel.onSauvegarderCompte() },
+            onOpenKeyboard = { montantActuel, onMontantChange ->
+                montantClavierInitial = montantActuel
+                nomDialogClavier = "Solde actuel"
+                onMontantChangeCallback = onMontantChange
+                showKeyboard = true
+            }
+        )
+    }
+
+    // Clavier numérique par-dessus tout (z-index élevé)
+    if (showKeyboard) {
+        ClavierNumerique(
+            montantInitial = montantClavierInitial,
+            isMoney = true,
+            suffix = "",
+            onMontantChange = { nouveauMontant ->
+                onMontantChangeCallback?.invoke(nouveauMontant)
+            },
+            onFermer = {
+                showKeyboard = false
+                onMontantChangeCallback = null
+            }
         )
     }
 }
