@@ -164,11 +164,10 @@ fun ClavierBudgetEnveloppe(
             // === VOTRE CHAMP MONTANT PARFAIT (RÉUTILISÉ) ===
             ChampMontantUniversel(
                 montant = montantCentimes,
-                onMontantChange = { nouveauMontant ->
-                    montantCentimes = nouveauMontant
+                onClick = {
+                    // TODO: Gérer l'ouverture du clavier numérique
                 },
                 libelle = "Montant à assigner",
-                nomDialog = "Montant à assigner à ${enveloppe.nom}",
                 isMoney = true,
                 icone = Icons.Default.TrendingUp,
                 estObligatoire = true,

@@ -36,12 +36,11 @@ import kotlinx.coroutines.launch
 /**
  * 🎯 CHAMP DE SAISIE UNIVERSEL POUR MONTANTS
  *
- * Avec clavier IDENTIQUE au NumericKeyboard Flutter !
+ * Affiche un champ cliquable qui délègue l'ouverture du clavier au composant parent.
  *
  * @param montant Le montant actuel (en centimes si isMoney=true, valeur normale si isMoney=false)
- * @param onMontantChange Callback appelé quand le montant change
+ * @param onClick Callback appelé lorsque le champ est cliqué.
  * @param libelle Le texte d'étiquette à afficher
- * @param nomDialog Le titre à afficher dans la dialog du clavier (optionnel, utilise libelle par défaut)
  * @param isMoney Si true, traite comme de l'argent (1234 = 12.34$), si false traite comme valeur normale (12 = 12)
  * @param suffix Suffixe à ajouter après la valeur (ex: "%", " mois", etc.) - ignoré si isMoney=true
  * @param icone L'icône à afficher (optionnel)
@@ -50,13 +49,11 @@ import kotlinx.coroutines.launch
  * @param tailleMontant Taille du texte du montant (optionnel)
  * @param modifier Modificateur Compose standard
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChampMontantUniversel(
     montant: Long,
-    onMontantChange: (Long) -> Unit,
+    onClick: () -> Unit,
     libelle: String,
-    nomDialog: String = libelle,
     isMoney: Boolean = true,
     suffix: String = "",
     icone: ImageVector = Icons.Default.AttachMoney,
@@ -65,9 +62,6 @@ fun ChampMontantUniversel(
     tailleMontant: androidx.compose.ui.unit.TextUnit? = null,
     modifier: Modifier = Modifier
 ) {
-    var showKeyboard by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     val montantAffiche = remember(montant, isMoney, suffix) {
         if (isMoney) {
             String.format("%.2f \$", montant / 100.0)
@@ -97,11 +91,15 @@ fun ChampMontantUniversel(
             )
         }
 
-        // Champ cliquable pour ouvrir le clavier - APPROCHE SIMPLE ET FIABLE
+        // Champ cliquable pour ouvrir le clavier
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showKeyboard = true },
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = rememberRipple(),
+                    onClick = onClick
+                ),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -134,28 +132,6 @@ fun ChampMontantUniversel(
             }
         }
     }
-
-    if (showKeyboard) {
-        ModalBottomSheet(
-            onDismissRequest = { showKeyboard = false },
-            sheetState = sheetState,
-            scrimColor = Color.Transparent, // ✅ PAS D'ASSOMBRISSEMENT
-            dragHandle = null, // On gère la fermeture nous-mêmes
-            windowInsets = WindowInsets(0, 0, 0, 0) // ✅ Stabilité de la vue
-        ) {
-            // Le clavier lui-même
-            ClavierNumerique(
-                montantInitial = montant,
-                nomDialog = nomDialog,
-                isMoney = isMoney,
-                suffix = suffix,
-                onMontantChange = { nouveauMontant ->
-                    onMontantChange(nouveauMontant)
-                },
-                onFermer = { showKeyboard = false }
-            )
-        }
-    }
 }
 
 /**
@@ -163,9 +139,8 @@ fun ChampMontantUniversel(
  * Reproduit EXACTEMENT le comportement, l'apparence et la logique
  */
 @Composable
-private fun ClavierNumerique(
+fun ClavierNumerique(
     montantInitial: Long,
-    nomDialog: String,
     isMoney: Boolean,
     suffix: String,
     onMontantChange: (Long) -> Unit,
@@ -575,18 +550,16 @@ fun ChampMontantUniverselPreview() {
             ) {
                 ChampMontantUniversel(
                     montant = 123456L, // 1234.56$
-                    onMontantChange = {},
+                    onClick = {},
                     libelle = "Montant de la dépense",
-                    nomDialog = "Montant de la dépense",
                     isMoney = true,
                     estObligatoire = true
                 )
 
                 ChampMontantUniversel(
                     montant = 12L, // 12 mois
-                    onMontantChange = {},
+                    onClick = {},
                     libelle = "Durée en mois",
-                    nomDialog = "Durée du prêt",
                     isMoney = false,
                     suffix = " mois",
                     icone = Icons.Default.AttachMoney
@@ -594,9 +567,8 @@ fun ChampMontantUniverselPreview() {
 
                 ChampMontantUniversel(
                     montant = 525L, // 525%
-                    onMontantChange = {},
+                    onClick = {},
                     libelle = "Taux d'intérêt",
-                    nomDialog = "Taux d'intérêt annuel",
                     isMoney = false,
                     suffix = "%",
                     icone = Icons.Default.AttachMoney
@@ -609,7 +581,7 @@ fun ChampMontantUniverselPreview() {
 @Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Clavier Flutter Identique")
 @Composable
 fun ClavierFlutterIdentiquePreview() {
-    ToutieBudgetTheme(darkTheme = true) {
+    ToutieBudgetTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -617,7 +589,6 @@ fun ClavierFlutterIdentiquePreview() {
             ) {
                 ClavierNumerique(
                     montantInitial = 123456L,
-                    nomDialog = "Montant de la dépense",
                     isMoney = true,
                     suffix = "",
                     onMontantChange = {},

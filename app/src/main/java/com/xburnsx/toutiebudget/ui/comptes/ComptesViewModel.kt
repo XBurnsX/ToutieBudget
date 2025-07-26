@@ -76,6 +76,14 @@ class ComptesViewModel(
         _uiState.update { it.copy(isAjoutDialogVisible = true, formState = CompteFormState()) }
     }
 
+    fun onOuvrirClavierNumerique() {
+        _uiState.update { it.copy(isClavierNumeriqueVisible = true) }
+    }
+
+    fun onFermerClavierNumerique() {
+        _uiState.update { it.copy(isClavierNumeriqueVisible = false) }
+    }
+
     fun onOuvrirModificationDialog() {
         val compte = _uiState.value.compteSelectionne ?: return
         _uiState.update {
@@ -104,7 +112,8 @@ class ComptesViewModel(
                 isAjoutDialogVisible = false,
                 isModificationDialogVisible = false,
                 isReconciliationDialogVisible = false,
-                compteSelectionne = null
+                isMenuContextuelVisible = false,
+                isClavierNumeriqueVisible = false
             )
         }
     }
@@ -123,11 +132,13 @@ class ComptesViewModel(
     }
 
     fun onSauvegarderCompte() {
+        val form = _uiState.value.formState
         if (_uiState.value.formState.id != null) {
             sauvegarderModification()
         } else {
             creerNouveauCompte()
         }
+        onFermerTousLesDialogues() // Fermer tout après la sauvegarde
     }
 
     private fun creerNouveauCompte() {

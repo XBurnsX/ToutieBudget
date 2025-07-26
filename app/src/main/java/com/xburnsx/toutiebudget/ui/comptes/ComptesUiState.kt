@@ -20,5 +20,6 @@ data class ComptesUiState(
     val isModificationDialogVisible: Boolean = false,
     val isReconciliationDialogVisible: Boolean = false,
     val isMenuContextuelVisible: Boolean = false,
-    val formState: CompteFormState = CompteFormState()
+    val formState: CompteFormState = CompteFormState(),
+    val isClavierNumeriqueVisible: Boolean = false
 )

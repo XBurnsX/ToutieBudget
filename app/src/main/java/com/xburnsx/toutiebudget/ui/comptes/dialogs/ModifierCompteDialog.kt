@@ -20,7 +20,8 @@ fun ModifierCompteDialog(
     formState: CompteFormState,
     onDismissRequest: () -> Unit,
     onValueChange: (String?, String?, String?, String?) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit // Nouveau callback pour ouvrir le clavier
 ) {
     val couleursDisponibles = listOf("#F44336", "#E91E63", "#9C27B0", "#2196F3", "#4CAF50", "#FFC107")
     
@@ -43,11 +44,14 @@ fun ModifierCompteDialog(
                 // *** NOUVEAU : Champ argent pour le solde ***
                 ChampMontantUniversel(
                     montant = soldeEnCentimes.toLong(),
-                    onMontantChange = { nouveauMontantEnCentimes ->
-                        val nouveauSoldeEnDollars = nouveauMontantEnCentimes / 100.0
-                        onValueChange(null, null, nouveauSoldeEnDollars.toString(), null)
+                    onClick = {
+                        onOpenKeyboard(soldeEnCentimes.toLong()) { nouveauMontant ->
+                            val nouveauSolde = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, null, nouveauSolde, null)
+                        }
                     },
                     libelle = "Solde actuel",
+                    isMoney = true,
                     icone = Icons.Default.AccountBalance,
                     estObligatoire = false,
                     modifier = Modifier

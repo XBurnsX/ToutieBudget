@@ -49,11 +49,11 @@ fun DefinirObjectifDialog(
                 // *** NOUVEAU : Champ d'argent pour le montant objectif ***
                 ChampMontantUniversel(
                     montant = montantEnCentimes.toLong(),
-                    onMontantChange = { nouveauMontantEnCentimes ->
-                        val nouveauMontantEnDollars = nouveauMontantEnCentimes / 100.0
-                        onValueChange(null, nouveauMontantEnDollars.toString(), null, null)
+                    onClick = {
+                        // TODO: Gérer l'ouverture du clavier numérique
                     },
                     libelle = "Montant objectif",
+                    isMoney = true,
                     icone = Icons.Default.Flag,
                     estObligatoire = true,
                     modifier = Modifier

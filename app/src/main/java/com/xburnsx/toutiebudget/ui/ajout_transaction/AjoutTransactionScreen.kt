@@ -118,10 +118,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     // 2. Champ de montant avec clavier personnalisé
                     ChampMontantUniversel(
                         montant = uiState.montant.toLongOrNull() ?: 0L,
-                        onMontantChange = { nouveauMontant ->
-
-                            viewModel.onMontantChanged(nouveauMontant.toString())
-                        },
+                        onClick = { /* La logique d'ouverture du clavier sera gérée ici si nécessaire */ },
                         modifier = Modifier.fillMaxWidth(),
                         libelle = "Montant de la transaction",
                         couleurMontant = obtenirCouleurMontant(uiState),

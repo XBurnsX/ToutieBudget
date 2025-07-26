@@ -94,14 +94,14 @@ fun VirerArgentScreen(
             // *** NOUVEAU : Champ d'argent pour le montant du virement ***
             ChampMontantUniversel(
                 montant = uiState.montant.toLongOrNull() ?: 0L,
-                onMontantChange = { nouveauMontantEnCentimes ->
-                    viewModel.onMontantChange(nouveauMontantEnCentimes.toString())
+                onClick = {
+                    // TODO: Gérer l'ouverture du clavier numérique
                 },
                 libelle = "Montant à virer",
+                isMoney = true,
                 icone = Icons.Default.SwapHoriz,
                 estObligatoire = true,
-                modifier = Modifier.fillMaxWidth(),
-                isMoney = true
+                modifier = Modifier.fillMaxWidth()
             )
             
             // Champs de sélection source et destination
@@ -227,34 +227,21 @@ fun VirerArgentScreen(
                 )
             }
             
-            // 🚨 AFFICHAGE DES ERREURS DE VALIDATION - IDENTIQUE AU CLAVIER BUDGET
-            uiState.erreur?.let { messageErreur ->
-                // Dialog d'erreur pour les validations de provenance
-                AlertDialog(
-                    onDismissRequest = { viewModel.effacerErreur() },
-                    title = {
-                        Text(
-                            text = "❌ Erreur de validation",
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = messageErreur,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { viewModel.effacerErreur() }
-                        ) {
-                            Text("OK")
-                        }
-                    },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    textContentColor = MaterialTheme.colorScheme.onSurface
-                )
+            // Affichage d'erreur
+            uiState.erreur?.let { erreur ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = erreur,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }

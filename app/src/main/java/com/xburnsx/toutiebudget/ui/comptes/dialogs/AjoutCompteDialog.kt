@@ -21,7 +21,8 @@ fun AjoutCompteDialog(
     formState: CompteFormState,
     onDismissRequest: () -> Unit,
     onValueChange: (String?, String?, String?, String?) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit // Nouveau callback pour ouvrir le clavier
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
     val couleursDisponibles = listOf(
@@ -107,20 +108,19 @@ fun AjoutCompteDialog(
                     }
                 }
                 
-                // ✅ CHAMP MONTANT AVEC VOTRE CLAVIER UNIVERSEL !
                 ChampMontantUniversel(
-                    montant = soldeEnCentimes,
-                    onMontantChange = { nouveauMontantEnCentimes ->
-                        // Conversion centimes -> dollars avec 2 décimales
-                        val nouveauSoldeEnDollars = nouveauMontantEnCentimes / 100.0
-                        val soldeFormate = String.format("%.2f", nouveauSoldeEnDollars)
-                        onValueChange(null, null, soldeFormate, null)
+                    montant = formState.solde.replace(",", ".").toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L,
+                    onClick = {
+                        val montantActuel = formState.solde.replace(",", ".").toDoubleOrNull()?.let { (it * 100).toLong() } ?: 0L
+                        onOpenKeyboard(montantActuel) { nouveauMontant ->
+                            val nouveauSolde = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, null, nouveauSolde, null)
+                        }
                     },
                     libelle = "Solde initial",
-                    nomDialog = "Solde initial du compte", // 🎯 Titre personnalisé pour la dialog
-                    isMoney = true, // 💰 C'est de l'argent
+                    isMoney = true,
                     icone = Icons.Default.AccountBalance,
-                    estObligatoire = false, // Optionnel, peut être 0
+                    estObligatoire = false,
                     modifier = Modifier
                 )
                 
