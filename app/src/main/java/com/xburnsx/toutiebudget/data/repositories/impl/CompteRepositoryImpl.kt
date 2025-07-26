@@ -37,9 +37,9 @@ class CompteRepositoryImpl : CompteRepository {
 
     // Noms des collections dans PocketBase
     private object Collections {
-        const val CHEQUE = "comptes_cheque"
-        const val CREDIT = "comptes_credit"
-        const val DETTE = "comptes_dette"
+        const val CHEQUE = "comptes_cheques"
+        const val CREDIT = "comptes_credits"
+        const val DETTE = "comptes_dettes"
         const val INVESTISSEMENT = "comptes_investissement"
     }
 

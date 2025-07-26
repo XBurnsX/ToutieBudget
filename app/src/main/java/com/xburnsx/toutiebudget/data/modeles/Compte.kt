@@ -28,7 +28,7 @@ data class CompteCheque(
     @SerializedName("est_archive")
     override val estArchive: Boolean,
     override val ordre: Int,
-    override val collection: String = "comptes_cheque"
+    override val collection: String = "comptes_cheques"
 ) : Compte {
     // Propriété calculée pour gérer la valeur par défaut
     val pretAPlacer: Double get() = pretAPlacerRaw ?: 0.0
@@ -47,7 +47,7 @@ data class CompteCredit(
     @SerializedName("limite_credit")
     val limiteCredit: Double,
     val interet: Double? = null,
-    override val collection: String = "comptes_credit"
+    override val collection: String = "comptes_credits"
 ) : Compte
 
 data class CompteDette(
@@ -62,7 +62,7 @@ data class CompteDette(
     @SerializedName("montant_initial")
     val montantInitial: Double,
     val interet: Double? = null,
-    override val collection: String = "comptes_dette"
+    override val collection: String = "comptes_dettes"
 ) : Compte {
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.
     override val couleur: String = "#FF0000"

@@ -76,7 +76,13 @@ fun ComptesScreen(
                         compte = compte,
                         onClick = {
                             // Corriger la valeur de collection pour correspondre à ce qui est stocké dans PocketBase
-                            val collectionCompte = compte.javaClass.simpleName.lowercase().replace("compte", "comptes_")
+                            val collectionCompte = when (compte.javaClass.simpleName) {
+                                "CompteCheque" -> "comptes_cheques"
+                                "CompteCredit" -> "comptes_credits"
+                                "CompteDette" -> "comptes_dettes"
+                                "CompteInvestissement" -> "comptes_investissements"
+                                else -> "comptes_cheques" // Fallback par défaut
+                            }
 
                             // Vérifications de sécurité pour éviter les paramètres null
                             val compteId = compte.id ?: ""

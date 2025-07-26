@@ -130,8 +130,10 @@ class RealtimeSyncService @Inject constructor() {
                 // Collections à écouter
                 val collections = listOf(
                     "allocations_mensuelles",
-                    "comptes_cheque",
-                    "comptes_dette",
+                    "comptes_cheques",
+                    "comptes_credits",
+                    "comptes_dettes",
+                    "comptes_investissement",
                     "enveloppes",
                     "categories",
                     "transactions"
@@ -203,7 +205,7 @@ class RealtimeSyncService @Inject constructor() {
                     println("[REALTIME] 💰 Budget mis à jour")
                     _budgetUpdated.emit(Unit)
                 }
-                "comptes_cheque", "comptes_dette" -> {
+                "comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement" -> {
                     println("[REALTIME] 🏦 Comptes mis à jour")
                     _comptesUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)

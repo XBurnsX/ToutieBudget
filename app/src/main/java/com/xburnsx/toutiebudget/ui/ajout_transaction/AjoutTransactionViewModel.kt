@@ -434,11 +434,11 @@ class AjoutTransactionViewModel(
                     montant = montant,
                     compteId = compte.id,
                     collectionCompte = when (compte) {
-                        is CompteCheque -> "comptes_cheque"
-                        is CompteCredit -> "comptes_credit"
-                        is CompteDette -> "comptes_dette"
-                        is CompteInvestissement -> "comptes_investissement"
-                        else -> "comptes_cheque"
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissements"
+                        else -> "comptes_cheques"
                     },
                     enveloppeId = enveloppeId,
                     tiersId = state.tiersSelectionne?.id,

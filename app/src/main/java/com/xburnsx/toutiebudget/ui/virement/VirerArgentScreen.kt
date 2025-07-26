@@ -123,15 +123,15 @@ fun VirerArgentScreen(
                     .groupBy { enveloppe ->
                         // Trouver la catégorie de l'enveloppe
                         val categorie = uiState.destinationsDisponibles.entries
-                            .find { (_, items) -> 
-                                items.any { item -> 
+                            .find { (_, items) ->
+                                items.any { item ->
                                     item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
                                     item.enveloppe.id == enveloppe.id
                                 }
                             }?.key ?: "Autre"
                         categorie
                     }
-                
+
                 // Extraire les comptes chèque avec montant "prêt à placer" positif
                 val comptesPretAPlacer = uiState.sourcesDisponibles["Prêt à placer"]
                     ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
@@ -148,7 +148,7 @@ fun VirerArgentScreen(
                     obligatoire = true,
                     comptesPretAPlacer = comptesPretAPlacer
                 )
-                
+
                 // Flèche indicative
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -161,7 +161,7 @@ fun VirerArgentScreen(
                         modifier = Modifier.size(32.dp)
                     )
                 }
-                
+
                 // Sélecteur de destination - CELUI QUI MARCHE
                 val destinationsEnveloppes = uiState.destinationsDisponibles
                     .flatMap { (categorie, items) ->
@@ -176,15 +176,15 @@ fun VirerArgentScreen(
                     .groupBy { enveloppe ->
                         // Trouver la catégorie de l'enveloppe
                         val categorie = uiState.destinationsDisponibles.entries
-                            .find { (_, items) -> 
-                                items.any { item -> 
+                            .find { (_, items) ->
+                                items.any { item ->
                                     item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
                                     item.enveloppe.id == enveloppe.id
                                 }
                             }?.key ?: "Autre"
                         categorie
                     }
-                
+
                 // Extraire les comptes chèque avec montant "prêt à placer" positif (destinations)
                 val comptesPretAPlacerDestination = uiState.destinationsDisponibles["Prêt à placer"]
                     ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
@@ -202,7 +202,7 @@ fun VirerArgentScreen(
                     comptesPretAPlacer = comptesPretAPlacerDestination
                 )
             }
-            
+
             Spacer(modifier = Modifier.weight(1f))
             
             // Bouton de virement
@@ -212,8 +212,8 @@ fun VirerArgentScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
-                enabled = uiState.sourceSelectionnee != null && 
-                         uiState.destinationSelectionnee != null && 
+                enabled = uiState.sourceSelectionnee != null &&
+                         uiState.destinationSelectionnee != null &&
                          (uiState.montant.toLongOrNull() ?: 0L) > 0
             ) {
                 Icon(
@@ -226,7 +226,7 @@ fun VirerArgentScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            
+
             // Affichage d'erreur
             uiState.erreur?.let { erreur ->
                 Card(
@@ -253,8 +253,8 @@ fun VirerArgentScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChampSelecteur(
-    label: String, 
-    valeur: String, 
+    label: String,
+    valeur: String,
     icone: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
@@ -263,15 +263,15 @@ private fun ChampSelecteur(
         onValueChange = {},
         readOnly = true,
         label = { Text(label) },
-        leadingIcon = { 
+        leadingIcon = {
             Icon(
                 imageVector = icone,
                 contentDescription = label,
                 tint = MaterialTheme.colorScheme.primary
-            ) 
+            )
         },
-        trailingIcon = { 
-            ExposedDropdownMenuDefaults.TrailingIcon(expanded = false) 
+        trailingIcon = {
+            ExposedDropdownMenuDefaults.TrailingIcon(expanded = false)
         },
         modifier = Modifier
             .fillMaxWidth()
