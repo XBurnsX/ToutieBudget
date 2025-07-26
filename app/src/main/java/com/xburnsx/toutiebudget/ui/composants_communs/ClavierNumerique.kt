@@ -226,7 +226,7 @@ fun ClavierNumerique(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically // ✅ CORRECTION: Centrer le bouton backspace
             ) {
                 // Zone d'affichage du montant
                 Column(
@@ -258,7 +258,7 @@ fun ClavierNumerique(
 
                 Spacer(modifier = Modifier.width(35.dp))
 
-                // Bouton Backspace avec couleurs du thème
+                // Bouton Backspace avec couleurs du thème - MAINTENANT BIEN CENTRÉ
                 ClavierToucheFlutter(
                     texte = "",
                     icone = Icons.Outlined.Backspace,

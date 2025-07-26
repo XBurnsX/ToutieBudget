@@ -29,11 +29,22 @@ fun DefinirObjectifDialog(
     formState: ObjectifFormState,
     onValueChange: (TypeObjectif?, String?, Date?, Int?) -> Unit,
     onDismissRequest: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit // ✅ REMIS LE PARAMÈTRE
 ) {
-    // Conversion du montant pour ChampArgent
-    val montantEnCentimes = (formState.montant.toDoubleOrNull() ?: 0.0) * 100
-    
+    // Conversion du montant pour ChampUniversel
+    val montantEnCentimes = remember(formState.montant) {
+        if (formState.montant.isBlank()) {
+            0L
+        } else {
+            try {
+                (formState.montant.toDouble() * 100).toLong()
+            } catch (e: Exception) {
+                0L
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text("Définir un objectif") },
@@ -46,18 +57,25 @@ fun DefinirObjectifDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
                 
-                // *** NOUVEAU : Champ d'argent pour le montant objectif ***
+                // *** CHAMP MONTANT AVEC CALLBACK VERS CLAVIER GLOBAL ***
                 ChampUniversel(
-                    valeur = montantEnCentimes.toLong(),
+                    valeur = montantEnCentimes,
                     onValeurChange = { nouveauMontant ->
                         val nouveauMontantString = (nouveauMontant / 100.0).toString()
                         onValueChange(null, nouveauMontantString, null, null)
                     },
                     libelle = "Montant objectif",
-                    utiliserClavier = true,
+                    utiliserClavier = false, // ✅ DÉSACTIVER le clavier intégré
                     isMoney = true,
                     icone = Icons.Default.Flag,
                     estObligatoire = true,
+                    onClicPersonnalise = {
+                        // ✅ UTILISER le callback vers le clavier global
+                        onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
+                            val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, nouveauMontantString, null, null)
+                        }
+                    },
                     modifier = Modifier
                 )
                 

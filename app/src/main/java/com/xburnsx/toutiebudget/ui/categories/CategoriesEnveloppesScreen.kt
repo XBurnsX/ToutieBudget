@@ -34,11 +34,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.ConfirmationSuppressionDialog
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 
 /**
  * Écran principal pour la gestion des catégories et enveloppes.
@@ -51,6 +53,12 @@ fun CategoriesEnveloppesScreen(
     onBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // 🆕 ÉTATS POUR LE CLAVIER NUMÉRIQUE GLOBAL
+    var showKeyboard by remember { mutableStateOf(false) }
+    var montantClavierInitial by remember { mutableStateOf(0L) }
+    var nomDialogClavier by remember { mutableStateOf("") }
+    var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
 
     // ===== DIALOGUES =====
     
@@ -83,7 +91,13 @@ fun CategoriesEnveloppesScreen(
                 jour?.let { viewModel.onObjectifJourChange(it) }
             },
             onDismissRequest = viewModel::onFermerObjectifDialog,
-            onSave = viewModel::onSauvegarderObjectif
+            onSave = viewModel::onSauvegarderObjectif,
+            onOpenKeyboard = { montantActuel, onMontantChange ->
+                montantClavierInitial = montantActuel
+                nomDialogClavier = "Montant objectif"
+                onMontantChangeCallback = onMontantChange
+                showKeyboard = true
+            }
         )
     }
     
@@ -388,6 +402,35 @@ fun CategoriesEnveloppesScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // 🆕 CLAVIER NUMÉRIQUE PAR-DESSUS TOUT - EN BAS DE L'ÉCRAN
+    if (showKeyboard) {
+        Dialog(
+            onDismissRequest = {
+                showKeyboard = false
+                onMontantChangeCallback = null
+            }
+        ) {
+            // Le Dialog garantit que le clavier sera au-dessus de tout
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                ClavierNumerique(
+                    montantInitial = montantClavierInitial,
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = { nouveauMontant ->
+                        onMontantChangeCallback?.invoke(nouveauMontant)
+                    },
+                    onFermer = {
+                        showKeyboard = false
+                        onMontantChangeCallback = null
+                    }
+                )
             }
         }
     }
