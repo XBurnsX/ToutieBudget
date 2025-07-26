@@ -5,13 +5,13 @@ package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
@@ -142,8 +143,8 @@ fun CategoriesEnveloppesScreen(
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Default.ArrowBack, 
-                                contentDescription = "Retour", 
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Retour",
                                 tint = Color.White
                             )
                         }
@@ -412,11 +413,19 @@ fun CategoriesEnveloppesScreen(
             onDismissRequest = {
                 showKeyboard = false
                 onMontantChangeCallback = null
-            }
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             // Le Dialog garantit que le clavier sera au-dessus de tout
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showKeyboard = false
+                            onMontantChangeCallback = null
+                        }
+                    },
                 contentAlignment = Alignment.BottomCenter
             ) {
                 ClavierNumerique(

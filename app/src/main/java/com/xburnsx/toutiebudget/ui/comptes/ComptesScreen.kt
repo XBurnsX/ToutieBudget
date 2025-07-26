@@ -18,10 +18,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.AjoutCompteDialog
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
@@ -80,8 +83,8 @@ fun ComptesScreen(
                             }
 
                             // Vérifications de sécurité pour éviter les paramètres null
-                            val compteId = compte.id ?: ""
-                            val nomCompte = compte.nom ?: "Compte sans nom"
+                            val compteId = compte.id
+                            val nomCompte = compte.nom
 
                             println("DEBUG CLICK: compteId=$compteId, collectionCompte=$collectionCompte, nomCompte=$nomCompte")
 
@@ -135,13 +138,23 @@ fun ComptesScreen(
             onDismissRequest = {
                 showKeyboard = false
                 onMontantChangeCallback = null
-            }
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             // Le Dialog garantit que le clavier sera au-dessus de tout
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Permet de cliquer à travers la Box pour fermer le dialogue
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showKeyboard = false
+                            onMontantChangeCallback = null
+                        }
+                    },
                 contentAlignment = Alignment.BottomCenter
             ) {
+                // Le clavier lui-même
                 ClavierNumerique(
                     montantInitial = montantClavierInitial,
                     isMoney = true,
