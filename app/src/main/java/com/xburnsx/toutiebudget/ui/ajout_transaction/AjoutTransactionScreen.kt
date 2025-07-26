@@ -24,7 +24,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -116,13 +116,17 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     }
 
                     // 2. Champ de montant avec clavier personnalisé
-                    ChampMontantUniversel(
-                        montant = uiState.montant.toLongOrNull() ?: 0L,
-                        onClick = { /* La logique d'ouverture du clavier sera gérée ici si nécessaire */ },
+                    ChampUniversel(
+                        valeur = uiState.montant.toLongOrNull() ?: 0L,
+                        onValeurChange = { nouveauMontant ->
+                            viewModel.onMontantChanged(nouveauMontant.toString())
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         libelle = "Montant de la transaction",
-                        couleurMontant = obtenirCouleurMontant(uiState),
-                        tailleMontant = 30.sp
+                        utiliserClavier = true,
+                        isMoney = true,
+                        couleurValeur = obtenirCouleurMontant(uiState),
+                        tailleValeur = 30.sp
                     )
 
                     // 3. Sélecteur de tiers (avant le compte)

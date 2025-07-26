@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,15 +88,14 @@ fun AjoutCompteDialog(
                     }
                 }
                 
-                ChampMontantUniversel(
-                    montant = montantEnCentimes,
-                    onClick = {
-                        onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
-                            val nouveauSolde = (nouveauMontant / 100.0).toString()
-                            onValueChange(null, null, nouveauSolde, null)
-                        }
+                ChampUniversel(
+                    valeur = montantEnCentimes,
+                    onValeurChange = { nouveauMontant ->
+                        val nouveauSolde = (nouveauMontant / 100.0).toString()
+                        onValueChange(null, null, nouveauSolde, null)
                     },
                     libelle = "Solde initial",
+                    utiliserClavier = true,
                     isMoney = true,
                     icone = Icons.Default.AccountBalance,
                     estObligatoire = false,

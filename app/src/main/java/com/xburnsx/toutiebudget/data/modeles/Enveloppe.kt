@@ -19,7 +19,7 @@ data class Enveloppe(
     @SerializedName("utilisateur_id")
     val utilisateurId: String,
     val nom: String,
-    @SerializedName("categorieId")
+    @SerializedName("categorie_id")
     val categorieId: String, // <-- référence à la catégorie
     @SerializedName("est_archive")
     val estArchive: Boolean,

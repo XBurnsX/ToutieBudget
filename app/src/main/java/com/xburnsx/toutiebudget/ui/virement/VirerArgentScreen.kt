@@ -7,9 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,12 +89,13 @@ fun VirerArgentScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             // *** NOUVEAU : Champ d'argent pour le montant du virement ***
-            ChampMontantUniversel(
-                montant = uiState.montant.toLongOrNull() ?: 0L,
-                onClick = {
-                    // TODO: Gérer l'ouverture du clavier numérique
+            ChampUniversel(
+                valeur = (uiState.montant.toDoubleOrNull()?.times(100))?.toLong() ?: 0L,
+                onValeurChange = { nouveauMontant ->
+                    viewModel.onMontantChange((nouveauMontant / 100.0).toString())
                 },
                 libelle = "Montant à virer",
+                utiliserClavier = true,
                 isMoney = true,
                 icone = Icons.Default.SwapHoriz,
                 estObligatoire = true,

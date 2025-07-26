@@ -17,7 +17,7 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.ui.categories.ObjectifFormState
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourMois
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourSemaine
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,12 +47,14 @@ fun DefinirObjectifDialog(
                 )
                 
                 // *** NOUVEAU : Champ d'argent pour le montant objectif ***
-                ChampMontantUniversel(
-                    montant = montantEnCentimes.toLong(),
-                    onClick = {
-                        // TODO: Gérer l'ouverture du clavier numérique
+                ChampUniversel(
+                    valeur = montantEnCentimes.toLong(),
+                    onValeurChange = { nouveauMontant ->
+                        val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                        onValueChange(null, nouveauMontantString, null, null)
                     },
                     libelle = "Montant objectif",
+                    utiliserClavier = true,
                     isMoney = true,
                     icone = Icons.Default.Flag,
                     estObligatoire = true,

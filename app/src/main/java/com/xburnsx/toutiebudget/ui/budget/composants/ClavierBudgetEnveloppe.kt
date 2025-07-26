@@ -28,7 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import java.text.NumberFormat
@@ -162,12 +162,13 @@ fun ClavierBudgetEnveloppe(
             Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
             // === VOTRE CHAMP MONTANT PARFAIT (RÉUTILISÉ) ===
-            ChampMontantUniversel(
-                montant = montantCentimes,
-                onClick = {
-                    // TODO: Gérer l'ouverture du clavier numérique
+            ChampUniversel(
+                valeur = montantCentimes,
+                onValeurChange = { nouveauMontant ->
+                    montantCentimes = nouveauMontant
                 },
                 libelle = "Montant à assigner",
+                utiliserClavier = true,
                 isMoney = true,
                 icone = Icons.Default.TrendingUp,
                 estObligatoire = true,

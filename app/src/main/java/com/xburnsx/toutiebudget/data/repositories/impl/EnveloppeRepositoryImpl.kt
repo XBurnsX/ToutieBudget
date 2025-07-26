@@ -147,7 +147,7 @@
                      id = itemObject.get("id")?.asString ?: "",
                      utilisateurId = itemObject.get("utilisateur_id")?.asString ?: "",
                      nom = itemObject.get("nom")?.asString ?: "",
-                     categorieId = itemObject.get("categorieId")?.asString ?: "",
+                     categorieId = itemObject.get("categorie_id")?.asString ?: "",
                      estArchive = itemObject.get("est_archive")?.asBoolean ?: false,
                      ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
                      objectifType = pocketBaseVersTypeObjectif(itemObject.get("objectif_type")?.asString),
@@ -336,7 +336,7 @@
              val donnees = mapOf(
                  "utilisateur_id" to utilisateurId,
                  "nom" to enveloppe.nom,
-                 "categorieId" to enveloppe.categorieId,
+                 "categorie_id" to enveloppe.categorieId,
                  "est_archive" to enveloppe.estArchive,
                  "ordre" to enveloppe.ordre,
                  "objectif_type" to typeObjectifVersPocketBase(enveloppe.objectifType),

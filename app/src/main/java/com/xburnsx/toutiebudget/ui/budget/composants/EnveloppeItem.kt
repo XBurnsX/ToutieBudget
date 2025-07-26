@@ -45,8 +45,12 @@ import java.time.format.DateTimeFormatter
  * Utilise un bloc try-catch pour éviter que l'application ne plante si la chaîne n'est pas une couleur valide,
  * et retourne Color.Gray par défaut en cas d'erreur.
  */
-fun String.toColor(): Color {
+fun String?.toColor(): Color {
     return try {
+        // Vérification de sécurité pour éviter NullPointerException
+        if (this.isNullOrBlank()) {
+            return Color.Gray
+        }
         // Tente de parser la chaîne en une couleur Android native, puis la convertit en couleur Compose.
         Color(android.graphics.Color.parseColor(this))
     } catch (e: Exception) {
@@ -74,7 +78,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
         // CORRECTION: Rouge pour soldes négatifs
         montant < 0 -> Color(0xFFEF4444) // Rouge pour négatif
         // Si le solde est positif et une couleur est définie, on utilise cette couleur.
-        montant > 0 && enveloppe.couleurProvenance != null -> enveloppe.couleurProvenance.toColor()
+        montant > 0 -> enveloppe.couleurProvenance.toColor()
         // Sinon (solde à zéro ou pas de couleur définie), on utilise un gris foncé.
         else -> Color(0xFF444444)
     }

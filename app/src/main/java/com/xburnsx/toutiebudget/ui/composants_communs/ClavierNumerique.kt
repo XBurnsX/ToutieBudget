@@ -1,142 +1,42 @@
 // chemin/simule: /ui/composants_communs/ClavierNumerique.kt
-// Dépendances: Jetpack Compose, Material3, Dialog
+// Dépendances: Jetpack Compose, Material3
 
 package com.xburnsx.toutiebudget.ui.composants_communs
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.outlined.Backspace
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
-import kotlinx.coroutines.launch
 
 /**
- * 🎯 CHAMP DE SAISIE UNIVERSEL POUR MONTANTS
+ * 🎯 CLAVIER NUMÉRIQUE RÉUTILISABLE
  *
- * Affiche un champ cliquable qui délègue l'ouverture du clavier au composant parent.
+ * Clavier numérique personnalisé identique au design Flutter.
+ * Peut gérer les montants d'argent (mode centimes) ou les valeurs normales.
  *
- * @param montant Le montant actuel (en centimes si isMoney=true, valeur normale si isMoney=false)
- * @param onClick Callback appelé lorsque le champ est cliqué.
- * @param libelle Le texte d'étiquette à afficher
- * @param isMoney Si true, traite comme de l'argent (1234 = 12.34$), si false traite comme valeur normale (12 = 12)
- * @param suffix Suffixe à ajouter après la valeur (ex: "%", " mois", etc.) - ignoré si isMoney=true
- * @param icone L'icône à afficher (optionnel)
- * @param estObligatoire Si true, affiche un indicateur visuel d'obligation
- * @param couleurMontant Couleur du texte du montant (optionnel)
- * @param tailleMontant Taille du texte du montant (optionnel)
- * @param modifier Modificateur Compose standard
- */
-@Composable
-fun ChampMontantUniversel(
-    montant: Long,
-    onClick: () -> Unit,
-    libelle: String,
-    isMoney: Boolean = true,
-    suffix: String = "",
-    icone: ImageVector = Icons.Default.AttachMoney,
-    estObligatoire: Boolean = false,
-    couleurMontant: Color? = null,
-    tailleMontant: androidx.compose.ui.unit.TextUnit? = null,
-    modifier: Modifier = Modifier
-) {
-    val montantAffiche = remember(montant, isMoney, suffix) {
-        if (isMoney) {
-            String.format("%.2f \$", montant / 100.0)
-        } else {
-            "$montant$suffix"
-        }
-    }
-
-    Column(modifier = modifier) {
-        // Étiquette avec indicateur d'obligation
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Icon(
-                imageVector = icone,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .size(20.dp)
-                    .padding(end = 8.dp)
-            )
-            Text(
-                text = if (estObligatoire) "$libelle *" else libelle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        // Champ cliquable pour ouvrir le clavier
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = rememberRipple(),
-                    onClick = onClick
-                ),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            shape = RoundedCornerShape(4.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icone,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .padding(end = 8.dp)
-                )
-                Text(
-                    text = montantAffiche,
-                    style = LocalTextStyle.current.copy(
-                        fontSize = tailleMontant ?: 16.sp,
-                        color = couleurMontant ?: MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-/**
- * 🎯 CLAVIER IDENTIQUE AU FLUTTER NumericKeyboard
- * Reproduit EXACTEMENT le comportement, l'apparence et la logique
+ * @param montantInitial La valeur initiale (en centimes si isMoney=true)
+ * @param isMoney Si true, gère les montants d'argent avec décimales
+ * @param suffix Suffixe pour les valeurs non-monétaires (ex: "%", " mois")
+ * @param onMontantChange Callback appelé à chaque changement de valeur
+ * @param onFermer Callback appelé pour fermer le clavier
  */
 @Composable
 fun ClavierNumerique(
@@ -150,10 +50,10 @@ fun ClavierNumerique(
     var texteActuel by remember {
         mutableStateOf(
             if (isMoney) {
-                if (montantInitial == 0L) "0.00 \$"
+                if (montantInitial == 0L) "0.00 $"
                 else {
                     val montantFormate = (montantInitial / 100.0)
-                    String.format("%.2f \$", montantFormate)
+                    String.format("%.2f $", montantFormate)
                 }
             } else {
                 montantInitial.toString()
@@ -169,23 +69,23 @@ fun ClavierNumerique(
         if (isMoney) {
             // === LOGIQUE EXACTE DU FLUTTER MODE ARGENT ===
             var texteActuelTravail = texteActuel
-            if (texteActuelTravail != "0.00 \$") {
-                texteActuelTravail = texteActuelTravail.replace("\$", "").replace(" ", "")
+            if (texteActuelTravail != "0.00 $") {
+                texteActuelTravail = texteActuelTravail.replace("$", "").replace(" ", "")
             }
 
             when {
-                texteActuelTravail == "0.00" || texteActuelTravail == "0.00 \$" || texteActuelTravail.isEmpty() -> {
+                texteActuelTravail == "0.00" || texteActuelTravail == "0.00 $" || texteActuelTravail.isEmpty() -> {
                     texteActuel = if (touche == "-") {
-                        "-0.00 \$"
+                        "-0.00 $"
                     } else {
-                        "0.0$touche \$"
+                        "0.0$touche $"
                     }
                 }
                 touche == "-" -> {
                     texteActuel = if (texteActuelTravail.startsWith("-")) {
-                        "${texteActuelTravail.substring(1)} \$"
+                        "${texteActuelTravail.substring(1)} $"
                     } else {
-                        "-$texteActuelTravail \$"
+                        "-$texteActuelTravail $"
                     }
                 }
                 else -> {
@@ -211,7 +111,7 @@ fun ClavierNumerique(
                     val partieEntiere = nouveauTexte.substring(0, nouveauTexte.length - 2)
                     val partieDecimale = nouveauTexte.substring(nouveauTexte.length - 2)
 
-                    val resultat = "$partieEntiere.$partieDecimale \$"
+                    val resultat = "$partieEntiere.$partieDecimale $"
                     texteActuel = if (estNegatif) "-$resultat" else resultat
                 }
             }
@@ -235,7 +135,7 @@ fun ClavierNumerique(
 
         // Convertir vers Long pour le callback
         val valeurLong = if (isMoney) {
-            val texteNettoye = texteActuel.replace("\$", "").replace(" ", "")
+            val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
             val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
             (valeurDouble * 100).toLong()
         } else {
@@ -250,7 +150,7 @@ fun ClavierNumerique(
      */
     val gererBackspace = {
         if (isMoney) {
-            val texteActuelTravail = texteActuel.replace("\$", "").replace(" ", "")
+            val texteActuelTravail = texteActuel.replace("$", "").replace(" ", "")
 
             val estNegatif = texteActuelTravail.startsWith("-")
             val textePositif = if (estNegatif) {
@@ -262,7 +162,7 @@ fun ClavierNumerique(
             // ✅ CORRECTION : Efface chiffre par chiffre jusqu'à 0, jamais de reset brutal
             if (textePositif.length <= 1) {
                 // Si on arrive au dernier chiffre, on va à 0.00
-                texteActuel = "0.00 \$"
+                texteActuel = "0.00 $"
             } else {
                 // Sinon on enlève le dernier chiffre et on reforme le montant
                 val nouveauTexte = textePositif.substring(0, textePositif.length - 1)
@@ -277,7 +177,7 @@ fun ClavierNumerique(
                 val partieEntiere = texteFormate.substring(0, texteFormate.length - 2)
                 val partieDecimale = texteFormate.substring(texteFormate.length - 2)
 
-                val resultat = "$partieEntiere.$partieDecimale \$"
+                val resultat = "$partieEntiere.$partieDecimale $"
                 texteActuel = if (estNegatif) "-$resultat" else resultat
             }
         } else {
@@ -292,7 +192,7 @@ fun ClavierNumerique(
 
         // Convertir vers Long pour le callback
         val valeurLong = if (isMoney) {
-            val texteNettoye = texteActuel.replace("\$", "").replace(" ", "")
+            val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
             val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
             (valeurDouble * 100).toLong()
         } else {
@@ -342,7 +242,7 @@ fun ClavierNumerique(
                         ),
                         textAlign = TextAlign.Left,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -375,18 +275,12 @@ fun ClavierNumerique(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ClavierToucheFlutter(
-                    texte = "1",
-                    onPressed = { gererToucheNumerique("1") }
-                )
-                ClavierToucheFlutter(
-                    texte = "2",
-                    onPressed = { gererToucheNumerique("2") }
-                )
-                ClavierToucheFlutter(
-                    texte = "3",
-                    onPressed = { gererToucheNumerique("3") }
-                )
+                for (i in 1..3) {
+                    ClavierToucheFlutter(
+                        texte = i.toString(),
+                        onPressed = { gererToucheNumerique(i.toString()) }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -396,18 +290,12 @@ fun ClavierNumerique(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ClavierToucheFlutter(
-                    texte = "4",
-                    onPressed = { gererToucheNumerique("4") }
-                )
-                ClavierToucheFlutter(
-                    texte = "5",
-                    onPressed = { gererToucheNumerique("5") }
-                )
-                ClavierToucheFlutter(
-                    texte = "6",
-                    onPressed = { gererToucheNumerique("6") }
-                )
+                for (i in 4..6) {
+                    ClavierToucheFlutter(
+                        texte = i.toString(),
+                        onPressed = { gererToucheNumerique(i.toString()) }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -417,18 +305,12 @@ fun ClavierNumerique(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ClavierToucheFlutter(
-                    texte = "7",
-                    onPressed = { gererToucheNumerique("7") }
-                )
-                ClavierToucheFlutter(
-                    texte = "8",
-                    onPressed = { gererToucheNumerique("8") }
-                )
-                ClavierToucheFlutter(
-                    texte = "9",
-                    onPressed = { gererToucheNumerique("9") }
-                )
+                for (i in 7..9) {
+                    ClavierToucheFlutter(
+                        texte = i.toString(),
+                        onPressed = { gererToucheNumerique(i.toString()) }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -438,7 +320,7 @@ fun ClavierNumerique(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Bouton moins (si mode argent)
+                // Bouton moins (si mode argent) ou point (si mode normal)
                 if (isMoney) {
                     ClavierToucheFlutter(
                         texte = "-",
@@ -539,48 +421,9 @@ private fun ClavierToucheFlutter(
 
 // --- PREVIEWS ---
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Champ Montant Flutter")
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Clavier Numérique")
 @Composable
-fun ChampMontantUniverselPreview() {
-    ToutieBudgetTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                ChampMontantUniversel(
-                    montant = 123456L, // 1234.56$
-                    onClick = {},
-                    libelle = "Montant de la dépense",
-                    isMoney = true,
-                    estObligatoire = true
-                )
-
-                ChampMontantUniversel(
-                    montant = 12L, // 12 mois
-                    onClick = {},
-                    libelle = "Durée en mois",
-                    isMoney = false,
-                    suffix = " mois",
-                    icone = Icons.Default.AttachMoney
-                )
-
-                ChampMontantUniversel(
-                    montant = 525L, // 525%
-                    onClick = {},
-                    libelle = "Taux d'intérêt",
-                    isMoney = false,
-                    suffix = "%",
-                    icone = Icons.Default.AttachMoney
-                )
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES, name = "Clavier Flutter Identique")
-@Composable
-fun ClavierFlutterIdentiquePreview() {
+fun ClavierNumeriquePreview() {
     ToutieBudgetTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
