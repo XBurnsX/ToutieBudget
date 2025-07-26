@@ -1,7 +1,6 @@
 // chemin/simule: /ui/categories/composants/CategorieCard.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,18 +28,20 @@ fun CategorieCard(
     nomCategorie: String,
     enveloppes: List<Enveloppe>,
     isModeEdition: Boolean = false, // Nouveau paramètre pour le mode édition
+    isDragging: Boolean = false, // Pour savoir si la carte est en cours de déplacement
     isDragMode: Boolean = false,
     onAjouterEnveloppeClick: () -> Unit,
     onObjectifClick: (Enveloppe) -> Unit,
     onSupprimerEnveloppe: (Enveloppe) -> Unit = {},
     onSupprimerCategorie: (String) -> Unit = {},
     onStartDragEnveloppe: (String) -> Unit = {},
-    draggedEnveloppeId: String? = null
+    draggedEnveloppeId: String? = null,
+    modifier: Modifier = Modifier
 ) {
     var showCategorieMenu by remember { mutableStateOf(false) }
     
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
     ) {
@@ -123,71 +124,75 @@ fun CategorieCard(
                     }
                 }
             }
-            if (enveloppes.isEmpty()) {
-                Text(
-                    text = if (isModeEdition)
-                        "Catégorie vide - Aucune enveloppe à archiver"
-                    else
-                        "Aucune enveloppe. Cliquez sur '+' pour en ajouter une.",
-                    color = Color.Gray,
-                    modifier = Modifier.padding(16.dp)
-                )
-            } else {
-                enveloppes.forEach { enveloppe ->
-                    val isDraggedEnveloppe = draggedEnveloppeId == enveloppe.id
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (isDraggedEnveloppe) {
-                                    Modifier
-                                        .zIndex(1f)
-                                        .shadow(4.dp)
-                                } else {
-                                    Modifier
-                                }
-                            )
-                            .then(
-                                if (isModeEdition && !isDragMode) {
-                                    Modifier.pointerInput(enveloppe.id) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = {
-                                                onStartDragEnveloppe(enveloppe.id)
-                                            },
-                                            onDragEnd = {
-                                                // Le drag end est géré par le parent
-                                            },
-                                            onDrag = { _, _ ->
-                                                // Le drag visuel est géré par l'état isDraggedEnveloppe
-                                            }
-                                        )
+            // Si la carte n'est PAS en cours de déplacement, on affiche les enveloppes ou le message vide
+            if (!isDragging) {
+                if (enveloppes.isEmpty()) {
+                    Text(
+                        text = if (isModeEdition)
+                            "Catégorie vide - Aucune enveloppe à archiver"
+                        else
+                            "Aucune enveloppe. Cliquez sur '+' pour en ajouter une.",
+                        color = Color.Gray,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else {
+                    enveloppes.forEach { enveloppe ->
+                        val isDraggedEnveloppe = draggedEnveloppeId == enveloppe.id
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isDraggedEnveloppe) {
+                                        Modifier
+                                            .zIndex(1f)
+                                            .shadow(4.dp)
+                                    } else {
+                                        Modifier
                                     }
+                                )
+                                .then(
+                                    if (isModeEdition && !isDragMode) {
+                                        Modifier.pointerInput(enveloppe.id) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    onStartDragEnveloppe(enveloppe.id)
+                                                },
+                                                onDragEnd = {
+                                                    // Le drag end est géré par le parent
+                                                },
+                                                onDrag = { _, _ ->
+                                                    // Le drag visuel est géré par l'état isDraggedEnveloppe
+                                                }
+                                            )
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            EnveloppeConfigItem(
+                                enveloppe = enveloppe,
+                                isModeEdition = isModeEdition,
+                                isDragMode = isDragMode,
+                                isDragged = isDraggedEnveloppe,
+                                onObjectifClick = if (!isDragMode) {
+                                    { onObjectifClick(enveloppe) }
                                 } else {
-                                    Modifier
+                                    { /* Ne rien faire en mode drag */ }
+                                },
+                                onSupprimerClick = if (!isDragMode) {
+                                    { onSupprimerEnveloppe(enveloppe) }
+                                } else {
+                                    { /* Ne rien faire en mode drag */ }
                                 }
                             )
-                    ) {
-                        EnveloppeConfigItem(
-                            enveloppe = enveloppe,
-                            isModeEdition = isModeEdition,
-                            isDragMode = isDragMode,
-                            isDragged = isDraggedEnveloppe,
-                            onObjectifClick = if (!isDragMode) {
-                                { onObjectifClick(enveloppe) }
-                            } else {
-                                { /* Ne rien faire en mode drag */ }
-                            },
-                            onSupprimerClick = if (!isDragMode) {
-                                { onSupprimerEnveloppe(enveloppe) }
-                            } else {
-                                { /* Ne rien faire en mode drag */ }
-                            }
-                        )
-                    }
+                        }
 
-                    if (!isDraggedEnveloppe) {
-                        Divider(color = Color.DarkGray, thickness = 0.5.dp)
+                        if (!isDraggedEnveloppe) {
+                            HorizontalDivider(color = Color.DarkGray, thickness = 0.5.dp)
+                        }
                     }
                 }
             }

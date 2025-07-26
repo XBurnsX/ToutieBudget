@@ -30,9 +30,6 @@ class CategoriesEnveloppesViewModel(
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
-    // Callback pour notifier les autres ViewModels des changements
-    var onEnveloppeChange: (() -> Unit)? = null
-
     private val _uiState = MutableStateFlow(CategoriesEnveloppesUiState())
     val uiState: StateFlow<CategoriesEnveloppesUiState> = _uiState.asStateFlow()
 
@@ -265,7 +262,7 @@ class CategoriesEnveloppesViewModel(
                 val enveloppesCategorie = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
                 enveloppesCategorie.add(enveloppeVide)
                 nouveauxGroupes[categorieNom] = enveloppesCategorie
-                
+
                 _uiState.update { currentState ->
                     currentState.copy(
                         enveloppesGroupees = nouveauxGroupes,
@@ -510,8 +507,7 @@ class CategoriesEnveloppesViewModel(
                 
                 // Envoyer à PocketBase
                 categorieRepository.supprimerCategorie(categorieObj.id).onSuccess {
-                    // Mettre à jour le cache
-                    categoriesMap = categoriesMap.filterNot { it.key == categorieObj.id }
+
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -524,125 +520,54 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
-    // ===== GESTION DU MODE ÉDITION ET DRAG & DROP =====
+    // ===== GESTION DU DRAG & DROP (NOUVELLE VERSION) =====
+
+    fun onMoveCategorie(fromKey: String, toKey: String) {
+        val fromId = fromKey.removePrefix("categorie_")
+        val toId = toKey.removePrefix("categorie_")
+
+        val list = _uiState.value.enveloppesGroupees.entries.toMutableList()
+        val fromIndex = list.indexOfFirst { (key, _) -> key == fromId }
+        val toIndex = list.indexOfFirst { (key, _) -> key == toId }
+
+        if (fromIndex != -1 && toIndex != -1) {
+            val movedItem = list.removeAt(fromIndex)
+            list.add(toIndex, movedItem)
+
+            // Mettre à jour l'état avec le nouvel ordre
+            _uiState.update {
+                it.copy(enveloppesGroupees = list.associate { entry -> entry.toPair() })
+            }
+        }
+    }
+
+    // ===== GESTION DU MODE ÉDITION =====
 
     fun onActiverModeEdition() {
         _uiState.update { it.copy(isModeEdition = true) }
     }
 
     fun onAnnulerModeEdition() {
-        _uiState.update {
-            it.copy(
-                isModeEdition = false,
-                isDragMode = false,
-                draggedItemId = null,
-                draggedItemType = null
-            )
-        }
-        // Recharger les données pour annuler les changements temporaires
-        chargerDonnees()
+        chargerDonnees() // Recharger pour annuler les changements
+        _uiState.update { it.copy(isModeEdition = false) }
     }
 
     fun onSauvegarderOrdreCategories() {
-        // TODO: Implémenter la sauvegarde de l'ordre des catégories
-        _uiState.update {
-            it.copy(
-                isModeEdition = false,
-                isDragMode = false,
-                draggedItemId = null,
-                draggedItemType = null
-            )
-        }
-    }
-
-    /**
-     * Démarre le mode drag pour un élément avec long tap
-     */
-    fun onStartDrag(itemId: String, itemType: DragItemType) {
-        _uiState.update {
-            it.copy(
-                isDragMode = true,
-                draggedItemId = itemId,
-                draggedItemType = itemType
-            )
-        }
-    }
-
-    /**
-     * Arrête le mode drag
-     */
-    fun onEndDrag() {
-        _uiState.update {
-            it.copy(
-                isDragMode = false,
-                draggedItemId = null,
-                draggedItemType = null
-            )
-        }
-    }
-
-    /**
-     * Déplace une catégorie vers une nouvelle position
-     */
-    fun onMoveCategorie(fromIndex: Int, toIndex: Int) {
-        val currentGroupes = _uiState.value.enveloppesGroupees
-        val categoriesList = currentGroupes.keys.toList()
-
-        if (fromIndex >= 0 && fromIndex < categoriesList.size &&
-            toIndex >= 0 && toIndex < categoriesList.size &&
-            fromIndex != toIndex) {
-
-            val mutableList = categoriesList.toMutableList()
-            val item = mutableList.removeAt(fromIndex)
-            mutableList.add(toIndex, item)
-
-            // Réorganiser les groupes selon le nouvel ordre
-            val nouveauxGroupes = linkedMapOf<String, List<Enveloppe>>()
-            mutableList.forEach { nomCategorie ->
-                nouveauxGroupes[nomCategorie] = currentGroupes[nomCategorie] ?: emptyList()
-            }
-
-            _uiState.update {
-                it.copy(enveloppesGroupees = nouveauxGroupes)
-            }
-        }
-    }
-
-    /**
-     * Déplace une enveloppe d'une catégorie à une autre
-     */
-    fun onMoveEnveloppe(enveloppeId: String, fromCategorie: String, toCategorie: String, toIndex: Int) {
-        val currentGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-
-        // Trouver l'enveloppe à déplacer
-        val fromEnveloppes = currentGroupes[fromCategorie]?.toMutableList() ?: return
-        val enveloppe = fromEnveloppes.find { it.id == enveloppeId } ?: return
-
-        // Retirer l'enveloppe de la catégorie source
-        fromEnveloppes.remove(enveloppe)
-        currentGroupes[fromCategorie] = fromEnveloppes
-
-        // Ajouter l'enveloppe à la catégorie destination
-        val toEnveloppes = currentGroupes[toCategorie]?.toMutableList() ?: mutableListOf()
-        val safeIndex = minOf(toIndex, toEnveloppes.size)
-        toEnveloppes.add(safeIndex, enveloppe)
-        currentGroupes[toCategorie] = toEnveloppes
-
-        _uiState.update {
-            it.copy(enveloppesGroupees = currentGroupes)
-        }
-
-        // Mettre à jour la catégorie de l'enveloppe dans la base de données
         viewModelScope.launch {
+            val nouvellesCategoriesOrdonnees = _uiState.value.enveloppesGroupees.keys.mapIndexed { index, nomCategorie ->
+                val categorie = categoriesMap.values.find { it.nom == nomCategorie }
+                categorie?.copy(ordre = index)
+            }.filterNotNull()
+
+            // Sauvegarder chaque catégorie individuellement
             try {
-                val nouvelleCategorie = categoriesMap.values.find { it.nom == toCategorie }
-                if (nouvelleCategorie != null) {
-                    val enveloppeModifiee = enveloppe.copy(categorieId = nouvelleCategorie.id)
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee)
+                nouvellesCategoriesOrdonnees.forEach { categorie ->
+                    categorieRepository.mettreAJourCategorie(categorie)
                 }
+                _uiState.update { it.copy(isModeEdition = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur lors du déplacement: ${e.message}") }
-                chargerDonnees() // Recharger en cas d'erreur
+                _uiState.update { it.copy(erreur = "Erreur sauvegarde ordre: ${e.message}") }
+                chargerDonnees() // Recharger pour annuler
             }
         }
     }
@@ -653,15 +578,8 @@ class CategoriesEnveloppesViewModel(
         _uiState.update { it.copy(erreur = null) }
     }
 
-    /**
-     * Organise les groupes triés par ordre alphabétique.
-     */
     private fun organiserGroupes(groupes: Map<String, List<Enveloppe>>): Map<String, List<Enveloppe>> {
-        return groupes.entries
-            .sortedWith(compareBy(
-                { it.key == "Sans catégorie" },
-                { it.key }
-            ))
-            .associate { it.toPair() }
+        val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }.map { it.nom }
+        return groupes.toSortedMap(compareBy { categoriesOrdonnees.indexOf(it) })
     }
 }

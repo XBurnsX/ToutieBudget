@@ -21,9 +21,11 @@ dependencyResolutionManagement {
         mavenCentral()
         maven {
             url = uri("https://jitpack.io")
-            credentials {
-                username = gradleProperties.getProperty("jitpack.username")
-                password = gradleProperties.getProperty("jitpack.token")
+            if (gradleProperties.containsKey("jitpack.username")) {
+                credentials {
+                    username = gradleProperties.getProperty("jitpack.username")
+                    password = gradleProperties.getProperty("jitpack.token")
+                }
             }
         }
     }

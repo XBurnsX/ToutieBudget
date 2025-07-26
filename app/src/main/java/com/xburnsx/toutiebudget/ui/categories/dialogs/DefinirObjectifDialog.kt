@@ -125,10 +125,24 @@ fun DefinirObjectifDialog(
                         )
                     }
                     TypeObjectif.Bihebdomadaire -> {
-                        SelecteurJourSemaine(
-                            jourSelectionne = formState.jour,
-                            onJourSelected = { onValueChange(null, null, null, it) }
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SelecteurJourSemaine(
+                                jourSelectionne = formState.jour,
+                                onJourSelected = { onValueChange(null, null, null, it) }
+                            )
+                            Text(
+                                text = "Date de début : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(
+                                onClick = { /* TODO: Ouvrir DatePicker pour la date de début */ },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CalendarToday, "Choisir date de début")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Choisir une date de début")
+                            }
+                        }
                     }
                     TypeObjectif.Echeance -> {
                         // Sélecteur de date (à implémenter si nécessaire)

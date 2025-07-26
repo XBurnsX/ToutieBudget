@@ -22,11 +22,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -42,6 +44,12 @@ import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.ConfirmationSuppressionDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.rememberLazyListState
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorderAfterLongPress
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
 
 /**
  * Écran principal pour la gestion des catégories et enveloppes.
@@ -60,6 +68,19 @@ fun CategoriesEnveloppesScreen(
     var montantClavierInitial by remember { mutableStateOf(0L) }
     var nomDialogClavier by remember { mutableStateOf("") }
     var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
+
+    // 🐲 NOUVEAUX ÉTATS POUR LE DRAG & DROP
+    val reorderableState = rememberReorderableLazyListState(
+        onMove = { from, to ->
+            viewModel.onMoveCategorie(from.key as String, to.key as String)
+        },
+        canDragOver = { draggedOver, _ ->
+            // Autoriser le drop sur d'autres catégories uniquement
+            (draggedOver.key as? String)?.startsWith("categorie_") == true
+        }
+    )
+    val lazyListState = reorderableState.listState
+    val scope = rememberCoroutineScope()
 
     // ===== DIALOGUES =====
     
@@ -214,7 +235,10 @@ fun CategoriesEnveloppesScreen(
                 .padding(paddingValues)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (uiState.isModeEdition) Modifier.reorderable(reorderableState) else Modifier),
+                state = lazyListState, // 🐲 ASSIGNER L'ÉTAT
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -297,80 +321,43 @@ fun CategoriesEnveloppesScreen(
                 itemsIndexed(
                     items = uiState.enveloppesGroupees.entries.toList(),
                     key = { _, (categorie, _) -> "categorie_$categorie" }
-                ) { index, (nomCategorie, enveloppes) ->
-                    val hapticFeedback = LocalHapticFeedback.current
-                    val isDragged = uiState.isDragMode &&
-                                  uiState.draggedItemId == nomCategorie &&
-                                  uiState.draggedItemType == DragItemType.CATEGORIE
+                ) { _, (nomCategorie, enveloppes) ->
+                    ReorderableItem(reorderableState, key = "categorie_$nomCategorie") { isDragging ->
+                        val elevation = if (isDragging) 8.dp else 0.dp
+                        val hapticFeedback = LocalHapticFeedback.current
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (isDragged) {
-                                    Modifier
-                                        .zIndex(1f)
-                                        .shadow(8.dp)
-                                } else {
-                                    Modifier
-                                }
-                            )
-                            .then(
-                                if (uiState.isModeEdition) {
-                                    Modifier.pointerInput(nomCategorie) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = {
-                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                viewModel.onStartDrag(nomCategorie, DragItemType.CATEGORIE)
-                                            },
-                                            onDragEnd = {
-                                                viewModel.onEndDrag()
-                                            },
-                                            onDrag = { _, _ ->
-                                                // Le drag visuel est géré par l'état isDragged
-                                            }
-                                        )
-                                    }
-                                } else {
-                                    Modifier
-                                }
-                            )
-                    ) {
                         CategorieCard(
                             nomCategorie = nomCategorie,
                             enveloppes = enveloppes,
                             isModeEdition = uiState.isModeEdition,
-                            isDragMode = uiState.isDragMode,
+                            isDragging = isDragging, // <-- Ajout de l'état de glissement
+                            modifier = Modifier
+                                .shadow(elevation)
+                                .detectReorderAfterLongPress(reorderableState),
                             onAjouterEnveloppeClick = {
-                                if (!uiState.isDragMode) {
+                                if (!isDragging) {
                                     viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
                                 }
                             },
                             onObjectifClick = { enveloppe ->
-                                if (!uiState.isDragMode) {
+                                if (!isDragging) {
                                     viewModel.onOuvrirObjectifDialog(enveloppe)
                                 }
                             },
                             onSupprimerEnveloppe = { enveloppe ->
-                                if (!uiState.isDragMode) {
+                                if (!isDragging) {
                                     viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
                                 }
                             },
                             onSupprimerCategorie = { nomCat ->
-                                if (!uiState.isDragMode) {
+                                if (!isDragging) {
                                     viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
                                 }
-                            },
-                            onStartDragEnveloppe = { enveloppeId ->
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.onStartDrag(enveloppeId, DragItemType.ENVELOPPE)
-                            },
-                            draggedEnveloppeId = if (uiState.draggedItemType == DragItemType.ENVELOPPE)
-                                                    uiState.draggedItemId else null
+                            }
                         )
                     }
                 }
-                
+
                 // Espacement en bas pour éviter que le contenu soit coupé
                 item(key = "bottom_spacer") {
                     Spacer(modifier = Modifier.height(32.dp))
