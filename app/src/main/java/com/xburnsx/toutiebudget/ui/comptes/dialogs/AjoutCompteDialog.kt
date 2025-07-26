@@ -95,10 +95,17 @@ fun AjoutCompteDialog(
                         onValueChange(null, null, nouveauSolde, null)
                     },
                     libelle = "Solde initial",
-                    utiliserClavier = true,
+                    utiliserClavier = false, // Désactiver le clavier intégré
                     isMoney = true,
                     icone = Icons.Default.AccountBalance,
                     estObligatoire = false,
+                    onClicPersonnalise = {
+                        // Utiliser le système de clavier global
+                        onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
+                            val nouveauSolde = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, null, nouveauSolde, null)
+                        }
+                    },
                     modifier = Modifier
                 )
                 

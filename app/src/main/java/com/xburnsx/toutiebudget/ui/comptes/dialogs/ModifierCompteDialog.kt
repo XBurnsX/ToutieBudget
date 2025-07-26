@@ -10,9 +10,6 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
@@ -55,10 +52,17 @@ fun ModifierCompteDialog(
                         onValueChange(null, null, nouveauSolde, null)
                     },
                     libelle = "Solde actuel",
-                    utiliserClavier = true,
+                    utiliserClavier = false, // Désactiver le clavier intégré
                     isMoney = true,
                     icone = Icons.Default.AccountBalance,
                     estObligatoire = false,
+                    onClicPersonnalise = {
+                        // Utiliser le système de clavier global
+                        onOpenKeyboard(soldeEnCentimes.toLong()) { nouveauMontant ->
+                            val nouveauSolde = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, null, nouveauSolde, null)
+                        }
+                    },
                     modifier = Modifier
                 )
                 

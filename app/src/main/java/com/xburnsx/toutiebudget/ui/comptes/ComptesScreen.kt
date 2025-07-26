@@ -8,9 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,11 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
-import com.xburnsx.toutiebudget.data.modeles.Compte
+import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.AjoutCompteDialog
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
@@ -134,19 +129,32 @@ fun ComptesScreen(
         )
     }
 
-    // Clavier numérique par-dessus tout (z-index élevé)
+    // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal
     if (showKeyboard) {
-        ClavierNumerique(
-            montantInitial = montantClavierInitial,
-            isMoney = true,
-            suffix = "",
-            onMontantChange = { nouveauMontant ->
-                onMontantChangeCallback?.invoke(nouveauMontant)
-            },
-            onFermer = {
+        Dialog(
+            onDismissRequest = {
                 showKeyboard = false
                 onMontantChangeCallback = null
             }
-        )
+        ) {
+            // Le Dialog garantit que le clavier sera au-dessus de tout
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                ClavierNumerique(
+                    montantInitial = montantClavierInitial,
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = { nouveauMontant ->
+                        onMontantChangeCallback?.invoke(nouveauMontant)
+                    },
+                    onFermer = {
+                        showKeyboard = false
+                        onMontantChangeCallback = null
+                    }
+                )
+            }
+        }
     }
 }
