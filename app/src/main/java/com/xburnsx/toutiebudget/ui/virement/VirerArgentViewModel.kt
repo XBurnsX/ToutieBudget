@@ -14,6 +14,7 @@ import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
+import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,29 +80,47 @@ class VirerArgentViewModel(
                 // Créer les enveloppes UI avec le même système que AjoutTransactionViewModel
                 val enveloppesUi = construireEnveloppesUi()
 
-                // Créer un map pour accéder rapidement aux catégories par ID
-                val categoriesMap = allCategories.associateBy { it.id }
-                
-                // Grouper les sources (comptes + enveloppes avec argent)
-                val sourcesEnveloppes = enveloppesUi
-                    .filter { it.solde > 0 }  // Seulement les enveloppes avec de l'argent
-                    .map { ItemVirement.EnveloppeItem(it) }
-                    .groupBy { enveloppeItem ->
-                        val categorie = categoriesMap[allEnveloppes.find { it.id == enveloppeItem.enveloppe.id }?.categorieId]
-                        categorie?.nom ?: "Autre"
+                // Utiliser OrganisationEnveloppesUtils pour maintenir l'ordre correct des catégories
+                val enveloppesOrganisees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
+
+                // Grouper les sources (comptes + enveloppes avec argent) dans le bon ordre
+                val sourcesEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
+                enveloppesOrganisees.forEach { (nomCategorie, enveloppesCategorie) ->
+                    val enveloppesAvecArgent = enveloppesCategorie
+                        .mapNotNull { enveloppe ->
+                            enveloppesUi.find { it.id == enveloppe.id }
+                        }
+                        .filter { it.solde > 0 }  // Seulement les enveloppes avec de l'argent
+                        .map { ItemVirement.EnveloppeItem(it) }
+
+                    if (enveloppesAvecArgent.isNotEmpty()) {
+                        sourcesEnveloppes[nomCategorie] = enveloppesAvecArgent
                     }
-                
-                val sources = mapOf("Prêt à placer" to itemsComptes) + sourcesEnveloppes
-                
-                // Grouper les destinations (comptes + toutes les enveloppes)
-                val destinationsEnveloppes = enveloppesUi
-                    .map { ItemVirement.EnveloppeItem(it) }
-                    .groupBy { enveloppeItem ->
-                        val categorie = categoriesMap[allEnveloppes.find { it.id == enveloppeItem.enveloppe.id }?.categorieId]
-                        categorie?.nom ?: "Autre"
+                }
+
+                val sources = LinkedHashMap<String, List<ItemVirement>>().apply {
+                    put("Prêt à placer", itemsComptes)
+                    putAll(sourcesEnveloppes)
+                }
+
+                // Grouper les destinations (comptes + toutes les enveloppes) dans le bon ordre
+                val destinationsEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
+                enveloppesOrganisees.forEach { (nomCategorie, enveloppesCategorie) ->
+                    val enveloppesCategorie = enveloppesCategorie
+                        .mapNotNull { enveloppe ->
+                            enveloppesUi.find { it.id == enveloppe.id }
+                        }
+                        .map { ItemVirement.EnveloppeItem(it) }
+
+                    if (enveloppesCategorie.isNotEmpty()) {
+                        destinationsEnveloppes[nomCategorie] = enveloppesCategorie
                     }
-                
-                val destinations = mapOf("Prêt à placer" to itemsComptes) + destinationsEnveloppes
+                }
+
+                val destinations = LinkedHashMap<String, List<ItemVirement>>().apply {
+                    put("Prêt à placer", itemsComptes)
+                    putAll(destinationsEnveloppes)
+                }
 
                 _uiState.update {
                     it.copy(
