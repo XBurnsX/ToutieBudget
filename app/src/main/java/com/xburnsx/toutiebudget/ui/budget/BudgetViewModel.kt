@@ -5,6 +5,8 @@ package com.xburnsx.toutiebudget.ui.budget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
@@ -274,7 +276,8 @@ class BudgetViewModel(
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
                 dateObjectif = dateObjectifFormatee, // Ajouter la date d'objectif formatée
-                versementRecommande = versementRecommande
+                versementRecommande = versementRecommande,
+                typeObjectif = enveloppe.objectifType // Ajouter le type d'objectif
             )
         }
     }

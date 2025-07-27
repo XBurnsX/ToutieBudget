@@ -188,11 +188,42 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Texte de l'objectif avec la date
-                        val texteObjectif = if (enveloppe.dateObjectif != null) {
-                            "${formatteurMonetaire.format(objectif)} pour le ${enveloppe.dateObjectif}"
-                        } else {
-                            "Objectif: ${formatteurMonetaire.format(objectif)}"
+                        // Texte de l'objectif adapté selon le type
+                        val texteObjectif = when (enveloppe.typeObjectif) {
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
+                                if (enveloppe.versementRecommande > 0) {
+                                    "${formatteurMonetaire.format(enveloppe.versementRecommande)} nécessaire ce mois (objectif annuel: ${formatteurMonetaire.format(objectif)})"
+                                } else {
+                                    "Objectif annuel atteint: ${formatteurMonetaire.format(objectif)}"
+                                }
+                            }
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                                if (enveloppe.solde >= objectif) {
+                                    "Objectif mensuel atteint: ${formatteurMonetaire.format(objectif)}"
+                                } else {
+                                    val restant = objectif - enveloppe.solde
+                                    "Objectif mensuel: ${formatteurMonetaire.format(objectif)} (reste ${formatteurMonetaire.format(restant)})"
+                                }
+                            }
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
+                                if (enveloppe.versementRecommande > 0 && enveloppe.dateObjectif != null) {
+                                    "${formatteurMonetaire.format(enveloppe.versementRecommande)} nécessaire ce mois pour le ${enveloppe.dateObjectif} (objectif: ${formatteurMonetaire.format(objectif)})"
+                                } else if (enveloppe.dateObjectif != null) {
+                                    "Objectif atteint pour le ${enveloppe.dateObjectif}: ${formatteurMonetaire.format(objectif)}"
+                                } else {
+                                    "Objectif échéance: ${formatteurMonetaire.format(objectif)}"
+                                }
+                            }
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
+                                if (enveloppe.versementRecommande > 0) {
+                                    "Bihebdomadaire: ${formatteurMonetaire.format(enveloppe.versementRecommande)} suggéré ce mois (objectif: ${formatteurMonetaire.format(objectif)})"
+                                } else {
+                                    "Objectif bihebdomadaire atteint: ${formatteurMonetaire.format(objectif)}"
+                                }
+                            }
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun -> {
+                                "Objectif: ${formatteurMonetaire.format(objectif)}"
+                            }
                         }
 
                         Text(
@@ -309,85 +340,96 @@ fun ApercuEnveloppeItem() {
         Column(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
-            // --- EXEMPLES ---
-            // Chaque appel à EnveloppeItem teste un scénario différent.
+            // --- EXEMPLES DES DIFFÉRENTS TYPES D'OBJECTIFS ---
 
-            // 1. Objectif atteint mais pas encore dépensé. Devrait avoir une barre de statut verte.
+            // 1. OBJECTIF ANNUEL - En cours
             EnveloppeItem(
                 enveloppe = EnveloppeUi(
                     id = "1",
-                    nom = "🏠 Objectif Atteint (Vert)",
-                    solde = 750.0,
+                    nom = "🏠 Objectif Annuel",
+                    solde = 250.0,
                     depense = 0.0,
-                    objectif = 750.0,
-                    couleurProvenance = "#E91E63", // rose
-                    statutObjectif = StatutObjectif.VERT,
-                    versementRecommande = 0.0
-                )
-            )
-            // 2. Objectif en cours. Devrait avoir une barre de statut jaune.
-            EnveloppeItem(
-                enveloppe = EnveloppeUi(
-                    id = "3",
-                    nom = "🚗 Objectif en cours (Jaune)",
-                    solde = 85.50,
-                    depense = 10.0,
-                    objectif = 200.0,
-                    couleurProvenance = "#2196F3", // bleu
-                    statutObjectif = StatutObjectif.JAUNE,
-                    versementRecommande = 57.25
-                )
-            )
-            // 3. Objectif atteint et entièrement dépensé. La barre de progression utilise la couleur du compte.
-            EnveloppeItem(
-                enveloppe = EnveloppeUi(
-                    id = "4",
-                    nom = "💳 Dépensé (Couleur Compte)",
-                    solde = 0.0,
-                    depense = 50.0,
-                    objectif = 50.0,
+                    objectif = 1200.0,
                     couleurProvenance = "#E91E63", // rose
                     statutObjectif = StatutObjectif.JAUNE,
-                    versementRecommande = 0.0
+                    versementRecommande = 95.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel
                 )
             )
-            // 4. Enveloppe sans objectif mais avec de l'argent. Barre de statut jaune.
-            EnveloppeItem(
-                enveloppe = EnveloppeUi(
-                    id = "5",
-                    nom = "🎁 Sans objectif / Argent (Jaune)",
-                    solde = 120.0,
-                    depense = 0.0,
-                    objectif = 0.0,
-                    couleurProvenance = "#FF9800", // orange
-                    statutObjectif = StatutObjectif.VERT,
-                    versementRecommande = 0.0
-                )
-            )
-            // 5. Enveloppe vide et sans objectif. Barre de statut grise.
+
+            // 2. OBJECTIF MENSUEL - En cours
             EnveloppeItem(
                 enveloppe = EnveloppeUi(
                     id = "2",
-                    nom = "🏡 Sans objectif / Rien (Gris)",
-                    solde = 0.0,
-                    depense = 34.23,
-                    objectif = 0.0,
-                    couleurProvenance = null,
-                    statutObjectif = StatutObjectif.GRIS,
-                    versementRecommande = 0.0
+                    nom = "🍔 Objectif Mensuel",
+                    solde = 300.0,
+                    depense = 50.0,
+                    objectif = 500.0,
+                    couleurProvenance = "#2196F3", // bleu
+                    statutObjectif = StatutObjectif.JAUNE,
+                    versementRecommande = 0.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
                 )
             )
-            // 6. Enveloppe avec objectif mais sans argent. Barre de statut grise.
+
+            // 3. OBJECTIF ÉCHÉANCE - En cours
+            EnveloppeItem(
+                enveloppe = EnveloppeUi(
+                    id = "3",
+                    nom = "🚗 Objectif Échéance",
+                    solde = 800.0,
+                    depense = 0.0,
+                    objectif = 2000.0,
+                    couleurProvenance = "#FF9800", // orange
+                    statutObjectif = StatutObjectif.JAUNE,
+                    versementRecommande = 120.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance,
+                    dateObjectif = "15"
+                )
+            )
+
+            // 4. OBJECTIF BIHEBDOMADAIRE - En cours
+            EnveloppeItem(
+                enveloppe = EnveloppeUi(
+                    id = "4",
+                    nom = "💼 Objectif Bihebdomadaire",
+                    solde = 150.0,
+                    depense = 25.0,
+                    objectif = 300.0,
+                    couleurProvenance = "#4CAF50", // vert
+                    statutObjectif = StatutObjectif.JAUNE,
+                    versementRecommande = 75.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire
+                )
+            )
+
+            // 5. OBJECTIF ANNUEL - Atteint
+            EnveloppeItem(
+                enveloppe = EnveloppeUi(
+                    id = "5",
+                    nom = "🎯 Annuel Atteint ✓",
+                    solde = 1200.0,
+                    depense = 0.0,
+                    objectif = 1200.0,
+                    couleurProvenance = "#9C27B0", // violet
+                    statutObjectif = StatutObjectif.VERT,
+                    versementRecommande = 0.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel
+                )
+            )
+
+            // 6. OBJECTIF MENSUEL - Atteint
             EnveloppeItem(
                 enveloppe = EnveloppeUi(
                     id = "6",
-                    nom = "🏡 objectif / Rien (Gris)",
-                    solde = -10.0,
-                    depense = 0.0,
-                    objectif = 50.0,
-                    couleurProvenance = null,
-                    statutObjectif = StatutObjectif.GRIS,
-                    versementRecommande = 25.0
+                    nom = "💳 Mensuel Atteint ✓",
+                    solde = 500.0,
+                    depense = 100.0,
+                    objectif = 500.0,
+                    couleurProvenance = "#607D8B", // bleu-gris
+                    statutObjectif = StatutObjectif.VERT,
+                    versementRecommande = 0.0,
+                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
                 )
             )
         }

@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.categories.dialogs
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
@@ -19,6 +21,7 @@ import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourMois
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourSemaine
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -125,6 +128,8 @@ fun DefinirObjectifDialog(
                         )
                     }
                     TypeObjectif.Bihebdomadaire -> {
+                        val context = LocalContext.current
+
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             SelecteurJourSemaine(
                                 jourSelectionne = formState.jour,
@@ -135,7 +140,23 @@ fun DefinirObjectifDialog(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Button(
-                                onClick = { /* TODO: Ouvrir DatePicker pour la date de début */ },
+                                onClick = {
+                                    val calendar = Calendar.getInstance()
+                                    formState.date?.let { calendar.time = it }
+
+                                    val datePickerDialog = DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val selectedCalendar = Calendar.getInstance()
+                                            selectedCalendar.set(year, month, dayOfMonth)
+                                            onValueChange(null, null, selectedCalendar.time, null)
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    )
+                                    datePickerDialog.show()
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.CalendarToday, "Choisir date de début")
@@ -145,18 +166,39 @@ fun DefinirObjectifDialog(
                         }
                     }
                     TypeObjectif.Echeance -> {
-                        // Sélecteur de date (à implémenter si nécessaire)
-                        Text(
-                            text = "Date d'échéance : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Button(
-                            onClick = { /* TODO: Ouvrir DatePicker */ },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.CalendarToday, "Choisir date")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Choisir une date")
+                        val context = LocalContext.current
+
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "Date d'échéance : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(
+                                onClick = {
+                                    val calendar = Calendar.getInstance()
+                                    formState.date?.let { calendar.time = it }
+
+                                    val datePickerDialog = DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val selectedCalendar = Calendar.getInstance()
+                                            selectedCalendar.set(year, month, dayOfMonth)
+                                            onValueChange(null, null, selectedCalendar.time, null)
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    )
+                                    // Empêcher la sélection de dates passées pour une échéance
+                                    datePickerDialog.datePicker.minDate = System.currentTimeMillis()
+                                    datePickerDialog.show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CalendarToday, "Choisir date d'échéance")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Choisir une date d'échéance")
+                            }
                         }
                     }
                     TypeObjectif.Annuel -> {

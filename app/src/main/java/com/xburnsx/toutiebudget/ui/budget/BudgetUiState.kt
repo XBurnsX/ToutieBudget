@@ -2,6 +2,7 @@
 package com.xburnsx.toutiebudget.ui.budget
 
 import com.xburnsx.toutiebudget.data.modeles.Compte
+import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 
 enum class StatutObjectif { GRIS, JAUNE, VERT }
 
@@ -14,7 +15,8 @@ data class EnveloppeUi(
     val couleurProvenance: String?,
     val statutObjectif: StatutObjectif,
     val dateObjectif: String? = null, // Date choisie lors de la création de l'objectif
-    val versementRecommande: Double = 0.0
+    val versementRecommande: Double = 0.0,
+    val typeObjectif: TypeObjectif = TypeObjectif.Aucun // Ajouter le type d'objectif
 )
 
 data class PretAPlacerUi(
