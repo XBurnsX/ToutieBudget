@@ -202,10 +202,44 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
+                                // Calculer la date de fin de l'objectif annuel (dateObjectif + 12 mois)
+                                val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
+                                    try {
+                                        val dateDebut = when {
+                                            dateString.contains("T") -> {
+                                                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                isoFormat.parse(dateString)
+                                            }
+                                            dateString.contains(" ") -> {
+                                                val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                spaceFormat.parse(dateString)
+                                            }
+                                            dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                                                val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                                simpleFormat.parse(dateString)
+                                            }
+                                            else -> null
+                                        }
+
+                                        if (dateDebut != null) {
+                                            val calendar = java.util.Calendar.getInstance()
+                                            calendar.time = dateDebut
+                                            calendar.add(java.util.Calendar.MONTH, 12) // + 12 mois
+                                            // Formater la date de fin
+                                            val dateFormatee = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+                                            dateFormatee.toDateFormatee()
+                                        } else null
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
+
+                                val dateTexte = dateFinAnnuel?.toStringCourt() ?: "fin d'année"
+
                                 if (enveloppe.solde >= objectif) {
                                     "Objectif annuel atteint: ${formatteurMonetaire.format(objectif)}"
                                 } else {
-                                    "Objectif annuel: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif annuel: ${formatteurMonetaire.format(objectif)} jusqu'au $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {

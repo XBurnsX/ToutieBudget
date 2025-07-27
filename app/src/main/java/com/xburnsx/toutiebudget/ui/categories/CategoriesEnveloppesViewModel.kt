@@ -424,8 +424,12 @@ class CategoriesEnveloppesViewModel(
                             null
                         }
                     }
-                    TypeObjectif.Annuel, TypeObjectif.Echeance -> {
-                        // Pour les autres types, utiliser la date définie ou aujourd'hui
+                    TypeObjectif.Annuel -> {
+                        // Pour les objectifs annuels, utiliser la date sélectionnée dans le date picker
+                        formState.date ?: Date()
+                    }
+                    TypeObjectif.Echeance -> {
+                        // Pour les échéances, utiliser la date définie ou aujourd'hui
                         formState.dateDebut ?: Date()
                     }
                     else -> null
@@ -452,8 +456,14 @@ class CategoriesEnveloppesViewModel(
                         formState.date?.toString()
                     }
                     TypeObjectif.Annuel -> {
-                        // Pour les objectifs annuels, utiliser la date de début
-                        dateDebutCalculee?.toString()
+                        // Pour les objectifs annuels, calculer date de fin = date début + 12 mois
+                        dateDebutCalculee?.let { dateDebut ->
+                            val calendar = Calendar.getInstance()
+                            calendar.time = dateDebut
+                            calendar.add(Calendar.MONTH, 12) // Ajouter 12 mois
+                            println("[DEBUG] Date d'objectif pour annuel: date début = $dateDebut, date fin = ${calendar.time}")
+                            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+                        }
                     }
                     else -> null
                 }

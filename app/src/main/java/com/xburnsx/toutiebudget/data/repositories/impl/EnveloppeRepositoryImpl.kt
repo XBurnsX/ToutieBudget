@@ -440,7 +440,16 @@
                  },
                  "objectif_jour" to enveloppe.objectifJour
              )
- 
+
+             // 🔥 DEBUG: Afficher les données qui vont être envoyées à PocketBase
+             println("[DEBUG POCKETBASE] === MISE À JOUR ENVELOPPE ===")
+             println("[DEBUG POCKETBASE] ID: ${enveloppe.id}")
+             println("[DEBUG POCKETBASE] date_objectif: ${enveloppe.dateObjectif}")
+             println("[DEBUG POCKETBASE] date_debut_objectif brut: ${enveloppe.dateDebutObjectif}")
+             println("[DEBUG POCKETBASE] date_debut_objectif formaté: ${if (enveloppe.dateDebutObjectif != null) formateurDate.format(enveloppe.dateDebutObjectif) else null}")
+             println("[DEBUG POCKETBASE] Données complètes: $donnees")
+             println("[DEBUG POCKETBASE] ==========================================")
+
              val json = gson.toJson(donnees)
              val body = json.toRequestBody("application/json".toMediaType())
              

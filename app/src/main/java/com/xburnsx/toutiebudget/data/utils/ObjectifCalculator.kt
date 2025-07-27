@@ -20,7 +20,32 @@ class ObjectifCalculator {
         if (objectif <= 0 || soldeActuel >= objectif) return 0.0
 
         return when (enveloppe.typeObjectif) {
-            TypeObjectif.Echeance -> calculerVersementEcheance(soldeActuel, objectif, enveloppe.dateDebutObjectif)
+            TypeObjectif.Echeance -> {
+                // Pour les échéances, utiliser dateObjectif qui contient la date d'échéance
+                val dateEcheance = enveloppe.dateObjectif?.let { dateString ->
+                    try {
+                        // Parser la date d'échéance depuis le string
+                        when {
+                            dateString.contains("T") -> {
+                                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                isoFormat.parse(dateString)
+                            }
+                            dateString.contains(" ") -> {
+                                val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                spaceFormat.parse(dateString)
+                            }
+                            dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                                val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                simpleFormat.parse(dateString)
+                            }
+                            else -> null
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                calculerVersementEcheance(soldeActuel, objectif, dateEcheance)
+            }
             TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif)
             TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
             TypeObjectif.Bihebdomadaire -> calculerVersementBihebdomadaire(soldeActuel, objectif, enveloppe.dateDebutObjectif)
