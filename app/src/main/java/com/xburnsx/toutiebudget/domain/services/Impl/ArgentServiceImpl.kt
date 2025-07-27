@@ -468,28 +468,79 @@ class ArgentServiceImpl @Inject constructor(
         nomCompteSource: String,
         nomCompteDest: String
     ): Result<Unit> = runCatching {
+        println("🔍 [DEBUG] effectuerVirementEntreComptes - DÉBUT")
+        println("🔍 [DEBUG] compteSourceId: $compteSourceId")
+        println("🔍 [DEBUG] compteDestId: $compteDestId")
+        println("🔍 [DEBUG] montant: $montant")
+
         if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
 
         // 1. Récupérer les comptes et leurs collections
-        val compteSource = compteRepository.recupererCompteParIdToutesCollections(compteSourceId).getOrThrow()
-        val compteDest = compteRepository.recupererCompteParIdToutesCollections(compteDestId).getOrThrow()
+        println("🔍 [DEBUG] Récupération du compte source...")
+        val compteSourceResult = compteRepository.recupererCompteParIdToutesCollections(compteSourceId)
+        if (compteSourceResult.isFailure) {
+            println("❌ [DEBUG] ERREUR lors de la récupération du compte source: ${compteSourceResult.exceptionOrNull()?.message}")
+            throw compteSourceResult.exceptionOrNull() ?: Exception("Erreur récupération compte source")
+        }
+        val compteSource = compteSourceResult.getOrThrow()
+        println("✅ [DEBUG] Compte source récupéré: ${compteSource.nom} (${compteSource.collection})")
+
+        println("🔍 [DEBUG] Récupération du compte destination...")
+        val compteDestResult = compteRepository.recupererCompteParIdToutesCollections(compteDestId)
+        if (compteDestResult.isFailure) {
+            println("❌ [DEBUG] ERREUR lors de la récupération du compte destination: ${compteDestResult.exceptionOrNull()?.message}")
+            throw compteDestResult.exceptionOrNull() ?: Exception("Erreur récupération compte destination")
+        }
+        val compteDest = compteDestResult.getOrThrow()
+        println("✅ [DEBUG] Compte destination récupéré: ${compteDest.nom} (${compteDest.collection})")
 
         // 2. Vérifier le solde du compte source
         if (compteSource.solde < montant) {
+            println("❌ [DEBUG] Solde insuffisant: ${compteSource.solde} < $montant")
             throw IllegalStateException("Solde insuffisant sur le compte '$nomCompteSource'.")
         }
+        println("✅ [DEBUG] Solde suffisant: ${compteSource.solde} >= $montant")
 
         // 3. Mettre à jour les soldes
         val nouveauSoldeSource = compteSource.solde - montant
-        val nouveauSoldeDest = compteDest.solde + montant
-        compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, nouveauSoldeSource)
-        compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, nouveauSoldeDest)
+        try {
+            println("TRANSFERT: Mise à jour solde source")
+            compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, nouveauSoldeSource)
+            println("TRANSFERT: ✅ Solde source OK")
+        } catch (e: Exception) {
+            println("TRANSFERT: ❌ ERREUR solde source: ${e.message}")
+            throw Exception("Erreur mise à jour solde source: ${e.message}")
+        }
 
-        // 4. Créer la transaction de sortie
+        val nouveauSoldeDest = compteDest.solde + montant
+        try {
+            println("TRANSFERT: Mise à jour solde destination")
+            compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, nouveauSoldeDest)
+            println("TRANSFERT: ✅ Solde destination OK")
+        } catch (e: Exception) {
+            println("TRANSFERT: ❌ ERREUR solde destination: ${e.message}")
+            throw Exception("Erreur mise à jour solde destination: ${e.message}")
+        }
+
+        // 4. Gérer le "Prêt à placer" pour les comptes chèque
+        if (compteSource is com.xburnsx.toutiebudget.data.modeles.CompteCheque) {
+            println("🔍 [DEBUG] Mise à jour prêt à placer...")
+            val variationPretAPlacer = -montant // Variation négative pour retirer le montant
+            try {
+                compteRepository.mettreAJourPretAPlacerSeulement(compteSource.id, variationPretAPlacer).getOrThrow()
+                println("✅ [DEBUG] Prêt à placer mis à jour avec variation: $variationPretAPlacer")
+            } catch (e: Exception) {
+                println("❌ [DEBUG] ERREUR mise à jour prêt à placer: ${e.message}")
+                throw Exception("Erreur mise à jour prêt à placer: ${e.message}")
+            }
+        }
+
+        // 5. Créer la transaction de sortie
+        println("🔍 [DEBUG] Création transaction sortante...")
         val transactionSortante = Transaction(
             id = "",
             utilisateurId = compteSource.utilisateurId,
-            type = TypeTransaction.TransfertSortant,
+            type = TypeTransaction.Pret, // Utiliser Pret au lieu de TransfertSortant
             montant = montant,
             date = Date(),
             compteId = compteSource.id,
@@ -497,13 +548,20 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleId = null,
             note = "Argent envoyé à $nomCompteDest"
         )
-        transactionRepository.creerTransaction(transactionSortante)
+        try {
+            transactionRepository.creerTransaction(transactionSortante).getOrThrow()
+            println("✅ [DEBUG] Transaction sortante créée")
+        } catch (e: Exception) {
+            println("❌ [DEBUG] ERREUR création transaction sortante: ${e.message}")
+            throw Exception("Erreur création transaction sortante: ${e.message}")
+        }
 
-        // 5. Créer la transaction d'entrée
+        // 6. Créer la transaction d'entrée
+        println("🔍 [DEBUG] Création transaction entrante...")
         val transactionEntrante = Transaction(
             id = "",
             utilisateurId = compteDest.utilisateurId,
-            type = TypeTransaction.TransfertEntrant,
+            type = TypeTransaction.Emprunt, // Utiliser Emprunt au lieu de TransfertEntrant
             montant = montant,
             date = Date(),
             compteId = compteDest.id,
@@ -511,6 +569,14 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleId = null,
             note = "Argent reçu de $nomCompteSource"
         )
-        transactionRepository.creerTransaction(transactionEntrante)
+        try {
+            transactionRepository.creerTransaction(transactionEntrante).getOrThrow()
+            println("✅ [DEBUG] Transaction entrante créée")
+        } catch (e: Exception) {
+            println("❌ [DEBUG] ERREUR création transaction entrante: ${e.message}")
+            throw Exception("Erreur création transaction entrante: ${e.message}")
+        }
+
+        println("✅ [DEBUG] effectuerVirementEntreComptes - SUCCÈS COMPLET")
     }
 }

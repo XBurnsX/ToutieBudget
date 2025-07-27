@@ -277,6 +277,12 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
+
+            // Traiter les erreurs 404 comme des cas normaux (compte non trouvé dans cette collection)
+            if (reponse.code == 404) {
+                return@withContext Result.failure(Exception("Compte non trouvé dans la collection $collectionCompte"))
+            }
+
             if (!reponse.isSuccessful) {
                 throw Exception("Erreur lors de la récupération du compte: ${reponse.code}")
             }
@@ -322,12 +328,22 @@ class CompteRepositoryImpl : CompteRepository {
 
     private fun deserialiserCompte(json: String, collection: String): Compte? {
         return try {
-            when (collection) {
+            val compte = when (collection) {
                 Collections.CHEQUE -> gson.fromJson(json, CompteCheque::class.java)
                 Collections.CREDIT -> gson.fromJson(json, CompteCredit::class.java)
                 Collections.DETTE -> gson.fromJson(json, CompteDette::class.java)
                 Collections.INVESTISSEMENT -> gson.fromJson(json, CompteInvestissement::class.java)
                 else -> null
+            }
+
+            // IMPORTANT: Définir la collection sur le compte désérialisé
+            compte?.let {
+                when (it) {
+                    is CompteCheque -> it.copy(collection = collection)
+                    is CompteCredit -> it.copy(collection = collection)
+                    is CompteDette -> it.copy(collection = collection)
+                    is CompteInvestissement -> it.copy(collection = collection)
+                }
             }
         } catch (e: Exception) {
             null

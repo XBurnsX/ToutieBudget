@@ -305,9 +305,8 @@ private fun ContenuModeComptes(
             label = "Compte source",
             groupesDeComptes = sources,
             itemSelectionne = uiState.sourceSelectionnee,
-            onItemSelected = {
-                viewModel.onItemSelected(it)
-                viewModel.fermerSelecteur()
+            onItemSelected = { item ->
+                viewModel.onItemSelected(item)
             },
             onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) },
             selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.SOURCE
@@ -326,9 +325,8 @@ private fun ContenuModeComptes(
             label = "Compte destination",
             groupesDeComptes = destinations,
             itemSelectionne = uiState.destinationSelectionnee,
-            onItemSelected = {
-                viewModel.onItemSelected(it)
-                viewModel.fermerSelecteur()
+            onItemSelected = { item ->
+                viewModel.onItemSelected(item)
             },
             onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) },
             selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.DESTINATION
