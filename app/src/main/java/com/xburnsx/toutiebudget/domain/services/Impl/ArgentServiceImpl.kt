@@ -101,8 +101,8 @@ class ArgentServiceImpl @Inject constructor(
         // 2. Convertir le type de transaction (String vers Enum)
         val typeTransaction = try {
             TypeTransaction.valueOf(type)
-        } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("Type de transaction invalide: $type. Valeurs acceptées: ${TypeTransaction.values().joinToString()}")
+        } catch (_: IllegalArgumentException) {
+            throw IllegalArgumentException("Type de transaction invalide: $type. Valeurs acceptées: ${TypeTransaction.entries.joinToString()}")
         }
         
         // 3. Créer une nouvelle allocation si c'est une dépense avec enveloppe
@@ -455,5 +455,62 @@ class ArgentServiceImpl @Inject constructor(
         montant: Double
     ): Result<Unit> {
         return virementUseCase.effectuerVirementEnveloppeVersPretAPlacer(enveloppeId, compteId, montant)
+    }
+
+    /**
+     * Effectue un virement entre deux comptes, en créant une transaction pour chaque.
+     * Met à jour les soldes et crée des transactions de type Transfert.
+     */
+    override suspend fun effectuerVirementEntreComptes(
+        compteSourceId: String,
+        compteDestId: String,
+        montant: Double,
+        nomCompteSource: String,
+        nomCompteDest: String
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+
+        // 1. Récupérer les comptes et leurs collections
+        val compteSource = compteRepository.recupererCompteParIdToutesCollections(compteSourceId).getOrThrow()
+        val compteDest = compteRepository.recupererCompteParIdToutesCollections(compteDestId).getOrThrow()
+
+        // 2. Vérifier le solde du compte source
+        if (compteSource.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte '$nomCompteSource'.")
+        }
+
+        // 3. Mettre à jour les soldes
+        val nouveauSoldeSource = compteSource.solde - montant
+        val nouveauSoldeDest = compteDest.solde + montant
+        compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, nouveauSoldeSource)
+        compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, nouveauSoldeDest)
+
+        // 4. Créer la transaction de sortie
+        val transactionSortante = Transaction(
+            id = "",
+            utilisateurId = compteSource.utilisateurId,
+            type = TypeTransaction.TransfertSortant,
+            montant = montant,
+            date = Date(),
+            compteId = compteSource.id,
+            collectionCompte = compteSource.collection,
+            allocationMensuelleId = null,
+            note = "Argent envoyé à $nomCompteDest"
+        )
+        transactionRepository.creerTransaction(transactionSortante)
+
+        // 5. Créer la transaction d'entrée
+        val transactionEntrante = Transaction(
+            id = "",
+            utilisateurId = compteDest.utilisateurId,
+            type = TypeTransaction.TransfertEntrant,
+            montant = montant,
+            date = Date(),
+            compteId = compteDest.id,
+            collectionCompte = compteDest.collection,
+            allocationMensuelleId = null,
+            note = "Argent reçu de $nomCompteSource"
+        )
+        transactionRepository.creerTransaction(transactionEntrante)
     }
 }

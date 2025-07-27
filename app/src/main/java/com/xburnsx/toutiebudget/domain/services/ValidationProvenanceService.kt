@@ -99,17 +99,59 @@ class ValidationProvenanceService @Inject constructor(
 
             if (compteProvenanceCible != null && compteProvenanceCible != compteProvenanceSource) {
                 // Récupérer les noms des comptes pour un message plus clair
-                val nomCompteSource = if (compteProvenanceSource != null) obtenirNomCompte(compteProvenanceSource) else "Compte inconnu"
+                val nomCompteSource = obtenirNomCompte(compteProvenanceSource ?: "")
                 val nomCompteCible = obtenirNomCompte(compteProvenanceCible)
 
                 throw IllegalArgumentException(
                     "❌ CONFLIT DE PROVENANCE !\n\n" +
-                    "Impossible de transférer cet argent.\n\n" +
-                    "• L'enveloppe source contient de l'argent de : $nomCompteSource\n" +
-                    "• L'enveloppe cible contient déjà de l'argent de : $nomCompteCible\n\n" +
-                    "Vous ne pouvez pas mélanger l'argent de différents comptes."
+                            "Les deux enveloppes contiennent de l'argent de comptes différents.\n\n" +
+                            "• Enveloppe source : $nomCompteSource\n" +
+                            "• Enveloppe cible : $nomCompteCible\n\n" +
+                            "Veuillez vous assurer que les deux enveloppes partagent la même provenance."
                 )
             }
+        }
+    }
+
+    /**
+     * Vérifie si on peut transférer de l'argent d'une enveloppe vers un compte.
+     * Le transfert est autorisé uniquement si le compte de destination est le même
+     * que le compte d'origine de l'argent dans l'enveloppe.
+     * @param enveloppeSourceId ID de l'enveloppe source
+     * @param compteCibleId ID du compte cible
+     * @param mois Mois concerné
+     * @return Result avec message d'erreur si conflit détecté
+     */
+    suspend fun validerTransfertEnveloppeVersCompte(
+        enveloppeSourceId: String,
+        compteCibleId: String,
+        mois: Date
+    ): Result<Unit> = runCatching {
+
+        // Récupérer l'allocation de l'enveloppe source
+        val allocationSource = enveloppeRepository.recupererAllocationMensuelle(enveloppeSourceId, mois)
+            .getOrNull()
+
+        if (allocationSource == null || allocationSource.solde <= 0) {
+            // Pas besoin de lancer une exception ici, car le solde est vérifié ailleurs.
+            // On peut simplement retourner succès si l'enveloppe est vide.
+            return@runCatching
+        }
+
+        val compteProvenanceSource = allocationSource.compteSourceId
+
+        // Si l'enveloppe a une provenance, elle doit correspondre au compte cible
+        if (compteProvenanceSource != null && compteProvenanceSource != compteCibleId) {
+            val nomCompteSource = obtenirNomCompte(compteProvenanceSource)
+            val nomCompteCible = obtenirNomCompte(compteCibleId)
+
+            throw IllegalArgumentException(
+                "❌ CONFLIT DE PROVENANCE !\n\n" +
+                        "L'argent de cette enveloppe provient d'un autre compte.\n\n" +
+                        "• Provenance de l'enveloppe : $nomCompteSource\n" +
+                        "• Compte de destination : $nomCompteCible\n\n" +
+                        "Vous ne pouvez retourner l'argent que vers son compte d'origine."
+            )
         }
     }
 

@@ -299,13 +299,27 @@ class CompteRepositoryImpl : CompteRepository {
             is CompteCredit -> Collections.CREDIT
             is CompteDette -> Collections.DETTE
             is CompteInvestissement -> Collections.INVESTISSEMENT
-            else -> throw Exception("Type de compte non supporté")
         }
     }
 
-    /**
-     * Désérialise un compte depuis JSON PocketBase selon sa collection.
-     */
+    override suspend fun recupererCompteParIdToutesCollections(compteId: String): Result<Compte> = withContext(Dispatchers.IO) {
+        val collections = listOf(
+            Collections.CHEQUE,
+            Collections.CREDIT,
+            Collections.DETTE,
+            Collections.INVESTISSEMENT
+        )
+
+        for (collection in collections) {
+            val resultat = recupererCompteParId(compteId, collection)
+            if (resultat.isSuccess) {
+                return@withContext resultat // Retourne le compte dès qu'il est trouvé
+            }
+        }
+
+        return@withContext Result.failure(Exception("Aucun compte trouvé avec l'ID $compteId dans toutes les collections."))
+    }
+
     private fun deserialiserCompte(json: String, collection: String): Compte? {
         return try {
             when (collection) {

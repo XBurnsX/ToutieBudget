@@ -18,6 +18,10 @@ enum class SelecteurOuvert {
     SOURCE, DESTINATION, AUCUN
 }
 
+enum class VirementMode {
+    ENVELOPPES, COMPTES
+}
+
 data class VirerArgentUiState(
     val isLoading: Boolean = true,
     val montant: String = "",
@@ -27,5 +31,7 @@ data class VirerArgentUiState(
     val destinationSelectionnee: ItemVirement? = null,
     val virementReussi: Boolean = false,
     val erreur: String? = null,
-    val selecteurOuvert: SelecteurOuvert = SelecteurOuvert.AUCUN
+    val selecteurOuvert: SelecteurOuvert = SelecteurOuvert.AUCUN,
+    val isVirementButtonEnabled: Boolean = false,
+    val mode: VirementMode = VirementMode.ENVELOPPES
 )

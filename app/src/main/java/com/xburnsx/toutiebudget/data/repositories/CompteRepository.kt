@@ -103,4 +103,11 @@ interface CompteRepository {
      * @return Result contenant le compte ou une erreur
      */
     suspend fun recupererCompteParId(compteId: String, collectionCompte: String): Result<Compte>
+
+    /**
+     * Récupère un compte par son ID en cherchant dans toutes les collections de comptes.
+     * @param compteId ID du compte à trouver.
+     * @return Result contenant le compte trouvé ou une erreur si non trouvé.
+     */
+    suspend fun recupererCompteParIdToutesCollections(compteId: String): Result<Compte>
 }

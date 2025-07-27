@@ -119,4 +119,21 @@ interface ArgentService {
         compteId: String,
         montant: Double
     ): Result<Unit>
+
+    /**
+     * Effectue un virement entre deux comptes, en créant une transaction pour chaque.
+     * @param compteSourceId ID du compte source.
+     * @param compteDestId ID du compte de destination.
+     * @param montant Montant à transférer.
+     * @param nomCompteSource Nom du compte source pour la description de la transaction.
+     * @param nomCompteDest Nom du compte de destination pour la description de la transaction.
+     * @return Result<Unit> indiquant le succès ou l'échec.
+     */
+    suspend fun effectuerVirementEntreComptes(
+        compteSourceId: String,
+        compteDestId: String,
+        montant: Double,
+        nomCompteSource: String,
+        nomCompteDest: String
+    ): Result<Unit>
 }

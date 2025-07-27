@@ -5,11 +5,13 @@ package com.xburnsx.toutiebudget.ui.virement
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -19,9 +21,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurCompteVirement
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun VirerArgentScreen(
     viewModel: VirerArgentViewModel,
@@ -31,7 +34,7 @@ fun VirerArgentScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Afficher message de succès et navigation automatique
-    androidx.compose.runtime.LaunchedEffect(uiState.virementReussi) {
+    LaunchedEffect(uiState.virementReussi) {
         if (uiState.virementReussi) {
             snackbarHostState.showSnackbar(
                 message = "✅ Virement effectué avec succès !",
@@ -40,7 +43,7 @@ fun VirerArgentScreen(
             // Délai pour laisser le temps de voir le message
             kotlinx.coroutines.delay(1500)
             onNavigateBack()
-            viewModel.resetVirementReussi() // Reset pour éviter la navigation en boucle
+            viewModel.onVirementReussiHandled() // Reset pour éviter la navigation en boucle
         }
     }
 
@@ -64,14 +67,14 @@ fun VirerArgentScreen(
                 navigationIcon = {
                     IconButton(onClick = { onNavigateBack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Retour",
                             tint = Color.White
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121212), 
+                    containerColor = Color(0xFF121212),
                     titleContentColor = Color.White
                 )
             )
@@ -87,13 +90,18 @@ fun VirerArgentScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // *** NOUVEAU : Champ d'argent pour le montant du virement ***
+
+            // Sélecteur de mode - TOUJOURS VISIBLE
+            ModeSelector(
+                selectedMode = uiState.mode,
+                onModeChange = { viewModel.changerMode(it) }
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // *** CHAMP D'ARGENT pour le montant du virement ***
             ChampUniversel(
-                valeur = (uiState.montant.toDoubleOrNull()?.times(100))?.toLong() ?: 0L,
-                onValeurChange = { nouveauMontant ->
-                    viewModel.onMontantChange((nouveauMontant / 100.0).toString())
-                },
+                valeur = uiState.montant.toLongOrNull() ?: 0L,
+                onValeurChange = { viewModel.onMontantChange(it.toString()) },
                 libelle = "Montant à virer",
                 utiliserClavier = true,
                 isMoney = true,
@@ -101,108 +109,18 @@ fun VirerArgentScreen(
                 estObligatoire = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            
+
             // Champs de sélection source et destination
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Sélecteur de source - MÊME LOGIQUE QUE CELUI DU BAS
-                val sourcesEnveloppes = uiState.destinationsDisponibles
-                    .flatMap { (categorie, items) ->
-                        items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
-                            .map { it.enveloppe }
-                    }
-                    .filter { enveloppe ->
-                        // Cacher l'enveloppe si elle est sélectionnée dans la destination
-                        val destinationEnveloppe = (uiState.destinationSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe
-                        enveloppe.id != destinationEnveloppe?.id
-                    }
-                    .groupBy { enveloppe ->
-                        // Trouver la catégorie de l'enveloppe
-                        val categorie = uiState.destinationsDisponibles.entries
-                            .find { (_, items) ->
-                                items.any { item ->
-                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
-                                    item.enveloppe.id == enveloppe.id
-                                }
-                            }?.key ?: "Autre"
-                        categorie
-                    }
-
-                // Extraire les comptes chèque avec montant "prêt à placer" positif
-                val comptesPretAPlacer = uiState.sourcesDisponibles["Prêt à placer"]
-                    ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
-                    ?.map { it.compte }
-                    ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
-                    ?: emptyList()
-
-                SelecteurEnveloppeVirement(
-                    enveloppes = sourcesEnveloppes,
-                    enveloppeSelectionnee = (uiState.sourceSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
-                    onEnveloppeChange = { enveloppeUi ->
-                        viewModel.onEnveloppeSelected(enveloppeUi, isSource = true)
-                    },
-                    obligatoire = true,
-                    comptesPretAPlacer = comptesPretAPlacer
-                )
-
-                // Flèche indicative
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SwapHoriz,
-                        contentDescription = "Virement",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Sélecteur de destination - CELUI QUI MARCHE
-                val destinationsEnveloppes = uiState.destinationsDisponibles
-                    .flatMap { (categorie, items) ->
-                        items.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem>()
-                            .map { it.enveloppe }
-                    }
-                    .filter { enveloppe ->
-                        // Cacher l'enveloppe si elle est sélectionnée dans la source
-                        val sourceEnveloppe = (uiState.sourceSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe
-                        enveloppe.id != sourceEnveloppe?.id
-                    }
-                    .groupBy { enveloppe ->
-                        // Trouver la catégorie de l'enveloppe
-                        val categorie = uiState.destinationsDisponibles.entries
-                            .find { (_, items) ->
-                                items.any { item ->
-                                    item is com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem &&
-                                    item.enveloppe.id == enveloppe.id
-                                }
-                            }?.key ?: "Autre"
-                        categorie
-                    }
-
-                // Extraire les comptes chèque avec montant "prêt à placer" positif (destinations)
-                val comptesPretAPlacerDestination = uiState.destinationsDisponibles["Prêt à placer"]
-                    ?.filterIsInstance<com.xburnsx.toutiebudget.ui.virement.ItemVirement.CompteItem>()
-                    ?.map { it.compte }
-                    ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
-                    ?: emptyList()
-
-                SelecteurEnveloppeVirement(
-                    enveloppes = destinationsEnveloppes,
-                    enveloppeSelectionnee = (uiState.destinationSelectionnee as? com.xburnsx.toutiebudget.ui.virement.ItemVirement.EnveloppeItem)?.enveloppe,
-                    onEnveloppeChange = { enveloppeUi ->
-                        viewModel.onEnveloppeSelected(enveloppeUi, isSource = false)
-                    },
-                    obligatoire = true,
-                    comptesPretAPlacer = comptesPretAPlacerDestination
-                )
+            if (uiState.mode == VirementMode.ENVELOPPES) {
+                // INTERFACE ORIGINALE DES ENVELOPPES
+                ContenuModeEnveloppesOriginal(uiState, viewModel)
+            } else {
+                // NOUVELLE INTERFACE POUR LES COMPTES
+                ContenuModeComptes(uiState, viewModel)
             }
 
             Spacer(modifier = Modifier.weight(1f))
-            
+
             // Bouton de virement
             Button(
                 onClick = { viewModel.onVirementExecute() },
@@ -211,8 +129,8 @@ fun VirerArgentScreen(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
                 enabled = uiState.sourceSelectionnee != null &&
-                         uiState.destinationSelectionnee != null &&
-                         (uiState.montant.toLongOrNull() ?: 0L) > 0
+                        uiState.destinationSelectionnee != null &&
+                        (uiState.montant.toLongOrNull() ?: 0L) > 0
             ) {
                 Icon(
                     imageVector = Icons.Default.SwapHoriz,
@@ -242,6 +160,169 @@ fun VirerArgentScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModeSelector(
+    selectedMode: VirementMode,
+    onModeChange: (VirementMode) -> Unit
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        SegmentedButton(
+            shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+            selected = selectedMode == VirementMode.ENVELOPPES,
+            onClick = { onModeChange(VirementMode.ENVELOPPES) },
+            icon = {},
+            label = { Text("Enveloppes") }
+        )
+        SegmentedButton(
+            shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp),
+            selected = selectedMode == VirementMode.COMPTES,
+            onClick = { onModeChange(VirementMode.COMPTES) },
+            icon = {},
+            label = { Text("Comptes") }
+        )
+    }
+}
+
+@Composable
+private fun ContenuModeEnveloppesOriginal(
+    uiState: VirerArgentUiState,
+    viewModel: VirerArgentViewModel
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Sélecteur de source - LOGIQUE ORIGINALE
+        val sourcesEnveloppes = uiState.sourcesDisponibles
+            .flatMap { (categorie, items) ->
+                items.filterIsInstance<ItemVirement.EnveloppeItem>()
+                    .map { it.enveloppe }
+            }
+            .filter { enveloppe ->
+                // Cacher l'enveloppe si elle est sélectionnée dans la destination
+                val destinationEnveloppe = (uiState.destinationSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe
+                enveloppe.id != destinationEnveloppe?.id
+            }
+            .groupBy { enveloppe ->
+                // Trouver la catégorie de l'enveloppe
+                val categorie = uiState.sourcesDisponibles.entries
+                    .find { (_, items) ->
+                        items.any { item ->
+                            item is ItemVirement.EnveloppeItem &&
+                            item.enveloppe.id == enveloppe.id
+                        }
+                    }?.key ?: "Autre"
+                categorie
+            }
+
+        // Extraire les comptes chèque avec montant "prêt à placer" positif
+        val comptesPretAPlacer = uiState.sourcesDisponibles["Prêt à placer"]
+            ?.filterIsInstance<ItemVirement.CompteItem>()
+            ?.map { it.compte }
+            ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+            ?: emptyList()
+
+        com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement(
+            enveloppes = sourcesEnveloppes,
+            enveloppeSelectionnee = (uiState.sourceSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe,
+            onEnveloppeChange = { enveloppeUi ->
+                viewModel.onEnveloppeSelected(enveloppeUi, isSource = true)
+            },
+            obligatoire = true,
+            comptesPretAPlacer = comptesPretAPlacer
+        )
+
+        // Flèche indicative
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.SwapHoriz,
+                contentDescription = "Virement",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        // Sélecteur de destination - LOGIQUE ORIGINALE
+        val destinationsEnveloppes = uiState.destinationsDisponibles
+            .flatMap { (categorie, items) ->
+                items.filterIsInstance<ItemVirement.EnveloppeItem>()
+                    .map { it.enveloppe }
+            }
+            .filter { enveloppe ->
+                // Cacher l'enveloppe si elle est sélectionnée dans la source
+                val sourceEnveloppe = (uiState.sourceSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe
+                enveloppe.id != sourceEnveloppe?.id
+            }
+            .groupBy { enveloppe ->
+                // Trouver la catégorie de l'enveloppe
+                val categorie = uiState.destinationsDisponibles.entries
+                    .find { (_, items) ->
+                        items.any { item ->
+                            item is ItemVirement.EnveloppeItem &&
+                            item.enveloppe.id == enveloppe.id
+                        }
+                    }?.key ?: "Autre"
+                categorie
+            }
+
+        // Extraire les comptes chèque avec montant "prêt à placer" positif (destinations)
+        val comptesPretAPlacerDestination = uiState.destinationsDisponibles["Prêt à placer"]
+            ?.filterIsInstance<ItemVirement.CompteItem>()
+            ?.map { it.compte }
+            ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+            ?: emptyList()
+
+        com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement(
+            enveloppes = destinationsEnveloppes,
+            enveloppeSelectionnee = (uiState.destinationSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe,
+            onEnveloppeChange = { enveloppeUi ->
+                viewModel.onEnveloppeSelected(enveloppeUi, isSource = false)
+            },
+            obligatoire = true,
+            comptesPretAPlacer = comptesPretAPlacerDestination
+        )
+    }
+}
+
+@Composable
+private fun ContenuModeComptes(
+    uiState: VirerArgentUiState,
+    viewModel: VirerArgentViewModel
+) {
+    val comptes = uiState.sourcesDisponibles["Comptes"]
+        ?.filterIsInstance<ItemVirement.CompteItem>()
+        ?: emptyList()
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SelecteurCompteVirement(
+            label = "Compte source",
+            comptes = comptes,
+            itemSelectionne = uiState.sourceSelectionnee,
+            onItemSelected = { viewModel.onItemSelected(it) }
+        )
+
+        Icon(
+            imageVector = Icons.Default.SwapHoriz,
+            contentDescription = "Virement",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.CenterHorizontally)
+        )
+
+        SelecteurCompteVirement(
+            label = "Compte destination",
+            comptes = comptes,
+            itemSelectionne = uiState.destinationSelectionnee,
+            onItemSelected = { viewModel.onItemSelected(it) }
+        )
     }
 }
 
