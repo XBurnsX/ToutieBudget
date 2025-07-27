@@ -268,6 +268,18 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 .background(couleurBarre)
                         )
                     }
+
+                    // AJOUT: Afficher le versement recommandé
+                    if (enveloppe.versementRecommande > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Suggéré: ${formatteurMonetaire.format(enveloppe.versementRecommande)}",
+                            color = Color(0xFF82DD86), // Vert clair pour la suggestion
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.align(Alignment.End) // Aligner à droite
+                        )
+                    }
                 }
             }
 
@@ -309,7 +321,8 @@ fun ApercuEnveloppeItem() {
                     depense = 0.0,
                     objectif = 750.0,
                     couleurProvenance = "#E91E63", // rose
-                    statutObjectif = StatutObjectif.VERT
+                    statutObjectif = StatutObjectif.VERT,
+                    versementRecommande = 0.0
                 )
             )
             // 2. Objectif en cours. Devrait avoir une barre de statut jaune.
@@ -321,7 +334,8 @@ fun ApercuEnveloppeItem() {
                     depense = 10.0,
                     objectif = 200.0,
                     couleurProvenance = "#2196F3", // bleu
-                    statutObjectif = StatutObjectif.JAUNE
+                    statutObjectif = StatutObjectif.JAUNE,
+                    versementRecommande = 57.25
                 )
             )
             // 3. Objectif atteint et entièrement dépensé. La barre de progression utilise la couleur du compte.
@@ -333,7 +347,8 @@ fun ApercuEnveloppeItem() {
                     depense = 50.0,
                     objectif = 50.0,
                     couleurProvenance = "#E91E63", // rose
-                    statutObjectif = StatutObjectif.JAUNE
+                    statutObjectif = StatutObjectif.JAUNE,
+                    versementRecommande = 0.0
                 )
             )
             // 4. Enveloppe sans objectif mais avec de l'argent. Barre de statut jaune.
@@ -345,7 +360,8 @@ fun ApercuEnveloppeItem() {
                     depense = 0.0,
                     objectif = 0.0,
                     couleurProvenance = "#FF9800", // orange
-                    statutObjectif = StatutObjectif.VERT
+                    statutObjectif = StatutObjectif.VERT,
+                    versementRecommande = 0.0
                 )
             )
             // 5. Enveloppe vide et sans objectif. Barre de statut grise.
@@ -357,7 +373,8 @@ fun ApercuEnveloppeItem() {
                     depense = 34.23,
                     objectif = 0.0,
                     couleurProvenance = null,
-                    statutObjectif = StatutObjectif.GRIS
+                    statutObjectif = StatutObjectif.GRIS,
+                    versementRecommande = 0.0
                 )
             )
             // 6. Enveloppe avec objectif mais sans argent. Barre de statut grise.
@@ -369,7 +386,8 @@ fun ApercuEnveloppeItem() {
                     depense = 0.0,
                     objectif = 50.0,
                     couleurProvenance = null,
-                    statutObjectif = StatutObjectif.GRIS
+                    statutObjectif = StatutObjectif.GRIS,
+                    versementRecommande = 25.0
                 )
             )
         }

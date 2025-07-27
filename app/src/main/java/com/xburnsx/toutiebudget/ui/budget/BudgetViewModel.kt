@@ -14,6 +14,7 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
@@ -34,7 +35,8 @@ class BudgetViewModel(
     private val categorieRepository: CategorieRepository,
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
     private val realtimeSyncService: RealtimeSyncService,
-    private val validationProvenanceService: ValidationProvenanceService
+    private val validationProvenanceService: ValidationProvenanceService,
+    private val objectifCalculator: ObjectifCalculator
 ) : ViewModel() {
 
     // --- Cache en mémoire pour éviter les écrans de chargement ---
@@ -224,107 +226,57 @@ class BudgetViewModel(
         comptes: List<Compte>
     ): List<EnveloppeUi> {
         
-        // Créer une map des allocations par ID d'enveloppe pour un accès rapide
-        val mapAllocations = allocations.associateBy { it.enveloppeId }
+        // Grouper les allocations par ID d'enveloppe pour pouvoir les sommer
+        val allocationsGroupees = allocations.groupBy { it.enveloppeId }
 
-        mapAllocations.forEach { (enveloppeId, allocation) ->
-
-        }
-        
         // Créer une map des comptes par ID pour récupérer les couleurs
         val mapComptes = comptes.associateBy { it.id }
 
+        return enveloppes.map { enveloppe ->
 
-        val resultat = enveloppes.mapIndexed { index, enveloppe ->
+            // Récupérer toutes les allocations pour cette enveloppe pour le mois en cours
+            val allocationsDeLEnveloppe = allocationsGroupees[enveloppe.id] ?: emptyList()
 
-            
-            // Afficher les caractères de l'ID pour debug
+            // Calculer le solde et les dépenses en faisant la SOMME de toutes les allocations concernées
+            val soldeTotal = allocationsDeLEnveloppe.sumOf { it.solde }
+            val depenseTotale = allocationsDeLEnveloppe.sumOf { it.depense }
 
-            
-            // Récupérer l'allocation mensuelle correspondante
-            val allocation = mapAllocations[enveloppe.id]
-            if (allocation != null) {
+            // Pour la couleur, on se base sur la provenance de la dernière allocation (la plus récente)
+            val derniereAllocation = allocationsDeLEnveloppe.lastOrNull()
+            val compteSource = derniereAllocation?.compteSourceId?.let { mapComptes[it] }
 
-            } else {
-
-                mapAllocations.keys.forEachIndexed { idx, key ->
-
-                    
-                    // Comparaison caractère par caractère si les longueurs sont différentes
-                    if (enveloppe.id.length != key.length) {
-
-                    } else {
-                        // Comparaison caractère par caractère
-                        val differences = mutableListOf<Int>()
-                        enveloppe.id.forEachIndexed { charIndex, char ->
-                            if (charIndex < key.length && char != key[charIndex]) {
-                                differences.add(charIndex)
-                            }
-                        }
-                        if (differences.isNotEmpty()) {
-
-                            differences.forEach { pos ->
-
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Récupérer le compte source pour la couleur
-            val compteSource = allocation?.compteSourceId?.let { mapComptes[it] }
-            if (allocation?.compteSourceId != null) {
-                println("[DEBUG] Recherche compteSource - compteSourceId: ${allocation.compteSourceId}")
-                println("[DEBUG] mapComptes contient: ${mapComptes.keys}")
-                println("[DEBUG] compteSource trouvé: ${compteSource?.nom} - couleur: ${compteSource?.couleur}")
-            }
-            
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
-            val solde = allocation?.solde ?: 0.0
-            val depense = allocation?.depense ?: 0.0
             val objectif = enveloppe.objectifMontant
 
-            
+            // Le progrès actuel est la somme du solde et des dépenses du mois.
+            val progresActuel = soldeTotal + depenseTotale
+            val versementRecommande = objectifCalculator.calculerVersementRecommande(enveloppe, progresActuel)
+
             // Calculer le statut de l'objectif
             val statut = when {
-                objectif > 0 && solde >= objectif -> StatutObjectif.VERT
-                solde > 0 -> StatutObjectif.JAUNE
+                objectif > 0 && soldeTotal >= objectif -> StatutObjectif.VERT
+                soldeTotal > 0 -> StatutObjectif.JAUNE
                 else -> StatutObjectif.GRIS
             }
             
             // Formater la date d'objectif si elle existe
             val dateObjectifFormatee = enveloppe.objectifDate?.let { date ->
                 val format = SimpleDateFormat("dd", Locale.getDefault())
-                val dateFormatee = format.format(date)
-                println("[DEBUG] Enveloppe '${enveloppe.nom}' - Date objectif: $date -> formatée: $dateFormatee")
-                dateFormatee
+                format.format(date)
             }
 
-            // Debug pour voir si la date est nulle
-            if (enveloppe.objectifDate == null) {
-                println("[DEBUG] Enveloppe '${enveloppe.nom}' - Pas de date d'objectif (null)")
-            }
-
-            val enveloppeUi = EnveloppeUi(
+            EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
-                solde = solde,
-                depense = depense,
+                solde = soldeTotal,
+                depense = depenseTotale,
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
-                dateObjectif = dateObjectifFormatee // Ajouter la date d'objectif formatée
+                dateObjectif = dateObjectifFormatee, // Ajouter la date d'objectif formatée
+                versementRecommande = versementRecommande
             )
-            
-            // Debug final pour voir ce qui est dans EnveloppeUi
-            println("[DEBUG] EnveloppeUi créée - '${enveloppeUi.nom}' - dateObjectif: ${enveloppeUi.dateObjectif}")
-
-            enveloppeUi
         }
-        
-
-        
-        return resultat
     }
 
     /**
@@ -461,25 +413,20 @@ class BudgetViewModel(
 
                 val allocationExistante = resultAllocationExistante.getOrNull()
 
-                // 5. Créer la nouvelle allocation avec le bon solde
-                val nouveauSolde = if (allocationExistante != null) {
-                    allocationExistante.solde + montantDollars
-                } else {
-                    montantDollars
-                }
-
+                // 5. On crée TOUJOURS une nouvelle allocation avec le montant de l'ajout.
                 val nouvelleAllocation = AllocationMensuelle(
                     id = "", // Sera généré par PocketBase
                     utilisateurId = compteSource.utilisateurId,
                     enveloppeId = enveloppeId,
                     mois = moisActuel,
-                    solde = nouveauSolde,
+                    solde = montantDollars, // Le solde est UNIQUEMENT le montant de cet ajout
                     alloue = montantDollars, // Le montant qu'on vient de placer
-                    depense = allocationExistante?.depense ?: 0.0, // Garder les dépenses existantes
+                    depense = 0.0, // Une nouvelle allocation n'a pas de dépense initiale
                     compteSourceId = compteSourceId,
                     collectionCompteSource = compteSource.collection ?: "comptes_cheque"
                 )
 
+                println("[BUDGET] ✨ Création d'une nouvelle allocation de ${montantDollars}$...")
                 val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
 
                 if (resultAllocation.isFailure) {
@@ -488,7 +435,6 @@ class BudgetViewModel(
 
                 println("[BUDGET] ✅ Assignation réussie!")
                 println("[BUDGET]   • Nouveau prêt à placer du compte: ${nouveauPretAPlacer}$")
-                println("[BUDGET]   • Nouveau solde de l'enveloppe: ${nouveauSolde}$")
 
                 // 6. Recharger les données pour rafraîchir l'affichage
                 chargerDonneesBudget(moisSelectionne)

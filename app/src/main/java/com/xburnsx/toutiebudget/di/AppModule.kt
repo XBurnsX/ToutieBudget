@@ -8,6 +8,7 @@
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+ import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
@@ -38,38 +39,32 @@
      private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
 
      // ===== SERVICES =====
+     private val validationProvenanceService: ValidationProvenanceService by lazy {
+         ValidationProvenanceService(allocationMensuelleRepository, enveloppeRepository, compteRepository)
+     }
      private val virementUseCase: VirementUseCase by lazy {
          VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
      }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
-
-     // Service de synchronisation temps réel
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
-
-     // Service de validation de provenance
-     private val validationProvenanceService: ValidationProvenanceService by lazy {
-         ValidationProvenanceService(allocationMensuelleRepository, enveloppeRepository, compteRepository)
-     }
-
-     // Service de vérification du serveur
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
 
-     // ===== USE CASES EXISTANTS =====
+     // ===== CALCULATEUR D'OBJECTIFS =====
+     private val objectifCalculator: ObjectifCalculator by lazy { ObjectifCalculator() }
+
+     // ===== USE CASES =====
      private val enregistrerDepenseUseCase: EnregistrerDepenseUseCase by lazy { EnregistrerDepenseUseCaseImpl(argentService) }
      private val enregistrerRevenuUseCase: EnregistrerRevenuUseCase by lazy { EnregistrerRevenuUseCaseImpl(argentService) }
      private val enregistrerPretAccordeUseCase: EnregistrerPretAccordeUseCase by lazy { EnregistrerPretAccordeUseCaseImpl(argentService) }
      private val enregistrerDetteContracteeUseCase: EnregistrerDetteContracteeUseCase by lazy { EnregistrerDetteContracteeUseCaseImpl(argentService) }
      private val enregistrerPaiementDetteUseCase: EnregistrerPaiementDetteUseCase by lazy { EnregistrerPaiementDetteUseCaseImpl(argentService) }
      private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
- 
-     // ===== NOUVEAU USE CASE POUR LES TRANSACTIONS =====
-     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy { 
+     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
          EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
  
      // ===== VIEWMODELS =====
-     // CORRECTION : Ordre des paramètres corrigés selon les constructeurs
      private val budgetViewModel: BudgetViewModel by lazy {
          BudgetViewModel(
              compteRepository = compteRepository,
@@ -77,7 +72,8 @@
              categorieRepository = categorieRepository,
              verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
              realtimeSyncService = realtimeSyncService,
-             validationProvenanceService = validationProvenanceService
+             validationProvenanceService = validationProvenanceService,
+             objectifCalculator = objectifCalculator
          )
      }
      
@@ -119,8 +115,6 @@
      }
  
      // ===== FONCTIONS PUBLIQUES =====
-     
-     // Repositories
      fun provideCompteRepository(): CompteRepository = compteRepository
      fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
      fun provideCategorieRepository(): CategorieRepository = categorieRepository
@@ -128,15 +122,11 @@
      fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
      fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
      fun provideTiersRepository(): TiersRepository = tiersRepository
-
-     // Services
      fun provideArgentService(): ArgentService = argentService
      fun provideRolloverService(): RolloverService = rolloverService
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
      fun provideValidationProvenanceService(): ValidationProvenanceService = validationProvenanceService
      fun provideServerStatusService(): com.xburnsx.toutiebudget.data.services.ServerStatusService = serverStatusService
-
-     // Use Cases
      fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
      fun provideEnregistrerRevenuUseCase(): EnregistrerRevenuUseCase = enregistrerRevenuUseCase
      fun provideEnregistrerPretAccordeUseCase(): EnregistrerPretAccordeUseCase = enregistrerPretAccordeUseCase
@@ -144,8 +134,6 @@
      fun provideEnregistrerPaiementDetteUseCase(): EnregistrerPaiementDetteUseCase = enregistrerPaiementDetteUseCase
      fun provideVerifierEtExecuterRolloverUseCase(): VerifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
      fun provideEnregistrerTransactionUseCase(): EnregistrerTransactionUseCase = enregistrerTransactionUseCase
- 
-     // ViewModels
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
@@ -161,18 +149,12 @@
              savedStateHandle = savedStateHandle
          )
      }
-
-     // ServerStatusViewModel
      fun provideServerStatusViewModel(context: android.content.Context): com.xburnsx.toutiebudget.ui.server.ServerStatusViewModel {
          return com.xburnsx.toutiebudget.ui.server.ServerStatusViewModel(
              serverStatusService = serverStatusService,
              context = context
          )
      }
-
-     /**
-      * Nettoie les singletons (pas nécessaire avec lazy mais gardé pour compatibilité).
-      */
      fun nettoyerSingletons() {
          // Pas besoin de nettoyer car on utilise lazy
      }
