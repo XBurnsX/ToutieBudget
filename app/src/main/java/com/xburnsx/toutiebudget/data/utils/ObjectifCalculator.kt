@@ -22,7 +22,7 @@ class ObjectifCalculator {
         return when (enveloppe.typeObjectif) {
             TypeObjectif.Echeance -> calculerVersementEcheance(soldeActuel, objectif, enveloppe.dateDebutObjectif)
             TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif)
-            TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectifMensuel = objectif)
+            TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
             TypeObjectif.Bihebdomadaire -> calculerVersementBihebdomadaire(soldeActuel, objectif, enveloppe.dateDebutObjectif)
             else -> 0.0 // Pour 'Aucun' ou autres cas.
         }
@@ -81,7 +81,9 @@ class ObjectifCalculator {
      * Pour un objectif BIHEBDOMADAIRE (toutes les 2 semaines).
      * 50$ première semaine + 50$ deuxième semaine = 100$ total, puis RESET.
      */
-    private fun calculerVersementBihebdomadaire(soldeActuel: Double, objectifPeriodique: Double, dateDebutObjectif: Date?): Double {
+    private fun calculerVersementBihebdomadaire(
+        soldeActuel: Double, objectifPeriodique: Double, dateDebutObjectif: Date?
+    ): Double {
         val dateDebut = dateDebutObjectif ?: return objectifPeriodique // Nécessite une date de début.
 
         // Calculer le nombre de jours écoulés depuis le début

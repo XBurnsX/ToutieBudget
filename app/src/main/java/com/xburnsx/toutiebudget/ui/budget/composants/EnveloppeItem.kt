@@ -218,10 +218,12 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
+                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                                val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
                                 if (enveloppe.solde >= objectif) {
                                     "Objectif de période atteint: ${formatteurMonetaire.format(objectif)}"
                                 } else {
-                                    "Objectif / 2 sem: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif / 2 sem: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
                                 }
                             }
                             else -> {

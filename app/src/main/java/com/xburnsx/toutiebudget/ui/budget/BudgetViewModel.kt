@@ -41,6 +41,9 @@ class BudgetViewModel(
     private val objectifCalculator: ObjectifCalculator
 ) : ViewModel() {
 
+    // Service de reset automatique des objectifs bihebdomadaires
+    private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository)
+
     // --- Cache en mémoire pour éviter les écrans de chargement ---
     private var cacheComptes: List<Compte> = emptyList()
     private var cacheEnveloppes: List<Enveloppe> = emptyList()
@@ -56,6 +59,21 @@ class BudgetViewModel(
     init {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
+
+            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES
+            println("[RESET] 🔍 Vérification des objectifs bihebdomadaires à resetter...")
+            objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
+                if (enveloppesResetees.isNotEmpty()) {
+                    println("[RESET] ✅ ${enveloppesResetees.size} objectif(s) bihebdomadaire(s) reseté(s)")
+                    enveloppesResetees.forEach { enveloppe ->
+                        println("[RESET]   • ${enveloppe.nom} - Nouveau cycle commencé")
+                    }
+                } else {
+                    println("[RESET] ✅ Aucun objectif bihebdomadaire à resetter")
+                }
+            }.onFailure { e ->
+                println("[RESET] ❌ Erreur lors du reset automatique: ${e.message}")
+            }
 
             // 🔄 ROLLOVER AUTOMATIQUE : Seulement si on est le 1er du mois
             val aujourdhui = Calendar.getInstance()
