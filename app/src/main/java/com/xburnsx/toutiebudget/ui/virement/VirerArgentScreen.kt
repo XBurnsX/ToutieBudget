@@ -296,16 +296,21 @@ private fun ContenuModeComptes(
     uiState: VirerArgentUiState,
     viewModel: VirerArgentViewModel
 ) {
-    val comptes = uiState.sourcesDisponibles["Comptes"]
-        ?.filterIsInstance<ItemVirement.CompteItem>()
-        ?: emptyList()
+    // Aplatir la map de comptes en une seule liste pour les sélecteurs
+    val sources = uiState.sourcesDisponibles
+    val destinations = uiState.destinationsDisponibles
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SelecteurCompteVirement(
             label = "Compte source",
-            comptes = comptes,
+            groupesDeComptes = sources,
             itemSelectionne = uiState.sourceSelectionnee,
-            onItemSelected = { viewModel.onItemSelected(it) }
+            onItemSelected = {
+                viewModel.onItemSelected(it)
+                viewModel.fermerSelecteur()
+            },
+            onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) },
+            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.SOURCE
         )
 
         Icon(
@@ -319,9 +324,14 @@ private fun ContenuModeComptes(
 
         SelecteurCompteVirement(
             label = "Compte destination",
-            comptes = comptes,
+            groupesDeComptes = destinations,
             itemSelectionne = uiState.destinationSelectionnee,
-            onItemSelected = { viewModel.onItemSelected(it) }
+            onItemSelected = {
+                viewModel.onItemSelected(it)
+                viewModel.fermerSelecteur()
+            },
+            onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) },
+            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.DESTINATION
         )
     }
 }

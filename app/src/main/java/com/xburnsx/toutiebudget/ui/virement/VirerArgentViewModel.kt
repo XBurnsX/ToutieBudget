@@ -169,19 +169,46 @@ class VirerArgentViewModel(
     }
 
     /**
-     * Configure les sources et destinations pour le virement entre comptes.
+     * Configure les sources et destinations pour le virement entre comptes,
+     * en les groupant par catégorie et en respectant l'ordre.
+     * Les dettes sont exclues.
      */
     private fun configurerPourModeComptes() {
-        // Tous les comptes (sauf archivés) sont des sources et des destinations potentielles.
-        // On pourrait vouloir exclure les comptes de crédit comme destination.
-        val itemsComptes = allComptes.map { ItemVirement.CompteItem(it) }
-        val sources = linkedMapOf("Comptes" to itemsComptes)
-        val destinations = linkedMapOf("Comptes" to itemsComptes)
+        val comptesGroupes = allComptes
+            .filter { it !is CompteDette } // Exclure les dettes
+            .sortedBy { it.ordre }
+            .groupBy(
+                keySelector = { compte ->
+                    // Clé de groupement : le nom de la catégorie du compte
+                    when (compte) {
+                        is CompteCheque -> "Comptes chèque"
+                        is CompteCredit -> "Cartes de crédit"
+                        is CompteInvestissement -> "Investissement"
+                        else -> "Autres" // Une catégorie par défaut si nécessaire
+                    }
+                },
+                valueTransform = { compte ->
+                    // Transformation de la valeur : créer un ItemVirement
+                    ItemVirement.CompteItem(compte)
+                }
+            )
+
+        // Assurer que les catégories principales sont toujours présentes et dans le bon ordre
+        val sourcesFinales = linkedMapOf<String, List<ItemVirement>>().apply {
+            put("Comptes chèque", comptesGroupes["Comptes chèque"] ?: emptyList())
+            put("Cartes de crédit", comptesGroupes["Cartes de crédit"] ?: emptyList())
+            put("Investissement", comptesGroupes["Investissement"] ?: emptyList())
+            // Ajouter d'autres groupes s'ils existent
+            comptesGroupes.filterKeys { it !in this.keys }.forEach { (key, value) ->
+                put(key, value)
+            }
+        }
 
         _uiState.update {
             it.copy(
-                sourcesDisponibles = sources,
-                destinationsDisponibles = destinations
+                sourcesDisponibles = sourcesFinales,
+                destinationsDisponibles = sourcesFinales,
+                isLoading = false
             )
         }
     }
@@ -321,34 +348,32 @@ class VirerArgentViewModel(
      * Sélectionne un item (source ou destination) selon le sélecteur ouvert.
      */
     fun onItemSelected(item: ItemVirement) {
-        when (_uiState.value.selecteurOuvert) {
-            SelecteurOuvert.SOURCE -> {
-                _uiState.update { 
+        val currentSelecteur = _uiState.value.selecteurOuvert
+        if (currentSelecteur == SelecteurOuvert.SOURCE) {
+            _uiState.update {
+                it.copy(
+                    sourceSelectionnee = item,
+                    erreur = null,
+                    selecteurOuvert = SelecteurOuvert.AUCUN
+                )
+            }
+        } else if (currentSelecteur == SelecteurOuvert.DESTINATION) {
+            val source = _uiState.value.sourceSelectionnee
+            if (source != null && memeItem(source, item)) {
+                _uiState.update {
+                    it.copy(erreur = "La source et la destination ne peuvent pas être identiques.")
+                }
+            } else {
+                _uiState.update {
                     it.copy(
-                        sourceSelectionnee = item,
-                        erreur = null  // Effacer les erreurs précédentes
-                    ) 
+                        destinationSelectionnee = item,
+                        erreur = null,
+                        selecteurOuvert = SelecteurOuvert.AUCUN
+                    )
                 }
             }
-            SelecteurOuvert.DESTINATION -> {
-                // Vérifier qu'on ne vire pas vers la même source
-                val source = _uiState.value.sourceSelectionnee
-                if (source != null && memeItem(source, item)) {
-                    _uiState.update { 
-                        it.copy(erreur = "La source et la destination ne peuvent pas être identiques.") 
-                    }
-                } else {
-                    _uiState.update { 
-                        it.copy(
-                            destinationSelectionnee = item,
-                            erreur = null
-                        ) 
-                    }
-                }
-            }
-            SelecteurOuvert.AUCUN -> {}
         }
-        fermerSelecteur()
+        updateVirementButtonState()
     }
 
     /**
@@ -380,6 +405,7 @@ class VirerArgentViewModel(
                 }
             }
         }
+        updateVirementButtonState()
     }
 
     // ===== GESTION DU MONTANT =====
@@ -397,8 +423,23 @@ class VirerArgentViewModel(
                     erreur = null  // Effacer les erreurs lors de la saisie
                 )
             }
+            updateVirementButtonState() // Mettre à jour l'état du bouton
         }
     }
+
+    /**
+     * Met à jour l'état d'activation du bouton de virement en fonction de l'état de l'UI.
+     */
+    private fun updateVirementButtonState() {
+        val state = _uiState.value
+        val montantValide = state.montant.toLongOrNull() ?: 0L > 0
+        val isEnabled = state.sourceSelectionnee != null &&
+                        state.destinationSelectionnee != null &&
+                        montantValide
+
+        _uiState.update { it.copy(isVirementButtonEnabled = isEnabled) }
+    }
+
 
     // ===== EXÉCUTION DU VIREMENT =====
 
