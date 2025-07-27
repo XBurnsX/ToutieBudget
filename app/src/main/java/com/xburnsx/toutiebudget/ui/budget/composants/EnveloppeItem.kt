@@ -340,8 +340,8 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         )
                     }
 
-                    // AJOUT: Afficher le versement recommandé
-                    if (enveloppe.versementRecommande > 0) {
+                    // AJOUT: Afficher le versement recommandé SEULEMENT pour certains types d'objectifs
+                    if (enveloppe.versementRecommande > 0 && enveloppe.typeObjectif != com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Suggéré: ${formatteurMonetaire.format(enveloppe.versementRecommande)}",
