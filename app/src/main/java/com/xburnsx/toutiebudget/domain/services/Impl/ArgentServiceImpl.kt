@@ -546,7 +546,8 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteSource.id,
             collectionCompte = compteSource.collection,
             allocationMensuelleId = null,
-            note = "Argent envoyé à $nomCompteDest"
+            tiers = "Argent envoyé à $nomCompteDest", // LE TIERS c'est ça ! PAS de note !
+            note = null // PAS de note !
         )
         try {
             transactionRepository.creerTransaction(transactionSortante).getOrThrow()
@@ -567,7 +568,8 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteDest.id,
             collectionCompte = compteDest.collection,
             allocationMensuelleId = null,
-            note = "Argent reçu de $nomCompteSource"
+            tiers = "Argent reçu de $nomCompteSource", // LE TIERS c'est ça ! PAS de note !
+            note = null // PAS de note !
         )
         try {
             transactionRepository.creerTransaction(transactionEntrante).getOrThrow()

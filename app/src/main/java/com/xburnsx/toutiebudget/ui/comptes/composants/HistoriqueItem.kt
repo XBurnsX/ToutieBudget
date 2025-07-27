@@ -23,7 +23,9 @@ fun HistoriqueItem(transaction: TransactionUi) {
 
     val couleurMontant = when (transaction.type) {
         TypeTransaction.Depense -> Color.Red
+        TypeTransaction.Pret -> Color.Red        // PRET = ROUGE (argent qui sort)
         TypeTransaction.Revenu -> Color.Green
+        TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
         else -> Color.Yellow
     }
 

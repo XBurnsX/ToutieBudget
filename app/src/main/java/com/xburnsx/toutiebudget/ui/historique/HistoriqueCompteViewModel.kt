@@ -82,15 +82,11 @@ class HistoriqueCompteViewModel(
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull() ?: emptyList()
                 println("DEBUG: Nombre d'enveloppes récupérées: ${enveloppes.size}")
 
-                // Récupérer tous les tiers pour résoudre les noms
-                val tiers = tiersRepository.recupererTousLesTiers().getOrNull() ?: emptyList()
-                println("DEBUG: Nombre de tiers récupérés: ${tiers.size}")
-
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
                     println("DEBUG: Transaction ID: ${transaction.id}, AllocationId: ${transaction.allocationMensuelleId}")
                     println("DEBUG: Transaction date: ${transaction.date}")
-                    println("DEBUG: Transaction tiersId: ${transaction.tiersId}")
+                    println("DEBUG: Transaction tiers: ${transaction.tiers}")
 
                     // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
                     val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
@@ -102,31 +98,17 @@ class HistoriqueCompteViewModel(
                         null
                     }
 
-                    // Récupérer le nom du tiers ou utiliser une valeur par défaut
-                    println("DEBUG: Transaction tiersId: '${transaction.tiersId}' (type: ${transaction.tiersId?.javaClass?.simpleName})")
-                    println("DEBUG: Nombre de tiers disponibles: ${tiers.size}")
-                    tiers.forEachIndexed { index, t ->
-                        println("DEBUG: Tiers[$index]: id='${t.id}', nom='${t.nom}'")
-                    }
+                    // Utiliser directement le champ tiersId de la transaction (qui contient le nom)
+                    val nomTiers = transaction.tiersId ?: "Transaction"
 
-                    val nomTiers = if (!transaction.tiersId.isNullOrEmpty()) {
-                        val tiersFound = tiers.find { it.id == transaction.tiersId }
-                        println("DEBUG: Recherche tiers avec ID '${transaction.tiersId}' -> trouvé: ${tiersFound?.nom}")
-                        tiersFound?.nom ?: "Tiers inconnu (ID: ${transaction.tiersId})"
-                    } else {
-                        println("DEBUG: Pas de tiersId, utilisation du premier tiers disponible")
-                        // Utiliser le premier tiers disponible au lieu de "Transaction"
-                        tiers.firstOrNull()?.nom ?: "Transaction"
-                    }
-
-                    println("DEBUG: Nom final du tiers: '$nomTiers'")
+                    println("DEBUG: Nom du tiers utilisé: '$nomTiers'")
 
                     TransactionUi(
                         id = transaction.id,
                         type = transaction.type,
                         montant = transaction.montant,
                         date = transaction.date ?: Date(), // Valeur par défaut si date est null
-                        tiers = nomTiers, // Utiliser le nom du tiers au lieu de la note
+                        tiers = nomTiers, // Utiliser directement le champ tiers de la transaction
                         nomEnveloppe = nomEnveloppe,
                         note = transaction.note // Garder la note complète
                     )

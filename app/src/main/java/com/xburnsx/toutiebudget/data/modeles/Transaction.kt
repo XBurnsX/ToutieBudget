@@ -20,6 +20,7 @@ data class Transaction(
     val collectionCompte: String = "",
     val allocationMensuelleId: String? = null,
     val tiersId: String? = null, // ID du tiers associé à cette transaction
+    val tiers: String? = null, // Nom du tiers (peut être utilisé sans tiersId pour les virements)
     val created: Date? = null,
     val updated: Date? = null
 )

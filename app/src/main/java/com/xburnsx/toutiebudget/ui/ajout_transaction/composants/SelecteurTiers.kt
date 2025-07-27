@@ -138,7 +138,10 @@ fun SelecteurTiers(
             // Dropdown avec les résultats
             DropdownMenu(
                 expanded = dropdownVisible,
-                onDismissRequest = { /* Ne pas fermer automatiquement pour garder le focus */ },
+                onDismissRequest = {
+                    dropdownVisible = false
+                    focusManager.clearFocus()
+                },
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
                     .fillMaxWidth()

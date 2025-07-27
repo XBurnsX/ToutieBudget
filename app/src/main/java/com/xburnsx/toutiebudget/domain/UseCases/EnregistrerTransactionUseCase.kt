@@ -31,7 +31,7 @@ class EnregistrerTransactionUseCase(
      * @param compteId ID du compte concerné
      * @param collectionCompte Collection du compte (ex: "comptes_cheque")
      * @param enveloppeId ID de l'enveloppe (pour les dépenses)
-     * @param tiersId ID du tiers associé à la transaction
+     * @param tiersNom Nom du tiers associé à la transaction
      * @param note Note facultative
      * @param date Date de la transaction (par défaut: maintenant)
      * 
@@ -43,7 +43,7 @@ class EnregistrerTransactionUseCase(
         compteId: String,
         collectionCompte: String,
         enveloppeId: String? = null,
-        tiersId: String? = null,
+        tiersNom: String? = null,
         note: String? = null,
         date: Date = Date()
     ): Result<Unit> {
@@ -54,7 +54,7 @@ class EnregistrerTransactionUseCase(
 
         return try {
             coroutineScope {
-                println("[DEBUG] EnregistrerTransactionUseCase: début - montant=$montant, type=$typeTransaction, enveloppeId=$enveloppeId, tiersId=$tiersId")
+                println("[DEBUG] EnregistrerTransactionUseCase: début - montant=$montant, type=$typeTransaction, enveloppeId=$enveloppeId, tiersNom=$tiersNom")
 
                 // 1. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
@@ -90,7 +90,7 @@ class EnregistrerTransactionUseCase(
                     compteId = compteId,
                     collectionCompte = collectionCompte,
                     allocationMensuelleId = allocationMensuelleId,
-                    tiersId = tiersId
+                    tiers = tiersNom
                 )
 
                 println("[DEBUG] Création transaction avec allocationMensuelleId=$allocationMensuelleId")
