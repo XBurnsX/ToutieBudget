@@ -61,6 +61,7 @@
       * Convertit les valeurs PocketBase vers TypeObjectif
       */
      private fun pocketBaseVersTypeObjectif(str: String?): TypeObjectif {
+         println("[DEBUG] pocketBaseVersTypeObjectif - Valeur reçue: '$str'")
          return when (str) {
              "Aucun" -> TypeObjectif.Aucun
              "Mensuel" -> TypeObjectif.Mensuel
@@ -68,7 +69,7 @@
              "Echeance" -> TypeObjectif.Echeance
              "Annuel" -> TypeObjectif.Annuel
              else -> {
-
+                 println("[DEBUG] pocketBaseVersTypeObjectif - Valeur inconnue '$str', utilise Aucun par défaut")
                  TypeObjectif.Aucun
              }
          }
@@ -113,10 +114,10 @@
 
                  // Récupérer la date d'objectif depuis PocketBase
                  val objectifDateString = itemObject.get("objectif_date")?.asString
-                 val objectifType = itemObject.get("objectif_type")?.asString
+                 val objectifTypeString = itemObject.get("frequence_objectif")?.asString  // CORRIGÉ !
                  val nom = itemObject.get("nom")?.asString ?: ""
 
-                println("[DEBUG] Enveloppe '$nom' - objectif_type: '$objectifType', objectif_date brut: '$objectifDateString'")
+                println("[DEBUG] Enveloppe '$nom' - frequence_objectif brut: '$objectifTypeString', objectif_date brut: '$objectifDateString'")
 
                  val objectifDate = if (objectifDateString != null && objectifDateString.isNotBlank()) {
                      try {
@@ -150,9 +151,16 @@
                      categorieId = itemObject.get("categorie_id")?.asString ?: "",
                      estArchive = itemObject.get("est_archive")?.asBoolean ?: false,
                      ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
-                     objectifType = pocketBaseVersTypeObjectif(itemObject.get("objectif_type")?.asString),
-                     objectifMontant = itemObject.get("objectif_montant")?.asDouble ?: 0.0,
-                     objectifDate = objectifDate, // Utiliser la date récupérée
+                     typeObjectif = pocketBaseVersTypeObjectif(itemObject.get("frequence_objectif")?.asString), // Utilise frequence_objectif
+                     objectifMontant = itemObject.get("montant_objectif")?.asDouble ?: 0.0, // Utilise montant_objectif
+                     dateObjectif = itemObject.get("date_objectif")?.asString, // String pour la date d'objectif
+                     dateDebutObjectif = if (itemObject.get("date_debut_objectif")?.asString != null) {
+                         try {
+                             formateurDate.parse(itemObject.get("date_debut_objectif")?.asString)
+                         } catch (e: Exception) {
+                             null
+                         }
+                     } else null,
                      objectifJour = (itemObject.get("objectif_jour")?.asDouble)?.toInt()
                  )
              }.filter { !it.estArchive }
@@ -339,9 +347,12 @@
                  "categorie_id" to enveloppe.categorieId,
                  "est_archive" to enveloppe.estArchive,
                  "ordre" to enveloppe.ordre,
-                 "objectif_type" to typeObjectifVersPocketBase(enveloppe.objectifType),
-                 "objectif_montant" to enveloppe.objectifMontant,
-                 "objectif_date" to enveloppe.objectifDate,
+                 "frequence_objectif" to typeObjectifVersPocketBase(enveloppe.typeObjectif), // Utilise nouveau nom
+                 "montant_objectif" to enveloppe.objectifMontant, // Utilise nouveau nom
+                 "date_objectif" to enveloppe.dateObjectif, // String au lieu de Date formatée
+                 "date_debut_objectif" to if (enveloppe.dateDebutObjectif != null) {
+                     formateurDate.format(enveloppe.dateDebutObjectif)
+                 } else null,
                  "objectif_jour" to enveloppe.objectifJour
              )
              
@@ -419,9 +430,14 @@
                  "categorieId" to enveloppe.categorieId,
                  "est_archive" to enveloppe.estArchive,
                  "ordre" to enveloppe.ordre,
-                 "objectif_type" to typeObjectifVersPocketBase(enveloppe.objectifType),
-                 "objectif_montant" to enveloppe.objectifMontant,
-                 "objectif_date" to enveloppe.objectifDate,
+                 "frequence_objectif" to typeObjectifVersPocketBase(enveloppe.typeObjectif), // CORRIGÉ !
+                 "montant_objectif" to enveloppe.objectifMontant,
+                 "date_objectif" to enveloppe.dateObjectif,
+                 "date_debut_objectif" to if (enveloppe.dateDebutObjectif != null) {
+                     formateurDate.format(enveloppe.dateDebutObjectif)
+                 } else {
+                     null
+                 },
                  "objectif_jour" to enveloppe.objectifJour
              )
  

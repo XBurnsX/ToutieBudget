@@ -349,6 +349,11 @@ fun CategoriesEnveloppesScreen(
                                     viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
                                 }
                             },
+                            onSupprimerObjectifEnveloppe = { enveloppe ->
+                                if (!isDragging) {
+                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
+                                }
+                            },
                             onSupprimerCategorie = { nomCat ->
                                 if (!isDragging) {
                                     viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)

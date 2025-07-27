@@ -33,6 +33,7 @@ fun CategorieCard(
     onAjouterEnveloppeClick: () -> Unit,
     onObjectifClick: (Enveloppe) -> Unit,
     onSupprimerEnveloppe: (Enveloppe) -> Unit = {},
+    onSupprimerObjectifEnveloppe: (Enveloppe) -> Unit = {}, // NOUVEAU : pour supprimer seulement l'objectif
     onSupprimerCategorie: (String) -> Unit = {},
     onStartDragEnveloppe: (String) -> Unit = {},
     draggedEnveloppeId: String? = null,
@@ -182,8 +183,12 @@ fun CategorieCard(
                                 } else {
                                     { /* Ne rien faire en mode drag */ }
                                 },
-                                onSupprimerClick = if (!isDragMode) {
+                                onSupprimerClick = if (isModeEdition && !isDragMode) {
+                                    // En mode édition : supprimer l'enveloppe entière
                                     { onSupprimerEnveloppe(enveloppe) }
+                                } else if (!isModeEdition && !isDragMode) {
+                                    // En mode normal (menu 3 points) : supprimer seulement l'objectif
+                                    { onSupprimerObjectifEnveloppe(enveloppe) }
                                 } else {
                                     { /* Ne rien faire en mode drag */ }
                                 }
@@ -212,9 +217,10 @@ fun CategorieCardPreview() {
             categorieId = "cat1",
             estArchive = false,
             ordre = 0,
-            objectifType = TypeObjectif.Mensuel,
+            typeObjectif = TypeObjectif.Mensuel,
             objectifMontant = 500.0,
-            objectifDate = null,
+            dateObjectif = null,
+            dateDebutObjectif = null,
             objectifJour = null
         ),
         Enveloppe(
@@ -224,9 +230,10 @@ fun CategorieCardPreview() {
             categorieId = "cat1",
             estArchive = false,
             ordre = 1,
-            objectifType = TypeObjectif.Aucun,
+            typeObjectif = TypeObjectif.Aucun,
             objectifMontant = 0.0,
-            objectifDate = null,
+            dateObjectif = null,
+            dateDebutObjectif = null,
             objectifJour = null
         )
     )

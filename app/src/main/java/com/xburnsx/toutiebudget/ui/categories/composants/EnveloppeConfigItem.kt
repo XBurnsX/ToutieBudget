@@ -85,7 +85,7 @@ fun EnveloppeConfigItem(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Supprimer l'enveloppe") },
+                        text = { Text("Supprimer l'objectif") },
                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                         onClick = {
                             onSupprimerClick()

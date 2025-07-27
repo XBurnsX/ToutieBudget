@@ -94,7 +94,7 @@ class EnregistrerPaiementDetteUseCaseImpl(private val argentService: ArgentServi
 
 class CalculerTexteObjectifUseCase {
     operator fun invoke(enveloppe: Enveloppe): String? {
-        return when (enveloppe.objectifType) {
+        return when (enveloppe.typeObjectif) {
             TypeObjectif.Aucun -> null
             TypeObjectif.Mensuel -> "${enveloppe.objectifMontant} $ nécessaire d'ici le ${enveloppe.objectifJour ?: 1}"
             TypeObjectif.Bihebdomadaire -> {
@@ -104,7 +104,7 @@ class CalculerTexteObjectifUseCase {
                 "${enveloppe.objectifMontant} $ d'ici le prochain $jourSemaine"
             }
             TypeObjectif.Echeance -> {
-                val dateFin = enveloppe.objectifDate ?: return null
+                val dateFin = enveloppe.dateDebutObjectif ?: return null
                 val aujourdhui = Date()
                 if (aujourdhui.after(dateFin)) return "Échéance passée"
                 val diffMillis = dateFin.time - aujourdhui.time

@@ -121,6 +121,44 @@ fun DefinirObjectifDialog(
                 
                 // Configuration spécifique selon le type d'objectif
                 when (formState.type) {
+                    TypeObjectif.Annuel -> {
+                        val context = LocalContext.current
+
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "Date de début de l'objectif annuel : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Aujourd'hui"}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(
+                                onClick = {
+                                    val calendar = Calendar.getInstance()
+                                    // Si pas de date définie, utiliser aujourd'hui
+                                    if (formState.date != null) {
+                                        calendar.time = formState.date
+                                    }
+                                    // Si pas de date, garder aujourd'hui (pas besoin de +12 mois)
+
+                                    val datePickerDialog = DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val selectedCalendar = Calendar.getInstance()
+                                            selectedCalendar.set(year, month, dayOfMonth)
+                                            onValueChange(null, null, selectedCalendar.time, null)
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    )
+                                    datePickerDialog.show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CalendarToday, "Choisir date de début")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Choisir la date de début (défaut: aujourd'hui)")
+                            }
+                        }
+                    }
                     TypeObjectif.Mensuel -> {
                         SelecteurJourMois(
                             jourSelectionne = formState.jour,
@@ -148,7 +186,9 @@ fun DefinirObjectifDialog(
                                         context,
                                         { _, year, month, dayOfMonth ->
                                             val selectedCalendar = Calendar.getInstance()
-                                            selectedCalendar.set(year, month, dayOfMonth)
+                                            selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
+                                            selectedCalendar.set(Calendar.MILLISECOND, 0)
+                                            println("[DEBUG] Date sélectionnée pour objectif bihebdomadaire: ${selectedCalendar.time}")
                                             onValueChange(null, null, selectedCalendar.time, null)
                                         },
                                         calendar.get(Calendar.YEAR),
@@ -182,7 +222,9 @@ fun DefinirObjectifDialog(
                                         context,
                                         { _, year, month, dayOfMonth ->
                                             val selectedCalendar = Calendar.getInstance()
-                                            selectedCalendar.set(year, month, dayOfMonth)
+                                            selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
+                                            selectedCalendar.set(Calendar.MILLISECOND, 0)
+                                            println("[DEBUG] Date sélectionnée pour objectif échéance: ${selectedCalendar.time}")
                                             onValueChange(null, null, selectedCalendar.time, null)
                                         },
                                         calendar.get(Calendar.YEAR),

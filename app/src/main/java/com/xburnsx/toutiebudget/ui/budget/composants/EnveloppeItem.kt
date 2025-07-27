@@ -38,6 +38,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Calendar
 
 /**
  * Fonction d'extension pour la classe String.
@@ -190,38 +192,40 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     ) {
                         // Texte de l'objectif adapté selon le type
                         val texteObjectif = when (enveloppe.typeObjectif) {
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
-                                if (enveloppe.versementRecommande > 0) {
-                                    "${formatteurMonetaire.format(enveloppe.versementRecommande)} nécessaire ce mois (objectif annuel: ${formatteurMonetaire.format(objectif)})"
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
+                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                                val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
+                                if (enveloppe.solde >= objectif) {
+                                    "Objectif atteint pour le $dateTexte"
                                 } else {
+                                    "Objectif: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
+                                }
+                            }
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
+                                if (enveloppe.solde >= objectif) {
                                     "Objectif annuel atteint: ${formatteurMonetaire.format(objectif)}"
+                                } else {
+                                    "Objectif annuel: ${formatteurMonetaire.format(objectif)}"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                                val dateTexte = dateFormatee?.let { "${it.jourTexte} ${it.mois}" } ?: "fin du mois"
                                 if (enveloppe.solde >= objectif) {
                                     "Objectif mensuel atteint: ${formatteurMonetaire.format(objectif)}"
                                 } else {
-                                    val restant = objectif - enveloppe.solde
-                                    "Objectif mensuel: ${formatteurMonetaire.format(objectif)} (reste ${formatteurMonetaire.format(restant)})"
-                                }
-                            }
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
-                                if (enveloppe.versementRecommande > 0 && enveloppe.dateObjectif != null) {
-                                    "${formatteurMonetaire.format(enveloppe.versementRecommande)} nécessaire ce mois pour le ${enveloppe.dateObjectif} (objectif: ${formatteurMonetaire.format(objectif)})"
-                                } else if (enveloppe.dateObjectif != null) {
-                                    "Objectif atteint pour le ${enveloppe.dateObjectif}: ${formatteurMonetaire.format(objectif)}"
-                                } else {
-                                    "Objectif échéance: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif mensuel: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
-                                if (enveloppe.versementRecommande > 0) {
-                                    "Bihebdomadaire: ${formatteurMonetaire.format(enveloppe.versementRecommande)} suggéré ce mois (objectif: ${formatteurMonetaire.format(objectif)})"
+                                if (enveloppe.solde >= objectif) {
+                                    "Objectif de période atteint: ${formatteurMonetaire.format(objectif)}"
                                 } else {
-                                    "Objectif bihebdomadaire atteint: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif / 2 sem: ${formatteurMonetaire.format(objectif)}"
                                 }
                             }
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun -> {
+                            else -> {
+                                // Pour TypeObjectif.Aucun et autres cas non gérés
                                 "Objectif: ${formatteurMonetaire.format(objectif)}"
                             }
                         }
@@ -433,5 +437,78 @@ fun ApercuEnveloppeItem() {
                 )
             )
         }
+    }
+}
+
+/**
+ * Classe pour représenter une date formatée avec jour, mois et année
+ */
+data class DateFormatee(
+    val jour: Int,
+    val mois: String,
+    val annee: Int,
+    val jourTexte: String // ex: "15", "1er", "2e", etc.
+) {
+    fun toStringCourt(): String = "$jourTexte $mois"
+    fun toStringComplet(): String = "$jourTexte $mois $annee"
+}
+
+/**
+ * Fonction d'extension pour convertir une chaîne de date en DateFormatee
+ */
+fun String?.toDateFormatee(): DateFormatee? {
+    return try {
+        if (this.isNullOrBlank()) return null
+
+        // Parser la date depuis différents formats possibles
+        val date = when {
+            this.contains("T") -> {
+                // Format ISO complet avec T (ex: "2025-08-09T00:00:00.000Z")
+                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+                isoFormat.parse(this)
+            }
+            this.contains(" ") -> {
+                // Format avec espace (ex: "2025-08-09 00:00:00.000Z")
+                val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
+                spaceFormat.parse(this)
+            }
+            this.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                // Format date simple (ex: "2025-08-09")
+                val simpleFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                simpleFormat.parse(this)
+            }
+            else -> null
+        }
+
+        if (date == null) return null
+
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+
+        val jour = calendar.get(Calendar.DAY_OF_MONTH)
+        val moisNum = calendar.get(Calendar.MONTH)
+        val annee = calendar.get(Calendar.YEAR)
+
+        // Noms des mois en français
+        val nomsMois = arrayOf(
+            "janvier", "février", "mars", "avril", "mai", "juin",
+            "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+        )
+
+        // Formatage du jour avec ordinal français
+        val jourTexte = when (jour) {
+            1 -> "1er"
+            else -> "${jour}"
+        }
+
+        DateFormatee(
+            jour = jour,
+            mois = nomsMois[moisNum],
+            annee = annee,
+            jourTexte = jourTexte
+        )
+    } catch (e: Exception) {
+        println("[ERROR] Erreur parsing date: $this - ${e.message}")
+        null
     }
 }

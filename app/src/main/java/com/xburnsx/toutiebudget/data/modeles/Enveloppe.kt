@@ -24,12 +24,14 @@ data class Enveloppe(
     @SerializedName("est_archive")
     val estArchive: Boolean,
     val ordre: Int,
-    @SerializedName("objectif_type")
-    val objectifType: TypeObjectif = TypeObjectif.Aucun,
-    @SerializedName("objectif_montant")
+    @SerializedName("frequence_objectif")  // Nouveau nom dans PocketBase
+    val typeObjectif: TypeObjectif = TypeObjectif.Aucun,
+    @SerializedName("montant_objectif")  // Nouveau nom dans PocketBase
     val objectifMontant: Double = 0.0,
-    @SerializedName("objectif_date")
-    val objectifDate: Date? = null,
-    @SerializedName("objectif_jour")
+    @SerializedName("date_objectif")  // La date que l'objectif doit atteindre (ex: 23 pour le 23 du mois)
+    val dateObjectif: String? = null,
+    @SerializedName("date_debut_objectif")  // La date où l'objectif commence
+    val dateDebutObjectif: Date? = null,
+    @SerializedName("objectif_jour")  // Garder ce champ si nécessaire
     val objectifJour: Int? = null
 )

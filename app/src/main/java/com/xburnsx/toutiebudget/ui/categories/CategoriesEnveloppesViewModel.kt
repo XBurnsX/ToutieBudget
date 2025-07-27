@@ -249,19 +249,20 @@ class CategoriesEnveloppesViewModel(
                     categorieId = categorie.id, // IMPORTANT: Lien avec la catégorie
                     estArchive = false,
                     ordre = 0,
-                    // ✅ OBJECTIFS VIDES PAR DÉFAUT
-                    objectifType = TypeObjectif.Aucun,  // Pas d'objectif
+                    // ✅ OBJECTIFS VIDES PAR DÉFAUT avec nouveaux noms
+                    typeObjectif = TypeObjectif.Aucun,  // Pas d'objectif
                     objectifMontant = 0.0,             // Pas de montant objectif
-                    objectifDate = null,               // Pas de date d'échéance
+                    dateObjectif = null,               // Pas de date d'objectif (String)
+                    dateDebutObjectif = null,          // Pas de date de début
                     objectifJour = null                // Pas de jour spécifique
                 )
 
                 
                 // Mise à jour optimiste de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                val enveloppesCategorie = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
-                enveloppesCategorie.add(enveloppeVide)
-                nouveauxGroupes[categorieNom] = enveloppesCategorie
+                val enveloppesDeCategorie = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
+                enveloppesDeCategorie.add(enveloppeVide)
+                nouveauxGroupes[categorieNom] = enveloppesDeCategorie
 
                 _uiState.update { currentState ->
                     currentState.copy(
@@ -319,11 +320,19 @@ class CategoriesEnveloppesViewModel(
     // ===== GESTION DES OBJECTIFS =====
 
     fun onOuvrirObjectifDialog(enveloppe: Enveloppe) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
                 isObjectifDialogVisible = true,
-                enveloppePourObjectif = enveloppe
-            ) 
+                enveloppePourObjectif = enveloppe,
+                // PRÉ-REMPLIR LE FORMULAIRE AVEC LES DONNÉES EXISTANTES
+                objectifFormState = ObjectifFormState(
+                    type = enveloppe.typeObjectif,
+                    montant = if (enveloppe.objectifMontant > 0) enveloppe.objectifMontant.toString() else "",
+                    date = enveloppe.dateDebutObjectif, // Utilise dateDebutObjectif au lieu d'objectifDate
+                    dateDebut = enveloppe.dateDebutObjectif, // CHARGER LA DATE DE DÉBUT
+                    jour = enveloppe.objectifJour
+                )
+            )
         }
     }
 
@@ -339,6 +348,8 @@ class CategoriesEnveloppesViewModel(
 
     fun onObjectifTypeChange(type: TypeObjectif) {
         _uiState.update { 
+            // Pour les objectifs annuels, pas besoin d'initialiser une date spéciale
+            // La date de début peut être aujourd'hui (null = aujourd'hui par défaut)
             it.copy(objectifFormState = it.objectifFormState.copy(type = type))
         }
     }
@@ -350,8 +361,14 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun onObjectifDateChange(date: Date?) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(objectifFormState = it.objectifFormState.copy(date = date))
+        }
+    }
+
+    fun onObjectifDateDebutChange(date: Date?) {
+        _uiState.update {
+            it.copy(objectifFormState = it.objectifFormState.copy(dateDebut = date))
         }
     }
 
@@ -368,16 +385,96 @@ class CategoriesEnveloppesViewModel(
         val enveloppe = _uiState.value.enveloppePourObjectif ?: return
         val formState = _uiState.value.objectifFormState
         val montant = formState.montant.toDoubleOrNull() ?: 0.0
-        
+
         viewModelScope.launch {
             try {
+                // 🔥 CALCULER LA DATE DE DÉBUT SELON LE TYPE D'OBJECTIF
+                val dateDebutCalculee = when (formState.type) {
+                    TypeObjectif.Mensuel -> {
+                        // Pour les objectifs mensuels, utiliser le jour sélectionné du mois actuel
+                        val calendar = Calendar.getInstance()
+                        val jourSelectionne = formState.jour ?: calendar.get(Calendar.DAY_OF_MONTH)
+                        calendar.set(Calendar.DAY_OF_MONTH, jourSelectionne)
+                        calendar.set(Calendar.HOUR_OF_DAY, 0)
+                        calendar.set(Calendar.MINUTE, 0)
+                        calendar.set(Calendar.SECOND, 0)
+                        calendar.set(Calendar.MILLISECOND, 0)
+
+                        // S'assurer que c'est le mois actuel ou le suivant si le jour est déjà passé
+                        if (calendar.time.before(Date())) {
+                            calendar.add(Calendar.MONTH, 1)
+                        }
+                        println("[DEBUG] Date de début calculée pour objectif mensuel: ${calendar.time}")
+                        calendar.time
+                    }
+                    TypeObjectif.Bihebdomadaire -> {
+                        // 🔥 CORRECTION: Pour les objectifs bihebdomadaires, utiliser formState.date (pas dateDebut)
+                        val dateSelectionnee = formState.date
+                        if (dateSelectionnee != null) {
+                            val calendar = Calendar.getInstance()
+                            calendar.time = dateSelectionnee
+                            calendar.set(Calendar.HOUR_OF_DAY, 0)
+                            calendar.set(Calendar.MINUTE, 0)
+                            calendar.set(Calendar.SECOND, 0)
+                            calendar.set(Calendar.MILLISECOND, 0)
+                            println("[DEBUG] Date de début pour objectif bihebdomadaire: ${calendar.time}")
+                            calendar.time
+                        } else {
+                            println("[ERROR] Pas de date de début sélectionnée pour objectif bihebdomadaire")
+                            null
+                        }
+                    }
+                    TypeObjectif.Annuel, TypeObjectif.Echeance -> {
+                        // Pour les autres types, utiliser la date définie ou aujourd'hui
+                        formState.dateDebut ?: Date()
+                    }
+                    else -> null
+                }
+
+                // 🔥 CALCULER LA DATE D'OBJECTIF SELON LE TYPE
+                val dateObjectifCalculee = when (formState.type) {
+                    TypeObjectif.Mensuel -> {
+                        // Pour les objectifs mensuels, la date d'objectif est la même que la date de début
+                        dateDebutCalculee?.toString()
+                    }
+                    TypeObjectif.Bihebdomadaire -> {
+                        // Pour les objectifs bihebdomadaires, date d'objectif = date de début + 14 jours
+                        dateDebutCalculee?.let { dateDebut ->
+                            val calendar = Calendar.getInstance()
+                            calendar.time = dateDebut
+                            calendar.add(Calendar.DAY_OF_YEAR, 14) // Ajouter 14 jours
+                            println("[DEBUG] Date d'objectif pour bihebdomadaire: ${calendar.time}")
+                            calendar.time.toString()
+                        }
+                    }
+                    TypeObjectif.Echeance -> {
+                        // Pour les échéances, utiliser la date sélectionnée
+                        formState.date?.toString()
+                    }
+                    TypeObjectif.Annuel -> {
+                        // Pour les objectifs annuels, utiliser la date de début
+                        dateDebutCalculee?.toString()
+                    }
+                    else -> null
+                }
+
                 val enveloppeModifiee = enveloppe.copy(
                     objectifMontant = montant,
-                    objectifType = formState.type,
-                    objectifDate = formState.date,
+                    typeObjectif = formState.type,
+                    dateObjectif = dateObjectifCalculee, // 🔥 UTILISER la date d'objectif calculée
+                    dateDebutObjectif = dateDebutCalculee, // 🔥 UTILISER la date de début calculée
                     objectifJour = formState.jour
                 )
-                
+
+                // 🔥 DEBUG: Afficher les valeurs avant sauvegarde
+                println("[DEBUG] === SAUVEGARDE OBJECTIF ===")
+                println("[DEBUG] Type: ${formState.type}")
+                println("[DEBUG] dateDebutCalculee: $dateDebutCalculee")
+                println("[DEBUG] dateObjectifCalculee: $dateObjectifCalculee")
+                println("[DEBUG] enveloppeModifiee.dateDebutObjectif: ${enveloppeModifiee.dateDebutObjectif}")
+                println("[DEBUG] enveloppeModifiee.dateObjectif: ${enveloppeModifiee.dateObjectif}")
+                println("[DEBUG] ===============================")
+
                 // Mise à jour instantanée de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
                 nouveauxGroupes.forEach { (categorie, enveloppes) ->
@@ -398,7 +495,9 @@ class CategoriesEnveloppesViewModel(
                 
                 // Envoyer à PocketBase
                 enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee).onSuccess {
-
+                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après modification d'objectif
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    println("[SYNC] Objectif modifié et notification budget envoyée pour: ${enveloppe.nom}")
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur sauvegarde objectif: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -407,6 +506,53 @@ class CategoriesEnveloppesViewModel(
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 onFermerObjectifDialog()
+            }
+        }
+    }
+
+    // ===== GESTION DE LA SUPPRESSION D'OBJECTIF =====
+
+    /**
+     * Supprime uniquement l'objectif d'une enveloppe (remet à zéro) sans supprimer l'enveloppe.
+     */
+    fun onSupprimerObjectifEnveloppe(enveloppe: Enveloppe) {
+        viewModelScope.launch {
+            try {
+                // Créer une copie de l'enveloppe sans objectif
+                val enveloppeSansObjectif = enveloppe.copy(
+                    typeObjectif = TypeObjectif.Aucun,
+                    objectifMontant = 0.0,
+                    dateObjectif = null,
+                    dateDebutObjectif = null,
+                    objectifJour = null
+                )
+
+                // Mise à jour instantanée de l'interface
+                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
+                nouveauxGroupes.forEach { (categorie, enveloppes) ->
+                    val nouvellesEnveloppes = enveloppes.map { env ->
+                        if (env.id == enveloppe.id) enveloppeSansObjectif else env
+                    }
+                    nouveauxGroupes[categorie] = nouvellesEnveloppes
+                }
+
+                _uiState.update { currentState ->
+                    currentState.copy(enveloppesGroupees = nouveauxGroupes)
+                }
+
+                // Envoyer à PocketBase
+                enveloppeRepository.mettreAJourEnveloppe(enveloppeSansObjectif).onSuccess {
+                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après suppression d'objectif
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    println("[SYNC] Objectif supprimé et notification budget envoyée pour: ${enveloppe.nom}")
+                }.onFailure { erreur ->
+                    _uiState.update { it.copy(erreur = "Erreur suppression objectif: ${erreur.message}") }
+                    chargerDonnees() // Recharger en cas d'erreur
+                }
+
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
+                chargerDonnees()
             }
         }
     }

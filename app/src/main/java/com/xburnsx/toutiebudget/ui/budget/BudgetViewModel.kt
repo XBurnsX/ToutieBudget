@@ -262,9 +262,20 @@ class BudgetViewModel(
             }
             
             // Formater la date d'objectif si elle existe
-            val dateObjectifFormatee = enveloppe.objectifDate?.let { date ->
-                val format = SimpleDateFormat("dd", Locale.getDefault())
-                format.format(date)
+            val dateObjectifFormatee = enveloppe.dateObjectif?.let { dateString ->
+                // dateObjectif est maintenant une String, donc pas besoin de formatter
+                dateString
+            }
+
+            // Pour les objectifs bihebdomadaires, calculer la date limite dynamique
+            val dateObjectifDynamique = if (enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire) {
+                // Note: La fonction calculerDateLimiteBihebdomadaire n'existe plus, utilisons dateObjectif directement
+                enveloppe.dateObjectif ?: dateObjectifFormatee
+            } else if (enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel && enveloppe.objectifJour != null) {
+                // Pour les objectifs mensuels, utiliser le jour du mois (ex: le 25 de chaque mois)
+                enveloppe.objectifJour.toString()
+            } else {
+                dateObjectifFormatee
             }
 
             EnveloppeUi(
@@ -275,9 +286,9 @@ class BudgetViewModel(
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
-                dateObjectif = dateObjectifFormatee, // Ajouter la date d'objectif formatée
+                dateObjectif = dateObjectifDynamique, // Utiliser la date dynamique
                 versementRecommande = versementRecommande,
-                typeObjectif = enveloppe.objectifType // Ajouter le type d'objectif
+                typeObjectif = enveloppe.typeObjectif // Utiliser le nouveau nom de propriété
             )
         }
     }

@@ -6,9 +6,10 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import java.util.Date
 
 data class ObjectifFormState(
-    val type: TypeObjectif = TypeObjectif.Aucun,
+    val type: TypeObjectif = TypeObjectif.Mensuel, // Par défaut Mensuel au lieu d'Annuel
     val montant: String = "",
     val date: Date? = null,
+    val dateDebut: Date? = null, // AJOUT : Pour la date de début
     val jour: Int? = null
 )
 
