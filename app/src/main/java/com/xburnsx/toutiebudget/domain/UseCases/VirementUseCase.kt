@@ -165,9 +165,18 @@ class VirementUseCase @Inject constructor(
         }
 
         coroutineScope {
-            // 1. Récupérer le compte destination
-            val compte = compteRepository.recupererCompteParId(compteId, "comptes_cheque")
-                .getOrNull() ?: throw IllegalArgumentException("Compte non trouvé")
+            // 1. Récupérer le compte destination - utiliser la recherche dans toutes les collections
+            println("🔍 VirementUseCase: Recherche du compte avec ID: $compteId dans toutes les collections")
+
+            val compteResult = compteRepository.recupererCompteParIdToutesCollections(compteId)
+            println("🔍 VirementUseCase: Résultat de la recherche: ${if (compteResult.isSuccess) "SUCCÈS" else "ÉCHEC - ${compteResult.exceptionOrNull()?.message}"}")
+
+            val compte = compteResult.getOrNull() ?: run {
+                println("❌ VirementUseCase: Compte non trouvé avec ID $compteId")
+                throw IllegalArgumentException("Compte non trouvé")
+            }
+
+            println("✅ VirementUseCase: Compte trouvé: ${compte.nom} (Type: ${compte::class.simpleName})")
 
             if (compte !is CompteCheque) {
                 throw IllegalArgumentException("Le prêt à placer n'est disponible que pour les comptes chèque")
@@ -184,15 +193,45 @@ class VirementUseCase @Inject constructor(
             }
             val premierJourMois = calendrier.time
 
-            val allocation = allocationMensuelleRepository.getOrCreateAllocationMensuelle(
+            println("🔍 VirementUseCase: Date utilisée pour l'allocation: $premierJourMois")
+
+            // 3. D'ABORD vérifier le solde actuel de l'enveloppe AVANT de créer l'allocation
+            println("🔍 VirementUseCase: Vérification du solde actuel de l'enveloppe...")
+
+            // Récupérer toutes les allocations pour ce mois et calculer le solde total
+            val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
+                .getOrElse { emptyList() }
+
+            val soldeActuelEnveloppe = allocationsExistantes
+                .filter { it.enveloppeId == enveloppeId }
+                .sumOf { it.solde }
+
+            println("💰 VirementUseCase: Solde actuel de l'enveloppe: $soldeActuelEnveloppe$")
+
+            if (soldeActuelEnveloppe < montant) {
+                throw IllegalArgumentException("Solde d'enveloppe insuffisant (${soldeActuelEnveloppe}$ disponible, ${montant}$ demandé)")
+            }
+
+            // MAINTENANT créer la nouvelle allocation pour le virement
+            println("📝 VirementUseCase: Création d'une nouvelle allocation pour le virement...")
+            val nouvelleAllocation = AllocationMensuelle(
+                id = "",
+                utilisateurId = compte.utilisateurId,
                 enveloppeId = enveloppeId,
-                mois = premierJourMois
+                mois = premierJourMois,
+                solde = -montant, // Négatif car on retire de l'enveloppe
+                alloue = 0.0,
+                depense = 0.0, // PAS de dépense - c'est un VIREMENT pas une transaction !
+                compteSourceId = compteId,
+                collectionCompteSource = compte.collection
             )
 
-            // 3. Vérifier que l'enveloppe a suffisamment d'argent
-            if (allocation.solde < montant) {
-                throw IllegalArgumentException("Solde d'enveloppe insuffisant (${allocation.solde}$ disponible)")
-            }
+            // Créer l'allocation en base
+            val allocationCree = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
+                .getOrThrow()
+
+            println("✅ VirementUseCase: Nouvelle allocation créée pour le virement")
+
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
             val validationResult = validationProvenanceService.validerRetourVersCompte(
@@ -205,14 +244,8 @@ class VirementUseCase @Inject constructor(
                 throw IllegalArgumentException(validationResult.exceptionOrNull()?.message ?: "L'argent ne peut retourner que vers son compte d'origine")
             }
 
-            // 4. Mettre à jour l'allocation mensuelle (diminuer)
-            val nouvelleAllocation = allocation.copy(
-                solde = allocation.solde - montant,
-                depense = allocation.depense + montant
-            )
-
-            allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
-
+            // 4. PAS de mise à jour d'allocation - l'allocation créée est déjà correcte !
+            // Dans un virement, on ne change que le prêt à placer, pas le solde du compte
 
             // 5. Mettre à jour le prêt à placer du compte (augmenter)
             compteRepository.mettreAJourPretAPlacerSeulement(
@@ -229,7 +262,7 @@ class VirementUseCase @Inject constructor(
                 note = "Virement depuis enveloppe vers Prêt à placer",
                 compteId = compteId,
                 collectionCompte = "comptes_cheque",
-                allocationMensuelleId = allocation.id
+                allocationMensuelleId = allocationCree.id
             )
 
             val resultTransaction = transactionRepository.creerTransaction(transaction)
