@@ -5,6 +5,7 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -415,11 +416,11 @@ class AjoutTransactionViewModel(
 
             try {
                 val montant = state.montant.toDoubleOrNull()?.div(100.0)
-                    ?: throw Exception("Montant invalide")
-                
-                val compte = state.compteSelectionne 
-                    ?: throw Exception("Aucun compte sélectionné")
-                
+                    ?: throw Exception(VirementErrorMessages.General.MONTANT_INVALIDE)
+
+                val compte = state.compteSelectionne
+                    ?: throw Exception(VirementErrorMessages.ClavierBudget.COMPTE_NON_SELECTIONNE)
+
                 // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
                 val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
                     val enveloppeSelectionnee = state.enveloppeSelectionnee

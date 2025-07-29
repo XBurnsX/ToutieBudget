@@ -19,6 +19,7 @@ import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
+import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -398,17 +399,17 @@ class BudgetViewModel(
                 // 1. Vérifier que le compte source existe et a assez d'argent "prêt à placer"
                 val compteSource = cacheComptes.find { it.id == compteSourceId }
                 if (compteSource !is CompteCheque) {
-                    throw Exception("Compte source non trouvé ou n'est pas un compte chèque")
+                    throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
                 }
 
                 if (compteSource.pretAPlacer < montantDollars) {
-                    throw Exception("Montant insuffisant dans le compte (${compteSource.pretAPlacer}$ disponible)")
+                    throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
 
                 // 2. Vérifier que l'enveloppe existe
                 val enveloppe = cacheEnveloppes.find { it.id == enveloppeId }
                 if (enveloppe == null) {
-                    throw Exception("Enveloppe non trouvée")
+                    throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
                 }
 
                 // 🔒 VALIDATION DE PROVENANCE - Nouveau contrôle
@@ -474,10 +475,19 @@ class BudgetViewModel(
             } catch (e: Exception) {
                 println("[BUDGET] ❌ Erreur lors de l'assignation: ${e.message}")
                 e.printStackTrace()
+
+                // Utiliser les messages d'erreur appropriés selon le type d'erreur
+                val messageErreur = when {
+                    // Si c'est une erreur de provenance, utiliser le message tel quel
+                    VirementErrorMessages.estErreurProvenance(e.message ?: "") -> e.message ?: "Erreur inconnue"
+                    // Sinon, utiliser le préfixe générique
+                    else -> "Erreur lors de l'assignation: ${e.message}"
+                }
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        erreur = "Erreur lors de l'assignation: ${e.message}",
+                        erreur = messageErreur,
                         messageChargement = null
                     )
                 }

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -347,8 +348,19 @@ fun ClavierBudgetEnveloppe(
             // === BOUTON ASSIGNER ===
             Button(
                 onClick = {
-                    if (compteSelectionne != null && montantCentimes > 0) {
-                        onAssigner(montantCentimes, compteSelectionne!!.id)
+                    // Validation avec messages centralisés
+                    when {
+                        compteSelectionne == null -> {
+                            // Afficher erreur : compte non sélectionné
+                            // (Cette erreur sera gérée par le BudgetViewModel)
+                        }
+                        montantCentimes <= 0 -> {
+                            // Afficher erreur : montant invalide
+                            // (Cette erreur sera gérée par le BudgetViewModel)
+                        }
+                        else -> {
+                            onAssigner(montantCentimes, compteSelectionne!!.id)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -370,7 +382,7 @@ fun ClavierBudgetEnveloppe(
                 )
             }
 
-            // Validation des fonds disponibles
+            // Validation des fonds disponibles - UTILISE LES MESSAGES CENTRALISÉS
             if (compteSelectionne != null && montantCentimes > 0) {
                 val montantDouble = montantCentimes / 100.0
                 if (montantDouble > compteSelectionne!!.pretAPlacer) {
@@ -381,7 +393,7 @@ fun ClavierBudgetEnveloppe(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "⚠️ Fonds insuffisants. Disponible : ${formateurMonetaire.format(compteSelectionne!!.pretAPlacer)}",
+                            text = VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSelectionne!!.pretAPlacer),
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall

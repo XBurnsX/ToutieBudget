@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -149,20 +150,63 @@ fun VirerArgentScreen(
                 )
             }
 
-            // Affichage d'erreur
+            // Affichage d'erreur avec dialogue pour les erreurs de provenance
             uiState.erreur?.let { erreur ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = erreur,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
+                if (VirementErrorMessages.estErreurProvenance(erreur)) {
+                    // Dialogue d'erreur pour les conflits de provenance
+                    AlertDialog(
+                        onDismissRequest = { viewModel.effacerErreur() },
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = VirementErrorMessages.obtenirTitreDialogue(erreur),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = erreur,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = { viewModel.effacerErreur() }
+                            ) {
+                                Text("Compris")
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.error,
+                        textContentColor = MaterialTheme.colorScheme.onSurface
                     )
+                } else {
+                    // Affichage normal pour les autres erreurs
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = erreur,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }

@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.domain.services
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.util.*
 import javax.inject.Inject
 
@@ -20,12 +21,11 @@ class ValidationProvenanceService @Inject constructor(
      */
     private suspend fun obtenirNomCompte(compteId: String): String {
         return try {
-            // Essayer d'abord dans les comptes chèque
-            val compte = compteRepository.recupererCompteParId(compteId, "comptes_cheque").getOrNull()
-                ?: compteRepository.recupererCompteParId(compteId, "comptes_epargne").getOrNull()
-                ?: compteRepository.recupererCompteParId(compteId, "comptes_credit").getOrNull()
-
-            compte?.nom ?: "Compte inconnu"
+            // Utiliser la méthode générique qui cherche dans toutes les collections
+            compteRepository.recupererTousLesComptes()
+                .getOrNull()
+                ?.find { it.id == compteId }
+                ?.nom ?: "Compte inconnu"
         } catch (e: Exception) {
             "Compte inconnu"
         }
@@ -58,11 +58,10 @@ class ValidationProvenanceService @Inject constructor(
                 val nomCompteTente = obtenirNomCompte(compteSourceId)
 
                 throw IllegalArgumentException(
-                    "❌ CONFLIT DE PROVENANCE !\n\n" +
-                    "Cette enveloppe contient déjà de l'argent provenant d'un autre compte.\n\n" +
-                    "• Provenance actuelle : $nomCompteExistant\n" +
-                    "• Provenance tentée : $nomCompteTente\n\n" +
-                    "Vous ne pouvez pas mélanger l'argent de différents comptes dans une même enveloppe."
+                    VirementErrorMessages.PretAPlacerVersEnveloppe.conflitProvenance(
+                        nomCompteExistant,
+                        nomCompteTente
+                    )
                 )
             }
         }
@@ -88,7 +87,7 @@ class ValidationProvenanceService @Inject constructor(
             .getOrNull()
 
         if (allocationSource == null || allocationSource.solde <= 0) {
-            throw IllegalArgumentException("L'enveloppe source ne contient pas d'argent à transférer")
+            throw IllegalArgumentException(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_VIDE)
         }
 
         val compteProvenanceSource = allocationSource.compteSourceId
@@ -103,11 +102,10 @@ class ValidationProvenanceService @Inject constructor(
                 val nomCompteCible = obtenirNomCompte(compteProvenanceCible)
 
                 throw IllegalArgumentException(
-                    "❌ CONFLIT DE PROVENANCE !\n\n" +
-                            "Les deux enveloppes contiennent de l'argent de comptes différents.\n\n" +
-                            "• Enveloppe source : $nomCompteSource\n" +
-                            "• Enveloppe cible : $nomCompteCible\n\n" +
-                            "Veuillez vous assurer que les deux enveloppes partagent la même provenance."
+                    VirementErrorMessages.EnveloppeVersEnveloppe.conflitProvenance(
+                        nomCompteSource,
+                        nomCompteCible
+                    )
                 )
             }
         }
@@ -146,11 +144,10 @@ class ValidationProvenanceService @Inject constructor(
             val nomCompteCible = obtenirNomCompte(compteCibleId)
 
             throw IllegalArgumentException(
-                "❌ CONFLIT DE PROVENANCE !\n\n" +
-                        "L'argent de cette enveloppe provient d'un autre compte.\n\n" +
-                        "• Provenance de l'enveloppe : $nomCompteSource\n" +
-                        "• Compte de destination : $nomCompteCible\n\n" +
-                        "Vous ne pouvez retourner l'argent que vers son compte d'origine."
+                VirementErrorMessages.EnveloppeVersPretAPlacer.conflitProvenance(
+                    nomCompteSource,
+                    nomCompteCible
+                )
             )
         }
     }
@@ -173,7 +170,7 @@ class ValidationProvenanceService @Inject constructor(
             .getOrNull()
 
         if (allocation == null || allocation.solde <= 0) {
-            throw IllegalArgumentException("L'enveloppe ne contient pas d'argent à retourner")
+            throw IllegalArgumentException(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_VIDE)
         }
 
         val compteProvenanceOriginal = allocation.compteSourceId
@@ -184,11 +181,10 @@ class ValidationProvenanceService @Inject constructor(
             val nomCompteDestination = obtenirNomCompte(compteDestinationId)
 
             throw IllegalArgumentException(
-                "❌ CONFLIT DE PROVENANCE !\n\n" +
-                "Cet argent ne peut pas retourner vers ce compte.\n\n" +
-                "• Provenance originale : $nomCompteOriginal\n" +
-                "• Destination tentée : $nomCompteDestination\n\n" +
-                "L'argent ne peut retourner que vers son compte d'origine."
+                VirementErrorMessages.EnveloppeVersPretAPlacer.conflitProvenance(
+                    nomCompteOriginal,
+                    nomCompteDestination
+                )
             )
         }
     }

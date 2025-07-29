@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
 import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
+import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -205,38 +207,64 @@ fun BudgetScreen(
         )
     }
 
-    // 🚨 AFFICHAGE DES ERREURS DE VALIDATION
-    uiState.erreur?.let { messageErreur ->
-        LaunchedEffect(messageErreur) {
-            // L'erreur sera affichée dans une SnackBar ou Dialog
-        }
-
-        // Dialog d'erreur pour les validations de provenance
-        AlertDialog(
-            onDismissRequest = { viewModel.effacerErreur() },
-            title = {
+    // 🚨 AFFICHAGE DES ERREURS DE VALIDATION - MÊME DIALOGUE QUE VIREMENT
+    uiState.erreur?.let { erreur ->
+        if (VirementErrorMessages.estErreurProvenance(erreur)) {
+            // Dialogue d'erreur pour les conflits de provenance - IDENTIQUE À VIREMENT
+            AlertDialog(
+                onDismissRequest = { viewModel.effacerErreur() },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = VirementErrorMessages.obtenirTitreDialogue(erreur),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = erreur,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { viewModel.effacerErreur() }
+                    ) {
+                        Text("Compris")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                titleContentColor = MaterialTheme.colorScheme.error,
+                textContentColor = MaterialTheme.colorScheme.onSurface
+            )
+        } else {
+            // Affichage normal pour les autres erreurs - IDENTIQUE À VIREMENT
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
-                    text = "❌ Erreur de validation",
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    text = messageErreur,
+                    text = erreur,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.effacerErreur() }
-                ) {
-                    Text("OK")
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            textContentColor = MaterialTheme.colorScheme.onSurface
-        )
+            }
+        }
     }
 }
 
