@@ -148,9 +148,10 @@ class VirerArgentViewModel(
     private fun configurerPourModeEnveloppes() {
         println("[DEBUG VIREMENT] === configurerPourModeEnveloppes ===")
 
-        // Créer les items de comptes (seulement les comptes chèque pour l'instant)
+        // Créer les items de comptes (seulement les comptes chèque avec prêt à placer disponible)
         val itemsComptes = allComptes
             .filterIsInstance<CompteCheque>()
+            .filter { it.pretAPlacer > 0 } // Ne garder que les comptes avec un montant prêt à placer disponible
             .map { ItemVirement.CompteItem(it) }
         println("[DEBUG VIREMENT] Items comptes (CompteCheque): ${itemsComptes.size}")
         itemsComptes.forEach { item ->
@@ -307,9 +308,10 @@ class VirerArgentViewModel(
                 allCategories = categorieRepository.recupererToutesLesCategories()
                     .getOrThrow()
 
-                // Créer les items de comptes (seulement les comptes chèque pour l'instant)
+                // Créer les items de comptes (seulement les comptes chèque avec prêt à placer disponible)
                 val itemsComptes = allComptes
                     .filterIsInstance<CompteCheque>()
+                    .filter { it.pretAPlacer > 0 } // Ne garder que les comptes avec un montant prêt à placer disponible
                     .map { ItemVirement.CompteItem(it) }
 
                 // Créer les enveloppes UI avec le même système que AjoutTransactionViewModel
@@ -843,11 +845,33 @@ class VirerArgentViewModel(
 
     /**
      * Obtient le solde actuel d'un ItemVirement.
+     * Pour les prêts à placer (EnveloppeUi virtuelles), extrait le montant du compte source.
      */
     private fun obtenirSoldeItem(item: ItemVirement): Double {
         return when (item) {
-            is ItemVirement.CompteItem -> item.compte.solde
-            is ItemVirement.EnveloppeItem -> item.enveloppe.solde
+            is ItemVirement.CompteItem -> {
+                // Pour les comptes chèque, utiliser le montant prêt à placer au lieu du solde total
+                if (item.compte is CompteCheque) {
+                    item.compte.pretAPlacer
+                } else {
+                    item.compte.solde
+                }
+            }
+            is ItemVirement.EnveloppeItem -> {
+                // Vérifier si c'est un prêt à placer virtuel (ID commence par "pret_a_placer_")
+                if (estPretAPlacer(item.enveloppe)) {
+                    // Extraire l'ID du compte et récupérer le montant prêt à placer
+                    val compteId = extraireCompteIdDepuisPretAPlacer(item.enveloppe.id)
+                    val compte = allComptes.find { it.id == compteId }
+                    if (compte is CompteCheque) {
+                        compte.pretAPlacer
+                    } else {
+                        item.enveloppe.solde // Fallback vers le solde de l'enveloppe virtuelle
+                    }
+                } else {
+                    item.enveloppe.solde // Enveloppe normale
+                }
+            }
         }
     }
 
