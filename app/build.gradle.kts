@@ -74,3 +74,4 @@ dependencies {
     implementation("javax.inject:javax.inject:1")
     // ...existing dependencies...
 }
+

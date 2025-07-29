@@ -33,6 +33,12 @@ fun VirerArgentScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+
+         // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
+    LaunchedEffect(Unit) {
+        viewModel.rechargerDonnees()
+    }
+
     // Afficher message de succès et navigation automatique
     LaunchedEffect(uiState.virementReussi) {
         if (uiState.virementReussi) {

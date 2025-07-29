@@ -412,7 +412,7 @@ class AjoutTransactionViewModel(
         
         viewModelScope.launch {
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
-            
+
             try {
                 val montant = state.montant.toDoubleOrNull()?.div(100.0)
                     ?: throw Exception("Montant invalide")
@@ -493,5 +493,14 @@ class AjoutTransactionViewModel(
      */
     fun effacerErreur() {
         _uiState.update { it.copy(messageErreur = null) }
+    }
+
+    /**
+     * Recharge les données depuis les repositories.
+     * À appeler quand l'écran redevient visible ou après des modifications.
+     */
+    fun rechargerDonnees() {
+        println("[DEBUG AJOUT] === Rechargement manuel des données ===")
+        chargerDonneesInitiales()
     }
 }

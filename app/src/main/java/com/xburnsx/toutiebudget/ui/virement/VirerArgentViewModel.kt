@@ -48,6 +48,15 @@ class VirerArgentViewModel(
         chargerDonneesInitiales()
     }
 
+    /**
+     * Recharge les données depuis les repositories.
+     * À appeler quand l'écran redevient visible ou après des modifications.
+     */
+    fun rechargerDonnees() {
+        println("[DEBUG VIREMENT] === Rechargement manuel des données ===")
+        chargerDonneesInitiales()
+    }
+
     // ===== GESTION DU MODE =====
 
     /**
@@ -76,24 +85,41 @@ class VirerArgentViewModel(
         return viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                println("[DEBUG VIREMENT] === Début chargement données ===")
+
                 allComptes = compteRepository.recupererTousLesComptes()
                     .getOrThrow()
                     .filter { !it.estArchive }
+                println("[DEBUG VIREMENT] Comptes chargés: ${allComptes.size}")
+                allComptes.forEach { compte ->
+                    println("[DEBUG VIREMENT] - Compte: ${compte.nom} (Type: ${compte::class.simpleName}, Archivé: ${compte.estArchive})")
+                }
 
                 allEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                     .getOrThrow()
                     .filter { !it.estArchive }
+                println("[DEBUG VIREMENT] Enveloppes chargées: ${allEnveloppes.size}")
+                allEnveloppes.forEach { env ->
+                    println("[DEBUG VIREMENT] - Enveloppe: ${env.nom} (ID: ${env.id}, Archivée: ${env.estArchive})")
+                }
 
                 allAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
                     .getOrThrow()
+                println("[DEBUG VIREMENT] Allocations chargées: ${allAllocations.size}")
+                allAllocations.forEach { alloc ->
+                    println("[DEBUG VIREMENT] - Allocation: EnvID=${alloc.enveloppeId}, solde=${alloc.solde}")
+                }
 
                 allCategories = categorieRepository.recupererToutesLesCategories()
                     .getOrThrow()
+                println("[DEBUG VIREMENT] Catégories chargées: ${allCategories.size}")
 
                 // Configurer les sources et destinations pour le mode initial
                 configurerSourcesEtDestinationsPourMode()
 
             } catch (e: Exception) {
+                println("[DEBUG VIREMENT] ERREUR lors du chargement: ${e.message}")
+                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -120,14 +146,29 @@ class VirerArgentViewModel(
      * Configure les sources et destinations pour le virement entre "Prêt à placer" et enveloppes.
      */
     private fun configurerPourModeEnveloppes() {
+        println("[DEBUG VIREMENT] === configurerPourModeEnveloppes ===")
+
         // Créer les items de comptes (seulement les comptes chèque pour l'instant)
         val itemsComptes = allComptes
             .filterIsInstance<CompteCheque>()
             .map { ItemVirement.CompteItem(it) }
+        println("[DEBUG VIREMENT] Items comptes (CompteCheque): ${itemsComptes.size}")
+        itemsComptes.forEach { item ->
+            println("[DEBUG VIREMENT] - Compte item: ${item.compte.nom}")
+        }
 
         // Créer les enveloppes UI
         val enveloppesUi = construireEnveloppesUi()
+        println("[DEBUG VIREMENT] Enveloppes UI construites: ${enveloppesUi.size}")
+        enveloppesUi.forEach { env ->
+            println("[DEBUG VIREMENT] - Enveloppe UI: ${env.nom} (solde: ${env.solde})")
+        }
+
         val enveloppesOrganisees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
+        println("[DEBUG VIREMENT] Enveloppes organisées par catégorie: ${enveloppesOrganisees.size} catégories")
+        enveloppesOrganisees.forEach { (nomCategorie, enveloppes) ->
+            println("[DEBUG VIREMENT] - Catégorie: $nomCategorie (${enveloppes.size} enveloppes)")
+        }
 
         // Grouper les sources (comptes + enveloppes avec argent)
         val sourcesEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
@@ -136,13 +177,19 @@ class VirerArgentViewModel(
                 .mapNotNull { env -> enveloppesUi.find { it.id == env.id } }
                 .filter { it.solde > 0 }
                 .map { ItemVirement.EnveloppeItem(it) }
+            println("[DEBUG VIREMENT] - Catégorie $nomCategorie: ${enveloppesAvecArgent.size} enveloppes avec argent")
             if (enveloppesAvecArgent.isNotEmpty()) {
                 sourcesEnveloppes[nomCategorie] = enveloppesAvecArgent
             }
         }
+
         val sources = LinkedHashMap<String, List<ItemVirement>>().apply {
             put("Prêt à placer", itemsComptes)
             putAll(sourcesEnveloppes)
+        }
+        println("[DEBUG VIREMENT] Sources finales: ${sources.size} catégories")
+        sources.forEach { (categorie, items) ->
+            println("[DEBUG VIREMENT] - Source catégorie: $categorie (${items.size} items)")
         }
 
         // Grouper les destinations (comptes + toutes les enveloppes)
@@ -151,13 +198,19 @@ class VirerArgentViewModel(
             val items = enveloppes
                 .mapNotNull { env -> enveloppesUi.find { it.id == env.id } }
                 .map { ItemVirement.EnveloppeItem(it) }
+            println("[DEBUG VIREMENT] - Destination catégorie $nomCategorie: ${items.size} items")
             if (items.isNotEmpty()) {
                 destinationsEnveloppes[nomCategorie] = items
             }
         }
+
         val destinations = LinkedHashMap<String, List<ItemVirement>>().apply {
             put("Prêt à placer", itemsComptes)
             putAll(destinationsEnveloppes)
+        }
+        println("[DEBUG VIREMENT] Destinations finales: ${destinations.size} catégories")
+        destinations.forEach { (categorie, items) ->
+            println("[DEBUG VIREMENT] - Destination catégorie: $categorie (${items.size} items)")
         }
 
         _uiState.update {
@@ -166,6 +219,8 @@ class VirerArgentViewModel(
                 destinationsDisponibles = destinations
             )
         }
+
+        println("[DEBUG VIREMENT] UiState mis à jour avec sources et destinations")
     }
 
     /**
@@ -174,6 +229,8 @@ class VirerArgentViewModel(
      * Les dettes sont exclues.
      */
     private fun configurerPourModeComptes() {
+        println("[DEBUG VIREMENT] === configurerPourModeComptes ===")
+
         val comptesGroupes = allComptes
             .filter { it !is CompteDette } // Exclure les dettes
             .sortedBy { it.ordre }
@@ -193,6 +250,14 @@ class VirerArgentViewModel(
                 }
             )
 
+        println("[DEBUG VIREMENT] Comptes groupés: ${comptesGroupes.size} catégories")
+        comptesGroupes.forEach { (categorie, items) ->
+            println("[DEBUG VIREMENT] - Catégorie: $categorie (${items.size} comptes)")
+            items.forEach { item ->
+                println("[DEBUG VIREMENT]   * ${item.compte.nom} (${item.compte::class.simpleName})")
+            }
+        }
+
         // Assurer que les catégories principales sont toujours présentes et dans le bon ordre
         val sourcesFinales = linkedMapOf<String, List<ItemVirement>>().apply {
             put("Comptes chèque", comptesGroupes["Comptes chèque"] ?: emptyList())
@@ -204,6 +269,11 @@ class VirerArgentViewModel(
             }
         }
 
+        println("[DEBUG VIREMENT] Sources finales pour mode Comptes: ${sourcesFinales.size} catégories")
+        sourcesFinales.forEach { (categorie, items) ->
+            println("[DEBUG VIREMENT] - Catégorie finale: $categorie (${items.size} items)")
+        }
+
         _uiState.update {
             it.copy(
                 sourcesDisponibles = sourcesFinales,
@@ -211,6 +281,8 @@ class VirerArgentViewModel(
                 isLoading = false
             )
         }
+
+        println("[DEBUG VIREMENT] UiState mis à jour pour mode Comptes")
     }
 
     /**

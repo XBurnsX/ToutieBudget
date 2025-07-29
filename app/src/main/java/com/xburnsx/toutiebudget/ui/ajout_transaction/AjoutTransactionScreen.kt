@@ -36,6 +36,11 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
 
     val uiState by viewModel.uiState.collectAsState()
 
+    // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
+    LaunchedEffect(Unit) {
+        viewModel.rechargerDonnees()
+    }
+
     // Détecter le succès de la transaction
     LaunchedEffect(uiState.transactionReussie) {
         if (uiState.transactionReussie) {
