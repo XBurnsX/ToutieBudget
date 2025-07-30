@@ -4,7 +4,6 @@ import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
-import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
@@ -16,7 +15,6 @@ import javax.inject.Inject
  */
 class ArgentServiceImpl @Inject constructor(
     private val compteRepository: CompteRepository,
-    private val enveloppeRepository: EnveloppeRepository,
     private val transactionRepository: TransactionRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val virementUseCase: VirementUseCase

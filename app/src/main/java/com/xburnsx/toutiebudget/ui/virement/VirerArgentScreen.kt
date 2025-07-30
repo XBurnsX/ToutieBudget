@@ -40,17 +40,11 @@ fun VirerArgentScreen(
         viewModel.rechargerDonnees()
     }
 
-    // Afficher message de succès et navigation automatique
+    // 🚀 NAVIGATION **INSTANTANÉE** - ZÉRO DÉLAI
     LaunchedEffect(uiState.virementReussi) {
         if (uiState.virementReussi) {
-            snackbarHostState.showSnackbar(
-                message = "✅ Virement effectué avec succès !",
-                duration = SnackbarDuration.Short
-            )
-            // Délai pour laisser le temps de voir le message
-            kotlinx.coroutines.delay(1500)
-            onNavigateBack()
-            viewModel.onVirementReussiHandled() // Reset pour éviter la navigation en boucle
+            viewModel.onVirementReussiHandled() // 🧹 Nettoyage
+            onNavigateBack()                   // ⚡ Navigation IMMÉDIATE
         }
     }
 

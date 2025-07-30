@@ -1,6 +1,10 @@
 package com.xburnsx.toutiebudget.ui.comptes.composants
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.StickyNote2
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,16 +50,27 @@ fun HistoriqueItem(transaction: TransactionUi) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Tiers
-                Text(
-                    text = transaction.tiers,
-                    fontSize = 16.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                // 👤 TIERS avec icône
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
-                )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Tiers",
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = transaction.tiers,
+                        fontSize = 16.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 // Montant
                 Text(
@@ -66,30 +81,48 @@ fun HistoriqueItem(transaction: TransactionUi) {
                 )
             }
 
-            // Informations secondaires (enveloppe et note)
-            if (transaction.nomEnveloppe != null || transaction.note != null) {
+            // 📝 NOTE sur ligne séparée avec icône
+            if (transaction.note != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (transaction.nomEnveloppe != null) {
-                        Text(
-                            text = transaction.nomEnveloppe,
-                            fontSize = 14.sp,
-                            color = Color.LightGray,
-                            fontWeight = FontWeight.Normal
-                        )
-                    }
-                    if (transaction.note != null) {
-                        Text(
-                            text = "• ${transaction.note}",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.StickyNote2,
+                        contentDescription = "Note",
+                        tint = Color(0xFFFB7185),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = transaction.note,
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            // 🏷️ ENVELOPPE sur ligne séparée avec icône
+            if (transaction.nomEnveloppe != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalOffer,
+                        contentDescription = "Enveloppe",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = transaction.nomEnveloppe,
+                        fontSize = 14.sp,
+                        color = Color.LightGray,
+                        fontWeight = FontWeight.Normal
+                    )
                 }
             }
         }

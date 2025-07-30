@@ -45,7 +45,7 @@
      private val virementUseCase: VirementUseCase by lazy {
          VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
      }
-     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, enveloppeRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
+     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }

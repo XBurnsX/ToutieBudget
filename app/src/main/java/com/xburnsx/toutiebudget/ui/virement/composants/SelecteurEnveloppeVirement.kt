@@ -243,24 +243,39 @@ private fun ItemEnveloppeVirement(
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
-                if (enveloppe.objectif > 0) {
+            }
+            
+            // 🎨 AFFICHAGE DU MONTANT AVEC COULEUR DE PROVENANCE
+            if (enveloppe.couleurProvenance != null) {
+                // Bulle colorée bien ronde avec texte plus petit
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = Color(android.graphics.Color.parseColor(enveloppe.couleurProvenance)),
+                            shape = RoundedCornerShape(12.dp)  // ← BULLE BIEN RONDE
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)  // ← Padding normal pour bulle
+                ) {
                     Text(
-                        text = "Objectif: " + NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(enveloppe.objectif),
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.6f)
+                        text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(enveloppe.solde),
+                        fontSize = 12.sp,  // ← Réduit de 14sp à 12sp
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
+            } else {
+                // Affichage normal sans couleur de provenance
+                Text(
+                    text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(enveloppe.solde),
+                    fontSize = 12.sp,  // ← Même taille que dans la bulle
+                    fontWeight = FontWeight.Medium,
+                    color = when {
+                        enveloppe.solde < 0 -> Color(0xFFEF4444)
+                        enveloppe.solde == 0.0 -> Color.Gray
+                        else -> Color(0xFF10B981)
+                    }
+                )
             }
-            Text(
-                text = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(enveloppe.solde),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = when {
-                    enveloppe.solde < 0 -> Color(0xFFEF4444)
-                    enveloppe.solde == 0.0 -> Color.Gray
-                    else -> Color(0xFF10B981)
-                }
-            )
         }
     }
 }
