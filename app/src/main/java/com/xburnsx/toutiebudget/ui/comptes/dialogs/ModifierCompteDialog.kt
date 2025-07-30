@@ -20,7 +20,7 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 fun ModifierCompteDialog(
     formState: CompteFormState,
     onDismissRequest: () -> Unit,
-    onValueChange: (String?, String?, String?, String?) -> Unit,
+    onValueChange: (String?, String?, String?, String?, String?) -> Unit,
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
 ) {
@@ -39,7 +39,7 @@ fun ModifierCompteDialog(
                 // Champ nom du compte
                 OutlinedTextField(
                     value = formState.nom,
-                    onValueChange = { onValueChange(it, null, null, null) },
+                    onValueChange = { onValueChange(it, null, null, null, null) },
                     label = { Text("Nom du compte") },
                     singleLine = true
                 )
@@ -49,7 +49,7 @@ fun ModifierCompteDialog(
                     valeur = soldeEnCentimes.toLong(),
                     onValeurChange = { nouveauMontant ->
                         val nouveauSolde = (nouveauMontant / 100.0).toString()
-                        onValueChange(null, null, nouveauSolde, null)
+                        onValueChange(null, null, nouveauSolde, null, null)
                     },
                     libelle = "Solde actuel",
                     utiliserClavier = false, // Désactiver le clavier intégré
@@ -60,18 +60,45 @@ fun ModifierCompteDialog(
                         // Utiliser le système de clavier global
                         onOpenKeyboard(soldeEnCentimes.toLong()) { nouveauMontant ->
                             val nouveauSolde = (nouveauMontant / 100.0).toString()
-                            onValueChange(null, null, nouveauSolde, null)
+                            onValueChange(null, null, nouveauSolde, null, null)
                         }
                     },
                     modifier = Modifier
                 )
+
+                // *** NOUVEAU : Champ prêt à placer (seulement pour les comptes chèques) ***
+                if (formState.type == "Compte chèque") {
+                    val pretAPlacerEnCentimes = remember(formState.pretAPlacer) {
+                        (formState.pretAPlacer.toDoubleOrNull() ?: 0.0) * 100
+                    }
+
+                    ChampUniversel(
+                        valeur = pretAPlacerEnCentimes.toLong(),
+                        onValeurChange = { nouveauMontant ->
+                            val nouveauPretAPlacer = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, null, null, nouveauPretAPlacer, null)
+                        },
+                        libelle = "Prêt à placer",
+                        utiliserClavier = false,
+                        isMoney = true,
+                        icone = Icons.Default.AccountBalance,
+                        estObligatoire = false,
+                        onClicPersonnalise = {
+                            onOpenKeyboard(pretAPlacerEnCentimes.toLong()) { nouveauMontant ->
+                                val nouveauPretAPlacer = (nouveauMontant / 100.0).toString()
+                                onValueChange(null, null, null, nouveauPretAPlacer, null)
+                            }
+                        },
+                        modifier = Modifier
+                    )
+                }
                 
                 // Sélecteur de couleur (sauf pour les dettes qui sont toujours rouges)
                 if (formState.type != "Dette") {
                     CouleurSelecteur(
                         couleurs = couleursDisponibles,
                         couleurSelectionnee = formState.couleur,
-                        onCouleurSelected = { onValueChange(null, null, null, it) }
+                        onCouleurSelected = { onValueChange(null, null, null, null, it) }
                     )
                 }
             }

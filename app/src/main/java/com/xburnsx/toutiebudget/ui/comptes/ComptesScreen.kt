@@ -8,7 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material3.*
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -130,6 +134,178 @@ fun ComptesScreen(
                 showKeyboard = true
             }
         )
+    }
+
+    // 🔄 DIALOG DE RÉCONCILIATION
+    if (uiState.isReconciliationDialogVisible) {
+        Dialog(
+            onDismissRequest = { viewModel.onFermerTousLesDialogues() },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Réconcilier ${uiState.compteSelectionne?.nom}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    Text(
+                        text = "Entrez le solde réel de votre compte selon votre relevé bancaire :",
+                        fontSize = 14.sp,
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    var nouveauSolde by remember { mutableStateOf(uiState.compteSelectionne?.solde?.toString() ?: "0") }
+
+                    OutlinedTextField(
+                        value = nouveauSolde,
+                        onValueChange = { nouveauSolde = it },
+                        label = { Text("Solde réel", color = Color.LightGray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color.Gray
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.onFermerTousLesDialogues() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Annuler", color = Color.Gray)
+                        }
+
+                        Button(
+                            onClick = { 
+                                viewModel.onReconcilierCompte(nouveauSolde.toDoubleOrNull() ?: 0.0)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        ) {
+                            Text("Réconcilier", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 🔽 MENU CONTEXTUEL sur long tap
+    if (uiState.isMenuContextuelVisible) {
+        Dialog(
+            onDismissRequest = { viewModel.onDismissMenu() },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Actions pour ${uiState.compteSelectionne?.nom}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    // 📝 MODIFIER
+                    TextButton(
+                        onClick = { viewModel.onOuvrirModificationDialog() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Modifier",
+                                tint = Color(0xFF6366F1),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Modifier",
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+
+                    // 🔄 RÉCONCILIER
+                    TextButton(
+                        onClick = { viewModel.onOuvrirReconciliationDialog() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = "Réconcilier",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Réconcilier",
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+
+                    // 🗃️ ARCHIVER
+                    TextButton(
+                        onClick = { viewModel.onArchiverCompte() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Archive,
+                                contentDescription = "Archiver",
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Archiver",
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal

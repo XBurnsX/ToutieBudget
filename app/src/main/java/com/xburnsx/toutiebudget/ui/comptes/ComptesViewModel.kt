@@ -72,6 +72,66 @@ class ComptesViewModel(
         _uiState.update { it.copy(isMenuContextuelVisible = false) }
     }
 
+    fun onOuvrirReconciliationDialog() {
+        _uiState.update { 
+            it.copy(
+                isReconciliationDialogVisible = true,
+                isMenuContextuelVisible = false
+            ) 
+        }
+    }
+
+    fun onReconcilierCompte(nouveauSolde: Double) {
+        val compte = _uiState.value.compteSelectionne ?: return
+        viewModelScope.launch {
+            // 🔄 RÉCONCILIATION : Mettre à jour solde ET prêt à placer
+            val compteReconcilie = when (compte) {
+                is CompteCheque -> {
+                    // Pour compte chèque : calculer la différence pour ajuster le prêt à placer
+                    val difference = nouveauSolde - compte.solde
+                    compte.copy(
+                        solde = nouveauSolde,
+                        pretAPlacerRaw = compte.pretAPlacer + difference  // Ajuster prêt à placer
+                    )
+                }
+                is CompteCredit -> compte.copy(solde = nouveauSolde)
+                is CompteDette -> compte.copy(solde = nouveauSolde)
+                is CompteInvestissement -> compte.copy(solde = nouveauSolde)
+                else -> return@launch
+            }
+
+            compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
+                _uiState.update { it.copy(isReconciliationDialogVisible = false) }
+                chargerComptes() // Recharger pour voir les nouvelles valeurs
+                onCompteChange?.invoke() // Notifier les autres ViewModels
+            }.onFailure { erreur ->
+                _uiState.update { it.copy(erreur = "Erreur lors de la réconciliation: ${erreur.message}") }
+            }
+        }
+    }
+
+    fun onArchiverCompte() {
+        val compte = _uiState.value.compteSelectionne ?: return
+        viewModelScope.launch {
+            // Archiver le compte (mettre estArchive = true)
+            val compteArchive = when (compte) {
+                is CompteCheque -> compte.copy(estArchive = true)
+                is CompteCredit -> compte.copy(estArchive = true) 
+                is CompteDette -> compte.copy(estArchive = true)
+                is CompteInvestissement -> compte.copy(estArchive = true)
+                else -> return@launch
+            }
+
+            compteRepository.mettreAJourCompte(compteArchive).onSuccess {
+                _uiState.update { it.copy(isMenuContextuelVisible = false) }
+                chargerComptes() // Recharger pour masquer le compte archivé
+                onCompteChange?.invoke() // Notifier les autres ViewModels
+            }.onFailure { erreur ->
+                _uiState.update { it.copy(erreur = "Erreur lors de l'archivage: ${erreur.message}") }
+            }
+        }
+    }
+
     fun onOuvrirAjoutDialog() {
         _uiState.update { it.copy(isAjoutDialogVisible = true, formState = CompteFormState()) }
     }
@@ -94,6 +154,7 @@ class ComptesViewModel(
                     id = compte.id,
                     nom = compte.nom,
                     solde = compte.solde.toString(),
+                    pretAPlacer = if (compte is CompteCheque) compte.pretAPlacer.toString() else "",
                     couleur = compte.couleur,
                     type = when (compte) {
                         is CompteCheque -> "Compte chèque"
@@ -118,13 +179,14 @@ class ComptesViewModel(
         }
     }
 
-    fun onFormValueChange(nom: String? = null, type: String? = null, solde: String? = null, couleur: String? = null) {
+    fun onFormValueChange(nom: String? = null, type: String? = null, solde: String? = null, pretAPlacer: String? = null, couleur: String? = null) {
         _uiState.update { currentState ->
             currentState.copy(
                 formState = currentState.formState.copy(
                     nom = nom ?: currentState.formState.nom,
                     type = type ?: currentState.formState.type,
                     solde = solde ?: currentState.formState.solde,
+                    pretAPlacer = pretAPlacer ?: currentState.formState.pretAPlacer,
                     couleur = couleur ?: currentState.formState.couleur
                 )
             )
@@ -149,7 +211,7 @@ class ComptesViewModel(
                 "Compte chèque" -> CompteCheque(
                     nom = formState.nom,
                     solde = soldeInitial,
-                    pretAPlacerRaw = soldeInitial, // Initialiser pret_a_placer avec le solde initial
+                    pretAPlacerRaw = soldeInitial, // Pour l'ajout, prêt à placer = solde initial
                     couleur = formState.couleur,
                     estArchive = false,
                     ordre = 0
@@ -180,12 +242,13 @@ class ComptesViewModel(
             val form = _uiState.value.formState
             val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
             val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
+            val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
             val compteModifie = when (compteOriginal) {
                 is CompteCheque -> compteOriginal.copy(
                     nom = form.nom,
                     solde = soldeDouble,
+                    pretAPlacerRaw = pretAPlacerDouble,
                     couleur = form.couleur
-                    // Note: pretAPlacerRaw est préservé automatiquement par copy()
                 )
                 is CompteCredit -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
                 is CompteDette -> compteOriginal.copy(nom = form.nom, solde = soldeDouble)
@@ -201,22 +264,6 @@ class ComptesViewModel(
 
                 // Notifier les autres ViewModels du changement
                 onCompteChange?.invoke()
-            }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
-        }
-    }
-
-    fun onArchiverCompte() {
-        viewModelScope.launch {
-            val compteAArchiver = _uiState.value.compteSelectionne ?: return@launch
-            val compteModifie = when (compteAArchiver) {
-                is CompteCheque -> compteAArchiver.copy(estArchive = true)
-                is CompteCredit -> compteAArchiver.copy(estArchive = true)
-                is CompteDette -> compteAArchiver.copy(estArchive = true)
-                is CompteInvestissement -> compteAArchiver.copy(estArchive = true)
-            }
-            compteRepository.mettreAJourCompte(compteModifie).onSuccess {
-                _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
-                chargerComptes()
             }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
         }
     }

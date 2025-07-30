@@ -82,7 +82,7 @@ fun HistoriqueItem(transaction: TransactionUi) {
             }
 
             // 📝 NOTE sur ligne séparée avec icône
-            if (transaction.note != null) {
+            if (!transaction.note.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically

@@ -8,6 +8,7 @@ data class CompteFormState(
     val nom: String = "",
     val type: String = "Compte chèque",
     val solde: String = "",
+    val pretAPlacer: String = "",
     val couleur: String = "#2196F3"
 )
 

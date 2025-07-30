@@ -168,9 +168,12 @@ fun LoginScreen(
             ) {
                 GoogleSignInButton(
                     onClick = {
-                        lanceurConnexionGoogle.launch(
-                            GoogleSignIn.getClient(contexte, optionsConnexionGoogle).signInIntent
-                        )
+                        // 🎯 FORCER LA SÉLECTION DE COMPTE : déconnecter d'abord
+                        val clientGoogle = GoogleSignIn.getClient(contexte, optionsConnexionGoogle)
+                        clientGoogle.signOut().addOnCompleteListener {
+                            // Après déconnexion, lancer la connexion (forcera le sélecteur)
+                            lanceurConnexionGoogle.launch(clientGoogle.signInIntent)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     text = "Se connecter avec Google"

@@ -269,8 +269,16 @@ class BudgetViewModel(
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
 
-            // Le progrès actuel est la somme du solde et des dépenses du mois.
-            val progresActuel = soldeTotal + depenseTotale
+            // 🎯 SOLUTION SIMPLE : soldeTotal contient déjà la bonne valeur du mois !
+            val progresActuel = when (enveloppe.typeObjectif) {
+                // Pour épargne/accumulation : utiliser soldeTotal (déjà correct pour ce mois)
+                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire,
+                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance,
+                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> soldeTotal
+                
+                // Pour objectifs de dépense : solde + dépenses du mois
+                else -> soldeTotal + depenseTotale
+            }
             val versementRecommande = objectifCalculator.calculerVersementRecommande(enveloppe, progresActuel)
 
             // Calculer le statut de l'objectif

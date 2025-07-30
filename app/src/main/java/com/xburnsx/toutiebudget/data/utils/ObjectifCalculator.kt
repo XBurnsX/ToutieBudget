@@ -7,6 +7,7 @@ import java.util.Date
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 
 class ObjectifCalculator {
 
@@ -55,19 +56,31 @@ class ObjectifCalculator {
 
     /**
      * Pour un objectif à ÉCHÉANCE fixe.
-     * Calcule le montant à épargner chaque mois pour atteindre le total à la date butoir.
+     * 🎯 LOGIQUE INTELLIGENTE : Calcule rattrapage si en retard.
      */
     private fun calculerVersementEcheance(soldeActuel: Double, objectifTotal: Double, dateEcheance: Date?): Double {
-        if (dateEcheance == null) return 0.0 // Pas de date, pas de calcul.
-        val montantRestant = objectifTotal - soldeActuel
-        if (montantRestant <= 0) return 0.0
-
-        val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - Date().time)
-        if (joursRestants <= 0) return montantRestant // Si la date est passée, il faut tout mettre.
-
-        // On divise par le nombre de mois restants (au minimum 1).
+        if (dateEcheance == null) return 0.0
+        
+        val maintenant = Date()
+        val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - maintenant.time)
+        if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
+        
+        // 🎯 LOGIQUE SIMPLE : Diviser l'objectif par les mois restants
         val moisRestants = max(1.0, ceil(joursRestants / 30.44))
-        return montantRestant / moisRestants
+        val versementMensuelNecessaire = objectifTotal / moisRestants
+        
+        // DEBUG pour voir ce qui se passe
+        println("[DEBUG] Échéance - Objectif total: $objectifTotal")
+        println("[DEBUG] Échéance - Jours restants: $joursRestants")
+        println("[DEBUG] Échéance - Mois restants: $moisRestants")
+        println("[DEBUG] Échéance - Versement mensuel nécessaire: $versementMensuelNecessaire")
+        println("[DEBUG] Échéance - Solde actuel: $soldeActuel")
+        
+        // Suggérer = ce qu'il faut ce mois - ce qu'on a déjà ce mois
+        val suggestion = max(0.0, versementMensuelNecessaire - soldeActuel)
+        println("[DEBUG] Échéance - Suggestion finale: $suggestion")
+        
+        return suggestion
     }
 
     /**
@@ -75,23 +88,9 @@ class ObjectifCalculator {
      * Calcule ce qu'il faut verser ce mois-ci, en tenant compte d'un éventuel retard.
      */
     private fun calculerVersementAnnuel(soldeActuel: Double, objectifAnnuel: Double, dateDebutObjectif: Date?): Double {
-        val dateDebut = dateDebutObjectif ?: return objectifAnnuel // Si pas de date de début, on ne peut rien calculer.
+        // 🎯 LOGIQUE SIMPLE : Objectif mensuel - Ce qu'on a déjà ce mois
         val versementMensuelIdeal = objectifAnnuel / 12.0
-
-        // Calculer combien de mois se sont écoulés depuis le début du cycle.
-        val calDebut = Calendar.getInstance().apply { time = dateDebut }
-        val calActuel = Calendar.getInstance()
-        var moisEcoules = (calActuel.get(Calendar.YEAR) - calDebut.get(Calendar.YEAR)) * 12
-        moisEcoules += calActuel.get(Calendar.MONTH) - calDebut.get(Calendar.MONTH)
-        moisEcoules = max(0, moisEcoules)
-
-        // Le montant qui aurait dû être épargné jusqu'à la fin du mois dernier.
-        val objectifProrata = versementMensuelIdeal * moisEcoules
-        // Le retard accumulé.
-        val retard = max(0.0, objectifProrata - soldeActuel)
-
-        // Le versement pour ce mois est le versement idéal + le rattrapage du retard.
-        return versementMensuelIdeal + retard
+        return max(0.0, versementMensuelIdeal - soldeActuel)
     }
 
     /**
@@ -121,29 +120,25 @@ class ObjectifCalculator {
         // Déterminer dans quelle semaine on se trouve dans le cycle
         val semaineInCycle = if (joursInCycle < 7) 1 else 2 // Semaine 1 ou 2
 
-        // Calcul de l'objectif pour le cycle actuel - PAS DE PROGRESSION !
-        val objectifActuel = if (semaineInCycle == 1) {
-            // Première semaine : 50$ COMPLET
-            objectifPeriodique / 2.0  // 100$ ÷ 2 = 50$
+        // 🎯 LOGIQUE INTELLIGENTE BIHEBDOMADAIRE
+        val versementRecommande = if (semaineInCycle == 1) {
+            // 📅 PREMIÈRE SEMAINE : Suggérer pour atteindre 50$
+            val objectifSemaine1 = objectifPeriodique / 2.0  // 100$ ÷ 2 = 50$
+            println("[DEBUG] Bihebdomadaire - PREMIÈRE SEMAINE - Objectif: $objectifSemaine1")
+            max(0.0, objectifSemaine1 - soldeActuel)
         } else {
-            // Deuxième semaine : 50$ + 50$ = 100$ COMPLET
-            objectifPeriodique  // 100$ complet
+            // 📅 DEUXIÈME SEMAINE : Suggérer pour rattraper si en retard
+            val objectifComplet = objectifPeriodique  // 100$ complet
+            val retard = max(0.0, objectifComplet - soldeActuel)
+            println("[DEBUG] Bihebdomadaire - DEUXIÈME SEMAINE - Objectif: $objectifComplet, Retard: $retard")
+            retard
         }
 
         // Debug pour comprendre le calcul
         println("[DEBUG] Bihebdomadaire - Jours écoulés: $joursEcoules")
         println("[DEBUG] Bihebdomadaire - Jours in cycle (0-13): $joursInCycle")
         println("[DEBUG] Bihebdomadaire - Semaine in cycle: $semaineInCycle/2")
-        if (semaineInCycle == 1) {
-            println("[DEBUG] Bihebdomadaire - PREMIÈRE SEMAINE - Objectif: 50$")
-        } else {
-            println("[DEBUG] Bihebdomadaire - DEUXIÈME SEMAINE - Objectif: 100$")
-        }
-        println("[DEBUG] Bihebdomadaire - Objectif actuel pour ce cycle: $objectifActuel")
         println("[DEBUG] Bihebdomadaire - Solde actuel: $soldeActuel")
-
-        // Le montant nécessaire est la différence entre l'objectif et le solde actuel
-        val versementRecommande = max(0.0, objectifActuel - soldeActuel)
         println("[DEBUG] Bihebdomadaire - Versement recommandé: $versementRecommande")
 
         return versementRecommande
