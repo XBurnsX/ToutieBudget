@@ -133,14 +133,6 @@ private fun IconePourCompte(compte: Compte, tint: Color) {
 @Composable
 private fun InfoSecondaireCompte(compte: Compte, formatteur: NumberFormat) {
     when (compte) {
-        // --- MODIFICATION ICI ---
-        is CompteCheque -> Text(
-            text = "Prêt à placer: ${formatteur.format(compte.solde)}",
-            fontSize = 13.sp,
-            color = Color(0xFF66BB6A), // Vert clair pour la lisibilité
-            fontWeight = FontWeight.SemiBold
-        )
-
         is CompteCredit -> {
             val progression = (abs(compte.solde) / compte.limiteCredit).toFloat().coerceIn(0f, 1f)
             val couleurProgression = when {
@@ -187,8 +179,8 @@ private fun InfoSecondaireCompte(compte: Compte, formatteur: NumberFormat) {
                 )
             }
         }
-
         is CompteInvestissement -> Text("Compte d'investissement", fontSize = 13.sp, color = Color.Gray)
+        else -> { /* Ne rien faire pour les autres types de comptes */ }
     }
 }
 

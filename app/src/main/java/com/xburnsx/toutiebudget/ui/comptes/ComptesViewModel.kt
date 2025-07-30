@@ -84,28 +84,68 @@ class ComptesViewModel(
     fun onReconcilierCompte(nouveauSolde: Double) {
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
-            // 🔄 RÉCONCILIATION : Mettre à jour solde ET prêt à placer
-            val compteReconcilie = when (compte) {
-                is CompteCheque -> {
-                    // Pour compte chèque : calculer la différence pour ajuster le prêt à placer
-                    val difference = nouveauSolde - compte.solde
-                    compte.copy(
-                        solde = nouveauSolde,
-                        pretAPlacerRaw = compte.pretAPlacer + difference  // Ajuster prêt à placer
-                    )
-                }
-                is CompteCredit -> compte.copy(solde = nouveauSolde)
-                is CompteDette -> compte.copy(solde = nouveauSolde)
-                is CompteInvestissement -> compte.copy(solde = nouveauSolde)
-                else -> return@launch
-            }
+            try {
+                println("🔍 [DEBUG] === RÉCONCILIATION ===")
+                println("🔍 [DEBUG] Compte: ${compte.nom}")
+                println("🔍 [DEBUG] Ancien solde: ${compte.solde}")
+                println("🔍 [DEBUG] Nouveau solde: $nouveauSolde")
 
-            compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
-                _uiState.update { it.copy(isReconciliationDialogVisible = false) }
-                chargerComptes() // Recharger pour voir les nouvelles valeurs
-                onCompteChange?.invoke() // Notifier les autres ViewModels
-            }.onFailure { erreur ->
-                _uiState.update { it.copy(erreur = "Erreur lors de la réconciliation: ${erreur.message}") }
+                when (compte) {
+                    is CompteCheque -> {
+                        // CALCUL CORRECT : Si solde augmente de 100$, prêt à placer augmente de 100$
+                        val difference = nouveauSolde - compte.solde
+                        val nouveauPretAPlacer = compte.pretAPlacer + difference
+
+                        println("🔍 [DEBUG] Différence: $difference")
+                        println("🔍 [DEBUG] Ancien prêt à placer: ${compte.pretAPlacer}")
+                        println("🔍 [DEBUG] Nouveau prêt à placer: $nouveauPretAPlacer")
+
+                        val compteReconcilie = CompteCheque(
+                            id = compte.id,
+                            utilisateurId = compte.utilisateurId,
+                            nom = compte.nom,
+                            solde = nouveauSolde,
+                            pretAPlacerRaw = nouveauPretAPlacer,
+                            couleur = compte.couleur,
+                            estArchive = compte.estArchive,
+                            ordre = compte.ordre,
+                            collection = "comptes_cheques"
+                        )
+
+                        compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
+                            println("✅ [DEBUG] Réconciliation réussie")
+                            _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
+                            chargerComptes()
+                            onCompteChange?.invoke()
+                        }.onFailure { erreur ->
+                            println("❌ [DEBUG] Erreur: ${erreur.message}")
+                            _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
+                        }
+                    }
+                    else -> {
+                        // Pour les autres types de comptes, juste changer le solde
+                        val compteReconcilie = when (compte) {
+                            is CompteCredit -> compte.copy(solde = nouveauSolde)
+                            is CompteDette -> compte.copy(solde = nouveauSolde)
+                            is CompteInvestissement -> compte.copy(solde = nouveauSolde)
+                            else -> return@launch
+                        }
+
+                        compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
+                            println("✅ [DEBUG] Réconciliation réussie")
+                            _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
+                            chargerComptes()
+                            onCompteChange?.invoke()
+                        }.onFailure { erreur ->
+                            println("❌ [DEBUG] Erreur: ${erreur.message}")
+                            _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("❌ [DEBUG] Exception: ${e.message}")
+                e.printStackTrace()
+                _uiState.update { it.copy(erreur = "Erreur réconciliation: ${e.message}") }
             }
         }
     }
@@ -113,21 +153,40 @@ class ComptesViewModel(
     fun onArchiverCompte() {
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
-            // Archiver le compte (mettre estArchive = true)
-            val compteArchive = when (compte) {
-                is CompteCheque -> compte.copy(estArchive = true)
-                is CompteCredit -> compte.copy(estArchive = true) 
-                is CompteDette -> compte.copy(estArchive = true)
-                is CompteInvestissement -> compte.copy(estArchive = true)
-                else -> return@launch
-            }
+            try {
+                println("🔍 [DEBUG] === ARCHIVAGE ===")
+                println("🔍 [DEBUG] Compte: ${compte.nom}")
 
-            compteRepository.mettreAJourCompte(compteArchive).onSuccess {
-                _uiState.update { it.copy(isMenuContextuelVisible = false) }
-                chargerComptes() // Recharger pour masquer le compte archivé
-                onCompteChange?.invoke() // Notifier les autres ViewModels
-            }.onFailure { erreur ->
-                _uiState.update { it.copy(erreur = "Erreur lors de l'archivage: ${erreur.message}") }
+                val compteArchive = when (compte) {
+                    is CompteCheque -> CompteCheque(
+                        id = compte.id,
+                        utilisateurId = compte.utilisateurId,
+                        nom = compte.nom,
+                        solde = compte.solde,
+                        pretAPlacerRaw = compte.pretAPlacerRaw,
+                        couleur = compte.couleur,
+                        estArchive = true,
+                        ordre = compte.ordre,
+                        collection = "comptes_cheques"
+                    )
+                    is CompteCredit -> compte.copy(estArchive = true)
+                    is CompteDette -> compte.copy(estArchive = true)
+                    is CompteInvestissement -> compte.copy(estArchive = true)
+                }
+
+                compteRepository.mettreAJourCompte(compteArchive).onSuccess {
+                    println("✅ [DEBUG] Archivage réussi")
+                    _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
+                    chargerComptes()
+                    onCompteChange?.invoke()
+                }.onFailure { erreur ->
+                    println("❌ [DEBUG] Erreur: ${erreur.message}")
+                    _uiState.update { it.copy(erreur = "Erreur archivage: ${erreur.message}") }
+                }
+            } catch (e: Exception) {
+                println("❌ [DEBUG] Exception: ${e.message}")
+                e.printStackTrace()
+                _uiState.update { it.copy(erreur = "Erreur archivage: ${e.message}") }
             }
         }
     }
@@ -239,32 +298,72 @@ class ComptesViewModel(
 
     private fun sauvegarderModification() {
         viewModelScope.launch {
-            val form = _uiState.value.formState
-            val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
-            val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
-            val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
-            val compteModifie = when (compteOriginal) {
-                is CompteCheque -> compteOriginal.copy(
-                    nom = form.nom,
-                    solde = soldeDouble,
-                    pretAPlacerRaw = pretAPlacerDouble,
-                    couleur = form.couleur
-                )
-                is CompteCredit -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
-                is CompteDette -> compteOriginal.copy(nom = form.nom, solde = soldeDouble)
-                is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+            try {
+                val form = _uiState.value.formState
+                val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
+                val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
+                val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
+
+                println("🔍 [DEBUG] === MODIFICATION COMPTE ===")
+                println("🔍 [DEBUG] Compte: ${compteOriginal.nom}")
+                println("🔍 [DEBUG] Form.nom: '${form.nom}'")
+                println("🔍 [DEBUG] Form.solde: '${form.solde}' -> $soldeDouble")
+                println("🔍 [DEBUG] Form.pretAPlacer: '${form.pretAPlacer}' -> $pretAPlacerDouble")
+                println("🔍 [DEBUG] Form.couleur: '${form.couleur}'")
+
+                if (compteOriginal is CompteCheque) {
+                    println("🔍 [DEBUG] Ancien prêt à placer: ${compteOriginal.pretAPlacer}")
+                    println("🔍 [DEBUG] Nouveau prêt à placer calculé: $pretAPlacerDouble")
+                }
+
+                val compteModifie = when (compteOriginal) {
+                    is CompteCheque -> {
+                        val nouveauPretAPlacer = pretAPlacerDouble // Toujours utiliser la nouvelle valeur
+                        println("🔍 [DEBUG] Création CompteCheque avec pretAPlacerRaw = $nouveauPretAPlacer")
+
+                        CompteCheque(
+                            id = compteOriginal.id,
+                            utilisateurId = compteOriginal.utilisateurId,
+                            nom = form.nom,
+                            solde = soldeDouble,
+                            pretAPlacerRaw = nouveauPretAPlacer, // CORRECTION: Toujours utiliser la nouvelle valeur
+                            couleur = form.couleur,
+                            estArchive = compteOriginal.estArchive,
+                            ordre = compteOriginal.ordre,
+                            collection = compteOriginal.collection
+                        )
+                    }
+                    is CompteCredit -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                    is CompteDette -> compteOriginal.copy(nom = form.nom, solde = soldeDouble)
+                    is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                }
+
+                if (compteModifie is CompteCheque) {
+                    println("🔍 [DEBUG] CompteCheque créé - pretAPlacer final: ${compteModifie.pretAPlacer}")
+                }
+
+                println("🔍 [DEBUG] Envoi au repository...")
+
+                compteRepository.mettreAJourCompte(compteModifie).onSuccess {
+                    println("✅ [DEBUG] Modification réussie dans la base de données")
+                    onFermerTousLesDialogues()
+                    chargerComptes()
+
+                    // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    realtimeSyncService.declencherMiseAJourComptes()
+
+                    // Notifier les autres ViewModels du changement
+                    onCompteChange?.invoke()
+                }.onFailure { e ->
+                    println("❌ [DEBUG] Erreur modification: ${e.message}")
+                    _uiState.update { it.copy(erreur = "Erreur lors de la modification: ${e.message}") }
+                }
+            } catch (e: Exception) {
+                println("❌ [DEBUG] Exception modification: ${e.message}")
+                e.printStackTrace()
+                _uiState.update { it.copy(erreur = "Erreur lors de la modification: ${e.message}") }
             }
-            compteRepository.mettreAJourCompte(compteModifie).onSuccess {
-                onFermerTousLesDialogues()
-                chargerComptes()
-
-                // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
-                realtimeSyncService.declencherMiseAJourBudget()
-                realtimeSyncService.declencherMiseAJourComptes()
-
-                // Notifier les autres ViewModels du changement
-                onCompteChange?.invoke()
-            }.onFailure { e -> _uiState.update { it.copy(erreur = e.message) } }
         }
     }
 }

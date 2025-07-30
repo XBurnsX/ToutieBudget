@@ -22,10 +22,20 @@ android {
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1078578579569-eb1v1cre9rius8grrppg1sktal3bkbrl.apps.googleusercontent.com\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../toutiebudget-release-key.jks")
+            storePassword = "qwerty"  // Remplacez par votre mot de passe
+            keyAlias = "toutiebudget"
+            keyPassword = "qwerty"  // Remplacez par votre mot de passe
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -74,4 +84,3 @@ dependencies {
     implementation("javax.inject:javax.inject:1")
     // ...existing dependencies...
 }
-
