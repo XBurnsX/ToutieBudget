@@ -10,7 +10,7 @@ sealed interface Compte {
     val nom: String
     val solde: Double
     val couleur: String
-    @get:SerializedName("est_archive")
+    @get:SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     val estArchive: Boolean
     val ordre: Int
     val collection: String
@@ -25,7 +25,7 @@ data class CompteCheque(
     @SerializedName("pret_a_placer")
     val pretAPlacerRaw: Double? = null,
     override val couleur: String,
-    @SerializedName("est_archive")
+    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
     override val collection: String = "comptes_cheques"
@@ -41,7 +41,7 @@ data class CompteCredit(
     override val nom: String,
     override val solde: Double,
     override val couleur: String,
-    @SerializedName("est_archive")
+    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
     @SerializedName("limite_credit")
@@ -56,7 +56,7 @@ data class CompteDette(
     override var utilisateurId: String = "",
     override val nom: String,
     override val solde: Double,
-    @SerializedName("est_archive")
+    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
     @SerializedName("montant_initial")
@@ -75,7 +75,7 @@ data class CompteInvestissement(
     override val nom: String,
     override val solde: Double,
     override val couleur: String,
-    @SerializedName("est_archive")
+    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
     override val collection: String = "comptes_investissement"

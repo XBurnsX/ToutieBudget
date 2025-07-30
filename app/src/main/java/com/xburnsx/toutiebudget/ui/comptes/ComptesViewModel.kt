@@ -156,35 +156,92 @@ class ComptesViewModel(
             try {
                 println("🔍 [DEBUG] === ARCHIVAGE ===")
                 println("🔍 [DEBUG] Compte: ${compte.nom}")
+                println("🔍 [DEBUG] ID: ${compte.id}")
+                println("🔍 [DEBUG] estArchive avant: ${compte.estArchive}")
 
                 val compteArchive = when (compte) {
-                    is CompteCheque -> CompteCheque(
-                        id = compte.id,
-                        utilisateurId = compte.utilisateurId,
-                        nom = compte.nom,
-                        solde = compte.solde,
-                        pretAPlacerRaw = compte.pretAPlacerRaw,
-                        couleur = compte.couleur,
-                        estArchive = true,
-                        ordre = compte.ordre,
-                        collection = "comptes_cheques"
-                    )
-                    is CompteCredit -> compte.copy(estArchive = true)
-                    is CompteDette -> compte.copy(estArchive = true)
-                    is CompteInvestissement -> compte.copy(estArchive = true)
+                    is CompteCheque -> {
+                        println("🔍 [DEBUG] Archivage CompteCheque")
+                        CompteCheque(
+                            id = compte.id,
+                            utilisateurId = compte.utilisateurId,
+                            nom = compte.nom,
+                            solde = compte.solde,
+                            pretAPlacerRaw = compte.pretAPlacerRaw,
+                            couleur = compte.couleur,
+                            estArchive = true, // ← FORCER à true
+                            ordre = compte.ordre,
+                            collection = "comptes_cheques"
+                        )
+                    }
+                    is CompteCredit -> {
+                        println("🔍 [DEBUG] Archivage CompteCredit")
+                        CompteCredit(
+                            id = compte.id,
+                            utilisateurId = compte.utilisateurId,
+                            nom = compte.nom,
+                            solde = compte.solde,
+                            couleur = compte.couleur,
+                            estArchive = true, // ← FORCER à true
+                            ordre = compte.ordre,
+                            limiteCredit = compte.limiteCredit,
+                            interet = compte.interet,
+                            collection = "comptes_credits"
+                        )
+                    }
+                    is CompteDette -> {
+                        println("🔍 [DEBUG] Archivage CompteDette")
+                        CompteDette(
+                            id = compte.id,
+                            utilisateurId = compte.utilisateurId,
+                            nom = compte.nom,
+                            solde = compte.solde,
+                            estArchive = true, // ← FORCER à true
+                            ordre = compte.ordre,
+                            montantInitial = compte.montantInitial,
+                            interet = compte.interet,
+                            collection = "comptes_dettes"
+                        )
+                    }
+                    is CompteInvestissement -> {
+                        println("🔍 [DEBUG] Archivage CompteInvestissement")
+                        CompteInvestissement(
+                            id = compte.id,
+                            utilisateurId = compte.utilisateurId,
+                            nom = compte.nom,
+                            solde = compte.solde,
+                            couleur = compte.couleur,
+                            estArchive = true, // ← FORCER à true
+                            ordre = compte.ordre,
+                            collection = "comptes_investissement"
+                        )
+                    }
                 }
 
+                println("🔍 [DEBUG] estArchive après création: ${compteArchive.estArchive}")
+                println("🔍 [DEBUG] Envoi au repository...")
+
                 compteRepository.mettreAJourCompte(compteArchive).onSuccess {
-                    println("✅ [DEBUG] Archivage réussi")
+                    println("✅ [DEBUG] Archivage réussi dans la base de données")
                     _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
-                    chargerComptes()
+
+                    // FORCER LE RAFRAÎCHISSEMENT IMMÉDIAT DES DEUX ÉCRANS
+                    chargerComptes() // Rafraîchit CompteScreen
+
+                    // DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR LE BUDGET
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    realtimeSyncService.declencherMiseAJourComptes()
+
+                    // FORCER LE CALLBACK POUR BUDGET SCREEN
                     onCompteChange?.invoke()
+
+                    println("🔄 [DEBUG] Rafraîchissement forcé des écrans après archivage")
                 }.onFailure { erreur ->
-                    println("❌ [DEBUG] Erreur: ${erreur.message}")
+                    println("❌ [DEBUG] Erreur archivage: ${erreur.message}")
                     _uiState.update { it.copy(erreur = "Erreur archivage: ${erreur.message}") }
                 }
             } catch (e: Exception) {
-                println("❌ [DEBUG] Exception: ${e.message}")
+                println("❌ [DEBUG] Exception archivage: ${e.message}")
                 e.printStackTrace()
                 _uiState.update { it.copy(erreur = "Erreur archivage: ${e.message}") }
             }
@@ -305,64 +362,88 @@ class ComptesViewModel(
                 val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
 
                 println("🔍 [DEBUG] === MODIFICATION COMPTE ===")
-                println("🔍 [DEBUG] Compte: ${compteOriginal.nom}")
+                println("🔍 [DEBUG] Compte original: ${compteOriginal.nom}")
+                println("🔍 [DEBUG] ID: ${compteOriginal.id}")
                 println("🔍 [DEBUG] Form.nom: '${form.nom}'")
                 println("🔍 [DEBUG] Form.solde: '${form.solde}' -> $soldeDouble")
                 println("🔍 [DEBUG] Form.pretAPlacer: '${form.pretAPlacer}' -> $pretAPlacerDouble")
-                println("🔍 [DEBUG] Form.couleur: '${form.couleur}'")
-
-                if (compteOriginal is CompteCheque) {
-                    println("🔍 [DEBUG] Ancien prêt à placer: ${compteOriginal.pretAPlacer}")
-                    println("🔍 [DEBUG] Nouveau prêt à placer calculé: $pretAPlacerDouble")
-                }
 
                 val compteModifie = when (compteOriginal) {
                     is CompteCheque -> {
-                        val nouveauPretAPlacer = pretAPlacerDouble // Toujours utiliser la nouvelle valeur
-                        println("🔍 [DEBUG] Création CompteCheque avec pretAPlacerRaw = $nouveauPretAPlacer")
-
+                        println("🔍 [DEBUG] Modification CompteCheque")
                         CompteCheque(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
                             nom = form.nom,
                             solde = soldeDouble,
-                            pretAPlacerRaw = nouveauPretAPlacer, // CORRECTION: Toujours utiliser la nouvelle valeur
+                            pretAPlacerRaw = pretAPlacerDouble,
                             couleur = form.couleur,
                             estArchive = compteOriginal.estArchive,
                             ordre = compteOriginal.ordre,
-                            collection = compteOriginal.collection
+                            collection = "comptes_cheques"
                         )
                     }
-                    is CompteCredit -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
-                    is CompteDette -> compteOriginal.copy(nom = form.nom, solde = soldeDouble)
-                    is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                    is CompteCredit -> {
+                        println("🔍 [DEBUG] Modification CompteCredit")
+                        CompteCredit(
+                            id = compteOriginal.id,
+                            utilisateurId = compteOriginal.utilisateurId,
+                            nom = form.nom,
+                            solde = soldeDouble,
+                            couleur = form.couleur,
+                            estArchive = compteOriginal.estArchive,
+                            ordre = compteOriginal.ordre,
+                            limiteCredit = compteOriginal.limiteCredit,
+                            interet = compteOriginal.interet,
+                            collection = "comptes_credits"
+                        )
+                    }
+                    is CompteDette -> {
+                        println("🔍 [DEBUG] Modification CompteDette")
+                        CompteDette(
+                            id = compteOriginal.id,
+                            utilisateurId = compteOriginal.utilisateurId,
+                            nom = form.nom,
+                            solde = soldeDouble,
+                            estArchive = compteOriginal.estArchive,
+                            ordre = compteOriginal.ordre,
+                            montantInitial = compteOriginal.montantInitial,
+                            interet = compteOriginal.interet,
+                            collection = "comptes_dettes"
+                        )
+                    }
+                    is CompteInvestissement -> {
+                        println("🔍 [DEBUG] Modification CompteInvestissement")
+                        CompteInvestissement(
+                            id = compteOriginal.id,
+                            utilisateurId = compteOriginal.utilisateurId,
+                            nom = form.nom,
+                            solde = soldeDouble,
+                            couleur = form.couleur,
+                            estArchive = compteOriginal.estArchive,
+                            ordre = compteOriginal.ordre,
+                            collection = "comptes_investissement"
+                        )
+                    }
                 }
 
-                if (compteModifie is CompteCheque) {
-                    println("🔍 [DEBUG] CompteCheque créé - pretAPlacer final: ${compteModifie.pretAPlacer}")
-                }
-
-                println("🔍 [DEBUG] Envoi au repository...")
+                println("🔍 [DEBUG] Compte modifié créé, envoi repository...")
 
                 compteRepository.mettreAJourCompte(compteModifie).onSuccess {
                     println("✅ [DEBUG] Modification réussie dans la base de données")
-                    onFermerTousLesDialogues()
+                    _uiState.update { it.copy(isModificationDialogVisible = false, compteSelectionne = null) }
                     chargerComptes()
-
-                    // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
                     realtimeSyncService.declencherMiseAJourBudget()
                     realtimeSyncService.declencherMiseAJourComptes()
-
-                    // Notifier les autres ViewModels du changement
                     onCompteChange?.invoke()
                 }.onFailure { e ->
                     println("❌ [DEBUG] Erreur modification: ${e.message}")
-                    _uiState.update { it.copy(erreur = "Erreur lors de la modification: ${e.message}") }
+                    _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
                 }
             } catch (e: Exception) {
                 println("❌ [DEBUG] Exception modification: ${e.message}")
                 e.printStackTrace()
-                _uiState.update { it.copy(erreur = "Erreur lors de la modification: ${e.message}") }
+                _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
             }
         }
     }
