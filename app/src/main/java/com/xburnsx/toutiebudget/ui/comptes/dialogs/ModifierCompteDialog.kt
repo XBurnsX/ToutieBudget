@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.xburnsx.toutiebudget.ui.comptes.COULEURS_COMPTES
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
@@ -24,7 +25,7 @@ fun ModifierCompteDialog(
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
 ) {
-    val couleursDisponibles = listOf("#F44336", "#E91E63", "#9C27B0", "#2196F3", "#4CAF50", "#FFC107")
+    val couleursDisponibles = COULEURS_COMPTES
 
     // Conversion entre format centimes et format texte pour ChampArgent
     val soldeEnCentimes = remember(formState.solde) {

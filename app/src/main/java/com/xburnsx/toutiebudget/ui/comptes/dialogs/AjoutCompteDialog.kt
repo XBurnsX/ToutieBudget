@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
+import com.xburnsx.toutiebudget.ui.comptes.COULEURS_COMPTES
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 
@@ -20,17 +21,12 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 fun AjoutCompteDialog(
     formState: CompteFormState,
     onDismissRequest: () -> Unit,
-    onValueChange: (String?, String?, String?, String?) -> Unit,
+    onValueChange: (String?, String?, String?, String?, String?) -> Unit, // AJOUT DU 5ème PARAMÈTRE
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
-    val couleursDisponibles = listOf(
-        "#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3",
-        "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39",
-        "#FFEB3B", "#FFC107", "#FF9800", "#FF5722", "#795548", "#607D8B",
-        "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"
-    )
+    val couleursDisponibles = COULEURS_COMPTES
     var expanded by remember { mutableStateOf(false) }
 
     // État du clavier
@@ -54,7 +50,7 @@ fun AjoutCompteDialog(
                 // Champ nom du compte
                 OutlinedTextField(
                     value = formState.nom,
-                    onValueChange = { onValueChange(it, null, null, null) },
+                    onValueChange = { onValueChange(it, null, null, null, null) },
                     label = { Text("Nom du compte") },
                     singleLine = true
                 )
@@ -80,7 +76,7 @@ fun AjoutCompteDialog(
                             DropdownMenuItem(
                                 text = { Text(type) },
                                 onClick = {
-                                    onValueChange(null, type, null, null)
+                                    onValueChange(null, type, null, null, null)
                                     expanded = false
                                 }
                             )
@@ -92,7 +88,7 @@ fun AjoutCompteDialog(
                     valeur = montantEnCentimes,
                     onValeurChange = { nouveauMontant ->
                         val nouveauSolde = (nouveauMontant / 100.0).toString()
-                        onValueChange(null, null, nouveauSolde, null)
+                        onValueChange(null, null, nouveauSolde, null, null)
                     },
                     libelle = "Solde initial",
                     utiliserClavier = false, // Désactiver le clavier intégré
@@ -103,7 +99,7 @@ fun AjoutCompteDialog(
                         // Utiliser le système de clavier global
                         onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
                             val nouveauSolde = (nouveauMontant / 100.0).toString()
-                            onValueChange(null, null, nouveauSolde, null)
+                            onValueChange(null, null, nouveauSolde, null, null)
                         }
                     },
                     modifier = Modifier
@@ -114,7 +110,7 @@ fun AjoutCompteDialog(
                     CouleurSelecteur(
                         couleurs = couleursDisponibles,
                         couleurSelectionnee = formState.couleur,
-                        onCouleurSelected = { onValueChange(null, null, null, it) }
+                        onCouleurSelected = { onValueChange(null, null, null, null, it) } // CORRECTION : 5ème PARAMÈTRE
                     )
                 }
             }
