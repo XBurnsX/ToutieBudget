@@ -19,17 +19,23 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <!-- Activité principale de l'application -->
+        <!-- Activité splash -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.ToutieBudget">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Activité principale de l'application -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ToutieBudget" />
     </application>
 
 </manifest>
