@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Couleur de fond -->
+    <item android:drawable="@color/splash_background" />
+    
+    <!-- Logo centré -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/splash" />
+    </item>
+    
+    <!-- Texte du nom de l'application -->
+    <item android:bottom="100dp">
+        <bitmap
+            android:gravity="bottom|center_horizontal"
+            android:src="@drawable/branding" />
+    </item>
+    
+</layer-list>
