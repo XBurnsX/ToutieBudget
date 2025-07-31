@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material3.*
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.AjoutCompteDialog
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -166,18 +168,26 @@ fun ComptesScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    var nouveauSolde by remember { mutableStateOf(uiState.compteSelectionne?.solde?.toString() ?: "0") }
+                    var nouveauSolde by remember { mutableStateOf(((uiState.compteSelectionne?.solde ?: 0.0) * 100).toLong()) }
 
-                    OutlinedTextField(
-                        value = nouveauSolde,
-                        onValueChange = { nouveauSolde = it },
-                        label = { Text("Solde réel", color = Color.LightGray) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF10B981),
-                            unfocusedBorderColor = Color.Gray
-                        ),
+                    ChampUniversel(
+                        valeur = nouveauSolde,
+                        onValeurChange = { nouveauSolde = it },
+                        libelle = "Solde réel",
+                        utiliserClavier = false, // Désactiver le clavier intégré
+                        isMoney = true,
+                        icone = Icons.Default.AccountBalance,
+                        estObligatoire = true,
+                        couleurValeur = Color.White,
+                        onClicPersonnalise = {
+                            // Utiliser le système de clavier global
+                            montantClavierInitial = nouveauSolde
+                            nomDialogClavier = "Solde réel"
+                            onMontantChangeCallback = { nouveauMontant ->
+                                nouveauSolde = nouveauMontant
+                            }
+                            showKeyboard = true
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -196,10 +206,9 @@ fun ComptesScreen(
 
                         Button(
                             onClick = { 
-                                viewModel.onReconcilierCompte(nouveauSolde.toDoubleOrNull() ?: 0.0)
+                                viewModel.onReconcilierCompte(nouveauSolde / 100.0)
                             },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text("Réconcilier", color = Color.White)
                         }
