@@ -67,6 +67,7 @@ fun SelecteurTiers(
 
     // Afficher le dropdown si on a le focus et qu'il y a du contenu à afficher
     LaunchedEffect(estFocused, texteSaisi, tiersFiltres) {
+        // Sur les vrais téléphones, garder le dropdown ouvert plus longtemps
         dropdownVisible = estFocused && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank())
     }
 
@@ -120,9 +121,12 @@ fun SelecteurTiers(
                 ),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(
-                    onDone = { focusManager.clearFocus() }
+                    onNext = { 
+                        // Ne pas fermer le focus automatiquement
+                        // Laisser l'utilisateur continuer à taper
+                    }
                 ),
                 trailingIcon = {
                     if (isLoading) {
@@ -140,7 +144,7 @@ fun SelecteurTiers(
                 expanded = dropdownVisible,
                 onDismissRequest = {
                     dropdownVisible = false
-                    focusManager.clearFocus()
+                    // Ne pas fermer le focus automatiquement sur les vrais téléphones
                 },
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
@@ -153,7 +157,7 @@ fun SelecteurTiers(
                         onClick = {
                             onCreerNouveauTiers(texteSaisi)
                             dropdownVisible = false
-                            focusManager.clearFocus()
+                            // Garder le focus pour permettre la saisie continue
                         },
                         text = {
                             Row(
@@ -188,7 +192,7 @@ fun SelecteurTiers(
                             onTiersSelectionne(tiers)
                             onTexteSaisiChange(tiers.nom)
                             dropdownVisible = false
-                            focusManager.clearFocus()
+                            // Garder le focus pour permettre la saisie continue
                         },
                         text = {
                             Row(
