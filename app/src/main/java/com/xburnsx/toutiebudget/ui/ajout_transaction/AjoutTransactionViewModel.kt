@@ -447,8 +447,8 @@ class AjoutTransactionViewModel(
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
-                // Convertir LocalDate en Date pour le UseCase
-                val dateTransaction = state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant().let { Date.from(it) }
+                // Convertir LocalDate en Date pour le UseCase (utilisation du timezone local)
+                val dateTransaction = Date.from(state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
                 
                 // Enregistrer la transaction
                 println("[DEBUG] Avant appel executer - Texte tiers saisi: '${state.texteTiersSaisi}', Date: ${state.dateTransaction}")

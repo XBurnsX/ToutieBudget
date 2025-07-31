@@ -176,7 +176,7 @@ class ModifierTransactionViewModel(
                 texteTiersSaisi = tiers,
                 tiers = tiers, // Ajouter aussi dans le champ tiers
                 note = transaction.note ?: "",
-                dateTransaction = transaction.date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                dateTransaction = transaction.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
             ).calculerValidite() // ✅ Ajouter calculerValidite() ici
         }
     }
@@ -258,8 +258,8 @@ class ModifierTransactionViewModel(
                 println("DEBUG: modifierTransaction - tiersNom: ${state.texteTiersSaisi.takeIf { it.isNotBlank() }}")
                 println("DEBUG: modifierTransaction - note: ${state.note.takeIf { it.isNotBlank() }}")
                 
-                                 // Convertir LocalDate en Date pour le UseCase (même logique que AjoutTransactionViewModel)
-                 val dateTransaction = state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant().let { Date.from(it) }
+                                 // Convertir LocalDate en Date pour le UseCase (utilisation du timezone local)
+                 val dateTransaction = Date.from(state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
                  
                  val result = modifierTransactionUseCase.executer(
                      transactionId = transactionAModifier!!.id,
