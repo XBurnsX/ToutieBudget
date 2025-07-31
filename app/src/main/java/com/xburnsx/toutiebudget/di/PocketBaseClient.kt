@@ -30,12 +30,21 @@ import com.xburnsx.toutiebudget.utils.SafeDateAdapter
  */
 object PocketBaseClient {
 
-    // Client HTTP configuré pour PocketBase
+    // Client HTTP configuré pour PocketBase - OPTIMISÉ pour les performances
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(3, TimeUnit.SECONDS) // Réduit de 10s à 3s
+        .readTimeout(8, TimeUnit.SECONDS) // Réduit de 15s à 8s
+        .writeTimeout(5, TimeUnit.SECONDS) // Réduit de 10s à 5s
         .retryOnConnectionFailure(true)
+        .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de connexions persistantes
+        .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1)) // Support HTTP/2
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Accept-Encoding", "gzip, deflate") // Compression
+                .addHeader("Connection", "keep-alive") // Connexions persistantes
+                .build()
+            chain.proceed(request)
+        }
         .build()
 
     private val gson = com.google.gson.GsonBuilder()
@@ -340,30 +349,76 @@ object PocketBaseClient {
      * Effectue une requête GET avec paramètres optionnels
      */
     suspend fun effectuerRequeteGet(endpoint: String, parametres: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
-        val urlBase = obtenirUrlBaseActive()
-        var url = "${urlBase.trimEnd('/')}$endpoint"
+        try {
+            val urlBase = obtenirUrlBaseActive()
+            var url = "${urlBase.trimEnd('/')}$endpoint"
 
-        // Ajouter les paramètres de requête
-        if (parametres.isNotEmpty()) {
-            val params = parametres.map { "${it.key}=${it.value}" }.joinToString("&")
-            url += "?$params"
+            // Ajouter les paramètres de requête
+            if (parametres.isNotEmpty()) {
+                val params = parametres.map { "${it.key}=${it.value}" }.joinToString("&")
+                url += "?$params"
+            }
+
+            val requeteBuilder = Request.Builder()
+                .url(url)
+                .get()
+
+            tokenAuthentification?.let { token ->
+                requeteBuilder.addHeader("Authorization", "Bearer $token")
+            }
+
+            val requete = requeteBuilder.build()
+            val reponse = client.newCall(requete).execute()
+
+            if (reponse.isSuccessful) {
+                reponse.body?.string() ?: ""
+            } else {
+                throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+            }
+        } catch (e: IOException) {
+            // En cas d'erreur réseau, invalider le cache et réessayer une fois
+            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
+            UrlResolver.invaliderCache()
+            throw e
+        } catch (e: Exception) {
+            throw e
         }
+    }
 
-        val requeteBuilder = Request.Builder()
-            .url(url)
-            .get()
+    /**
+     * Effectue une requête POST avec données JSON
+     */
+    suspend fun effectuerRequetePost(endpoint: String, donneesJson: String): String = withContext(Dispatchers.IO) {
+        try {
+            val urlBase = obtenirUrlBaseActive()
+            val url = "${urlBase.trimEnd('/')}$endpoint"
 
-        tokenAuthentification?.let { token ->
-            requeteBuilder.addHeader("Authorization", "Bearer $token")
-        }
+            val corpsRequete = donneesJson.toRequestBody("application/json".toMediaType())
 
-        val requete = requeteBuilder.build()
-        val reponse = client.newCall(requete).execute()
+            val requeteBuilder = Request.Builder()
+                .url(url)
+                .post(corpsRequete)
+                .addHeader("Content-Type", "application/json")
 
-        if (reponse.isSuccessful) {
-            reponse.body?.string() ?: ""
-        } else {
-            throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+            tokenAuthentification?.let { token ->
+                requeteBuilder.addHeader("Authorization", "Bearer $token")
+            }
+
+            val requete = requeteBuilder.build()
+            val reponse = client.newCall(requete).execute()
+
+            if (reponse.isSuccessful) {
+                reponse.body?.string() ?: ""
+            } else {
+                throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+            }
+        } catch (e: IOException) {
+            // En cas d'erreur réseau, invalider le cache et réessayer une fois
+            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
+            UrlResolver.invaliderCache()
+            throw e
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -371,24 +426,33 @@ object PocketBaseClient {
      * Effectue une requête DELETE
      */
     suspend fun effectuerRequeteDelete(endpoint: String): String = withContext(Dispatchers.IO) {
-        val urlBase = obtenirUrlBaseActive()
-        val url = "${urlBase.trimEnd('/')}$endpoint"
+        try {
+            val urlBase = obtenirUrlBaseActive()
+            val url = "${urlBase.trimEnd('/')}$endpoint"
 
-        val requeteBuilder = Request.Builder()
-            .url(url)
-            .delete()
+            val requeteBuilder = Request.Builder()
+                .url(url)
+                .delete()
 
-        tokenAuthentification?.let { token ->
-            requeteBuilder.addHeader("Authorization", "Bearer $token")
-        }
+            tokenAuthentification?.let { token ->
+                requeteBuilder.addHeader("Authorization", "Bearer $token")
+            }
 
-        val requete = requeteBuilder.build()
-        val reponse = client.newCall(requete).execute()
+            val requete = requeteBuilder.build()
+            val reponse = client.newCall(requete).execute()
 
-        if (reponse.isSuccessful) {
-            reponse.body?.string() ?: ""
-        } else {
-            throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+            if (reponse.isSuccessful) {
+                reponse.body?.string() ?: ""
+            } else {
+                throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
+            }
+        } catch (e: IOException) {
+            // En cas d'erreur réseau, invalider le cache et réessayer une fois
+            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
+            UrlResolver.invaliderCache()
+            throw e
+        } catch (e: Exception) {
+            throw e
         }
     }
 

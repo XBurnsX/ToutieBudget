@@ -19,6 +19,7 @@ import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
+import com.xburnsx.toutiebudget.utils.DiagnosticConnexion
 import java.util.Calendar
 import java.util.Date
 import java.time.LocalDate
@@ -125,11 +126,29 @@ class AjoutTransactionViewModel(
                 }
                 
             } catch (e: Exception) {
+                val messageErreur = when {
+                    e.message?.contains("failed to connect", ignoreCase = true) == true -> 
+                        "Impossible de se connecter au serveur. Vérifiez votre connexion réseau et que PocketBase est démarré."
+                    e.message?.contains("timeout", ignoreCase = true) == true -> 
+                        "Délai d'attente dépassé. Le serveur ne répond pas dans les délais."
+                    e.message?.contains("unknown host", ignoreCase = true) == true -> 
+                        "Serveur introuvable. Vérifiez l'adresse du serveur."
+                    e.message?.contains("connection refused", ignoreCase = true) == true -> 
+                        "Connexion refusée. Vérifiez que PocketBase est démarré sur le bon port."
+                    else -> e.message ?: "Erreur lors du chargement des données"
+                }
+                
                 _uiState.update { 
                     it.copy(
                         isLoading = false, 
-                        messageErreur = e.message ?: "Erreur lors du chargement des données"
+                        messageErreur = messageErreur
                     )
+                }
+                
+                // Invalider le cache URL en cas d'erreur réseau
+                if (e.message?.contains("connect", ignoreCase = true) == true || 
+                    e.message?.contains("timeout", ignoreCase = true) == true) {
+                    com.xburnsx.toutiebudget.di.UrlResolver.invaliderCache()
                 }
             }
         }
@@ -518,5 +537,29 @@ class AjoutTransactionViewModel(
     fun rechargerDonnees() {
         println("[DEBUG AJOUT] === Rechargement manuel des données ===")
         chargerDonneesInitiales()
+    }
+
+    /**
+     * Effectue un diagnostic de connexion pour déboguer les problèmes réseau
+     */
+    fun diagnostiquerConnexion() {
+        viewModelScope.launch {
+            try {
+                val rapport = DiagnosticConnexion.diagnostiquerConnexion()
+                println("[DIAGNOSTIC] $rapport")
+                
+                _uiState.update { state ->
+                    state.copy(
+                        messageErreur = "Diagnostic terminé. Vérifiez les logs pour plus de détails."
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { state ->
+                    state.copy(
+                        messageErreur = "Erreur lors du diagnostic: ${e.message}"
+                    )
+                }
+            }
+        }
     }
 }

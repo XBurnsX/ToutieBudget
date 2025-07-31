@@ -25,6 +25,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransac
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.DiagnosticConnexionButton
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -201,6 +202,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Bouton de diagnostic (seulement si il y a une erreur)
+                if (uiState.messageErreur != null) {
+                    DiagnosticConnexionButton(
+                        viewModel = viewModel,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
                 }
 
                 // Bouton de sauvegarde fixé en bas

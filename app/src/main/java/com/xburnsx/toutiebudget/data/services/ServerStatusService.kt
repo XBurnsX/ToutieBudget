@@ -13,10 +13,19 @@ import java.util.concurrent.TimeUnit
 class ServerStatusService {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .writeTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(2, TimeUnit.SECONDS) // Réduit de 5s à 2s
+        .readTimeout(3, TimeUnit.SECONDS) // Réduit de 5s à 3s
+        .writeTimeout(2, TimeUnit.SECONDS) // Réduit de 5s à 2s
         .retryOnConnectionFailure(false)
+        .connectionPool(okhttp3.ConnectionPool(2, 1, TimeUnit.MINUTES)) // Pool dédié
+        .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1))
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Accept-Encoding", "gzip, deflate")
+                .addHeader("Connection", "keep-alive")
+                .build()
+            chain.proceed(request)
+        }
         .build()
 
     /**

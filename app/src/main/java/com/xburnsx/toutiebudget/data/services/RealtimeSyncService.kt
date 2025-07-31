@@ -18,6 +18,7 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.concurrent.TimeUnit
 
 /**
  * Service de synchronisation temps réel avec PocketBase.
@@ -28,7 +29,21 @@ import javax.inject.Singleton
 class RealtimeSyncService @Inject constructor() {
 
     private val client = PocketBaseClient
-    private val httpClient = OkHttpClient()
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(3, TimeUnit.SECONDS) // Optimisé pour les connexions rapides
+        .readTimeout(30, TimeUnit.SECONDS) // Long pour les SSE
+        .writeTimeout(3, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .connectionPool(okhttp3.ConnectionPool(2, 5, TimeUnit.MINUTES)) // Pool dédié pour SSE
+        .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1))
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Accept-Encoding", "gzip, deflate")
+                .addHeader("Connection", "keep-alive")
+                .build()
+            chain.proceed(request)
+        }
+        .build()
     private val gson = Gson()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var webSocket: WebSocket? = null

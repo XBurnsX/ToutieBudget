@@ -8,6 +8,9 @@
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+ import com.xburnsx.toutiebudget.data.services.CacheService
+ import com.xburnsx.toutiebudget.data.services.CacheValidationService
+ import com.xburnsx.toutiebudget.data.services.CacheSyncService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
@@ -24,12 +27,19 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
  import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
  import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
  import androidx.lifecycle.SavedStateHandle
+ import android.content.Context
 
  /**
   * Module d'injection de dépendances pour l'application Toutie Budget.
   * Gère l'instanciation de tous les repositories, services, use cases et ViewModels.
+  * SÉCURITÉ FINANCIÈRE : Validation complexe pour éviter les faux soldes
   */
  object AppModule {
+     
+     // ===== SERVICES DE CACHE =====
+     private var cacheValidationService: CacheValidationService? = null
+     private var cacheService: CacheService? = null
+     private var cacheSyncService: CacheSyncService? = null
      
      // ===== REPOSITORIES =====
      private val compteRepository: CompteRepository by lazy { CompteRepositoryImpl() }
@@ -51,6 +61,11 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
+     
+     // ===== SERVICES D'OPTIMISATION =====
+     private val networkOptimizationService: com.xburnsx.toutiebudget.data.services.NetworkOptimizationService by lazy { 
+         com.xburnsx.toutiebudget.data.services.NetworkOptimizationService(android.content.Context::class.java.cast(null)) 
+     }
 
      // ===== CALCULATEUR D'OBJECTIFS =====
      private val objectifCalculator: ObjectifCalculator by lazy { ObjectifCalculator() }
@@ -134,6 +149,19 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      }
  
      // ===== FONCTIONS PUBLIQUES =====
+     
+     /**
+      * Initialise les services de cache avec le contexte de l'application
+      * SÉCURITÉ FINANCIÈRE CRITIQUE : Validation complexe pour éviter les faux soldes
+      * PRIORITÉ AUX MODIFICATIONS : Cette fonction doit être appelée au démarrage
+      */
+     fun initializeCacheServices(context: Context) {
+         cacheValidationService = CacheValidationService()
+         cacheService = CacheService(context, cacheValidationService)
+         cacheSyncService = CacheSyncService(cacheService!!)
+         println("[AppModule] ✅ Services de cache initialisés avec SÉCURITÉ FINANCIÈRE et priorité aux modifications")
+     }
+     
      fun provideCompteRepository(): CompteRepository = compteRepository
      fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
      fun provideCategorieRepository(): CategorieRepository = categorieRepository
@@ -146,6 +174,10 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
      fun provideValidationProvenanceService(): ValidationProvenanceService = validationProvenanceService
      fun provideServerStatusService(): com.xburnsx.toutiebudget.data.services.ServerStatusService = serverStatusService
+     fun provideCacheService(): CacheService? = cacheService
+     fun provideCacheValidationService(): CacheValidationService? = cacheValidationService
+     fun provideCacheSyncService(): CacheSyncService? = cacheSyncService
+     fun provideNetworkOptimizationService(): com.xburnsx.toutiebudget.data.services.NetworkOptimizationService = networkOptimizationService
      fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
      fun provideEnregistrerRevenuUseCase(): EnregistrerRevenuUseCase = enregistrerRevenuUseCase
      fun provideEnregistrerPretAccordeUseCase(): EnregistrerPretAccordeUseCase = enregistrerPretAccordeUseCase

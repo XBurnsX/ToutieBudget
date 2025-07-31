@@ -10,10 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.xburnsx.toutiebudget.ui.navigation.AppNavigation
+import com.xburnsx.toutiebudget.di.AppModule
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialiser les services de cache avec priorité aux modifications
+        AppModule.initializeCacheServices(this)
+        println("[MainActivity] ✅ Cache initialisé avec priorité aux modifications")
 
         setContent {
             // Le thème est maintenant géré dynamiquement dans AppNavigation
