@@ -61,9 +61,10 @@ class EnregistrerTransactionUseCase(
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
                     println("[DEBUG] Recherche/création allocation mensuelle pour enveloppeId=$enveloppeId")
 
-                    // Calculer le premier jour du mois
+                    // IMPORTANT: Les allocations mensuelles utilisent TOUJOURS le mois actuel
+                    // même si la transaction a une date différente
                     val calendrier = Calendar.getInstance().apply {
-                        time = date
+                        time = Date() // Utiliser la date actuelle, pas la date de la transaction
                         set(Calendar.DAY_OF_MONTH, 1)
                         set(Calendar.HOUR_OF_DAY, 0)
                         set(Calendar.MINUTE, 0)
@@ -81,15 +82,17 @@ class EnregistrerTransactionUseCase(
                     println("[DEBUG] Allocation mensuelle obtenue: $allocationMensuelleId")
                 }
 
-                // 2. Créer la transaction
+                // 2. Créer la transaction avec la date sélectionnée par l'utilisateur
+                // Note: La date de la transaction peut être différente de la date actuelle
+                // mais les allocations mensuelles restent toujours basées sur le mois actuel
                 val transaction = Transaction(
                     type = typeTransaction,
                     montant = montant,
-                    date = date,
+                    date = date, // Date sélectionnée par l'utilisateur
                     note = note,
                     compteId = compteId,
                     collectionCompte = collectionCompte,
-                    allocationMensuelleId = allocationMensuelleId,
+                    allocationMensuelleId = allocationMensuelleId, // Basé sur le mois actuel
                     tiers = tiersNom
                 )
 

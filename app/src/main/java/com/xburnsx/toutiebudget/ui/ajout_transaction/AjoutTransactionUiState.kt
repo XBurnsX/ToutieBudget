@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.modeles.Tiers
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import java.time.LocalDate
 
 /**
  * État de l'interface utilisateur pour l'écran d'ajout de transaction.
@@ -37,6 +38,7 @@ data class AjoutTransactionUiState(
     // --- Champs de saisie ---
     val tiers: String = "", // Payé à / Reçu de
     val note: String = "",
+    val dateTransaction: LocalDate = LocalDate.now(),
     
     // --- Tiers ---
     val tiersDisponibles: List<Tiers> = emptyList(),

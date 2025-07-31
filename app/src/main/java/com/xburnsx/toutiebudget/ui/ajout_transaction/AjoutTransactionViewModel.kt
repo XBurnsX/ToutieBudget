@@ -21,6 +21,8 @@ import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import java.util.Calendar
 import java.util.Date
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * ViewModel pour l'écran d'ajout de transactions.
@@ -298,6 +300,15 @@ class AjoutTransactionViewModel(
         }
     }
 
+    /**
+     * Met à jour la date de la transaction.
+     */
+    fun onDateChanged(nouvelleDate: LocalDate) {
+        _uiState.update { state ->
+            state.copy(dateTransaction = nouvelleDate).calculerValidite()
+        }
+    }
+
     // === MÉTHODES POUR LA GESTION DES TIERS ===
 
     /**
@@ -436,8 +447,11 @@ class AjoutTransactionViewModel(
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
+                // Convertir LocalDate en Date pour le UseCase
+                val dateTransaction = state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant().let { Date.from(it) }
+                
                 // Enregistrer la transaction
-                println("[DEBUG] Avant appel executer - Texte tiers saisi: '${state.texteTiersSaisi}'")
+                println("[DEBUG] Avant appel executer - Texte tiers saisi: '${state.texteTiersSaisi}', Date: ${state.dateTransaction}")
                 val result = enregistrerTransactionUseCase.executer(
                     typeTransaction = typeTransaction,
                     montant = montant,
@@ -451,7 +465,8 @@ class AjoutTransactionViewModel(
                     },
                     enveloppeId = enveloppeId,
                     tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
-                    note = state.note.takeIf { it.isNotBlank() }
+                    note = state.note.takeIf { it.isNotBlank() },
+                    date = dateTransaction
                 )
                 
                 if (result.isSuccess) {

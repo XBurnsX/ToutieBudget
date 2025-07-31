@@ -53,6 +53,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
         topBar = {
             TopAppBar(
                 title = { Text("Ajouter Transaction", fontWeight = FontWeight.Bold) },
+                actions = {
+                    // Sélecteur de date en haut à droite
+                    SelecteurDate(
+                        dateSelectionnee = uiState.dateTransaction,
+                        onDateChange = viewModel::onDateChanged,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF121212),
                     titleContentColor = Color.White
