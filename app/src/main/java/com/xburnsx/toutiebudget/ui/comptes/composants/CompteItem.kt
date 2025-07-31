@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.ui.budget.composants.toColor
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.*
 import kotlin.math.abs
@@ -35,7 +36,6 @@ fun CompteItem(
     onLongClick: () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
-    val formatteurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
     val couleurCompte = compte.couleur.toColor()
 
     Card(
@@ -87,14 +87,14 @@ fun CompteItem(
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = formatteurMonetaire.format(compte.solde),
+                            text = MoneyFormatter.formatAmount(compte.solde),
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
                             color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
                         )
                         if (compte is CompteCheque) {
                             Text(
-                                text = "Prêt à placer: ${formatteurMonetaire.format(compte.pretAPlacer)}",
+                                text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
                                 fontSize = 13.sp,
                                 color = Color(0xFF66BB6A),
                                 fontWeight = FontWeight.SemiBold,
@@ -107,7 +107,7 @@ fun CompteItem(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (compte !is CompteCheque) {
-                    InfoSecondaireCompte(compte = compte, formatteur = formatteurMonetaire)
+                    InfoSecondaireCompte(compte = compte)
                 }
             }
         }
@@ -131,7 +131,7 @@ private fun IconePourCompte(compte: Compte, tint: Color) {
 }
 
 @Composable
-private fun InfoSecondaireCompte(compte: Compte, formatteur: NumberFormat) {
+private fun InfoSecondaireCompte(compte: Compte) {
     when (compte) {
         is CompteCredit -> {
             val progression = (abs(compte.solde) / compte.limiteCredit).toFloat().coerceIn(0f, 1f)
@@ -152,12 +152,12 @@ private fun InfoSecondaireCompte(compte: Compte, formatteur: NumberFormat) {
                 Spacer(Modifier.height(4.dp))
                 Row {
                     Text(
-                        text = "Utilisé : ${formatteur.format(abs(compte.solde))}",
+                        text = "Utilisé : ${MoneyFormatter.formatAmount(abs(compte.solde))}",
                         fontSize = 12.sp, color = Color.LightGray
                     )
                     Spacer(Modifier.weight(1f))
                     Text(
-                        text = "Limite : ${formatteur.format(compte.limiteCredit)}",
+                        text = "Limite : ${MoneyFormatter.formatAmount(compte.limiteCredit)}",
                         fontSize = 12.sp, color = Color.Gray
                     )
                 }
@@ -174,7 +174,7 @@ private fun InfoSecondaireCompte(compte: Compte, formatteur: NumberFormat) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Remboursé à ${(progression * 100).toInt()}% sur ${formatteur.format(compte.montantInitial)}",
+                    text = "Remboursé à ${(progression * 100).toInt()}% sur ${MoneyFormatter.formatAmount(compte.montantInitial)}",
                     fontSize = 12.sp, color = Color.Gray
                 )
             }

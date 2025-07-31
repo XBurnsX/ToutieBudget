@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
@@ -39,7 +40,6 @@ fun HistoriqueItem(
     onModifier: (TransactionUi) -> Unit = {},
     onSupprimer: (TransactionUi) -> Unit = {}
 ) {
-    val formatteurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
     var showMenu by remember { mutableStateOf(false) }
     var tapPosition by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -103,7 +103,7 @@ fun HistoriqueItem(
 
                     // Montant
                     Text(
-                        text = formatteurMonetaire.format(transaction.montant),
+                        text = MoneyFormatter.formatAmount(transaction.montant),
                         fontSize = 16.sp,
                         color = couleurMontant,
                         fontWeight = FontWeight.Bold

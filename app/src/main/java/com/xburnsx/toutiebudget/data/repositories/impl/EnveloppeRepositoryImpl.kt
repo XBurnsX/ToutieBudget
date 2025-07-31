@@ -509,7 +509,9 @@
                  ?: throw Exception("Allocation non trouvée")
              
              // 2. Calculer les nouveaux montants
-             val nouveauSolde = allocation.solde - montantDepense  // Soustraction du solde
+             val nouveauSoldeBrut = allocation.solde - montantDepense  // Soustraction du solde
+             // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
+             val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
              val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
              
              // 3. Préparer les données de mise à jour
@@ -560,7 +562,9 @@
                  ?: throw Exception("Allocation non trouvée")
              
              // 2. Calculer les nouveaux montants
-             val nouveauSolde = allocation.solde + montantDepense  // Addition au solde
+             val nouveauSoldeBrut = allocation.solde + montantDepense  // Addition au solde
+             // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
+             val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
              val nouvelleDépense = allocation.depense - montantDepense  // Soustraction des dépenses existantes
              
              // 3. Préparer les données de mise à jour

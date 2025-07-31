@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -47,7 +48,7 @@ fun PretAPlacerCarte(
     val couleurPastille = Color(0xFF2C2C2E) // Un gris légèrement plus clair
 
     // --- Formatage du montant ---
-    val montantFormatte = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH).format(montant)
+    val montantFormatte = MoneyFormatter.formatAmount(montant)
 
     // --- Structure ---
     Box(

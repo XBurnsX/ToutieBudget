@@ -40,6 +40,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Calendar
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 /**
  * Fonction d'extension pour la classe String.
@@ -67,28 +68,27 @@ fun String?.toColor(): Color {
  */
 @Composable
 fun EnveloppeItem(enveloppe: EnveloppeUi) {
-    // Crée un formateur de monnaie pour le format canadien-français (ex: 1 234,56 $).
-    val formatteurMonetaire = NumberFormat.getCurrencyInstance(Locale.CANADA_FRENCH)
     // Récupère le solde actuel de l'enveloppe.
-    val montant = enveloppe.solde
+    // Si le solde est très proche de zéro (positif ou négatif), on l'affiche comme 0,00
+    val montant = if (kotlin.math.abs(enveloppe.solde) < 0.001) 0.0 else enveloppe.solde
     // Récupère le montant de l'objectif, s'il y en a un.
     val objectif = enveloppe.objectif
 
     // --- LOGIQUE POUR LA BULLE DE MONTANT ---
     // Détermine la couleur de fond de la bulle qui affiche le solde.
     val couleurBulle = when {
-        // CORRECTION: Rouge pour soldes négatifs
-        montant < 0 -> Color(0xFFEF4444) // Rouge pour négatif
+        // Rouge pour soldes négatifs (seulement si vraiment négatif, pas juste proche de zéro)
+        enveloppe.solde < -0.001 -> Color(0xFFEF4444) // Rouge pour négatif
         // Si le solde est positif et une couleur est définie, on utilise cette couleur.
-        montant > 0 -> enveloppe.couleurProvenance.toColor()
-        // Sinon (solde à zéro ou pas de couleur définie), on utilise un gris foncé.
+        enveloppe.solde > 0.001 -> enveloppe.couleurProvenance.toColor()
+        // Sinon (solde à zéro ou très proche de zéro), on utilise un gris foncé.
         else -> Color(0xFF444444)
     }
 
     // Détermine la couleur du texte dans la bulle.
     val couleurTexteBulle = when {
-        montant < 0 -> Color.White // Texte blanc pour le rouge
-        montant > 0 -> Color.White // Texte blanc pour les couleurs
+        enveloppe.solde < -0.001 -> Color.White // Texte blanc pour le rouge
+        enveloppe.solde > 0.001 -> Color.White // Texte blanc pour les couleurs
         else -> Color.LightGray // Texte gris clair pour le gris
     }
 
@@ -98,9 +98,9 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
         // Vert : L'objectif est défini et le solde atteint ou dépasse l'objectif.
         objectif > 0 && enveloppe.solde >= objectif -> Color(0xFF4CAF50)
         // Jaune : L'objectif est défini et il y a de l'argent dans l'enveloppe, mais l'objectif n'est pas encore atteint.
-        objectif > 0 && enveloppe.solde > 0 -> Color(0xFFFFC107)
+        objectif > 0 && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
         // Jaune : Pas d'objectif, mais il y a de l'argent dans l'enveloppe.
-        objectif <= 0 && montant > 0 -> Color(0xFFFFC107)
+        objectif <= 0 && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
         // Gris : Cas par défaut (pas d'objectif et pas d'argent).
         else -> Color.Gray
     }
@@ -158,7 +158,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     ) {
                         // Texte affichant le montant formaté en devise.
                         Text(
-                            text = formatteurMonetaire.format(montant),
+                            text = MoneyFormatter.formatAmount(montant),
                             color = couleurTexteBulle, // Applique la couleur de texte calculée.
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp, // Taille réduite
@@ -173,7 +173,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
                     // Afficher le montant dépensé
                     Text(
-                        text = "Dépensé: ${formatteurMonetaire.format(enveloppe.depense)}",
+                        text = "Dépensé: ${MoneyFormatter.formatAmount(enveloppe.depense)}",
                         color = Color(0xFFFF6B6B), // Couleur rouge/orange pour les dépenses
                         fontSize = 11.sp,
                         lineHeight = 11.sp, // SUPPRIME l'espace vertical interne
@@ -198,7 +198,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 if (enveloppe.solde >= objectif) {
                                     "Objectif atteint pour le $dateTexte"
                                 } else {
-                                    "Objectif: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
+                                    "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
@@ -237,32 +237,32 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 val dateTexte = dateFinAnnuel?.toStringCourt() ?: "fin d'année"
 
                                 if (enveloppe.solde >= objectif) {
-                                    "Objectif annuel atteint: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
-                                    "Objectif annuel: ${formatteurMonetaire.format(objectif)} jusqu'au $dateTexte"
+                                    "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
                                 val dateTexte = dateFormatee?.let { "${it.jourTexte} ${it.mois}" } ?: "fin du mois"
                                 if (enveloppe.solde >= objectif) {
-                                    "Objectif mensuel atteint: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
-                                    "Objectif mensuel: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
+                                    "Objectif mensuel: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
                                 val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
                                 if (enveloppe.solde >= objectif) {
-                                    "Objectif de période atteint: ${formatteurMonetaire.format(objectif)}"
+                                    "Objectif de période atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
-                                    "Objectif / 2 sem: ${formatteurMonetaire.format(objectif)} pour le $dateTexte"
+                                    "Objectif / 2 sem: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
                                 }
                             }
                             else -> {
                                 // Pour TypeObjectif.Aucun et autres cas non gérés
-                                "Objectif: ${formatteurMonetaire.format(objectif)}"
+                                "Objectif: ${MoneyFormatter.formatAmount(objectif)}"
                             }
                         }
 
@@ -286,7 +286,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         val couleurBarreProgression = when {
                             estDepenseComplete -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
                             enveloppe.solde >= objectif -> Color(0xFF4CAF50)
-                            enveloppe.solde > 0 -> Color(0xFFFFC107)
+                            enveloppe.solde > 0.001 -> Color(0xFFFFC107)
                             else -> Color.Gray
                         }
 
@@ -320,7 +320,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     val couleurBarre = when {
                         enveloppe.depense == objectif -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
                         enveloppe.solde >= objectif -> Color(0xFF4CAF50)
-                        enveloppe.solde > 0 -> Color(0xFFFFC107)
+                        enveloppe.solde > 0.001 -> Color(0xFFFFC107)
                         else -> Color.Gray
                     }
 
@@ -344,7 +344,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     if (enveloppe.versementRecommande > 0 && enveloppe.typeObjectif != com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Suggéré: ${formatteurMonetaire.format(enveloppe.versementRecommande)}",
+                            text = "Suggéré: ${MoneyFormatter.formatAmount(enveloppe.versementRecommande)}",
                             color = Color(0xFF82DD86), // Vert clair pour la suggestion
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,

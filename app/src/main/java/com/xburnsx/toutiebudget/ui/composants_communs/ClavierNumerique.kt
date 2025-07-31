@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 /**
  * 🎯 CLAVIER NUMÉRIQUE RÉUTILISABLE
@@ -53,8 +54,7 @@ fun ClavierNumerique(
             if (isMoney) {
                 if (montantInitial == 0L) "0.00 $"
                 else {
-                    val montantFormate = (montantInitial / 100.0)
-                    String.format("%.2f $", montantFormate)
+                    MoneyFormatter.formatAmountFromCents(montantInitial)
                 }
             } else {
                 montantInitial.toString()
@@ -168,8 +168,8 @@ fun ClavierNumerique(
         // Convertir vers Long pour le callback
         val valeurLong = if (isMoney) {
             val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
-            val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
-            (valeurDouble * 100).toLong()
+            val valeurDouble = MoneyFormatter.validateAndCleanAmount(texteNettoye) ?: 0.0
+            MoneyFormatter.amountToCents(valeurDouble)
         } else {
             texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
         }
@@ -225,8 +225,8 @@ fun ClavierNumerique(
             // Convertir vers Long pour le callback
             val valeurLong = if (isMoney) {
                 val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
-                val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
-                (valeurDouble * 100).toLong()
+                val valeurDouble = MoneyFormatter.validateAndCleanAmount(texteNettoye) ?: 0.0
+                MoneyFormatter.amountToCents(valeurDouble)
             } else {
                 texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
             }

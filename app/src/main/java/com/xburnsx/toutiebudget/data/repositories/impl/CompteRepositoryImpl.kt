@@ -387,8 +387,13 @@ class CompteRepositoryImpl : CompteRepository {
             println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Compte récupéré: solde actuel=${compte.solde}")
 
             // 2. Calculer le nouveau solde
-            val nouveauSolde = compte.solde + variationSolde
+            val nouveauSoldeBrut = compte.solde + variationSolde
+            // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
+            val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
             println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Nouveau solde calculé: $nouveauSolde (${compte.solde} + $variationSolde)")
+            if (nouveauSoldeBrut != nouveauSolde) {
+                println("[DEBUG] mettreAJourSoldeAvecVariationEtPretAPlacer - Solde arrondi à zéro: $nouveauSoldeBrut -> $nouveauSolde")
+            }
 
             // 3. Préparer les données de mise à jour
             val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {
