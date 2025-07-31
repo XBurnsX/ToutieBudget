@@ -267,6 +267,82 @@ class TransactionRepositoryImpl : TransactionRepository {
         }
     }
 
+    override suspend fun recupererTransactionParId(transactionId: String): Result<Transaction> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+        
+        try {
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records/$transactionId"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération de la transaction: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val transaction = deserialiserTransaction(corpsReponse)
+                ?: throw Exception("Erreur lors de la désérialisation de la transaction")
+
+            Result.success(transaction)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun mettreAJourTransaction(transaction: Transaction): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.failure(Exception("Utilisateur non connecté"))
+        }
+        
+        try {
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            // Préparer les données pour PocketBase
+            val donneesTransaction = mapOf(
+                "type" to transaction.type.valeurPocketBase,
+                "montant" to transaction.montant,
+                "date" to dateFormatter.format(transaction.date),
+                "note" to (transaction.note ?: ""),
+                "compte_id" to transaction.compteId,
+                "collection_compte" to transaction.collectionCompte,
+                "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
+                "tiers_id" to (transaction.tiers ?: "")
+            )
+
+            val corpsRequete = gson.toJson(donneesTransaction)
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records/${transaction.id}"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la mise à jour de la transaction: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun supprimerTransaction(transactionId: String): Result<Unit> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {
             return@withContext Result.failure(Exception("Utilisateur non connecté"))

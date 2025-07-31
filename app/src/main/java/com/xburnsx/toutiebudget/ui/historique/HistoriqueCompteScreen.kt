@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,9 +26,23 @@ import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 @Composable
 fun HistoriqueCompteScreen(
     viewModel: HistoriqueCompteViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onModifierTransaction: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val navigationEvents by viewModel.navigationEvents.collectAsState()
+    
+    // Observer les événements de navigation
+    LaunchedEffect(navigationEvents) {
+        navigationEvents?.let { event ->
+            when (event) {
+                is HistoriqueNavigationEvent.ModifierTransaction -> {
+                    onModifierTransaction(event.transactionId)
+                    viewModel.effacerNavigationEvent()
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -79,7 +94,20 @@ fun HistoriqueCompteScreen(
 
                         // Transactions pour cette date
                         items(transactionsPourDate, key = { "transaction_${it.id}" }) { transactionUi ->
-                            HistoriqueItem(transaction = transactionUi)
+                            HistoriqueItem(
+                                transaction = transactionUi,
+                                onLongPress = { transaction ->
+                                    // Le menu s'ouvre automatiquement maintenant
+                                },
+                                onModifier = { transaction ->
+                                    // Naviguer vers l'écran de modification
+                                    viewModel.naviguerVersModification(transaction.id)
+                                },
+                                onSupprimer = { transaction ->
+                                    // Supprimer la transaction
+                                    viewModel.supprimerTransaction(transaction.id)
+                                }
+                            )
                         }
                     }
                 }

@@ -24,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionScreen
+import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionScreen
 import com.xburnsx.toutiebudget.ui.budget.BudgetScreen
 import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesScreen
 import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
@@ -138,7 +139,33 @@ fun AppNavigation() {
 
                 HistoriqueCompteScreen(
                     viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onModifierTransaction = { transactionId ->
+                        // Naviguer vers l'écran de modification dans le flux principal
+                        navController.navigate("modifier_transaction/$transactionId")
+                    }
+                )
+            }
+            
+            // Route pour l'écran de modification de transaction
+            composable(
+                route = "modifier_transaction/{transactionId}",
+                arguments = listOf(
+                    navArgument("transactionId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+                val viewModel = AppModule.provideModifierTransactionViewModel()
+                ModifierTransactionScreen(
+                    transactionId = transactionId,
+                    viewModel = viewModel,
+                    onTransactionModified = {
+                        // Retour à l'écran précédent après modification
+                        navController.popBackStack()
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
                 )
             }
         }

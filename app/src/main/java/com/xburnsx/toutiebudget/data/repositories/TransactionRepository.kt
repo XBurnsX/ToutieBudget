@@ -49,6 +49,20 @@ interface TransactionRepository {
     suspend fun recupererTransactionsParAllocation(allocationId: String): Result<List<Transaction>>
     
     /**
+     * Récupère une transaction par son ID.
+     * @param transactionId ID de la transaction à récupérer
+     * @return Result contenant la transaction, ou une erreur
+     */
+    suspend fun recupererTransactionParId(transactionId: String): Result<Transaction>
+    
+    /**
+     * Met à jour une transaction existante.
+     * @param transaction La transaction mise à jour
+     * @return Result indiquant le succès ou l'échec
+     */
+    suspend fun mettreAJourTransaction(transaction: Transaction): Result<Unit>
+    
+    /**
      * Supprime une transaction.
      * @param transactionId ID de la transaction à supprimer
      * @return Result indiquant le succès ou l'échec

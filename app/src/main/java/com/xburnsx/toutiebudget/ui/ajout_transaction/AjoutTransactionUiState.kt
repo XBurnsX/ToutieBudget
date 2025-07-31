@@ -20,6 +20,7 @@ data class AjoutTransactionUiState(
     val estEnTrainDeSauvegarder: Boolean = false,
     val erreur: String? = null,
     val transactionReussie: Boolean = false,
+    val transactionModifiee: Boolean = false,
     
     // --- Modes et types de transaction ---
     val modeOperation: String = "Standard", // Standard, Prêt, Dette, Paiement

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.repositories.TiersRepository
+import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,11 +28,16 @@ class HistoriqueCompteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val tiersRepository: TiersRepository,
+    private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HistoriqueCompteUiState())
     val uiState: StateFlow<HistoriqueCompteUiState> = _uiState.asStateFlow()
+
+    // Événements de navigation
+    private val _navigationEvents = MutableStateFlow<HistoriqueNavigationEvent?>(null)
+    val navigationEvents: StateFlow<HistoriqueNavigationEvent?> = _navigationEvents.asStateFlow()
 
     init {
         val compteId: String? = savedStateHandle["compteId"]
@@ -50,6 +56,47 @@ class HistoriqueCompteViewModel(
             println("DEBUG INIT: Paramètres manquants!")
             _uiState.update { it.copy(isLoading = false, erreur = "ID de compte manquant.") }
         }
+    }
+
+    /**
+     * Navigue vers l'écran de modification d'une transaction.
+     */
+    fun naviguerVersModification(transactionId: String) {
+        _navigationEvents.value = HistoriqueNavigationEvent.ModifierTransaction(transactionId)
+    }
+
+    /**
+     * Supprime une transaction.
+     */
+    fun supprimerTransaction(transactionId: String) {
+        viewModelScope.launch {
+            try {
+                val result = supprimerTransactionUseCase.executer(transactionId)
+                if (result.isSuccess) {
+                    // Recharger les transactions après suppression
+                    val compteId: String? = savedStateHandle["compteId"]
+                    val collectionCompte: String? = savedStateHandle["collectionCompte"]
+                    if (compteId != null && collectionCompte != null) {
+                        chargerTransactions(compteId, collectionCompte)
+                    }
+                } else {
+                    _uiState.update { 
+                        it.copy(erreur = "Erreur lors de la suppression: ${result.exceptionOrNull()?.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(erreur = "Erreur lors de la suppression: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Efface les événements de navigation.
+     */
+    fun effacerNavigationEvent() {
+        _navigationEvents.value = null
     }
 
     /**

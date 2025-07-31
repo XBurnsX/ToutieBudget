@@ -13,7 +13,9 @@
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
  import com.xburnsx.toutiebudget.domain.usecases.*
+ import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
  import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel
+import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewModel
  import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
  import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
@@ -63,6 +65,12 @@
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
          EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
+     private val supprimerTransactionUseCase: SupprimerTransactionUseCase by lazy {
+         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository)
+     }
+     private val modifierTransactionUseCase: ModifierTransactionUseCase by lazy {
+         ModifierTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
+     }
  
      // ===== VIEWMODELS =====
      private val budgetViewModel: BudgetViewModel by lazy {
@@ -92,6 +100,17 @@
              tiersRepository = tiersRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              realtimeSyncService = realtimeSyncService
+         )
+     }
+     
+     private val modifierTransactionViewModel: ModifierTransactionViewModel by lazy { 
+         ModifierTransactionViewModel(
+             compteRepository = compteRepository,
+             enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository,
+             tiersRepository = tiersRepository,
+             transactionRepository = transactionRepository,
+             modifierTransactionUseCase = modifierTransactionUseCase
          )
      }
      
@@ -134,11 +153,13 @@
      fun provideEnregistrerPaiementDetteUseCase(): EnregistrerPaiementDetteUseCase = enregistrerPaiementDetteUseCase
      fun provideVerifierEtExecuterRolloverUseCase(): VerifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
      fun provideEnregistrerTransactionUseCase(): EnregistrerTransactionUseCase = enregistrerTransactionUseCase
+     fun provideSupprimerTransactionUseCase(): SupprimerTransactionUseCase = supprimerTransactionUseCase
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
      fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
+     fun provideModifierTransactionViewModel(): ModifierTransactionViewModel = modifierTransactionViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
@@ -146,6 +167,7 @@
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
              tiersRepository = tiersRepository,
+             supprimerTransactionUseCase = supprimerTransactionUseCase,
              savedStateHandle = savedStateHandle
          )
      }

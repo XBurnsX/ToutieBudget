@@ -543,10 +543,60 @@
              Result.success(Unit)
          } catch (e: Exception) {
 
+                          Result.failure(e)
+         }
+     }
+
+     /**
+      * Annule une dépense sur une allocation mensuelle.
+      * Ajoute le montant au solde et le soustrait des dépenses.
+      */
+     override suspend fun annulerDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit> = withContext(Dispatchers.IO) {
+         try {
+             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+             val urlBase = client.obtenirUrlBaseActive()
+
+             val allocation = recupererAllocationParId(allocationMensuelleId).getOrNull()
+                 ?: throw Exception("Allocation non trouvée")
+             
+             // 2. Calculer les nouveaux montants
+             val nouveauSolde = allocation.solde + montantDepense  // Addition au solde
+             val nouvelleDépense = allocation.depense - montantDepense  // Soustraction des dépenses existantes
+             
+             // 3. Préparer les données de mise à jour
+             val donneesUpdate = mapOf(
+                 "solde" to nouveauSolde,
+                 "depense" to nouvelleDépense
+             )
+             val corpsRequete = gson.toJson(donneesUpdate)
+             
+             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records/$allocationMensuelleId"
+
+             val requete = Request.Builder()
+                 .url(url)
+                 .addHeader("Authorization", "Bearer $token")
+                 .addHeader("Content-Type", "application/json")
+                 .patch(corpsRequete.toRequestBody("application/json".toMediaType()))
+                 .build()
+
+             val reponse = httpClient.newCall(requete).execute()
+             if (!reponse.isSuccessful) {
+                 val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
+                 throw Exception(erreur)
+             }
+
+             val corpsReponse = reponse.body?.string() ?: ""
+
+             // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
+             BudgetEvents.onAllocationUpdated(allocationMensuelleId)
+             println("[DEBUG] annulerDepenseAllocation - Événement de rafraîchissement déclenché pour allocation: $allocationMensuelleId")
+
+             Result.success(Unit)
+         } catch (e: Exception) {
              Result.failure(e)
          }
      }
- 
+
      /**
       * Récupère une allocation mensuelle spécifique.
       */

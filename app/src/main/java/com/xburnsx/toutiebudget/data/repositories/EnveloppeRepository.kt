@@ -74,6 +74,15 @@ interface EnveloppeRepository {
     suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit>
     
     /**
+     * Annule une dépense sur une allocation mensuelle.
+     * Ajoute le montant au solde et le soustrait des dépenses.
+     * @param allocationMensuelleId ID de l'allocation mensuelle
+     * @param montantDepense Montant de la dépense à annuler
+     * @return Result indiquant le succès ou l'échec
+     */
+    suspend fun annulerDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit>
+    
+    /**
      * Récupère une allocation mensuelle spécifique.
      * @param enveloppeId ID de l'enveloppe
      * @param mois Premier jour du mois concerné
