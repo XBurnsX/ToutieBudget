@@ -33,7 +33,7 @@ fun ChampNoteTransaction(
             text = "Note (facultatif)",
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         
@@ -44,18 +44,18 @@ fun ChampNoteTransaction(
             placeholder = {
                 Text(
                     text = "Ex: Épicerie Metro, Essence, Restaurant...",
-                    color = Color.White.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             },
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Color(0xFF6366F1),
-                unfocusedBorderColor = Color(0xFF404040),
-                focusedContainerColor = Color(0xFF1F1F1F),
-                unfocusedContainerColor = Color(0xFF1F1F1F),
-                cursorColor = Color(0xFF6366F1)
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                cursorColor = MaterialTheme.colorScheme.primary
             ),
             maxLines = 3,
             singleLine = false
@@ -65,7 +65,7 @@ fun ChampNoteTransaction(
         Text(
             text = "${note.length}/200",
             fontSize = 12.sp,
-            color = Color.White.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(top = 4.dp)
@@ -76,8 +76,10 @@ fun ChampNoteTransaction(
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 private fun PreviewChampNoteTransaction() {
-    ChampNoteTransaction(
-        note = "Épicerie Metro - Courses de la semaine",
-        onNoteChange = { }
-    )
+    MaterialTheme {
+        ChampNoteTransaction(
+            note = "Épicerie Metro - Courses de la semaine",
+            onNoteChange = { }
+        )
+    }
 }
