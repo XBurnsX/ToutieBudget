@@ -816,4 +816,43 @@
              collectionCompteSource = json.get("collection_compte_source")?.takeIf { !it.isJsonNull }?.asString
          )
      }
+
+     /**
+      * Récupère toutes les allocations mensuelles pour une enveloppe donnée.
+      */
+     override suspend fun recupererAllocationsEnveloppe(enveloppeId: String): Result<List<AllocationMensuelle>> = withContext(Dispatchers.IO) {
+         try {
+             val token = client.obtenirToken() ?: throw Exception("Token manquant")
+             val urlBase = client.obtenirUrlBaseActive()
+
+             // Filtre pour cette enveloppe
+             val filtre = URLEncoder.encode("enveloppe_id = '$enveloppeId'", "UTF-8")
+             val url = "$urlBase/api/collections/${Collections.ALLOCATIONS}/records?filter=$filtre&perPage=500&sort=-mois"
+             
+             val requete = Request.Builder()
+                 .url(url)
+                 .addHeader("Authorization", "Bearer $token")
+                 .get()
+                 .build()
+
+             val reponse = httpClient.newCall(requete).execute()
+             if (!reponse.isSuccessful) {
+                 throw Exception("Erreur lors de la recherche: ${reponse.code}")
+             }
+
+             val data = reponse.body!!.string()
+             val jsonObject = JsonParser.parseString(data).asJsonObject
+             val items = jsonObject.getAsJsonArray("items")
+
+             val allocations = mutableListOf<AllocationMensuelle>()
+             items.forEach { item ->
+                 val allocation = deserialiserAllocation(item.asJsonObject.toString())
+                 allocations.add(allocation)
+             }
+
+             Result.success(allocations)
+         } catch (e: Exception) {
+             Result.failure(e)
+         }
+     }
  }

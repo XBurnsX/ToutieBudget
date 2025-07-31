@@ -46,4 +46,10 @@ interface AllocationMensuelleRepository {
      * Crée une nouvelle allocation mensuelle dans PocketBase.
      */
     suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle
+
+    /**
+     * Récupère toutes les allocations mensuelles d'une enveloppe donnée.
+     * @param enveloppeId ID de l'enveloppe concernée.
+     */
+    suspend fun recupererAllocationsEnveloppe(enveloppeId: String): List<AllocationMensuelle>
 }

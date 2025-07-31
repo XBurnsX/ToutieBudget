@@ -103,4 +103,11 @@ interface EnveloppeRepository {
      * @return Result contenant la liste des allocations
      */
     suspend fun recupererAllocationsParMois(mois: Date): Result<List<AllocationMensuelle>> = recupererAllocationsPourMois(mois)
+
+    /**
+     * Récupère toutes les allocations mensuelles pour une enveloppe donnée.
+     * @param enveloppeId ID de l'enveloppe
+     * @return Result contenant la liste des allocations
+     */
+    suspend fun recupererAllocationsEnveloppe(enveloppeId: String): Result<List<AllocationMensuelle>>
 }

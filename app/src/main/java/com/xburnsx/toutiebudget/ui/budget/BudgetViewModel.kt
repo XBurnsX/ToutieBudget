@@ -173,6 +173,14 @@ class BudgetViewModel(
                 val allocations = resultAllocations.getOrElse {
                     emptyList() 
                 }
+
+                // 4b. Charger TOUTES les allocations passées pour les objectifs intelligents
+                _uiState.update { it.copy(messageChargement = "Chargement de l'historique des allocations...") }
+                val toutesAllocationsPassées = mutableListOf<AllocationMensuelle>()
+                enveloppes.forEach { enveloppe ->
+                    val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrElse { emptyList() }
+                    toutesAllocationsPassées.addAll(allocationsEnveloppe)
+                }
                 
                 println("[BUDGET] 📊 ${allocations.size} allocations trouvées pour $dateFormatee")
                 if (allocations.isEmpty()) {
@@ -190,7 +198,7 @@ class BudgetViewModel(
                 val bandeauxPretAPlacer = creerBandeauxPretAPlacer(comptes)
 
                 // 6. Créer les enveloppes UI avec les allocations DU MOIS SPÉCIFIQUE
-                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes)
+                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassées)
                 
                 // Debug des enveloppes UI créées
                 enveloppesUi.forEachIndexed { index, env ->
@@ -244,7 +252,8 @@ class BudgetViewModel(
     private fun creerEnveloppesUi(
         enveloppes: List<Enveloppe>,
         allocations: List<AllocationMensuelle>,
-        comptes: List<Compte>
+        comptes: List<Compte>,
+        toutesAllocationsPassées: List<AllocationMensuelle>
     ): List<EnveloppeUi> {
         
         // Grouper les allocations par ID d'enveloppe pour pouvoir les sommer
@@ -279,7 +288,12 @@ class BudgetViewModel(
                 // Pour objectifs de dépense : solde + dépenses du mois
                 else -> soldeTotal + depenseTotale
             }
-            val versementRecommande = objectifCalculator.calculerVersementRecommande(enveloppe, progresActuel)
+            val versementRecommande = objectifCalculator.calculerVersementRecommande(
+                enveloppe, 
+                progresActuel,
+                moisSelectionne,
+                toutesAllocationsPassées.filter { it.enveloppeId == enveloppe.id }
+            )
 
             // Calculer le statut de l'objectif
             val statut = when {

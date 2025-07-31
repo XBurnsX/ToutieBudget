@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.data.utils
 
+import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import java.util.Calendar
@@ -9,13 +10,58 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
+/**
+ * 📊 CALCULATEUR D'OBJECTIFS INTELLIGENT AVEC RATTRAPAGE
+ * 
+ * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel + rattrapage du retard accumulé
+ * 
+ * Cette classe calcule les suggestions de façon INTELLIGENTE :
+ * elle suggère l'objectif mensuel PLUS le rattrapage du retard accumulé.
+ * C'est la seule façon d'atteindre les objectifs !
+ * 
+ * 📅 VARIABLES UTILISÉES :
+ * - `allocationsMensuelles` : Historique complet pour calculer le retard
+ * - `dateDebutObjectif` : Point de départ exact de l'objectif
+ * - `dateObjectif` : Date d'échéance pour les objectifs à échéance
+ * - `objectifMontant` : Montant total de l'objectif
+ * - `moisSelectionne` : Mois pour lequel on calcule la suggestion
+ * 
+ * 📈 EXEMPLE CONCRET (Objectif annuel 120$ = 10$/mois, commencé en Juin) :
+ * 
+ * 🔍 LOGIQUE DE RATTRAPAGE INTELLIGENT :
+ * - Juin : Devrait avoir 10$, a 0$ → Suggère 10$
+ * - Juillet : Devrait avoir 20$, a 5$ → Suggère 15$ (10$ + 5$ de retard)
+ * - Août : Devrait avoir 30$, a 20$ → Suggère 10$ (objectif mensuel normal)
+ * - Septembre : Devrait avoir 40$, a 25$ → Suggère 15$ (10$ + 5$ de retard)
+ * 
+ * 📊 RATTRAPAGE LOGIQUE :
+ * - Si vous êtes en retard, ça vous dit combien mettre pour rattraper
+ * - Si vous êtes à jour, ça suggère l'objectif mensuel normal
+ * - Navigation cohérente basée sur l'historique réel
+ * 
+ * ✅ AVANTAGES :
+ * - Rattrapage intelligent pour atteindre les objectifs
+ * - Suggestions réalistes et cohérentes
+ * - Basé sur l'historique réel d'allocations
+ * - Navigation temporelle stable
+ */
 class ObjectifCalculator {
 
     /**
      * Calcule le montant du versement recommandé pour atteindre l'objectif de l'enveloppe.
      * C'est le montant que l'utilisateur devrait idéalement ajouter à l'enveloppe ce mois-ci.
+     * 
+     * @param enveloppe L'enveloppe concernée
+     * @param soldeActuel Le solde actuel de l'enveloppe
+     * @param moisSelectionne Le mois pour lequel on calcule la suggestion (ex: août 2024)
+     * @param allocationsMensuelles Liste des allocations mensuelles passées pour cette enveloppe
      */
-    fun calculerVersementRecommande(enveloppe: Enveloppe, soldeActuel: Double): Double {
+    fun calculerVersementRecommande(
+        enveloppe: Enveloppe, 
+        soldeActuel: Double,
+        moisSelectionne: Date,
+        allocationsMensuelles: List<AllocationMensuelle> = emptyList()
+    ): Double {
         val objectif = enveloppe.objectifMontant
         // Si pas d'objectif ou si l'objectif est déjà atteint par le solde, pas de versement nécessaire.
         if (objectif <= 0 || soldeActuel >= objectif) return 0.0
@@ -45,9 +91,9 @@ class ObjectifCalculator {
                         null
                     }
                 }
-                calculerVersementEcheance(soldeActuel, objectif, dateEcheance)
+                calculerVersementEcheance(soldeActuel, objectif, dateEcheance, moisSelectionne, allocationsMensuelles)
             }
-            TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif)
+            TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif, moisSelectionne, allocationsMensuelles)
             TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
             TypeObjectif.Bihebdomadaire -> calculerVersementBihebdomadaire(soldeActuel, objectif, enveloppe.dateDebutObjectif)
             else -> 0.0 // Pour 'Aucun' ou autres cas.
@@ -56,28 +102,71 @@ class ObjectifCalculator {
 
     /**
      * Pour un objectif à ÉCHÉANCE fixe.
-     * 🎯 LOGIQUE INTELLIGENTE : Calcule rattrapage si en retard.
+     * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel + rattrapage du retard accumulé.
      */
-    private fun calculerVersementEcheance(soldeActuel: Double, objectifTotal: Double, dateEcheance: Date?): Double {
+    private fun calculerVersementEcheance(
+        soldeActuel: Double, 
+        objectifTotal: Double, 
+        dateEcheance: Date?,
+        moisSelectionne: Date,
+        allocationsMensuelles: List<AllocationMensuelle>
+    ): Double {
         if (dateEcheance == null) return 0.0
         
         val maintenant = Date()
         val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - maintenant.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
         
-        // 🎯 LOGIQUE SIMPLE : Diviser l'objectif par les mois restants
-        val moisRestants = max(1.0, ceil(joursRestants / 30.44))
-        val versementMensuelNecessaire = objectifTotal / moisRestants
+        // Calculer les mois totaux entre maintenant et l'échéance
+        val moisTotaux = max(1.0, ceil(joursRestants / 30.44))
+        val objectifMensuel = objectifTotal / moisTotaux
         
-        // DEBUG pour voir ce qui se passe
+        // Calculer le nombre de mois qui se sont écoulés depuis maintenant jusqu'au mois sélectionné
+        val calendarMaintenant = Calendar.getInstance()
+        calendarMaintenant.time = maintenant
+        val calendarSelectionne = Calendar.getInstance()
+        calendarSelectionne.time = moisSelectionne
+        
+        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarMaintenant.get(Calendar.YEAR)) * 12 +
+                (calendarSelectionne.get(Calendar.MONTH) - calendarMaintenant.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
+        
+        // Si le mois sélectionné est dans le passé par rapport à maintenant
+        if (moisEcoules <= 0) {
+            println("[DEBUG] Échéance - Mois sélectionné dans le passé, suggestion: $objectifMensuel")
+            return objectifMensuel
+        }
+        
+        // 🎯 RATTRAPAGE INTELLIGENT : 
+        // Ce qui devrait avoir été alloué depuis maintenant jusqu'au mois sélectionné (inclus)
+        val devraitAvoirAlloue = moisEcoules * objectifMensuel
+        
+        // Ce qui a été réellement alloué depuis maintenant jusqu'au mois sélectionné (inclus)
+        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, maintenant, moisSelectionne, inclureMoisSelectionne = true)
+        
+        // Retard accumulé = ce qui devrait être alloué - ce qui a été réellement alloué
+        val retardAccumule = max(0.0, devraitAvoirAlloue - totalRealementAlloue)
+        
+        // Vérifier ce qui a été alloué pour CE MOIS SEULEMENT
+        val allocationCeMois = allocationsMensuelles.find { allocation ->
+            val calendarAllocation = Calendar.getInstance()
+            calendarAllocation.time = allocation.mois
+            calendarAllocation.get(Calendar.YEAR) == calendarSelectionne.get(Calendar.YEAR) &&
+            calendarAllocation.get(Calendar.MONTH) == calendarSelectionne.get(Calendar.MONTH)
+        }
+        
+        val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
+        
+        // 🎯 SUGGESTION INTELLIGENTE : Retard accumulé - ce qui a déjà été alloué ce mois
+        val suggestion = max(0.0, retardAccumule - dejaAlloqueCeMois)
+        
         println("[DEBUG] Échéance - Objectif total: $objectifTotal")
-        println("[DEBUG] Échéance - Jours restants: $joursRestants")
-        println("[DEBUG] Échéance - Mois restants: $moisRestants")
-        println("[DEBUG] Échéance - Versement mensuel nécessaire: $versementMensuelNecessaire")
-        println("[DEBUG] Échéance - Solde actuel: $soldeActuel")
-        
-        // Suggérer = ce qu'il faut ce mois - ce qu'on a déjà ce mois
-        val suggestion = max(0.0, versementMensuelNecessaire - soldeActuel)
+        println("[DEBUG] Échéance - Mois totaux: $moisTotaux")
+        println("[DEBUG] Échéance - Objectif mensuel: $objectifMensuel")
+        println("[DEBUG] Échéance - Mois écoulés: $moisEcoules")
+        println("[DEBUG] Échéance - Devrait avoir alloué (total): $devraitAvoirAlloue")
+        println("[DEBUG] Échéance - Réellement alloué (total): $totalRealementAlloue")
+        println("[DEBUG] Échéance - Retard accumulé: $retardAccumule")
+        println("[DEBUG] Échéance - Déjà alloué ce mois: $dejaAlloqueCeMois")
         println("[DEBUG] Échéance - Suggestion finale: $suggestion")
         
         return suggestion
@@ -85,12 +174,72 @@ class ObjectifCalculator {
 
     /**
      * Pour un objectif ANNUEL récurrent.
-     * Calcule ce qu'il faut verser ce mois-ci, en tenant compte d'un éventuel retard.
+     * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel + rattrapage du retard accumulé.
      */
-    private fun calculerVersementAnnuel(soldeActuel: Double, objectifAnnuel: Double, dateDebutObjectif: Date?): Double {
-        // 🎯 LOGIQUE SIMPLE : Objectif mensuel - Ce qu'on a déjà ce mois
-        val versementMensuelIdeal = objectifAnnuel / 12.0
-        return max(0.0, versementMensuelIdeal - soldeActuel)
+    private fun calculerVersementAnnuel(
+        soldeActuel: Double, 
+        objectifAnnuel: Double, 
+        dateDebutObjectif: Date?,
+        moisSelectionne: Date,
+        allocationsMensuelles: List<AllocationMensuelle>
+    ): Double {
+        val objectifMensuel = objectifAnnuel / 12.0
+        
+        // Si pas de date de début, suggérer l'objectif mensuel standard
+        if (dateDebutObjectif == null) {
+            println("[DEBUG] Annuel - Pas de date de début, suggestion standard: $objectifMensuel")
+            return objectifMensuel
+        }
+        
+        // Calculer combien de mois se sont écoulés depuis le DÉBUT DE L'OBJECTIF jusqu'au mois sélectionné
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebutObjectif
+        val calendarSelectionne = Calendar.getInstance()
+        calendarSelectionne.time = moisSelectionne
+        
+        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
+                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
+        
+        // Si le mois sélectionné est avant le début de l'objectif, pas de suggestion
+        if (moisEcoules <= 0) {
+            println("[DEBUG] Annuel - Mois sélectionné avant le début de l'objectif, suggestion: 0")
+            return 0.0
+        }
+        
+        // 🎯 RATTRAPAGE INTELLIGENT : 
+        // Ce qui devrait avoir été alloué depuis le début jusqu'au mois sélectionné (inclus)
+        val devraitAvoirAlloue = moisEcoules * objectifMensuel
+        
+        // Ce qui a été réellement alloué depuis le début jusqu'au mois sélectionné (inclus)
+        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebutObjectif, moisSelectionne, inclureMoisSelectionne = true)
+        
+        // Retard accumulé = ce qui devrait être alloué - ce qui a été réellement alloué
+        val retardAccumule = max(0.0, devraitAvoirAlloue - totalRealementAlloue)
+        
+        // Vérifier ce qui a été alloué pour CE MOIS SEULEMENT
+        val allocationCeMois = allocationsMensuelles.find { allocation ->
+            val calendarAllocation = Calendar.getInstance()
+            calendarAllocation.time = allocation.mois
+            calendarAllocation.get(Calendar.YEAR) == calendarSelectionne.get(Calendar.YEAR) &&
+            calendarAllocation.get(Calendar.MONTH) == calendarSelectionne.get(Calendar.MONTH)
+        }
+        
+        val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
+        
+        // 🎯 SUGGESTION INTELLIGENTE : Retard accumulé - ce qui a déjà été alloué ce mois
+        val suggestion = max(0.0, retardAccumule - dejaAlloqueCeMois)
+        
+        println("[DEBUG] Annuel - Objectif annuel: $objectifAnnuel")
+        println("[DEBUG] Annuel - Objectif mensuel: $objectifMensuel")
+        println("[DEBUG] Annuel - Date début objectif: $dateDebutObjectif")
+        println("[DEBUG] Annuel - Mois écoulés depuis début: $moisEcoules")
+        println("[DEBUG] Annuel - Devrait avoir alloué (total): $devraitAvoirAlloue")
+        println("[DEBUG] Annuel - Réellement alloué (total): $totalRealementAlloue")
+        println("[DEBUG] Annuel - Retard accumulé: $retardAccumule")
+        println("[DEBUG] Annuel - Déjà alloué ce mois: $dejaAlloqueCeMois")
+        println("[DEBUG] Annuel - Suggestion finale: $suggestion")
+        
+        return suggestion
     }
 
     /**
@@ -142,5 +291,127 @@ class ObjectifCalculator {
         println("[DEBUG] Bihebdomadaire - Versement recommandé: $versementRecommande")
 
         return versementRecommande
+    }
+
+    /**
+     * Calcule le total des montants alloués (pas le solde) jusqu'au mois sélectionné (exclusif).
+     */
+    private fun calculerTotalAllocationsAllouees(
+        allocationsMensuelles: List<AllocationMensuelle>,
+        moisSelectionne: Date
+    ): Double {
+        val calendar = Calendar.getInstance()
+        calendar.time = moisSelectionne
+        val anneeSelectionnee = calendar.get(Calendar.YEAR)
+        val moisSelectionneInt = calendar.get(Calendar.MONTH)
+        
+        return allocationsMensuelles
+            .filter { allocation ->
+                val calendarAllocation = Calendar.getInstance()
+                calendarAllocation.time = allocation.mois
+                val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
+                val moisAllocation = calendarAllocation.get(Calendar.MONTH)
+                
+                // Inclure seulement les allocations jusqu'au mois sélectionné (exclusif)
+                (anneeAllocation < anneeSelectionnee) || 
+                (anneeAllocation == anneeSelectionnee && moisAllocation < moisSelectionneInt)
+            }
+            .sumOf { it.alloue } // Utiliser 'alloue' au lieu de 'solde'
+    }
+
+    /**
+     * Calcule le total des montants alloués pour l'année courante jusqu'au mois sélectionné (exclusif).
+     */
+    private fun calculerTotalAllocationsAlloueesAnnee(
+        allocationsMensuelles: List<AllocationMensuelle>,
+        moisSelectionne: Date
+    ): Double {
+        val calendar = Calendar.getInstance()
+        calendar.time = moisSelectionne
+        val anneeSelectionnee = calendar.get(Calendar.YEAR)
+        val moisSelectionneInt = calendar.get(Calendar.MONTH)
+        
+        return allocationsMensuelles
+            .filter { allocation ->
+                val calendarAllocation = Calendar.getInstance()
+                calendarAllocation.time = allocation.mois
+                val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
+                val moisAllocation = calendarAllocation.get(Calendar.MONTH)
+                
+                // Inclure seulement les allocations de l'année courante jusqu'au mois sélectionné (exclusif)
+                anneeAllocation == anneeSelectionnee && moisAllocation < moisSelectionneInt
+            }
+            .sumOf { it.alloue }
+    }
+
+    /**
+     * 🎯 FONCTION PRÉCISE : Calcule le total des montants alloués depuis une date de début spécifique 
+     * jusqu'au mois sélectionné.
+     */
+    private fun calculerTotalAllocationsDepuisDebut(
+        allocationsMensuelles: List<AllocationMensuelle>,
+        dateDebut: Date,
+        moisSelectionne: Date,
+        inclureMoisSelectionne: Boolean = false
+    ): Double {
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebut
+        val anneeDebut = calendarDebut.get(Calendar.YEAR)
+        val moisDebut = calendarDebut.get(Calendar.MONTH)
+        
+        val calendarSelectionne = Calendar.getInstance()
+        calendarSelectionne.time = moisSelectionne
+        val anneeSelectionnee = calendarSelectionne.get(Calendar.YEAR)
+        val moisSelectionneInt = calendarSelectionne.get(Calendar.MONTH)
+        
+        return allocationsMensuelles
+            .filter { allocation ->
+                val calendarAllocation = Calendar.getInstance()
+                calendarAllocation.time = allocation.mois
+                val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
+                val moisAllocation = calendarAllocation.get(Calendar.MONTH)
+                
+                // Inclure les allocations depuis dateDebut
+                val apresDebut = (anneeAllocation > anneeDebut) || 
+                               (anneeAllocation == anneeDebut && moisAllocation >= moisDebut)
+                
+                // Inclure jusqu'au mois sélectionné (inclusif ou exclusif selon le paramètre)
+                val avantOuEgalSelection = if (inclureMoisSelectionne) {
+                    (anneeAllocation < anneeSelectionnee) || 
+                    (anneeAllocation == anneeSelectionnee && moisAllocation <= moisSelectionneInt)
+                } else {
+                    (anneeAllocation < anneeSelectionnee) || 
+                    (anneeAllocation == anneeSelectionnee && moisAllocation < moisSelectionneInt)
+                }
+                
+                apresDebut && avantOuEgalSelection
+            }
+            .sumOf { it.alloue }
+    }
+
+    /**
+     * Calcule combien de mois se sont écoulés depuis le début de l'année jusqu'au mois sélectionné.
+     */
+    private fun calculerMoisEcoulesAnnee(moisSelectionne: Date): Int {
+        val calendar = Calendar.getInstance()
+        calendar.time = moisSelectionne
+        // Janvier = 0, donc ajouter 1 pour avoir le nombre de mois écoulés
+        return calendar.get(Calendar.MONTH)
+    }
+
+    /**
+     * Calcule combien de mois se sont écoulés depuis une date de début jusqu'au mois sélectionné.
+     */
+    private fun calculerMoisEcoulesDepuisDebut(dateDebut: Date, moisSelectionne: Date): Int {
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebut
+        
+        val calendarSelectionne = Calendar.getInstance()
+        calendarSelectionne.time = moisSelectionne
+        
+        val moisDiff = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
+                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH))
+        
+        return max(0, moisDiff)
     }
 }

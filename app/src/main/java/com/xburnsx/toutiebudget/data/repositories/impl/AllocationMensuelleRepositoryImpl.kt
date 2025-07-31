@@ -398,4 +398,40 @@
      override suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle {
          return creerAllocationMensuelleInterne(allocation)
      }
+
+     /**
+      * Récupère toutes les allocations mensuelles pour une enveloppe donnée.
+      */
+     override suspend fun recupererAllocationsEnveloppe(enveloppeId: String): List<AllocationMensuelle> = withContext(Dispatchers.IO) {
+         try {
+             val utilisateurId = client.obtenirUtilisateurConnecte()?.id 
+                 ?: throw Exception("Utilisateur non connecté")
+             val token = client.obtenirToken() 
+                 ?: throw Exception("Token manquant")
+             val urlBase = UrlResolver.obtenirUrlActive()
+
+             // Filtre pour cette enveloppe
+             val filtre = java.net.URLEncoder.encode("enveloppe_id='$enveloppeId'", "UTF-8")
+             val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500&sort=-mois"
+             
+             val requete = Request.Builder()
+                 .url(url)
+                 .addHeader("Authorization", "Bearer $token")
+                 .get()
+                 .build()
+
+             val reponse = httpClient.newCall(requete).execute()
+             if (!reponse.isSuccessful) {
+                 throw Exception("Erreur lors de la recherche: ${reponse.code}")
+             }
+
+             val data = reponse.body!!.string()
+             val listType = com.google.gson.reflect.TypeToken.getParameterized(java.util.List::class.java, AllocationMensuelle::class.java).type
+             val allocations: List<AllocationMensuelle> = gson.fromJson(data, listType)
+
+             allocations
+         } catch (e: Exception) {
+             emptyList()
+         }
+     }
  }
