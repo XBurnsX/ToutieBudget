@@ -157,8 +157,16 @@ class ObjectifCalculator {
         
         val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
         
-        // 🎯 SUGGESTION INTELLIGENTE : Retard accumulé - ce qui a déjà été alloué ce mois
-        val suggestion = max(0.0, retardAccumule - dejaAlloqueCeMois)
+        // 🎯 SUGGESTION INTELLIGENTE : 
+        // Pour le mois courant, toujours suggérer ce qu'il manque pour compléter l'objectif mensuel
+        val suggestionMensuelle = max(0.0, objectifMensuel - dejaAlloqueCeMois)
+        
+        // Si on a du retard accumulé, suggérer le maximum entre le retard et l'objectif mensuel
+        val suggestion = if (retardAccumule > 0) {
+            max(suggestionMensuelle, retardAccumule - dejaAlloqueCeMois)
+        } else {
+            suggestionMensuelle
+        }
         
         println("[DEBUG] Échéance - Objectif total: $objectifTotal")
         println("[DEBUG] Échéance - Mois totaux: $moisTotaux")
@@ -168,6 +176,7 @@ class ObjectifCalculator {
         println("[DEBUG] Échéance - Réellement alloué (total): $totalRealementAlloue")
         println("[DEBUG] Échéance - Retard accumulé: $retardAccumule")
         println("[DEBUG] Échéance - Déjà alloué ce mois: $dejaAlloqueCeMois")
+        println("[DEBUG] Échéance - Suggestion mensuelle: $suggestionMensuelle")
         println("[DEBUG] Échéance - Suggestion finale: $suggestion")
         
         return suggestion
@@ -234,8 +243,16 @@ class ObjectifCalculator {
         
         val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
         
-        // 🎯 SUGGESTION INTELLIGENTE : Retard accumulé - ce qui a déjà été alloué ce mois
-        val suggestion = max(0.0, retardAccumule - dejaAlloqueCeMois)
+        // 🎯 SUGGESTION INTELLIGENTE : 
+        // Pour le mois courant, toujours suggérer ce qu'il manque pour compléter l'objectif mensuel
+        val suggestionMensuelle = max(0.0, objectifMensuel - dejaAlloqueCeMois)
+        
+        // Si on a du retard accumulé, suggérer le maximum entre le retard et l'objectif mensuel
+        val suggestion = if (retardAccumule > 0) {
+            max(suggestionMensuelle, retardAccumule - dejaAlloqueCeMois)
+        } else {
+            suggestionMensuelle
+        }
         
         println("[DEBUG] Annuel - Objectif annuel: $objectifAnnuel")
         println("[DEBUG] Annuel - Objectif mensuel: $objectifMensuel")
@@ -245,6 +262,7 @@ class ObjectifCalculator {
         println("[DEBUG] Annuel - Réellement alloué (total): $totalRealementAlloue")
         println("[DEBUG] Annuel - Retard accumulé: $retardAccumule")
         println("[DEBUG] Annuel - Déjà alloué ce mois: $dejaAlloqueCeMois")
+        println("[DEBUG] Annuel - Suggestion mensuelle: $suggestionMensuelle")
         println("[DEBUG] Annuel - Suggestion finale: $suggestion")
         
         return suggestion
