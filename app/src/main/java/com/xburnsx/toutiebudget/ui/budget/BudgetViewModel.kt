@@ -198,7 +198,7 @@ class BudgetViewModel(
                 val bandeauxPretAPlacer = creerBandeauxPretAPlacer(comptes)
 
                 // 6. Créer les enveloppes UI avec les allocations DU MOIS SPÉCIFIQUE
-                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassées)
+                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassées, moisCible)
                 
                 // Debug des enveloppes UI créées
                 enveloppesUi.forEachIndexed { index, env ->
@@ -230,6 +230,7 @@ class BudgetViewModel(
                         erreur = null
                     )
                 }
+                println("[BUDGET] 🔄 Mise à jour moisSelectionne dans ViewModel: ancien=$moisSelectionne, nouveau=$moisCible")
                 moisSelectionne = moisCible
 
             } catch (e: Exception) {
@@ -253,7 +254,8 @@ class BudgetViewModel(
         enveloppes: List<Enveloppe>,
         allocations: List<AllocationMensuelle>,
         comptes: List<Compte>,
-        toutesAllocationsPassées: List<AllocationMensuelle>
+        toutesAllocationsPassées: List<AllocationMensuelle>,
+        moisCible: Date
     ): List<EnveloppeUi> {
         
         // Grouper les allocations par ID d'enveloppe pour pouvoir les sommer
@@ -288,10 +290,11 @@ class BudgetViewModel(
                 // Pour objectifs de dépense : solde + dépenses du mois
                 else -> soldeTotal + depenseTotale
             }
+            println("[BUDGET] 📅 ViewModel passe moisCible à ObjectifCalculator: $moisCible (au lieu de l'ancien moisSelectionne: $moisSelectionne)")
             val versementRecommande = objectifCalculator.calculerVersementRecommande(
                 enveloppe, 
                 progresActuel,
-                moisSelectionne,
+                moisCible,  // ← CORRECTION : utiliser moisCible au lieu de moisSelectionne
                 toutesAllocationsPassées.filter { it.enveloppeId == enveloppe.id }
             )
 

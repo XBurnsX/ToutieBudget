@@ -113,6 +113,7 @@ class ObjectifCalculator {
     ): Double {
         if (dateEcheance == null) return 0.0
         
+        println("[DEBUG] Echeance - Date brute moisSelectionne reçue: $moisSelectionne")
         val maintenant = Date()
         val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - maintenant.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
@@ -192,6 +193,7 @@ class ObjectifCalculator {
         }
         
         // Calculer combien de mois se sont écoulés depuis le DÉBUT DE L'OBJECTIF jusqu'au mois sélectionné
+        println("[DEBUG] Annuel - Date brute moisSelectionne reçue: $moisSelectionne")
         val calendarDebut = Calendar.getInstance()
         calendarDebut.time = dateDebutObjectif
         val calendarSelectionne = Calendar.getInstance()
@@ -200,10 +202,16 @@ class ObjectifCalculator {
         val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
                 (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
         
-        // Si le mois sélectionné est avant le début de l'objectif, pas de suggestion
+        println("[DEBUG] Annuel - Debug calcul mois:")
+        println("[DEBUG] Annuel - Date début: ${calendarDebut.get(Calendar.MONTH) + 1}/${calendarDebut.get(Calendar.YEAR)}")
+        println("[DEBUG] Annuel - Mois sélectionné: ${calendarSelectionne.get(Calendar.MONTH) + 1}/${calendarSelectionne.get(Calendar.YEAR)}")
+        println("[DEBUG] Annuel - Différence mois: ${calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)}")
+        println("[DEBUG] Annuel - Mois écoulés calculés: $moisEcoules")
+        
+        // Si le mois sélectionné est avant le début de l'objectif, suggestion standard
         if (moisEcoules <= 0) {
-            println("[DEBUG] Annuel - Mois sélectionné avant le début de l'objectif, suggestion: 0")
-            return 0.0
+            println("[DEBUG] Annuel - Mois sélectionné avant le début de l'objectif, suggestion: $objectifMensuel")
+            return objectifMensuel
         }
         
         // 🎯 RATTRAPAGE INTELLIGENT : 

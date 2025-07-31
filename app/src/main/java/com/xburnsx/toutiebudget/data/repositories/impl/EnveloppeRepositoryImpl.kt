@@ -113,11 +113,11 @@
                  val itemObject = item.asJsonObject
 
                  // Récupérer la date d'objectif depuis PocketBase
-                 val objectifDateString = itemObject.get("objectif_date")?.asString
+                 val objectifDateString = itemObject.get("date_objectif")?.asString
                  val objectifTypeString = itemObject.get("frequence_objectif")?.asString  // CORRIGÉ !
                  val nom = itemObject.get("nom")?.asString ?: ""
 
-                println("[DEBUG] Enveloppe '$nom' - frequence_objectif brut: '$objectifTypeString', objectif_date brut: '$objectifDateString'")
+                println("[DEBUG] Enveloppe '$nom' - frequence_objectif brut: '$objectifTypeString', date_objectif brut: '$objectifDateString'")
 
                  val objectifDate = if (objectifDateString != null && objectifDateString.isNotBlank()) {
                      try {
@@ -140,7 +140,7 @@
                          null
                      }
                  } else {
-                     println("[DEBUG] Enveloppe '$nom' - Pas de date d'objectif (objectif_date vide ou null)")
+                     println("[DEBUG] Enveloppe '$nom' - Pas de date d'objectif (date_objectif vide ou null)")
                      null
                  }
 
