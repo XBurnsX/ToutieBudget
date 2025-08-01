@@ -337,13 +337,19 @@ class ArgentServiceImpl @Inject constructor(
         val nouveauSoldeCompte = compte.solde + montant
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
-        // Mettre à jour l'allocation
-        val nouveauSoldeAllocation = allocation.solde - montant
-        val nouvelleAllocation = allocation.copy(
-            solde = nouveauSoldeAllocation,
-            depense = allocation.depense + montant
+        // 🔥 CORRECTION : Créer une NOUVELLE allocation négative pour le virement vers prêt à placer
+        val allocationVirement = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = allocation.utilisateurId,
+            enveloppeId = allocation.enveloppeId,
+            mois = Date(),
+            solde = -montant,        // Négatif pour sortir l'argent
+            alloue = -montant,       // 🔥 CORRECTION : Alloué négatif pour virement sortant
+            depense = 0.0,           // 🔥 CORRECTION : Pas une dépense, c'est un virement !
+            compteSourceId = allocation.compteSourceId,
+            collectionCompteSource = allocation.collectionCompteSource
         )
-        allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+        allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
         
         // Créer la transaction
         val transaction = Transaction(
@@ -402,8 +408,8 @@ class ArgentServiceImpl @Inject constructor(
             enveloppeId = enveloppeSource.id,
             mois = Date(),
             solde = -montant,
-            alloue = 0.0,
-            depense = montant,
+            alloue = -montant,  // 🔥 CORRECTION : Alloué négatif pour virement sortant
+            depense = 0.0,      // 🔥 CORRECTION : Pas une dépense, c'est un virement !
             compteSourceId = null,
             collectionCompteSource = null
         )
