@@ -129,13 +129,18 @@ class VerifierEtExecuterRolloverUseCase(
 ) {
     suspend operator fun invoke(): Result<Unit> {
         return try {
+            println("[ROLLOVER_USE_CASE] 🔍 Vérification du rollover...")
             val aujourdhui = Calendar.getInstance()
             val dernierRolloverCal = Calendar.getInstance()
             val dernierRolloverDate = preferenceRepository.recupererDernierRollover()
 
+            println("[ROLLOVER_USE_CASE] 📅 Date aujourd'hui: ${aujourdhui.time}")
+            println("[ROLLOVER_USE_CASE] 📅 Dernier rollover: $dernierRolloverDate")
+
             if (dernierRolloverDate != null) {
                 dernierRolloverCal.time = dernierRolloverDate
             } else {
+                println("[ROLLOVER_USE_CASE] ⚠️ Aucun rollover précédent - simulation du mois dernier")
                 dernierRolloverCal.add(Calendar.MONTH, -1)
             }
 
@@ -144,13 +149,24 @@ class VerifierEtExecuterRolloverUseCase(
             val anneeDernierRollover = dernierRolloverCal.get(Calendar.YEAR)
             val moisDernierRollover = dernierRolloverCal.get(Calendar.MONTH)
 
-            if (anneeActuelle > anneeDernierRollover || (anneeActuelle == anneeDernierRollover && moisActuel > moisDernierRollover)) {
+            println("[ROLLOVER_USE_CASE] 📊 Année actuelle: $anneeActuelle, Mois actuel: $moisActuel")
+            println("[ROLLOVER_USE_CASE] 📊 Année dernier rollover: $anneeDernierRollover, Mois dernier rollover: $moisDernierRollover")
+
+            val doitFaireRollover = anneeActuelle > anneeDernierRollover || (anneeActuelle == anneeDernierRollover && moisActuel > moisDernierRollover)
+            println("[ROLLOVER_USE_CASE] 🤔 Doit faire rollover: $doitFaireRollover")
+
+            if (doitFaireRollover) {
+                println("[ROLLOVER_USE_CASE] 🚀 LANCEMENT DU ROLLOVER")
                 val moisPrecedentCal = Calendar.getInstance().apply { time = dernierRolloverCal.time; set(Calendar.DAY_OF_MONTH, 1) }
                 rolloverService.effectuerRolloverMensuel(moisPrecedent = moisPrecedentCal.time, nouveauMois = aujourdhui.time).getOrThrow()
                 preferenceRepository.sauvegarderDernierRollover(aujourdhui.time)
+                println("[ROLLOVER_USE_CASE] ✅ Rollover terminé et date sauvegardée")
+            } else {
+                println("[ROLLOVER_USE_CASE] ⏭️ Pas de rollover nécessaire")
             }
             Result.success(Unit)
         } catch (e: Exception) {
+            println("[ROLLOVER_USE_CASE] ❌ ERREUR: ${e.message}")
             Result.failure(e)
         }
     }
