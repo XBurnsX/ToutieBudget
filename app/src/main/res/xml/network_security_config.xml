@@ -8,6 +8,7 @@
 
         <!-- Serveur externe/public -->
         <domain includeSubdomains="true">toutiebudget.duckdns.org</domain>
+        <domain includeSubdomains="true">toutie-budget.pockethost.io</domain>
 
         <!-- Adresses spécifiques émulateur Android -->
         <domain includeSubdomains="false">10.0.2.2</domain>      <!-- Host machine depuis émulateur -->

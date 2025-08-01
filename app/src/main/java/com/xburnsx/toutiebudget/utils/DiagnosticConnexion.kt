@@ -35,9 +35,9 @@ object DiagnosticConnexion {
 
         // Tester les URLs PocketBase
         val urlsATester = listOf(
-            "http://10.0.2.2:8090" to "Émulateur vers Host",
-            "http://192.168.1.77:8090" to "IP Locale",
-            "http://toutiebudget.duckdns.org:8090" to "Publique"
+            "https://toutie-budget.pockethost.io" to "PocketHost",
+            "http://10.0.2.2:8090" to "Local (émulateur)",
+            "http://192.168.1.77:8090" to "Local (IP)"
         )
 
         rapport.appendLine("=== TESTS DE CONNEXION POCKETBASE ===")
@@ -52,7 +52,7 @@ object DiagnosticConnexion {
         val sitesTest = listOf(
             "https://www.google.com" to "Google",
             "https://www.cloudflare.com" to "Cloudflare",
-            "https://toutiebudget.duckdns.org" to "DuckDNS"
+            "https://toutie-budget.pockethost.io" to "PocketHost"
         )
 
         for ((url, nom) in sitesTest) {

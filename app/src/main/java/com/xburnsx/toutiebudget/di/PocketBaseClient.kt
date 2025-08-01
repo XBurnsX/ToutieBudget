@@ -130,15 +130,52 @@ object PocketBaseClient {
 
                 val reponse = client.newCall(requete).execute()
 
-                val corpsReponse = reponse.body?.string() ?: ""
+                // Gérer le contenu compressé (gzip)
+                val corpsReponse = if (reponse.header("Content-Encoding") == "gzip") {
+                    // Décompresser le contenu gzippé
+                    val inputStream = reponse.body?.byteStream()
+                    if (inputStream != null) {
+                        try {
+                            java.util.zip.GZIPInputStream(inputStream).bufferedReader().use { reader ->
+                                reader.readText()
+                            }
+                        } catch (e: Exception) {
+                            println("[DEBUG] Erreur décompression gzip: ${e.message}")
+                            reponse.body?.string() ?: ""
+                        }
+                    } else {
+                        reponse.body?.string() ?: ""
+                    }
+                } else {
+                    reponse.body?.string() ?: ""
+                }
 
                 if (reponse.isSuccessful) {
                     try {
-                        val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
+                        // Nettoyer et valider la réponse JSON
+                        val corpsReponseNettoye = nettoyerReponseJSON(corpsReponse)
+                        println("[DEBUG] Réponse brute: '$corpsReponse'")
+                        println("[DEBUG] Réponse nettoyée: '$corpsReponseNettoye'")
+                        
+                        val reponseAuth = gson.fromJson(corpsReponseNettoye, ReponseAuthentification::class.java)
+                        
+                        // Vérifier si la réponse contient une erreur
+                        if (reponseAuth.error != null || reponseAuth.message != null) {
+                            val messageErreur = reponseAuth.error ?: reponseAuth.message ?: "Erreur inconnue"
+                            return@withContext Result.failure(Exception("Erreur serveur: $messageErreur"))
+                        }
+                        
+                        // Vérifier que les données requises sont présentes
+                        if (reponseAuth.token == null || reponseAuth.record == null) {
+                            return@withContext Result.failure(Exception("Réponse d'authentification incomplète: token ou utilisateur manquant"))
+                        }
+                        
                         sauvegarderToken(context, reponseAuth.token)
                         sauvegarderUtilisateur(context, reponseAuth.record)
                         Result.success(Unit)
                     } catch (e: Exception) {
+                        println("[DEBUG] Erreur de parsing JSON: ${e.message}")
+                        println("[DEBUG] Corps de réponse: '$corpsReponse'")
                         Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}"))
                     }
                 } else {
@@ -166,6 +203,36 @@ object PocketBaseClient {
                 Result.failure(Exception("Erreur inattendue: ${e.message}"))
             }
         }
+
+    /**
+     * Nettoie et valide une réponse JSON du serveur
+     */
+    private fun nettoyerReponseJSON(reponse: String): String {
+        if (reponse.isBlank()) {
+            throw Exception("Réponse vide du serveur")
+        }
+        
+        // Supprimer les espaces en début et fin
+        val reponseNettoyee = reponse.trim()
+        
+        // Vérifier si c'est déjà un JSON valide
+        if (reponseNettoyee.startsWith("{") && reponseNettoyee.endsWith("}")) {
+            return reponseNettoyee
+        }
+        
+        // Si c'est une chaîne simple, essayer de la traiter comme un message d'erreur
+        if (!reponseNettoyee.startsWith("{")) {
+            // Créer un objet JSON avec le message d'erreur
+            return """
+                {
+                    "error": "$reponseNettoyee",
+                    "message": "Réponse non-JSON reçue du serveur"
+                }
+            """.trimIndent()
+        }
+        
+        return reponseNettoyee
+    }
 
     /**
      * Analyse l'erreur retournée par le serveur
@@ -371,7 +438,24 @@ object PocketBaseClient {
             val reponse = client.newCall(requete).execute()
 
             if (reponse.isSuccessful) {
-                reponse.body?.string() ?: ""
+                // Gérer le contenu compressé (gzip)
+                if (reponse.header("Content-Encoding") == "gzip") {
+                    val inputStream = reponse.body?.byteStream()
+                    if (inputStream != null) {
+                        try {
+                            java.util.zip.GZIPInputStream(inputStream).bufferedReader().use { reader ->
+                                reader.readText()
+                            }
+                        } catch (e: Exception) {
+                            println("[DEBUG] Erreur décompression gzip: ${e.message}")
+                            reponse.body?.string() ?: ""
+                        }
+                    } else {
+                        reponse.body?.string() ?: ""
+                    }
+                } else {
+                    reponse.body?.string() ?: ""
+                }
             } else {
                 throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
             }
@@ -408,7 +492,24 @@ object PocketBaseClient {
             val reponse = client.newCall(requete).execute()
 
             if (reponse.isSuccessful) {
-                reponse.body?.string() ?: ""
+                // Gérer le contenu compressé (gzip)
+                if (reponse.header("Content-Encoding") == "gzip") {
+                    val inputStream = reponse.body?.byteStream()
+                    if (inputStream != null) {
+                        try {
+                            java.util.zip.GZIPInputStream(inputStream).bufferedReader().use { reader ->
+                                reader.readText()
+                            }
+                        } catch (e: Exception) {
+                            println("[DEBUG] Erreur décompression gzip: ${e.message}")
+                            reponse.body?.string() ?: ""
+                        }
+                    } else {
+                        reponse.body?.string() ?: ""
+                    }
+                } else {
+                    reponse.body?.string() ?: ""
+                }
             } else {
                 throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
             }
@@ -442,7 +543,24 @@ object PocketBaseClient {
             val reponse = client.newCall(requete).execute()
 
             if (reponse.isSuccessful) {
-                reponse.body?.string() ?: ""
+                // Gérer le contenu compressé (gzip)
+                if (reponse.header("Content-Encoding") == "gzip") {
+                    val inputStream = reponse.body?.byteStream()
+                    if (inputStream != null) {
+                        try {
+                            java.util.zip.GZIPInputStream(inputStream).bufferedReader().use { reader ->
+                                reader.readText()
+                            }
+                        } catch (e: Exception) {
+                            println("[DEBUG] Erreur décompression gzip: ${e.message}")
+                            reponse.body?.string() ?: ""
+                        }
+                    } else {
+                        reponse.body?.string() ?: ""
+                    }
+                } else {
+                    reponse.body?.string() ?: ""
+                }
             } else {
                 throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
             }
@@ -458,8 +576,10 @@ object PocketBaseClient {
 
     // Classes de données pour la réponse d'authentification
     data class ReponseAuthentification(
-        val token: String,
-        val record: EnregistrementUtilisateur
+        val token: String? = null,
+        val record: EnregistrementUtilisateur? = null,
+        val error: String? = null,
+        val message: String? = null
     )
 
     data class EnregistrementUtilisateur(

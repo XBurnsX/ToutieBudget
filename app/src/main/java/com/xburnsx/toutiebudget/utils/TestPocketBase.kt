@@ -41,9 +41,9 @@ object TestPocketBase {
             rapport.appendLine("\n📡 Test des URLs de fallback...")
             
             val urlsFallback = listOf(
-                "http://10.0.2.2:8090" to "Émulateur vers Host",
-                "http://192.168.1.77:8090" to "IP Locale",
-                "http://toutiebudget.duckdns.org:8090" to "Publique"
+                "https://toutie-budget.pockethost.io" to "PocketHost",
+                "http://10.0.2.2:8090" to "Local (émulateur)",
+                "http://192.168.1.77:8090" to "Local (IP)"
             ).filter { it.first != urlActive } // Exclure l'URL déjà testée
             
             for ((url, description) in urlsFallback) {

@@ -50,14 +50,14 @@ object UrlResolver {
         // Définir toutes les URLs à tester dans l'ordre de priorité
         val urlsATester = when (typeEnvironnement) {
             TypeEnvironnement.EMULATEUR -> listOf(
-                "http://10.0.2.2:8090" to "Émulateur vers Host",
-                "http://192.168.1.77:8090" to "IP Locale (émulateur)",
-                "http://toutiebudget.duckdns.org:8090" to "Publique (Fallback)"
+                "https://toutie-budget.pockethost.io" to "PocketHost (émulateur)",
+                "http://10.0.2.2:8090" to "Local (émulateur fallback)",
+                "http://192.168.1.77:8090" to "IP Locale (émulateur fallback)"
             )
             TypeEnvironnement.DISPOSITIF_PHYSIQUE -> listOf(
-                "http://192.168.1.77:8090" to "IP Locale",
-                "http://10.0.2.2:8090" to "Host (dispositif physique)",
-                "http://toutiebudget.duckdns.org:8090" to "Publique (Fallback)"
+                "https://toutie-budget.pockethost.io" to "PocketHost (dispositif physique)",
+                "http://192.168.1.77:8090" to "Local (dispositif physique fallback)",
+                "http://10.0.2.2:8090" to "Host (dispositif physique fallback)"
             )
         }
 
