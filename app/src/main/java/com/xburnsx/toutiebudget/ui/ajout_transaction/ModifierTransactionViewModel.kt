@@ -127,54 +127,26 @@ class ModifierTransactionViewModel(
      * Remplit le formulaire avec les données de la transaction existante.
      */
     private fun remplirFormulaireAvecTransaction(transaction: Transaction) {
-        println("DEBUG: Remplir formulaire avec transaction: ${transaction.id}")
-        println("DEBUG: Transaction type: ${transaction.type}")
-        println("DEBUG: Transaction montant: ${transaction.montant}")
-        println("DEBUG: Transaction tiersId: ${transaction.tiersId}")
-        println("DEBUG: Transaction tiers: ${transaction.tiers}")
-        println("DEBUG: Transaction note: ${transaction.note}")
-        println("DEBUG: Transaction allocationMensuelleId: ${transaction.allocationMensuelleId}")
-        // Trouver le compte correspondant
-        val compte = allComptes.find { it.id == transaction.compteId }
-        println("DEBUG: Compte trouvé: ${compte?.nom}")
-        
-        // Trouver l'enveloppe si c'était une dépense
-        val enveloppe = if (transaction.allocationMensuelleId != null) {
-            val allocation = allAllocations.find { it.id == transaction.allocationMensuelleId }
-            println("DEBUG: Allocation trouvée: ${allocation?.id}")
-            allocation?.let { allEnveloppes.find { enveloppe -> enveloppe.id == it.enveloppeId } }
-        } else null
-        println("DEBUG: Enveloppe trouvée: ${enveloppe?.nom}")
-
-        // Trouver le tiers correspondant
-        val tiers = if (transaction.tiersId != null) {
-            // tiersId peut être soit un ID soit directement le nom du tiers
-            val tiersTrouve = allTiers.find { it.id == transaction.tiersId }
-            if (tiersTrouve != null) {
-                println("DEBUG: Tiers trouvé par ID: ${tiersTrouve.nom}")
-                tiersTrouve.nom
-            } else {
-                // tiersId n'est pas un ID valide, utiliser directement comme nom
-                println("DEBUG: Utilisation de tiersId comme nom: ${transaction.tiersId}")
-                transaction.tiersId
-            }
-        } else {
-            println("DEBUG: Utilisation du tiers direct: ${transaction.tiers}")
-            transaction.tiers ?: ""
-        }
-        println("DEBUG: Tiers final: $tiers")
-        println("DEBUG: Nombre de tiers disponibles: ${allTiers.size}")
-        println("DEBUG: Montant original: ${transaction.montant}")
-        println("DEBUG: Montant en centimes: ${(transaction.montant * 100).toLong()}")
-
         _uiState.update { state ->
             state.copy(
                 typeTransaction = transaction.type,
                 montant = (transaction.montant * 100).toLong().toString(), // Convertir en centimes
-                compteSelectionne = compte,
-                enveloppeSelectionnee = enveloppe?.let { construireEnveloppeUi(it) },
-                texteTiersSaisi = tiers,
-                tiers = tiers, // Ajouter aussi dans le champ tiers
+                compteSelectionne = allComptes.find { it.id == transaction.compteId },
+                enveloppeSelectionnee = if (transaction.allocationMensuelleId != null) {
+                    allAllocations.find { it.id == transaction.allocationMensuelleId }?.let { allocation ->
+                        allEnveloppes.find { enveloppe -> enveloppe.id == allocation.enveloppeId }?.let { construireEnveloppeUi(it) }
+                    }
+                } else null,
+                texteTiersSaisi = if (transaction.tiersId != null) {
+                    allTiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
+                } else {
+                    transaction.tiers ?: ""
+                },
+                tiers = if (transaction.tiersId != null) {
+                    allTiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
+                } else {
+                    transaction.tiers ?: ""
+                },
                 note = transaction.note ?: "",
                 dateTransaction = transaction.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
             ).calculerValidite() // ✅ Ajouter calculerValidite() ici
@@ -207,21 +179,12 @@ class ModifierTransactionViewModel(
     fun modifierTransaction() {
         val state = _uiState.value
         
-        println("DEBUG: modifierTransaction - Début")
-        println("DEBUG: modifierTransaction - transactionAModifier: ${transactionAModifier?.id}")
-        println("DEBUG: modifierTransaction - state.montant: ${state.montant}")
-        println("DEBUG: modifierTransaction - state.compteSelectionne: ${state.compteSelectionne?.nom}")
-        println("DEBUG: modifierTransaction - state.enveloppeSelectionnee: ${state.enveloppeSelectionnee?.nom}")
-        println("DEBUG: modifierTransaction - state.texteTiersSaisi: ${state.texteTiersSaisi}")
-        println("DEBUG: modifierTransaction - state.note: ${state.note}")
-        
         if (transactionAModifier == null) {
             _uiState.update { it.copy(messageErreur = "Aucune transaction à modifier") }
             return
         }
 
         val montantEnCentimes = state.montant.toLongOrNull()
-        println("DEBUG: modifierTransaction - montant en centimes: $montantEnCentimes")
         if (montantEnCentimes == null || montantEnCentimes <= 0) {
             _uiState.update { it.copy(messageErreur = "Montant invalide") }
             return
@@ -229,7 +192,6 @@ class ModifierTransactionViewModel(
         
         // Convertir les centimes en dollars pour le use case
         val montantEnDollars = montantEnCentimes / 100.0
-        println("DEBUG: modifierTransaction - montant en dollars: $montantEnDollars")
 
         if (state.compteSelectionne == null) {
             _uiState.update { it.copy(messageErreur = "Veuillez sélectionner un compte") }
@@ -248,17 +210,6 @@ class ModifierTransactionViewModel(
                     else -> "comptes_cheques"
                 }
                 
-                println("DEBUG: modifierTransaction - Paramètres envoyés:")
-                println("DEBUG: modifierTransaction - transactionId: ${transactionAModifier!!.id}")
-                println("DEBUG: modifierTransaction - typeTransaction: ${state.typeTransaction}")
-                println("DEBUG: modifierTransaction - montant: $montantEnDollars")
-                println("DEBUG: modifierTransaction - compteId: ${state.compteSelectionne!!.id}")
-                println("DEBUG: modifierTransaction - collectionCompte: $collectionCompte")
-                println("DEBUG: modifierTransaction - enveloppeId: ${if (state.typeTransaction == TypeTransaction.Depense) state.enveloppeSelectionnee?.id else null}")
-                println("DEBUG: modifierTransaction - tiersNom: ${state.texteTiersSaisi.takeIf { it.isNotBlank() }}")
-                println("DEBUG: modifierTransaction - note: ${state.note.takeIf { it.isNotBlank() }}")
-                
-                                 // Convertir LocalDate en Date pour le UseCase (utilisation du timezone local)
                  val dateTransaction = Date.from(state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
                  
                  val result = modifierTransactionUseCase.executer(
@@ -273,10 +224,7 @@ class ModifierTransactionViewModel(
                      date = dateTransaction // Utiliser la date convertie
                  )
 
-                println("DEBUG: modifierTransaction - Résultat du use case: $result")
-                
                 if (result.isSuccess) {
-                    println("DEBUG: modifierTransaction - Succès de la modification")
                     _uiState.update { 
                         it.copy(
                             isLoading = false,
@@ -291,7 +239,6 @@ class ModifierTransactionViewModel(
                         it.copy(transactionModifiee = false)
                     }
                 } else {
-                    println("DEBUG: modifierTransaction - Échec de la modification: ${result.exceptionOrNull()?.message}")
                     _uiState.update { 
                         it.copy(
                             isLoading = false,
@@ -314,8 +261,6 @@ class ModifierTransactionViewModel(
      * Construit les enveloppes UI avec les allocations.
      */
     private suspend fun construireEnveloppesUi(): List<EnveloppeUi> {
-        println("[DEBUG] construireEnveloppesUi - Début avec ${allEnveloppes.size} enveloppes")
-
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
             val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
@@ -324,10 +269,6 @@ class ModifierTransactionViewModel(
             val compteSource = allocation?.compteSourceId?.let { compteId ->
                 allComptes.find { it.id == compteId }
             }
-
-            println("[DEBUG] construireEnveloppesUi - Enveloppe: ${enveloppe.nom} (ID: ${enveloppe.id})")
-            println("[DEBUG] construireEnveloppesUi - Allocation trouvée: ${allocation?.id} pour enveloppeId: ${enveloppe.id}")
-            println("[DEBUG] construireEnveloppesUi - Compte source: ${compteSource?.nom} - couleur: ${compteSource?.couleur}")
 
             EnveloppeUi(
                 id = enveloppe.id,
@@ -364,7 +305,6 @@ class ModifierTransactionViewModel(
     }
 
     fun onEnveloppeChanged(nouvelleEnveloppe: EnveloppeUi?) {
-        println("[DEBUG] ModifierTransactionViewModel.onEnveloppeChanged - Nouvelle enveloppe sélectionnée: ${nouvelleEnveloppe?.nom} (ID: ${nouvelleEnveloppe?.id})")
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
         }

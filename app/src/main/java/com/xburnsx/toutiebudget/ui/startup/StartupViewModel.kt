@@ -35,32 +35,25 @@ class StartupViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // 1. Initialiser PocketBase et vérifier la connexion serveur
-                println("[STARTUP] 🔄 Initialisation de PocketBase...")
                 PocketBaseClient.initialiser()
 
                 // 2. Vérifier si le serveur est accessible
                 val serverHealthy = PocketBaseClient.verifierConnexionServeur()
                 if (!serverHealthy) {
-                    println("[STARTUP] ❌ Serveur PocketBase inaccessible")
                     _state.value = StartupState.ServerError
                     return@launch
                 }
-
-                println("[STARTUP] ✅ Serveur PocketBase accessible")
 
                 // 3. Charger l'authentification sauvegardée et vérifier si l'utilisateur est connecté
                 val isUserAuthenticated = PocketBaseClient.chargerAuthentificationSauvegardee(context)
 
                 if (isUserAuthenticated) {
-                    println("[STARTUP] ✅ Utilisateur déjà connecté - Redirection vers Budget")
                     _state.value = StartupState.UserAuthenticated
                 } else {
-                    println("[STARTUP] ⚠️ Utilisateur non connecté - Redirection vers Login")
                     _state.value = StartupState.UserNotAuthenticated
                 }
 
             } catch (e: Exception) {
-                println("[STARTUP] ❌ Erreur lors de l'initialisation: ${e.message}")
                 _state.value = StartupState.ServerError
             }
         }

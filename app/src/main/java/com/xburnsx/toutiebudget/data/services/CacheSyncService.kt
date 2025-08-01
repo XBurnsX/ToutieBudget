@@ -27,7 +27,6 @@ class CacheSyncService(
     fun notifyCategorieChanged(changeType: ChangeType, categorieId: String) {
         serviceScope.launch {
             cacheService.notifyModification("categories")
-            println("[CacheSyncService] 🔄 Modification catégorie détectée: $changeType - $categorieId")
         }
     }
 
@@ -37,7 +36,6 @@ class CacheSyncService(
     fun notifyTiersChanged(changeType: ChangeType, tiersId: String) {
         serviceScope.launch {
             cacheService.notifyModification("tiers")
-            println("[CacheSyncService] 🔄 Modification tiers détectée: $changeType - $tiersId")
         }
     }
 
@@ -47,7 +45,6 @@ class CacheSyncService(
     fun notifyCompteChanged(changeType: ChangeType, compteId: String) {
         serviceScope.launch {
             cacheService.notifyModification("comptes")
-            println("[CacheSyncService] 🔄 Modification compte détectée: $changeType - $compteId")
         }
     }
 
@@ -57,7 +54,6 @@ class CacheSyncService(
     fun notifyEnveloppeChanged(changeType: ChangeType, enveloppeId: String) {
         serviceScope.launch {
             cacheService.notifyModification("enveloppes")
-            println("[CacheSyncService] 🔄 Modification enveloppe détectée: $changeType - $enveloppeId")
         }
     }
 
@@ -68,7 +64,6 @@ class CacheSyncService(
         serviceScope.launch {
             // Les transactions affectent tous les caches car elles modifient les soldes
             cacheService.invalidateAllStaticCaches()
-            println("[CacheSyncService] 🔄 Modification transaction détectée: $changeType - $transactionId")
         }
     }
 
@@ -79,7 +74,6 @@ class CacheSyncService(
         serviceScope.launch {
             // Les allocations affectent tous les caches car elles modifient les soldes
             cacheService.invalidateAllStaticCaches()
-            println("[CacheSyncService] 🔄 Modification allocation détectée: $changeType - $allocationId")
         }
     }
 } 

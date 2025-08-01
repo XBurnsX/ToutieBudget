@@ -62,18 +62,13 @@ class BudgetViewModel(
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES
-            println("[RESET] 🔍 Vérification des objectifs bihebdomadaires à resetter...")
             objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
                 if (enveloppesResetees.isNotEmpty()) {
-                    println("[RESET] ✅ ${enveloppesResetees.size} objectif(s) bihebdomadaire(s) reseté(s)")
                     enveloppesResetees.forEach { enveloppe ->
-                        println("[RESET]   • ${enveloppe.nom} - Nouveau cycle commencé")
                     }
                 } else {
-                    println("[RESET] ✅ Aucun objectif bihebdomadaire à resetter")
                 }
             }.onFailure { e ->
-                println("[RESET] ❌ Erreur lors du reset automatique: ${e.message}")
             }
 
             // 🔄 ROLLOVER AUTOMATIQUE : Seulement si on est le 1er du mois
@@ -81,17 +76,13 @@ class BudgetViewModel(
             val estPremierDuMois = aujourdhui.get(Calendar.DAY_OF_MONTH) == 1
 
             if (estPremierDuMois) {
-                println("[ROLLOVER] 📅 1er du mois détecté - Vérification du rollover automatique")
                 verifierEtExecuterRolloverUseCase().onSuccess {
-                    println("[ROLLOVER] ✅ Rollover automatique effectué")
                     chargerDonneesBudget(Date())
                 }.onFailure { e ->
-                    println("[ROLLOVER] ❌ Erreur rollover automatique: ${e.message}")
                     _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
                     chargerDonneesBudget(Date())
                 }
             } else {
-                println("[ROLLOVER] 📅 Pas le 1er du mois - Chargement normal sans rollover")
                 chargerDonneesBudget(Date())
             }
         }
@@ -110,7 +101,6 @@ class BudgetViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
-                println("[REALTIME] 🔄 Budget mis à jour automatiquement")
                 chargerDonneesBudget(moisSelectionne)
             }
         }
@@ -160,14 +150,6 @@ class BudgetViewModel(
 
                 // 🔍 DEBUG : Vérifier si on regarde un mois différent du mois actuel
                 val regardeMoisDifferent = premierJourDuMois.time != moisActuel.time
-                if (regardeMoisDifferent) {
-                    println("[BUDGET] 🔍 Navigation vers un mois différent:")
-                    println("[BUDGET] 📅 Mois sélectionné: $dateFormatee")
-                    println("[BUDGET] 📅 Mois actuel: ${formatDatePourDebug(moisActuel)}")
-                    println("[BUDGET] 💡 Affichage des données EXACTES du mois sélectionné")
-                } else {
-                    println("[BUDGET] 📅 Affichage du mois actuel: $dateFormatee")
-                }
 
                 val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(premierJourDuMois)
                 val allocations = resultAllocations.getOrElse {
@@ -182,15 +164,7 @@ class BudgetViewModel(
                     toutesAllocationsPassées.addAll(allocationsEnveloppe)
                 }
                 
-                println("[BUDGET] 📊 ${allocations.size} allocations trouvées pour $dateFormatee")
-                if (allocations.isEmpty()) {
-                    println("[BUDGET] 💡 Aucune allocation = toutes les enveloppes à 0$ pour ce mois")
-                } else {
-                    println("[BUDGET] 💰 Allocations trouvées:")
-                    allocations.forEach { allocation ->
-                        println("[BUDGET]   • ${allocation.enveloppeId}: ${allocation.solde}$ (dépensé: ${allocation.depense}$)")
-                    }
-                }
+
 
                 cacheAllocations = allocations
 
@@ -230,7 +204,7 @@ class BudgetViewModel(
                         erreur = null
                     )
                 }
-                println("[BUDGET] 🔄 Mise à jour moisSelectionne dans ViewModel: ancien=$moisSelectionne, nouveau=$moisCible")
+
                 moisSelectionne = moisCible
 
             } catch (e: Exception) {
@@ -290,7 +264,7 @@ class BudgetViewModel(
                 // Pour objectifs de dépense : solde + dépenses du mois
                 else -> soldeTotal + depenseTotale
             }
-            println("[BUDGET] 📅 ViewModel passe moisCible à ObjectifCalculator: $moisCible (au lieu de l'ancien moisSelectionne: $moisSelectionne)")
+            
             val versementRecommande = objectifCalculator.calculerVersementRecommande(
                 enveloppe, 
                 progresActuel,
@@ -416,10 +390,7 @@ class BudgetViewModel(
 
                 val montantDollars = montantCentimes / 100.0
 
-                println("[BUDGET] 💰 Assignation d'argent:")
-                println("[BUDGET]   • Enveloppe: $enveloppeId")
-                println("[BUDGET]   • Compte source: $compteSourceId")
-                println("[BUDGET]   • Montant: ${montantDollars}$")
+
 
                 // 1. Vérifier que le compte source existe et a assez d'argent "prêt à placer"
                 val compteSource = cacheComptes.find { it.id == compteSourceId }
@@ -484,21 +455,16 @@ class BudgetViewModel(
                     collectionCompteSource = compteSource.collection ?: "comptes_cheque"
                 )
 
-                println("[BUDGET] ✨ Création d'une nouvelle allocation de ${montantDollars}$...")
                 val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
 
                 if (resultAllocation.isFailure) {
                     throw Exception("Erreur lors de la création de l'allocation: ${resultAllocation.exceptionOrNull()?.message}")
                 }
 
-                println("[BUDGET] ✅ Assignation réussie!")
-                println("[BUDGET]   • Nouveau prêt à placer du compte: ${nouveauPretAPlacer}$")
-
                 // 6. Recharger les données pour rafraîchir l'affichage
                 chargerDonneesBudget(moisSelectionne)
 
             } catch (e: Exception) {
-                println("[BUDGET] ❌ Erreur lors de l'assignation: ${e.message}")
                 e.printStackTrace()
 
                 // Utiliser les messages d'erreur appropriés selon le type d'erreur

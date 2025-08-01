@@ -43,17 +43,12 @@ class ObjectifResetService(
                 val updateResult = enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
                 if (updateResult.isSuccess) {
                     enveloppesResetees.add(enveloppeResetee)
-                    println("[RESET] Objectif bihebdomadaire reseté pour: ${enveloppe.nom}")
-                    println("[RESET] Nouvelle date de début: ${enveloppeResetee.dateDebutObjectif}")
-                    println("[RESET] Nouvelle date d'objectif: ${enveloppeResetee.dateObjectif}")
                 } else {
-                    println("[ERROR] Échec du reset pour: ${enveloppe.nom}")
                 }
             }
 
             Result.success(enveloppesResetees)
         } catch (e: Exception) {
-            println("[ERROR] Erreur lors du reset des objectifs bihebdomadaires: ${e.message}")
             Result.failure(e)
         }
     }
@@ -94,13 +89,6 @@ class ObjectifResetService(
 
         val doitReset = aujourdhui >= dateReset
 
-        if (doitReset) {
-            println("[RESET] Enveloppe '${enveloppe.nom}' doit être resetée")
-            println("[RESET] Date objectif était: $dateObjectifActuelle")
-            println("[RESET] Date reset: $dateReset")
-            println("[RESET] Aujourd'hui: $aujourdhui")
-        }
-
         return doitReset
     }
 
@@ -134,12 +122,6 @@ class ObjectifResetService(
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
-
-        println("[RESET] Reset pour '${enveloppe.nom}':")
-        println("[RESET] Ancienne date début: $dateDebutObjectif")
-        println("[RESET] Ancienne date objectif: $ancienneDateObjectif")
-        println("[RESET] Nouvelle date début: $nouvelleDateDebut")
-        println("[RESET] Nouvelle date objectif: $nouvelleDateObjectif")
 
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,

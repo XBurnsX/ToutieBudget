@@ -106,8 +106,6 @@ class CacheValidationService @Inject constructor() {
                 logForbiddenAttempt("Mots-clés interdits détectés", key, dataType)
                 return@launch
             }
-
-            println("[CacheValidation] ✅ Tentative de cache autorisée: $key ($dataType)")
         }
 
         return true
@@ -150,9 +148,7 @@ class CacheValidationService @Inject constructor() {
      * SÉCURITÉ FINANCIÈRE : Logs détaillés pour audit
      */
     private fun logForbiddenAttempt(reason: String, key: String, dataType: String?) {
-        println("[CacheValidation] 🚫 $reason - Clé: $key, Type: $dataType")
-        println("[CacheValidation] 🚫 SÉCURITÉ FINANCIÈRE : Les données financières ne doivent JAMAIS être cachées !")
-        println("[CacheValidation] 🚫 Risque : Affichage de faux soldes ou montants")
+        
     }
 
     /**
@@ -172,8 +168,7 @@ class CacheValidationService @Inject constructor() {
         }
 
         if (containsFinancialData) {
-            println("[CacheValidation] 🚫 SÉCURITÉ FINANCIÈRE : Objet contient des données financières - Refusé: $key")
-            println("[CacheValidation] 🚫 Contenu détecté: ${objString.take(100)}...")
+
             return false
         }
 
@@ -232,11 +227,9 @@ class CacheValidationService @Inject constructor() {
 
         // Niveau 3 : Validation contextuelle
         if (context.contains("transaction") || context.contains("solde")) {
-            println("[CacheValidation] 🚫 Contexte interdit détecté: $context")
             return false
         }
 
-        println("[CacheValidation] ✅ Opération de cache validée: $key ($context)")
         return true
     }
 } 

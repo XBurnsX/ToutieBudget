@@ -44,16 +44,10 @@ class HistoriqueCompteViewModel(
         val collectionCompte: String? = savedStateHandle["collectionCompte"]
         val nomCompte: String? = savedStateHandle["nomCompte"]
 
-        println("DEBUG INIT: compteId = $compteId")
-        println("DEBUG INIT: collectionCompte = $collectionCompte")
-        println("DEBUG INIT: nomCompte = $nomCompte")
-
         if (compteId != null && collectionCompte != null) {
-            println("DEBUG INIT: Paramètres OK, chargement des transactions...")
             _uiState.update { it.copy(nomCompte = nomCompte ?: "") }
             chargerTransactions(compteId, collectionCompte)
         } else {
-            println("DEBUG INIT: Paramètres manquants!")
             _uiState.update { it.copy(isLoading = false, erreur = "ID de compte manquant.") }
         }
     }
@@ -110,10 +104,6 @@ class HistoriqueCompteViewModel(
                 val resultToutesTransactions = transactionRepository.recupererToutesLesTransactions()
                 if (resultToutesTransactions.isSuccess) {
                     val toutesTransactions = resultToutesTransactions.getOrNull() ?: emptyList()
-                    println("DEBUG: TOUTES les transactions de l'utilisateur: ${toutesTransactions.size}")
-                    toutesTransactions.forEach { transaction ->
-                        println("DEBUG: Transaction ID=${transaction.id}, compteId=${transaction.compteId}, collectionCompte=${transaction.collectionCompte}, type=${transaction.type}, montant=${transaction.montant}")
-                    }
                 }
 
                 // Ensuite, récupérer les transactions du compte spécifique
@@ -123,18 +113,12 @@ class HistoriqueCompteViewModel(
                 }
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
-                println("DEBUG: Nombre de transactions récupérées pour le compte: ${transactions.size}")
 
                 // Récupérer les enveloppes pour les noms
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull() ?: emptyList()
-                println("DEBUG: Nombre d'enveloppes récupérées: ${enveloppes.size}")
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
-                    println("DEBUG: Transaction ID: ${transaction.id}, AllocationId: ${transaction.allocationMensuelleId}")
-                    println("DEBUG: Transaction date: ${transaction.date}")
-                    println("DEBUG: Transaction tiers: ${transaction.tiers}")
-
                     // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
                     val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
                         // Récupérer les allocations seulement si nécessaire
@@ -147,8 +131,6 @@ class HistoriqueCompteViewModel(
 
                     // Utiliser directement le champ tiersId de la transaction (qui contient le nom)
                     val nomTiers = transaction.tiersId ?: "Transaction"
-
-                    println("DEBUG: Nom du tiers utilisé: '$nomTiers'")
 
                     TransactionUi(
                         id = transaction.id,
@@ -178,13 +160,6 @@ class HistoriqueCompteViewModel(
                     .sortedByDescending { it.second } // Trier par la date parsée
                     .associate { it.first to it.third } // Reconvertir en Map
 
-                println("DEBUG: Nombre de transactions UI créées: ${transactionsUi.size}")
-                println("DEBUG: Nombre de groupes de dates: ${transactionsGroupees.size}")
-                println("DEBUG: Ordre des dates:")
-                transactionsGroupees.keys.forEach { dateString ->
-                    println("DEBUG: Date: $dateString")
-                }
-
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -193,7 +168,6 @@ class HistoriqueCompteViewModel(
                     )
                 }
             } catch (e: Exception) {
-                println("DEBUG: Erreur lors du chargement des transactions: ${e.message}")
                 e.printStackTrace()
                 _uiState.update { it.copy(isLoading = false, erreur = e.message) }
             }

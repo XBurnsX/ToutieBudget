@@ -72,7 +72,6 @@ fun BudgetScreen(
                         couleur = bandeau.couleurCompte
                     )
                 }
-            println("[BUDGET] 🔄 Comptes mis à jour pour le clavier: ${comptesDisponibles.size} comptes disponibles")
         }
     }
 
@@ -176,7 +175,6 @@ fun BudgetScreen(
         // 2. Pas d'erreur (succès)
         // 3. Le clavier est ouvert
         if (!uiState.isLoading && uiState.erreur == null && showClavierEnveloppe) {
-            println("[BUDGET] ✅ Assignation réussie - Fermeture du clavier")
             showClavierEnveloppe = false
             enveloppeSelectionnee = null
         }
@@ -190,7 +188,6 @@ fun BudgetScreen(
             comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
             onAssigner = { montantCentimes, compteSourceId ->
                 // 🎯 LOGIQUE D'ASSIGNATION - AVEC GESTION D'ERREUR
-                println("[BUDGET] 🎯 Tentative d'assignation: ${montantCentimes/100.0}$ du compte $compteSourceId vers enveloppe ${enveloppeSelectionnee!!.id}")
 
                 viewModel.assignerArgentAEnveloppe(
                     enveloppeId = enveloppeSelectionnee!!.id,

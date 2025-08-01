@@ -97,7 +97,6 @@ class NetworkOptimizationService @Inject constructor(
         }
 
         _networkQuality.value = quality
-        println("[NetworkOptimization] Qualité réseau: $quality")
     }
 
     /**

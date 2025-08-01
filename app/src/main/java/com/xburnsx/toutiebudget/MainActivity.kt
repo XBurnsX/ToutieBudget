@@ -18,7 +18,6 @@ class MainActivity : ComponentActivity() {
 
         // Initialiser les services de cache avec priorité aux modifications
         AppModule.initializeCacheServices(this)
-        println("[MainActivity] ✅ Cache initialisé avec priorité aux modifications")
 
         setContent {
             // Le thème est maintenant géré dynamiquement dans AppNavigation

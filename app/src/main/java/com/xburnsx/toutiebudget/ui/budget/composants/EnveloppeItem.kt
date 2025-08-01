@@ -544,7 +544,6 @@ fun String?.toDateFormatee(): DateFormatee? {
             jourTexte = jourTexte
         )
     } catch (e: Exception) {
-        println("[ERROR] Erreur parsing date: $this - ${e.message}")
         null
     }
 }

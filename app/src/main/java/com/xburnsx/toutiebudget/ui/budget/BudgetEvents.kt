@@ -14,7 +14,6 @@ object BudgetEvents {
      */
     fun onAllocationUpdated(allocationId: String) {
         refreshBudget.tryEmit(Unit)
-        println("[BUDGET_EVENTS] 🔄 Rafraîchissement déclenché après modification allocation: $allocationId")
     }
 
     /**
@@ -22,7 +21,6 @@ object BudgetEvents {
      */
     fun onCompteUpdated(compteId: String) {
         refreshBudget.tryEmit(Unit)
-        println("[BUDGET_EVENTS] 🔄 Rafraîchissement déclenché après modification compte: $compteId")
     }
 
     /**
@@ -30,7 +28,6 @@ object BudgetEvents {
      */
     fun onEnveloppeUpdated(enveloppeId: String) {
         refreshBudget.tryEmit(Unit)
-        println("[BUDGET_EVENTS] 🔄 Rafraîchissement déclenché après modification enveloppe: $enveloppeId")
     }
 
     /**
@@ -38,6 +35,5 @@ object BudgetEvents {
      */
     fun refreshManual() {
         refreshBudget.tryEmit(Unit)
-        println("[BUDGET_EVENTS] 🔄 Rafraîchissement manuel déclenché")
     }
 }

@@ -218,7 +218,6 @@ private fun DialogSelectionEnveloppe(
                             ItemEnveloppe(
                                 enveloppe = enveloppe,
                                 onClick = {
-                                    println("[DEBUG] DialogSelectionEnveloppe - Enveloppe sélectionnée: ${enveloppe.nom} (ID: ${enveloppe.id})")
                                     onEnveloppeSelectionnee(enveloppe)
                                 }
                             )

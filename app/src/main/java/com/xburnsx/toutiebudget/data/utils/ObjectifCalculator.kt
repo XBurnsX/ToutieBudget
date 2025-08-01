@@ -113,7 +113,6 @@ class ObjectifCalculator {
     ): Double {
         if (dateEcheance == null) return 0.0
         
-        println("[DEBUG] Echeance - Date brute moisSelectionne reçue: $moisSelectionne")
         val maintenant = Date()
         val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - maintenant.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
@@ -133,7 +132,6 @@ class ObjectifCalculator {
         
         // Si le mois sélectionné est dans le passé par rapport à maintenant
         if (moisEcoules <= 0) {
-            println("[DEBUG] Échéance - Mois sélectionné dans le passé, suggestion: $objectifMensuel")
             return objectifMensuel
         }
         
@@ -168,17 +166,6 @@ class ObjectifCalculator {
             suggestionMensuelle
         }
         
-        println("[DEBUG] Échéance - Objectif total: $objectifTotal")
-        println("[DEBUG] Échéance - Mois totaux: $moisTotaux")
-        println("[DEBUG] Échéance - Objectif mensuel: $objectifMensuel")
-        println("[DEBUG] Échéance - Mois écoulés: $moisEcoules")
-        println("[DEBUG] Échéance - Devrait avoir alloué (total): $devraitAvoirAlloue")
-        println("[DEBUG] Échéance - Réellement alloué (total): $totalRealementAlloue")
-        println("[DEBUG] Échéance - Retard accumulé: $retardAccumule")
-        println("[DEBUG] Échéance - Déjà alloué ce mois: $dejaAlloqueCeMois")
-        println("[DEBUG] Échéance - Suggestion mensuelle: $suggestionMensuelle")
-        println("[DEBUG] Échéance - Suggestion finale: $suggestion")
-        
         return suggestion
     }
 
@@ -197,12 +184,10 @@ class ObjectifCalculator {
         
         // Si pas de date de début, suggérer l'objectif mensuel standard
         if (dateDebutObjectif == null) {
-            println("[DEBUG] Annuel - Pas de date de début, suggestion standard: $objectifMensuel")
             return objectifMensuel
         }
         
         // Calculer combien de mois se sont écoulés depuis le DÉBUT DE L'OBJECTIF jusqu'au mois sélectionné
-        println("[DEBUG] Annuel - Date brute moisSelectionne reçue: $moisSelectionne")
         val calendarDebut = Calendar.getInstance()
         calendarDebut.time = dateDebutObjectif
         val calendarSelectionne = Calendar.getInstance()
@@ -211,15 +196,8 @@ class ObjectifCalculator {
         val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
                 (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
         
-        println("[DEBUG] Annuel - Debug calcul mois:")
-        println("[DEBUG] Annuel - Date début: ${calendarDebut.get(Calendar.MONTH) + 1}/${calendarDebut.get(Calendar.YEAR)}")
-        println("[DEBUG] Annuel - Mois sélectionné: ${calendarSelectionne.get(Calendar.MONTH) + 1}/${calendarSelectionne.get(Calendar.YEAR)}")
-        println("[DEBUG] Annuel - Différence mois: ${calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)}")
-        println("[DEBUG] Annuel - Mois écoulés calculés: $moisEcoules")
-        
         // Si le mois sélectionné est avant le début de l'objectif, suggestion standard
         if (moisEcoules <= 0) {
-            println("[DEBUG] Annuel - Mois sélectionné avant le début de l'objectif, suggestion: $objectifMensuel")
             return objectifMensuel
         }
         
@@ -253,17 +231,6 @@ class ObjectifCalculator {
         } else {
             suggestionMensuelle
         }
-        
-        println("[DEBUG] Annuel - Objectif annuel: $objectifAnnuel")
-        println("[DEBUG] Annuel - Objectif mensuel: $objectifMensuel")
-        println("[DEBUG] Annuel - Date début objectif: $dateDebutObjectif")
-        println("[DEBUG] Annuel - Mois écoulés depuis début: $moisEcoules")
-        println("[DEBUG] Annuel - Devrait avoir alloué (total): $devraitAvoirAlloue")
-        println("[DEBUG] Annuel - Réellement alloué (total): $totalRealementAlloue")
-        println("[DEBUG] Annuel - Retard accumulé: $retardAccumule")
-        println("[DEBUG] Annuel - Déjà alloué ce mois: $dejaAlloqueCeMois")
-        println("[DEBUG] Annuel - Suggestion mensuelle: $suggestionMensuelle")
-        println("[DEBUG] Annuel - Suggestion finale: $suggestion")
         
         return suggestion
     }
@@ -299,22 +266,13 @@ class ObjectifCalculator {
         val versementRecommande = if (semaineInCycle == 1) {
             // 📅 PREMIÈRE SEMAINE : Suggérer pour atteindre 50$
             val objectifSemaine1 = objectifPeriodique / 2.0  // 100$ ÷ 2 = 50$
-            println("[DEBUG] Bihebdomadaire - PREMIÈRE SEMAINE - Objectif: $objectifSemaine1")
             max(0.0, objectifSemaine1 - soldeActuel)
         } else {
             // 📅 DEUXIÈME SEMAINE : Suggérer pour rattraper si en retard
             val objectifComplet = objectifPeriodique  // 100$ complet
             val retard = max(0.0, objectifComplet - soldeActuel)
-            println("[DEBUG] Bihebdomadaire - DEUXIÈME SEMAINE - Objectif: $objectifComplet, Retard: $retard")
             retard
         }
-
-        // Debug pour comprendre le calcul
-        println("[DEBUG] Bihebdomadaire - Jours écoulés: $joursEcoules")
-        println("[DEBUG] Bihebdomadaire - Jours in cycle (0-13): $joursInCycle")
-        println("[DEBUG] Bihebdomadaire - Semaine in cycle: $semaineInCycle/2")
-        println("[DEBUG] Bihebdomadaire - Solde actuel: $soldeActuel")
-        println("[DEBUG] Bihebdomadaire - Versement recommandé: $versementRecommande")
 
         return versementRecommande
     }

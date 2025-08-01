@@ -159,7 +159,6 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
          cacheValidationService = CacheValidationService()
          cacheService = CacheService(context, cacheValidationService)
          cacheSyncService = CacheSyncService(cacheService!!)
-         println("[AppModule] ✅ Services de cache initialisés avec SÉCURITÉ FINANCIÈRE et priorité aux modifications")
      }
      
      fun provideCompteRepository(): CompteRepository = compteRepository

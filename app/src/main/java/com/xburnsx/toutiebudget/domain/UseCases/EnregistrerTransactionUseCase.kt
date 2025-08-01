@@ -54,12 +54,10 @@ class EnregistrerTransactionUseCase(
 
         return try {
             coroutineScope {
-                println("[DEBUG] EnregistrerTransactionUseCase: début - montant=$montant, type=$typeTransaction, enveloppeId=$enveloppeId, tiersNom=$tiersNom")
 
                 // 1. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
-                    println("[DEBUG] Recherche/création allocation mensuelle pour enveloppeId=$enveloppeId")
 
                     // IMPORTANT: Les allocations mensuelles utilisent TOUJOURS le mois actuel
                     // même si la transaction a une date différente
@@ -75,11 +73,9 @@ class EnregistrerTransactionUseCase(
 
                     val resultAllocation = obtenirOuCreerAllocationMensuelle(enveloppeId, premierJourMois, compteId, collectionCompte)
                     if (resultAllocation.isFailure) {
-                        println("[DEBUG] Erreur allocation mensuelle: ${resultAllocation.exceptionOrNull()?.message}")
                         throw resultAllocation.exceptionOrNull() ?: Exception("Erreur lors de la gestion de l'allocation")
                     }
                     allocationMensuelleId = resultAllocation.getOrNull()
-                    println("[DEBUG] Allocation mensuelle obtenue: $allocationMensuelleId")
                 }
 
                 // 2. Créer la transaction avec la date sélectionnée par l'utilisateur
@@ -96,26 +92,20 @@ class EnregistrerTransactionUseCase(
                     tiers = tiersNom
                 )
 
-                println("[DEBUG] Création transaction avec allocationMensuelleId=$allocationMensuelleId")
                 val resultTransaction = transactionRepository.creerTransaction(transaction)
                 if (resultTransaction.isFailure) {
-                    println("[DEBUG] Erreur création transaction: ${resultTransaction.exceptionOrNull()?.message}")
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
                 }
-                println("[DEBUG] Transaction créée avec succès")
 
                 // 3. Mettre à jour les soldes en parallèle
                 val tachesMiseAJour = listOf(
                     async { 
-                        println("[DEBUG] Mise à jour solde compte")
                         mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant) 
                     },
                     async { 
                         if (!allocationMensuelleId.isNullOrBlank()) {
-                            println("[DEBUG] Mise à jour solde enveloppe avec allocationId=$allocationMensuelleId, montant=$montant")
                             mettreAJourSoldeEnveloppe(allocationMensuelleId, montant)
                         } else {
-                            println("[DEBUG] Pas de mise à jour enveloppe (allocationId null)")
                             Result.success(Unit)
                         }
                     }
@@ -126,20 +116,16 @@ class EnregistrerTransactionUseCase(
                 // Vérifier que toutes les mises à jour ont réussi
                 resultats.forEach { resultat ->
                     if (resultat.isFailure) {
-                        println("[DEBUG] Erreur mise à jour soldes: ${resultat.exceptionOrNull()?.message}")
                         throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
                     }
                 }
-                println("[DEBUG] EnregistrerTransactionUseCase: succès complet")
 
                 // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
                 BudgetEvents.refreshManual()
-                println("[DEBUG] EnregistrerTransactionUseCase: événement de rafraîchissement déclenché")
 
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            println("[DEBUG] EnregistrerTransactionUseCase: erreur - ${e.message}")
             Result.failure(e)
         }
     }
@@ -150,21 +136,17 @@ class EnregistrerTransactionUseCase(
      */
     private suspend fun obtenirOuCreerAllocationMensuelle(enveloppeId: String, premierJourMois: Date, compteId: String, collectionCompte: String): Result<String> {
         return try {
-            println("[DEBUG] obtenirOuCreerAllocationMensuelle - Recherche allocation pour enveloppeId: $enveloppeId, mois: $premierJourMois")
 
             // Chercher l'allocation existante pour ce mois via EnveloppeRepository
             val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
             val allocationExistante = allocationsExistantes.getOrNull()?.find { allocation -> allocation.enveloppeId == enveloppeId }
 
             if (allocationExistante != null) {
-                println("[DEBUG] obtenirOuCreerAllocationMensuelle - Allocation existante trouvée: ID=${allocationExistante.id}")
                 Result.success(allocationExistante.id)
             } else {
-                println("[DEBUG] obtenirOuCreerAllocationMensuelle - Aucune allocation trouvée, création d'une nouvelle")
                 creerNouvelleAllocation(enveloppeId, premierJourMois, compteId, collectionCompte)
             }
         } catch (e: Exception) {
-            println("[DEBUG] obtenirOuCreerAllocationMensuelle - Erreur: ${e.message}")
             Result.failure(e)
         }
     }
@@ -173,7 +155,6 @@ class EnregistrerTransactionUseCase(
      * Crée une nouvelle allocation mensuelle avec les bonnes données.
      */
     private suspend fun creerNouvelleAllocation(enveloppeId: String, premierJourMois: Date, compteId: String, collectionCompte: String): Result<String> {
-        println("[DEBUG] creerNouvelleAllocation - Création pour enveloppeId: $enveloppeId")
 
         val nouvelleAllocation = AllocationMensuelle(
             id = "",
@@ -187,22 +168,17 @@ class EnregistrerTransactionUseCase(
             collectionCompteSource = collectionCompte
         )
         
-        println("[DEBUG] creerNouvelleAllocation - Allocation à créer: enveloppeId=${nouvelleAllocation.enveloppeId}, solde=${nouvelleAllocation.solde}")
-
         return try {
             val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
             resultAllocation.fold(
                 onSuccess = { allocationCreee ->
-                    println("[DEBUG] creerNouvelleAllocation - Allocation créée: ID=${allocationCreee.id}")
                     Result.success(allocationCreee.id)
                 },
                 onFailure = { erreur ->
-                    println("[DEBUG] creerNouvelleAllocation - Erreur: ${erreur.message}")
                     Result.failure(erreur)
                 }
             )
         } catch (e: Exception) {
-            println("[DEBUG] creerNouvelleAllocation - Erreur: ${e.message}")
             Result.failure(e)
         }
     }
@@ -217,8 +193,6 @@ class EnregistrerTransactionUseCase(
         montant: Double
     ): Result<Unit> {
 
-        println("[DEBUG] mettreAJourSoldeCompte - DÉBUT: compteId=$compteId, collection=$collectionCompte, type=$typeTransaction, montant=$montant")
-
         // Calculer la variation du solde
         val variationSolde = when (typeTransaction) {
             TypeTransaction.Depense -> -montant  // Dépense = soustraction
@@ -232,8 +206,6 @@ class EnregistrerTransactionUseCase(
             TypeTransaction.TransfertEntrant -> montant   // Transfert entrant = addition
         }
 
-        println("[DEBUG] mettreAJourSoldeCompte - Variation calculée: $variationSolde")
-
         // Déterminer si on doit aussi mettre à jour le "prêt à placer"
         // Seulement pour les transactions qui ajoutent de l'argent au compte
         val mettreAJourPretAPlacer = when (typeTransaction) {
@@ -245,20 +217,12 @@ class EnregistrerTransactionUseCase(
             else -> false
         }
 
-        println("[DEBUG] mettreAJourSoldeCompte - Mise à jour prêt à placer: $mettreAJourPretAPlacer")
-
         val resultat = compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
             compteId,
             collectionCompte,
             variationSolde,
             mettreAJourPretAPlacer
         )
-
-        if (resultat.isSuccess) {
-            println("[DEBUG] mettreAJourSoldeCompte - SUCCÈS: Solde mis à jour avec variation $variationSolde")
-        } else {
-            println("[DEBUG] mettreAJourSoldeCompte - ÉCHEC: ${resultat.exceptionOrNull()?.message}")
-        }
 
         return resultat
     }

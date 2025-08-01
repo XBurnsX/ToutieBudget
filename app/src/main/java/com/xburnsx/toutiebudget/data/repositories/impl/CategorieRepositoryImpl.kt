@@ -109,7 +109,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             Result.success(categorieCreee)
             
         } catch (e: Exception) {
-            println("[ERROR] Erreur création catégorie: ${e.message}")
             Result.failure(e)
         }
     }
@@ -154,7 +153,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             Result.success(categorieMiseAJour)
 
         } catch (e: Exception) {
-            println("[ERROR] Erreur mise à jour catégorie: ${e.message}")
             Result.failure(e)
         }
     }
@@ -189,7 +187,6 @@ class CategorieRepositoryImpl : CategorieRepository {
             Result.success(Unit)
             
         } catch (e: Exception) {
-            println("[ERROR] Erreur suppression catégorie: ${e.message}")
             Result.failure(e)
         }
     }

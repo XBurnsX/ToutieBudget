@@ -186,16 +186,12 @@ class TransactionRepositoryImpl : TransactionRepository {
                 ?: return@withContext Result.failure(Exception("Token manquant"))
             val urlBase = client.obtenirUrlBaseActive()
 
-            println("DEBUG REPO: Recherche transactions pour compteId=$compteId, collectionCompte=$collectionCompte, utilisateurId=$utilisateurId")
-
             // Filtre pour récupérer les transactions d'un compte spécifique
             val filtreEncode = URLEncoder.encode(
                 "utilisateur_id = '$utilisateurId' && compte_id = '$compteId' && collection_compte = '$collectionCompte'", 
                 "UTF-8"
             )
             val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=500&sort=-date"
-
-            println("DEBUG REPO: URL de requête: $url")
 
             val requete = Request.Builder()
                 .url(url)
@@ -205,24 +201,17 @@ class TransactionRepositoryImpl : TransactionRepository {
 
             val reponse = httpClient.newCall(requete).execute()
 
-            println("DEBUG REPO: Code de réponse: ${reponse.code}")
-
             if (!reponse.isSuccessful) {
                 val erreurCorps = reponse.body?.string() ?: "Erreur inconnue"
-                println("DEBUG REPO: Erreur dans la réponse: $erreurCorps")
                 throw Exception("Erreur lors de la récupération des transactions du compte: ${reponse.code} $erreurCorps")
             }
 
             val corpsReponse = reponse.body!!.string()
-            println("DEBUG REPO: Réponse brute: $corpsReponse")
 
             val transactions = deserialiserListeTransactions(corpsReponse)
-            println("DEBUG REPO: Nombre de transactions désérialisées: ${transactions.size}")
 
             Result.success(transactions)
         } catch (e: Exception) {
-            println("DEBUG REPO: Exception: ${e.message}")
-            e.printStackTrace()
             Result.failure(e)
         }
     }

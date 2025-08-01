@@ -53,7 +53,6 @@ class VirerArgentViewModel(
      * À appeler quand l'écran redevient visible ou après des modifications.
      */
     fun rechargerDonnees() {
-        println("[DEBUG VIREMENT] === Rechargement manuel des données ===")
         chargerDonneesInitiales()
     }
 
@@ -85,41 +84,25 @@ class VirerArgentViewModel(
         return viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                println("[DEBUG VIREMENT] === Début chargement données ===")
 
                 allComptes = compteRepository.recupererTousLesComptes()
                     .getOrThrow()
                     .filter { !it.estArchive }
-                println("[DEBUG VIREMENT] Comptes chargés: ${allComptes.size}")
-                allComptes.forEach { compte ->
-                    println("[DEBUG VIREMENT] - Compte: ${compte.nom} (Type: ${compte::class.simpleName}, Archivé: ${compte.estArchive})")
-                }
 
                 allEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                     .getOrThrow()
                     .filter { !it.estArchive }
-                println("[DEBUG VIREMENT] Enveloppes chargées: ${allEnveloppes.size}")
-                allEnveloppes.forEach { env ->
-                    println("[DEBUG VIREMENT] - Enveloppe: ${env.nom} (ID: ${env.id}, Archivée: ${env.estArchive})")
-                }
 
                 allAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
                     .getOrThrow()
-                println("[DEBUG VIREMENT] Allocations chargées: ${allAllocations.size}")
-                allAllocations.forEach { alloc ->
-                    println("[DEBUG VIREMENT] - Allocation: EnvID=${alloc.enveloppeId}, solde=${alloc.solde}")
-                }
 
                 allCategories = categorieRepository.recupererToutesLesCategories()
                     .getOrThrow()
-                println("[DEBUG VIREMENT] Catégories chargées: ${allCategories.size}")
 
                 // Configurer les sources et destinations pour le mode initial
                 configurerSourcesEtDestinationsPourMode()
 
             } catch (e: Exception) {
-                println("[DEBUG VIREMENT] ERREUR lors du chargement: ${e.message}")
-                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -146,30 +129,17 @@ class VirerArgentViewModel(
      * Configure les sources et destinations pour le virement entre "Prêt à placer" et enveloppes.
      */
     private fun configurerPourModeEnveloppes() {
-        println("[DEBUG VIREMENT] === configurerPourModeEnveloppes ===")
 
         // Créer les items de comptes (seulement les comptes chèque avec prêt à placer disponible)
         val itemsComptes = allComptes
             .filterIsInstance<CompteCheque>()
             .filter { it.pretAPlacer > 0 } // Ne garder que les comptes avec un montant prêt à placer disponible
             .map { ItemVirement.CompteItem(it) }
-        println("[DEBUG VIREMENT] Items comptes (CompteCheque): ${itemsComptes.size}")
-        itemsComptes.forEach { item ->
-            println("[DEBUG VIREMENT] - Compte item: ${item.compte.nom}")
-        }
 
         // Créer les enveloppes UI
         val enveloppesUi = construireEnveloppesUi()
-        println("[DEBUG VIREMENT] Enveloppes UI construites: ${enveloppesUi.size}")
-        enveloppesUi.forEach { env ->
-            println("[DEBUG VIREMENT] - Enveloppe UI: ${env.nom} (solde: ${env.solde})")
-        }
 
         val enveloppesOrganisees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
-        println("[DEBUG VIREMENT] Enveloppes organisées par catégorie: ${enveloppesOrganisees.size} catégories")
-        enveloppesOrganisees.forEach { (nomCategorie, enveloppes) ->
-            println("[DEBUG VIREMENT] - Catégorie: $nomCategorie (${enveloppes.size} enveloppes)")
-        }
 
         // Grouper les sources (comptes + enveloppes avec argent)
         val sourcesEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
@@ -178,7 +148,6 @@ class VirerArgentViewModel(
                 .mapNotNull { env -> enveloppesUi.find { it.id == env.id } }
                 .filter { it.solde > 0 }
                 .map { ItemVirement.EnveloppeItem(it) }
-            println("[DEBUG VIREMENT] - Catégorie $nomCategorie: ${enveloppesAvecArgent.size} enveloppes avec argent")
             if (enveloppesAvecArgent.isNotEmpty()) {
                 sourcesEnveloppes[nomCategorie] = enveloppesAvecArgent
             }
@@ -188,10 +157,6 @@ class VirerArgentViewModel(
             put("Prêt à placer", itemsComptes)
             putAll(sourcesEnveloppes)
         }
-        println("[DEBUG VIREMENT] Sources finales: ${sources.size} catégories")
-        sources.forEach { (categorie, items) ->
-            println("[DEBUG VIREMENT] - Source catégorie: $categorie (${items.size} items)")
-        }
 
         // Grouper les destinations (comptes + toutes les enveloppes)
         val destinationsEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
@@ -199,7 +164,6 @@ class VirerArgentViewModel(
             val items = enveloppes
                 .mapNotNull { env -> enveloppesUi.find { it.id == env.id } }
                 .map { ItemVirement.EnveloppeItem(it) }
-            println("[DEBUG VIREMENT] - Destination catégorie $nomCategorie: ${items.size} items")
             if (items.isNotEmpty()) {
                 destinationsEnveloppes[nomCategorie] = items
             }
@@ -209,10 +173,6 @@ class VirerArgentViewModel(
             put("Prêt à placer", itemsComptes)
             putAll(destinationsEnveloppes)
         }
-        println("[DEBUG VIREMENT] Destinations finales: ${destinations.size} catégories")
-        destinations.forEach { (categorie, items) ->
-            println("[DEBUG VIREMENT] - Destination catégorie: $categorie (${items.size} items)")
-        }
 
         _uiState.update {
             it.copy(
@@ -220,8 +180,6 @@ class VirerArgentViewModel(
                 destinationsDisponibles = destinations
             )
         }
-
-        println("[DEBUG VIREMENT] UiState mis à jour avec sources et destinations")
     }
 
     /**
@@ -230,7 +188,6 @@ class VirerArgentViewModel(
      * Les dettes sont exclues.
      */
     private fun configurerPourModeComptes() {
-        println("[DEBUG VIREMENT] === configurerPourModeComptes ===")
 
         val comptesGroupes = allComptes
             .filter { it !is CompteDette } // Exclure les dettes
@@ -251,14 +208,6 @@ class VirerArgentViewModel(
                 }
             )
 
-        println("[DEBUG VIREMENT] Comptes groupés: ${comptesGroupes.size} catégories")
-        comptesGroupes.forEach { (categorie, items) ->
-            println("[DEBUG VIREMENT] - Catégorie: $categorie (${items.size} comptes)")
-            items.forEach { item ->
-                println("[DEBUG VIREMENT]   * ${item.compte.nom} (${item.compte::class.simpleName})")
-            }
-        }
-
         // Assurer que les catégories principales sont toujours présentes et dans le bon ordre
         val sourcesFinales = linkedMapOf<String, List<ItemVirement>>().apply {
             put("Comptes chèque", comptesGroupes["Comptes chèque"] ?: emptyList())
@@ -270,11 +219,6 @@ class VirerArgentViewModel(
             }
         }
 
-        println("[DEBUG VIREMENT] Sources finales pour mode Comptes: ${sourcesFinales.size} catégories")
-        sourcesFinales.forEach { (categorie, items) ->
-            println("[DEBUG VIREMENT] - Catégorie finale: $categorie (${items.size} items)")
-        }
-
         _uiState.update {
             it.copy(
                 sourcesDisponibles = sourcesFinales,
@@ -282,8 +226,6 @@ class VirerArgentViewModel(
                 isLoading = false
             )
         }
-
-        println("[DEBUG VIREMENT] UiState mis à jour pour mode Comptes")
     }
 
     /**
@@ -532,109 +474,47 @@ class VirerArgentViewModel(
         val montantEnCentimes = state.montant.toLongOrNull() ?: 0L
         val montantEnDollars = montantEnCentimes / 100.0
 
-        // DEBUG: Afficher les informations du virement
-        println("🔍 DEBUG VIREMENT:")
-        when (source) {
-            is ItemVirement.CompteItem -> println("   Source: ${source.compte.nom}")
-            is ItemVirement.EnveloppeItem -> println("   Source: ${source.enveloppe.nom}")
-            null -> println("   Source: NULL")
-        }
-        when (destination) {
-            is ItemVirement.CompteItem -> println("   Destination: ${destination.compte.nom}")
-            is ItemVirement.EnveloppeItem -> println("   Destination: ${destination.enveloppe.nom}")
-            null -> println("   Destination: NULL")
-        }
-        println("   Montant: $montantEnDollars")
-        println("   Mode: ${state.mode}")
-
         // Validations
         if (source == null) {
-            println("❌ ERREUR: Source null")
             _uiState.update { it.copy(erreur = VirementErrorMessages.General.SOURCE_NULL) }
             return
         }
         
         if (destination == null) {
-            println("❌ ERREUR: Destination null")
             _uiState.update { it.copy(erreur = VirementErrorMessages.General.DESTINATION_NULL) }
             return
         }
         
         if (montantEnCentimes <= 0) {
-            println("❌ ERREUR: Montant invalide: $montantEnCentimes")
             _uiState.update { it.copy(erreur = VirementErrorMessages.General.MONTANT_INVALIDE) }
             return
         }
 
         // Vérifier que la source et destination ne sont pas identiques
         if (memeItem(source, destination)) {
-            println("❌ ERREUR: Source et destination identiques")
             _uiState.update { it.copy(erreur = VirementErrorMessages.General.SOURCE_DESTINATION_IDENTIQUES) }
             return
         }
 
         // Vérifier que la source a assez d'argent
         val soldeSource = obtenirSoldeItem(source)
-        println("🔍 DEBUG SOLDE SOURCE:")
-        when (source) {
-            is ItemVirement.CompteItem -> {
-                println("   Type: CompteItem")
-                println("   Nom: ${source.compte.nom}")
-                println("   Solde compte: ${source.compte.solde}")
-                if (source.compte is CompteCheque) {
-                    println("   Prêt à placer: ${source.compte.pretAPlacer}")
-                }
-            }
-            is ItemVirement.EnveloppeItem -> {
-                println("   Type: EnveloppeItem")
-                println("   Nom: ${source.enveloppe.nom}")
-                println("   ID: ${source.enveloppe.id}")
-                println("   Solde enveloppe: ${source.enveloppe.solde}")
-                println("   Est prêt à placer: ${estPretAPlacer(source.enveloppe)}")
-                if (estPretAPlacer(source.enveloppe)) {
-                    val compteId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
-                    val compte = allComptes.find { it.id == compteId }
-                    println("   Compte ID extrait: $compteId")
-                    println("   Compte trouvé: ${compte?.nom}")
-                    if (compte is CompteCheque) {
-                        println("   Prêt à placer du compte: ${compte.pretAPlacer}")
-                    }
-                }
-            }
-        }
-        println("   Solde calculé par obtenirSoldeItem: $soldeSource")
         
         if (soldeSource < montantEnDollars) {
-            println("❌ ERREUR: Solde insuffisant: $soldeSource < $montantEnDollars")
             _uiState.update {
                 it.copy(erreur = VirementErrorMessages.General.soldeInsuffisant(soldeSource))
             }
             return
         }
 
-        println("✅ Validations basiques OK, validation de provenance...")
-
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isLoading = true, erreur = null) }
 
                 // VALIDATION DE PROVENANCE SELON LE TYPE DE VIREMENT
-                println("🔍 DEBUG VALIDATION DE PROVENANCE:")
-                println("   Source: ${when(source) {
-                    is ItemVirement.CompteItem -> "CompteItem(${source.compte.nom})"
-                    is ItemVirement.EnveloppeItem -> "EnveloppeItem(${source.enveloppe.nom}, id=${source.enveloppe.id}, estPretAPlacer=${estPretAPlacer(source.enveloppe)})"
-                }}")
-                println("   Destination: ${when(destination) {
-                    is ItemVirement.CompteItem -> "CompteItem(${destination.compte.nom})"
-                    is ItemVirement.EnveloppeItem -> "EnveloppeItem(${destination.enveloppe.nom}, id=${destination.enveloppe.id}, estPretAPlacer=${estPretAPlacer(destination.enveloppe)})"
-                }}")
-                
                 val validationResult = validerProvenanceVirement(source, destination)
-                println("   Résultat validation: ${if (validationResult.isSuccess) "SUCCÈS" else "ÉCHEC: ${validationResult.exceptionOrNull()?.message}"}")
 
                 if (validationResult.isFailure) {
                     val messageErreur = validationResult.exceptionOrNull()?.message ?: "Erreur de validation inconnue"
-                    println("❌ ERREUR DE PROVENANCE: $messageErreur")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -644,17 +524,10 @@ class VirerArgentViewModel(
                     return@launch
                 }
 
-                println("✅ Validation de provenance OK, exécution du virement...")
-
                 // Effectuer le virement selon les types source/destination
-                println("🔍 DEBUG EXÉCUTION VIREMENT:")
-                println("   Source type: ${source::class.simpleName}")
-                println("   Destination type: ${destination::class.simpleName}")
-                
                 val virementResult = when {
                     // Compte vers Compte - AUCUNE VALIDATION DE PROVENANCE NÉCESSAIRE
                     source is ItemVirement.CompteItem && destination is ItemVirement.CompteItem -> {
-                        println("🔄 Virement Compte vers Compte...")
                         argentService.effectuerVirementEntreComptes(
                             compteSourceId = source.compte.id,
                             compteDestId = destination.compte.id,
@@ -666,7 +539,6 @@ class VirerArgentViewModel(
 
                     // Compte vers Enveloppe (Prêt à placer vers enveloppe) - VALIDATION APPLIQUÉE
                     source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
-                        println(VirementErrorMessages.Debug.VIREMENT_COMPTE_VERS_ENVELOPPE)
                         val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
                         if (enveloppeDestination == null) {
                             Result.failure(Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(destination.enveloppe.nom)))
@@ -683,7 +555,6 @@ class VirerArgentViewModel(
 
                     // Enveloppe vers Compte (Enveloppe vers Prêt à placer) - VALIDATION APPLIQUÉE
                     source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
-                        println(VirementErrorMessages.Debug.VIREMENT_ENVELOPPE_VERS_COMPTE)
                         val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
                         if (enveloppeSource == null) {
                             Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.enveloppeSourceIntrouvable(source.enveloppe.nom)))
@@ -700,7 +571,6 @@ class VirerArgentViewModel(
                     source is ItemVirement.EnveloppeItem && destination is ItemVirement.EnveloppeItem -> {
                         if (estPretAPlacer(source.enveloppe)) {
                             // 🎯 SOURCE EST UN PRÊT À PLACER - VIREMENT COMPTE VERS ENVELOPPE
-                            println("🔄 Virement Prêt à placer vers Enveloppe")
                             val compteSourceId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
                             val compteSource = allComptes.find { it.id == compteSourceId }
                             
@@ -713,11 +583,6 @@ class VirerArgentViewModel(
                                 val ancienPretAPlacer = (compteSource as CompteCheque).pretAPlacer
                                 val nouveauPretAPlacer = ancienPretAPlacer - montantEnDollars
                                 
-                                println("💰 MISE À JOUR PRÊT À PLACER:")
-                                println("   Ancien montant: ${ancienPretAPlacer}$")
-                                println("   Montant du virement: ${montantEnDollars}$")
-                                println("   Nouveau montant: ${nouveauPretAPlacer}$")
-                                
                                 val compteModifie = compteSource.copy(
                                     pretAPlacerRaw = nouveauPretAPlacer,
                                     collection = compteSource.collection ?: "comptes_cheque" // Assurer qu'on a une collection
@@ -725,9 +590,7 @@ class VirerArgentViewModel(
                                 
                                 val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
                                 if (resultCompte.isSuccess) {
-                                    println("✅ Compte mis à jour avec succès")
                                 } else {
-                                    println("❌ Erreur mise à jour compte: ${resultCompte.exceptionOrNull()?.message}")
                                 }
                                 if (resultCompte.isFailure) {
                                     Result.failure(Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}"))
@@ -755,7 +618,6 @@ class VirerArgentViewModel(
                             }
                         } else if (estPretAPlacer(destination.enveloppe)) {
                             // Destination est un "Prêt à placer"
-                            println(VirementErrorMessages.Debug.VIREMENT_ENVELOPPE_VERS_PRET_A_PLACER)
                             val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
                             val compteDestination = allComptes.find { it.id == compteId }
                             if (compteDestination == null) {
@@ -769,7 +631,6 @@ class VirerArgentViewModel(
                             }
                         } else {
                             // Cas normal: Enveloppe vers Enveloppe
-                            println(VirementErrorMessages.Debug.VIREMENT_ENVELOPPE_VERS_ENVELOPPE)
                             val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
                             val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
 
@@ -847,21 +708,14 @@ class VirerArgentViewModel(
                     )
                 }
 
-                println("🚀 VIREMENT TERMINÉ - NAVIGATION IMMÉDIATE")
-                
                 // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (EN PARALLÈLE, non-bloquant)
                 launch {
-                    println("🔄 Rechargement des données en arrière-plan...")
                     chargerDonneesInitiales().join()
-                    println("✅ Données rechargées pour prochains virements")
                     
                     realtimeSyncService.declencherMiseAJourBudget()
-                    println("✅ Mise à jour budget déclenchée")
                 }
 
             } catch (e: Exception) {
-                println("❌ EXCEPTION: ${e.message}")
-                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -882,13 +736,11 @@ class VirerArgentViewModel(
         return when {
             // Compte vers Compte - AUCUNE VALIDATION NÉCESSAIRE
             source is ItemVirement.CompteItem && destination is ItemVirement.CompteItem -> {
-                println("🔍 Virement Compte vers Compte - Aucune validation de provenance nécessaire")
                 Result.success(Unit)
             }
 
             // Compte vers Enveloppe (Prêt à placer vers enveloppe) - VALIDATION STRICTE
             source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
-                println("🔍 Validation: Compte vers Enveloppe")
                 if (estPretAPlacer(destination.enveloppe)) {
                     Result.failure(Exception("❌ ERREUR DE CONFIGURATION\n\nImpossible de virer d'un compte vers un prêt à placer.\nVeuillez sélectionner une enveloppe comme destination."))
                 } else {
@@ -904,12 +756,9 @@ class VirerArgentViewModel(
             source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
                 if (estPretAPlacer(source.enveloppe)) {
                     // Source est un prêt à placer virtuel - Pas de validation de provenance nécessaire
-                    println("🔍 Validation: Prêt à placer vers Compte - Validation ignorée")
                     Result.success(Unit)
                 } else {
                     // Enveloppe normale vers Prêt à placer
-                    println("🔍 Validation: Enveloppe vers Prêt à placer")
-                    // Extraire l'ID du vrai compte depuis l'ID prêt à placer virtuel
                     val vraiCompteId = extraireCompteIdDepuisPretAPlacer(destination.compte.id)
                     validationProvenanceService.validerTransfertEnveloppeVersCompte(
                         enveloppeSourceId = source.enveloppe.id,
@@ -928,8 +777,6 @@ class VirerArgentViewModel(
                         Result.failure(Exception("Impossible de virer d'un prêt à placer vers un autre prêt à placer"))
                                     } else {
                     // Prêt à placer vers Enveloppe - VALIDATION DE PROVENANCE REQUISE
-                    println("🔍 Validation: Prêt à placer vers Enveloppe")
-                    // Extraire l'ID du VRAI compte depuis l'ID prêt à placer virtuel
                     val vraiCompteId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
                     validationProvenanceService.validerAjoutArgentEnveloppe(
                         enveloppeId = destination.enveloppe.id,
@@ -939,7 +786,6 @@ class VirerArgentViewModel(
                 }
                 } else if (estPretAPlacer(destination.enveloppe)) {
                     // Enveloppe normale vers Prêt à placer
-                    println("🔍 Validation: Enveloppe vers Prêt à placer")
                     val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
                     validationProvenanceService.validerTransfertEnveloppeVersCompte(
                         enveloppeSourceId = source.enveloppe.id,
@@ -948,7 +794,6 @@ class VirerArgentViewModel(
                     )
                 } else {
                     // Enveloppe normale vers Enveloppe normale
-                    println("🔍 Validation: Enveloppe vers Enveloppe")
                     validationProvenanceService.validerTransfertEntreEnveloppes(
                         enveloppeSourceId = source.enveloppe.id,
                         enveloppeCibleId = destination.enveloppe.id,
@@ -1086,7 +931,6 @@ class VirerArgentViewModel(
                 isVirementButtonEnabled = false         // ← DÉSACTIVER le bouton
             )
         }
-        println("🧹 Page de virement nettoyée complètement")
     }
 
     // ===== VALIDATION =====
@@ -1248,12 +1092,9 @@ class VirerArgentViewModel(
                 }
                 // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (non-bloquant)
                 launch {
-                    println("🔄 Rechargement données (executerVirement)...")
                     chargerDonneesInitiales().join()
-                    println("✅ Données rechargées")
                     
                     realtimeSyncService.declencherMiseAJourBudget()
-                    println("✅ Mise à jour budget déclenchée")
                 }
             }.onFailure { e ->
                 _uiState.update {
@@ -1285,18 +1126,8 @@ class VirerArgentViewModel(
 
             // Enveloppe -> Enveloppe - Utiliser les objets complets des enveloppes
             source is ItemVirement.EnveloppeItem && destination is ItemVirement.EnveloppeItem -> {
-                println("🔍 DEBUG: Cas EnveloppeItem -> EnveloppeItem")
-                println("   Source ID: ${source.enveloppe.id}")
-                println("   Source nom: ${source.enveloppe.nom}")
-                println("   Source est prêt à placer: ${estPretAPlacer(source.enveloppe)}")
-                println("   Destination ID: ${destination.enveloppe.id}")
-                println("   Destination nom: ${destination.enveloppe.nom}")
-                println("   Destination est prêt à placer: ${estPretAPlacer(destination.enveloppe)}")
-                
                 if (estPretAPlacer(source.enveloppe)) {
                     // Source est un prêt à placer virtuel → C'est en fait un virement Compte vers Enveloppe
-                    println("🔄 Virement Prêt à placer vers Enveloppe")
-                    
                     val compteSourceId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
                     val compteSource = allComptes.find { it.id == compteSourceId }
                     
@@ -1355,25 +1186,15 @@ class VirerArgentViewModel(
 
             // Enveloppe -> Prêt à placer (dans le mode enveloppes, c'est le seul cas "vers compte")
             source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
-                println("🔍 DEBUG: Cas EnveloppeItem -> CompteItem")
-                println("   Source ID: ${source.enveloppe.id}")
-                println("   Source nom: ${source.enveloppe.nom}")
-                println("   Source est prêt à placer: ${estPretAPlacer(source.enveloppe)}")
-                println("   Destination ID: ${destination.compte.id}")
-                println("   Destination nom: ${destination.compte.nom}")
-                
                 if (estPretAPlacer(source.enveloppe)) {
                     // ERREUR DANS LE COMMENTAIRE - Ce n'est PAS "prêt à placer vers prêt à placer"
                     // C'est "prêt à placer vers COMPTE" ce qui ne devrait pas arriver dans le mode Enveloppes !
-                    println("❌ ERREUR: Prêt à placer -> Compte détecté - ça ne devrait pas arriver !")
                     Result.failure(Exception("Configuration invalide: Prêt à placer vers compte détecté"))
                 } else {
                     // Enveloppe normale vers Prêt à placer
                     val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
 
                     if (enveloppeSource != null) {
-                        println("🔄 Virement Enveloppe vers Prêt à placer")
-
                         // Extraire l'ID du compte depuis l'ID "pret_a_placer_"
                         val compteId = extraireCompteIdDepuisPretAPlacer(destination.compte.id)
                         val compteDestination = allComptes.find { it.id == compteId }

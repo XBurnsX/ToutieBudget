@@ -92,12 +92,8 @@ fun ComptesScreen(
                             val compteId = compte.id
                             val nomCompte = compte.nom
 
-                            println("DEBUG CLICK: compteId=$compteId, collectionCompte=$collectionCompte, nomCompte=$nomCompte")
-
                             if (compteId.isNotEmpty() && collectionCompte.isNotEmpty()) {
                                 onCompteClick(compteId, collectionCompte, nomCompte)
-                            } else {
-                                println("DEBUG CLICK: Paramètres invalides - compteId ou collectionCompte vide")
                             }
                         },
                         onLongClick = { viewModel.onCompteLongPress(compte) }

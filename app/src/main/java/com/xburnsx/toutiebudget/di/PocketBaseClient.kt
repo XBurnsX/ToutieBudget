@@ -377,7 +377,6 @@ object PocketBaseClient {
             }
         } catch (e: IOException) {
             // En cas d'erreur réseau, invalider le cache et réessayer une fois
-            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
             UrlResolver.invaliderCache()
             throw e
         } catch (e: Exception) {
@@ -414,7 +413,6 @@ object PocketBaseClient {
             }
         } catch (e: IOException) {
             // En cas d'erreur réseau, invalider le cache et réessayer une fois
-            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
             UrlResolver.invaliderCache()
             throw e
         } catch (e: Exception) {
@@ -448,7 +446,6 @@ object PocketBaseClient {
             }
         } catch (e: IOException) {
             // En cas d'erreur réseau, invalider le cache et réessayer une fois
-            println("[PocketBaseClient] Erreur réseau détectée, invalidation du cache URL")
             UrlResolver.invaliderCache()
             throw e
         } catch (e: Exception) {

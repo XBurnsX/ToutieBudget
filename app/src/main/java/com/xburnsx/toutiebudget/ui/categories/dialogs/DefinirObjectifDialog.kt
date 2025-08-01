@@ -188,7 +188,6 @@ fun DefinirObjectifDialog(
                                             val selectedCalendar = Calendar.getInstance()
                                             selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
                                             selectedCalendar.set(Calendar.MILLISECOND, 0)
-                                            println("[DEBUG] Date sélectionnée pour objectif bihebdomadaire: ${selectedCalendar.time}")
                                             onValueChange(null, null, selectedCalendar.time, null)
                                         },
                                         calendar.get(Calendar.YEAR),
@@ -224,7 +223,6 @@ fun DefinirObjectifDialog(
                                             val selectedCalendar = Calendar.getInstance()
                                             selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
                                             selectedCalendar.set(Calendar.MILLISECOND, 0)
-                                            println("[DEBUG] Date sélectionnée pour objectif échéance: ${selectedCalendar.time}")
                                             onValueChange(null, null, selectedCalendar.time, null)
                                         },
                                         calendar.get(Calendar.YEAR),

@@ -75,8 +75,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
             val timestamp = dateString.toLong()
             return Date(timestamp)
         } catch (e: Exception) {
-            // Dernier recours : log et retourner null
-            println("SafeDateAdapter: Impossible de parser la date '$dateString'")
+            // Dernier recours : retourner null
             return null
         }
     }

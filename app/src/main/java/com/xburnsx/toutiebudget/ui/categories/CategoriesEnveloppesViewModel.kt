@@ -55,11 +55,9 @@ class CategoriesEnveloppesViewModel(
                 val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
                 
                 val categories = categoriesResult.getOrElse { 
-                    println("[ERROR] Erreur chargement catégories: ${it.message}")
                     emptyList() 
                 }
                 val enveloppes = enveloppesResult.getOrElse { 
-                    println("[ERROR] Erreur chargement enveloppes: ${it.message}")
                     emptyList() 
                 }
                 
@@ -82,7 +80,6 @@ class CategoriesEnveloppesViewModel(
 
                 
             } catch (e: Exception) {
-                println("[ERROR] Erreur lors du chargement: ${e.message}")
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -167,8 +164,6 @@ class CategoriesEnveloppesViewModel(
 
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
                     realtimeSyncService.declencherMiseAJourBudget()
-
-                    println("[SYNC] Nouvelle catégorie créée et notification envoyée : ${categorieCreee.nom}")
 
                 }.onFailure { erreur ->
                     // Supprimer la catégorie temporaire en cas d'erreur
@@ -289,8 +284,6 @@ class CategoriesEnveloppesViewModel(
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
                     realtimeSyncService.declencherMiseAJourBudget()
 
-                    println("[SYNC] Nouvelle enveloppe créée et notification envoyée : ${enveloppeCreee.nom}")
-
                 }.onFailure { erreur ->
                     // Supprimer l'enveloppe temporaire en cas d'erreur
                     val groupesCorrigees = _uiState.value.enveloppesGroupees.toMutableMap()
@@ -404,7 +397,6 @@ class CategoriesEnveloppesViewModel(
                         if (calendar.time.before(Date())) {
                             calendar.add(Calendar.MONTH, 1)
                         }
-                        println("[DEBUG] Date de début calculée pour objectif mensuel: ${calendar.time}")
                         calendar.time
                     }
                     TypeObjectif.Bihebdomadaire -> {
@@ -417,10 +409,8 @@ class CategoriesEnveloppesViewModel(
                             calendar.set(Calendar.MINUTE, 0)
                             calendar.set(Calendar.SECOND, 0)
                             calendar.set(Calendar.MILLISECOND, 0)
-                            println("[DEBUG] Date de début pour objectif bihebdomadaire: ${calendar.time}")
                             calendar.time
                         } else {
-                            println("[ERROR] Pas de date de début sélectionnée pour objectif bihebdomadaire")
                             null
                         }
                     }
@@ -447,7 +437,6 @@ class CategoriesEnveloppesViewModel(
                             val calendar = Calendar.getInstance()
                             calendar.time = dateDebut
                             calendar.add(Calendar.DAY_OF_YEAR, 14) // Ajouter 14 jours
-                            println("[DEBUG] Date d'objectif pour bihebdomadaire: ${calendar.time}")
                             calendar.time.toString()
                         }
                     }
@@ -461,7 +450,6 @@ class CategoriesEnveloppesViewModel(
                             val calendar = Calendar.getInstance()
                             calendar.time = dateDebut
                             calendar.add(Calendar.MONTH, 12) // Ajouter 12 mois
-                            println("[DEBUG] Date d'objectif pour annuel: date début = $dateDebut, date fin = ${calendar.time}")
                             java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
                         }
                     }
@@ -475,15 +463,6 @@ class CategoriesEnveloppesViewModel(
                     dateDebutObjectif = dateDebutCalculee, // 🔥 UTILISER la date de début calculée
                     objectifJour = formState.jour
                 )
-
-                // 🔥 DEBUG: Afficher les valeurs avant sauvegarde
-                println("[DEBUG] === SAUVEGARDE OBJECTIF ===")
-                println("[DEBUG] Type: ${formState.type}")
-                println("[DEBUG] dateDebutCalculee: $dateDebutCalculee")
-                println("[DEBUG] dateObjectifCalculee: $dateObjectifCalculee")
-                println("[DEBUG] enveloppeModifiee.dateDebutObjectif: ${enveloppeModifiee.dateDebutObjectif}")
-                println("[DEBUG] enveloppeModifiee.dateObjectif: ${enveloppeModifiee.dateObjectif}")
-                println("[DEBUG] ===============================")
 
                 // Mise à jour instantanée de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
@@ -507,7 +486,6 @@ class CategoriesEnveloppesViewModel(
                 enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee).onSuccess {
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après modification d'objectif
                     realtimeSyncService.declencherMiseAJourBudget()
-                    println("[SYNC] Objectif modifié et notification budget envoyée pour: ${enveloppe.nom}")
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur sauvegarde objectif: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -554,7 +532,6 @@ class CategoriesEnveloppesViewModel(
                 enveloppeRepository.mettreAJourEnveloppe(enveloppeSansObjectif).onSuccess {
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après suppression d'objectif
                     realtimeSyncService.declencherMiseAJourBudget()
-                    println("[SYNC] Objectif supprimé et notification budget envoyée pour: ${enveloppe.nom}")
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur suppression objectif: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur

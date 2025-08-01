@@ -27,20 +27,16 @@ class SupprimerTransactionUseCase(
     suspend fun executer(transactionId: String): Result<Unit> {
         return try {
             coroutineScope {
-                println("[DEBUG] SupprimerTransactionUseCase: début - transactionId=$transactionId")
 
                 // 1. Récupérer la transaction existante
                 val transaction = transactionRepository.recupererTransactionParId(transactionId)
                     .getOrNull() ?: throw Exception("Transaction non trouvée")
-
-                println("[DEBUG] Transaction trouvée: ${transaction.id}, montant=${transaction.montant}, type=${transaction.type}")
 
                 // 2. Mettre à jour les soldes en parallèle
                 val tachesMiseAJour = mutableListOf<kotlinx.coroutines.Deferred<Result<Unit>>>()
 
                 // Annuler l'effet de la transaction sur le compte
                 tachesMiseAJour.add(async { 
-                    println("[DEBUG] Annulation effet sur le compte")
                     annulerTransactionCompte(
                         transaction.compteId,
                         transaction.collectionCompte,
@@ -52,10 +48,8 @@ class SupprimerTransactionUseCase(
                 // Annuler l'effet de la transaction sur l'enveloppe si c'était une dépense
                 tachesMiseAJour.add(async { 
                     if (transaction.allocationMensuelleId != null && transaction.type == TypeTransaction.Depense) {
-                        println("[DEBUG] Annulation effet sur l'enveloppe")
                         enveloppeRepository.annulerDepenseAllocation(transaction.allocationMensuelleId, transaction.montant)
                     } else {
-                        println("[DEBUG] Pas d'effet à annuler sur l'enveloppe")
                         Result.success(Unit)
                     }
                 })
@@ -65,30 +59,22 @@ class SupprimerTransactionUseCase(
                 // Vérifier que toutes les mises à jour ont réussi
                 resultats.forEach { resultat ->
                     if (resultat.isFailure) {
-                        println("[DEBUG] Erreur mise à jour soldes: ${resultat.exceptionOrNull()?.message}")
                         throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
                     }
                 }
 
                 // 3. Supprimer la transaction
-                println("[DEBUG] Suppression de la transaction")
                 val resultSuppression = transactionRepository.supprimerTransaction(transactionId)
                 if (resultSuppression.isFailure) {
-                    println("[DEBUG] Erreur suppression transaction: ${resultSuppression.exceptionOrNull()?.message}")
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de la transaction")
                 }
-                println("[DEBUG] Transaction supprimée avec succès")
-
-                println("[DEBUG] SupprimerTransactionUseCase: succès complet")
 
                 // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
                 BudgetEvents.refreshManual()
-                println("[DEBUG] SupprimerTransactionUseCase: événement de rafraîchissement déclenché")
 
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            println("[DEBUG] SupprimerTransactionUseCase: erreur - ${e.message}")
             Result.failure(e)
         }
     }

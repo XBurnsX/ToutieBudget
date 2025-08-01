@@ -69,7 +69,6 @@ class CacheService(
     fun <T> saveStaticDataToCache(key: String, data: T, context: String = "") {
         // Validation stricte avant mise en cache
         if (!validateCacheAttempt(key, data, context)) {
-            println("[CacheService] 🚫 SÉCURITÉ FINANCIÈRE : Cache refusé pour $key")
             return
         }
         
@@ -84,7 +83,6 @@ class CacheService(
             .putString(key, gson.toJson(cacheEntry))
             .apply()
         
-        println("[CacheService] ✅ Données statiques cachées avec sécurité: $key")
     }
 
     /**
@@ -95,13 +93,11 @@ class CacheService(
     fun <T> getStaticDataFromCache(key: String, type: Class<T>): T? {
         // Vérifier que c'est une clé autorisée pour le cache
         if (!isStaticDataKey(key)) {
-            println("[CacheService] ⚠️ Tentative de récupération de cache pour données dynamiques ignorée: $key")
             return null
         }
         
         // Vérifier si des modifications récentes invalident le cache
         if (hasRecentModifications(key)) {
-            println("[CacheService] 🔄 Cache invalidé par modifications récentes: $key")
             invalidateCache(key)
             return null
         }
@@ -109,7 +105,6 @@ class CacheService(
         // Essayer d'abord le cache en mémoire (plus rapide)
         val memoryEntry = memoryCache[key]
         if (memoryEntry != null && isCacheValid(memoryEntry.timestamp)) {
-            println("[CacheService] ✅ Données récupérées du cache mémoire: $key")
             return gson.fromJson(memoryEntry.data, type)
         }
         
@@ -123,18 +118,15 @@ class CacheService(
             if (isCacheValid(cacheEntry.timestamp)) {
                 // Mettre en cache mémoire pour les prochaines fois
                 memoryCache[key] = cacheEntry
-                println("[CacheService] ✅ Données récupérées du cache disque: $key")
                 gson.fromJson(cacheEntry.data, type)
             } else {
                 // Supprimer le cache expiré
                 invalidateCache(key)
-                println("[CacheService] 🗑️ Cache expiré supprimé: $key")
                 null
             }
         } catch (e: Exception) {
             // En cas d'erreur, supprimer le cache corrompu
             invalidateCache(key)
-            println("[CacheService] ❌ Cache corrompu supprimé: $key")
             null
         }
     }
@@ -171,7 +163,6 @@ class CacheService(
             "allocation", "allocations" -> invalidateAllStaticCaches() // Allocations affectent tout
         }
         
-        println("[CacheService] 🔄 Modification détectée pour $entityType - Cache invalidé")
     }
 
     /**
@@ -208,7 +199,6 @@ class CacheService(
         }
         
         if (containsFinancialData) {
-            println("[CacheService] 🚫 SÉCURITÉ FINANCIÈRE : Données financières détectées - Refusé: $key")
             return false
         }
         
@@ -222,13 +212,11 @@ class CacheService(
     fun <T> getStaticListFromCache(key: String, type: Class<T>): List<T>? {
         // Vérifier que c'est une clé autorisée pour le cache
         if (!isStaticDataKey(key)) {
-            println("[CacheService] ⚠️ Tentative de récupération de liste du cache pour données dynamiques ignorée: $key")
             return null
         }
         
         // Vérifier si des modifications récentes invalident le cache
         if (hasRecentModifications(key)) {
-            println("[CacheService] 🔄 Cache invalidé par modifications récentes: $key")
             invalidateCache(key)
             return null
         }
@@ -312,12 +300,10 @@ class CacheService(
         }
         
         if (containsDynamicKeyword) {
-            println("[CacheService] 🚫 SÉCURITÉ FINANCIÈRE : Détection automatique - Données dynamiques détectées: $key")
             return false
         }
         
         // Par défaut, ne pas autoriser les clés inconnues
-        println("[CacheService] ⚠️ Clé inconnue - Refusée par sécurité: $key")
         return false
     }
 
@@ -328,7 +314,6 @@ class CacheService(
     fun invalidateCache(key: String) {
         memoryCache.remove(key)
         prefs.edit().remove(key).apply()
-        println("[CacheService] 🔄 Cache invalidé: $key")
     }
 
     /**
@@ -343,7 +328,6 @@ class CacheService(
             .remove(CACHE_KEY_COMPTES)
             .remove(CACHE_KEY_ENVELOPPES)
             .apply()
-        println("[CacheService] 🔄 SÉCURITÉ FINANCIÈRE : Tous les caches statiques invalidés")
     }
 
     /**
@@ -370,7 +354,6 @@ class CacheService(
         memoryCache.clear()
         lastModificationTimestamps.clear()
         prefs.edit().clear().apply()
-        println("[CacheService] 🗑️ Cache complètement vidé")
     }
 
     /**
@@ -405,7 +388,6 @@ class CacheService(
             }
             
             prefs.edit().putLong(KEY_LAST_CLEANUP, currentTime).apply()
-            println("[CacheService] 🧹 Nettoyage terminé: $cleanedCount entrées supprimées")
         }
     }
 

@@ -75,7 +75,6 @@ class RealtimeSyncService @Inject constructor() {
             try {
                 connectWebSocket()
             } catch (e: Exception) {
-                println("[REALTIME] ❌ Erreur connexion: ${e.message}")
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
                 startRealtimeSync()
@@ -113,9 +112,7 @@ class RealtimeSyncService @Inject constructor() {
      * Utilisée par les repositories pour notifier les changements.
      */
     fun declencherMiseAJourComptes() {
-        println("[REALTIME] 🔄 declencherMiseAJourComptes() appelée")
         serviceScope.launch {
-            println("[REALTIME] 📤 Émission de l'événement comptesUpdated")
             _comptesUpdated.emit(Unit)
         }
     }
@@ -172,7 +169,6 @@ class RealtimeSyncService @Inject constructor() {
 
                 if (response.isSuccessful) {
                     isConnected = true
-                    println("[REALTIME] ✅ Connexion établie")
 
                     // Lire le stream en temps réel
                     response.body?.source()?.let { source ->
@@ -191,7 +187,6 @@ class RealtimeSyncService @Inject constructor() {
                         }
                     }
                 } else {
-                    println("[REALTIME] ❌ Erreur connexion: ${response.code}")
                     // Retry après 5 secondes
                     kotlinx.coroutines.delay(5000)
                     startRealtimeSync()
@@ -211,49 +206,38 @@ class RealtimeSyncService @Inject constructor() {
      */
     private suspend fun handleRealtimeEvent(data: String) {
         try {
-            println("[REALTIME] 📨 Événement SSE reçu: $data")
             val jsonEvent = gson.fromJson(data, JsonObject::class.java)
             val action = jsonEvent.get("action")?.asString
             val record = jsonEvent.get("record")?.asJsonObject
             val collection = record?.get("collectionName")?.asString
 
-            println("[REALTIME] 🔍 Action: $action")
-            println("[REALTIME] 🔍 Collection: $collection")
-            println("[REALTIME] 🔍 Record: $record")
-
             // Notifier les ViewModels selon la collection modifiée
             when (collection) {
                 "allocations_mensuelles" -> {
-                    println("[REALTIME] 💰 Budget mis à jour")
                     _budgetUpdated.emit(Unit)
                 }
                 "comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement" -> {
-                    println("[REALTIME] 🏦 Comptes mis à jour")
                     _comptesUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)
                 }
                 "enveloppes" -> {
-                    println("[REALTIME] 📮 Enveloppes mises à jour")
                     _budgetUpdated.emit(Unit)
                 }
                 "categories" -> {
-                    println("[REALTIME] 📂 Catégories mises à jour")
                     _categoriesUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)
                 }
                 "transactions" -> {
-                    println("[REALTIME] 💸 Transactions mises à jour")
                     _transactionsUpdated.emit(Unit)
                     _budgetUpdated.emit(Unit)
                     _comptesUpdated.emit(Unit)
                 }
                 else -> {
-                    println("[REALTIME] ⚠️ Collection non reconnue: $collection")
+                    // Collection non reconnue
                 }
             }
 
         } catch (e: Exception) {
-            println("[REALTIME] ❌ Erreur parsing événement: ${e.message}")
             // Ignorer les erreurs de parsing silencieusement
         }
     }
@@ -263,7 +247,6 @@ class RealtimeSyncService @Inject constructor() {
      * Force une reconnexion (utile après login/logout).
      */
     fun reconnect() {
-        println("[REALTIME] 🔄 Reconnexion forcée...")
         stopRealtimeSync()
         startRealtimeSync()
     }
@@ -273,44 +256,13 @@ class RealtimeSyncService @Inject constructor() {
      * À appeler après un login réussi.
      */
     fun startAfterLogin() {
-        println("[REALTIME] 🔑 Démarrage après login...")
         startRealtimeSync()
     }
 
-    /**
-     * FONCTION DE DEBUG - Montre EXACTEMENT ce qui se passe
-     */
-    suspend fun debugSuppression(): Result<String> = runCatching {
-        val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
-        val debugLog = StringBuilder()
-
-        debugLog.appendLine("=== DEBUG SUPPRESSION ===")
-        debugLog.appendLine("Utilisateur connecté: $userId")
-        debugLog.appendLine("Token présent: ${client.obtenirToken() != null}")
-        debugLog.appendLine("")
-
-        // Test de base - est-ce que les méthodes HTTP fonctionnent?
-        try {
-            debugLog.appendLine("TEST 1: Méthodes HTTP de base")
-            val healthResponse = client.effectuerRequeteGet("/api/health", emptyMap())
-            debugLog.appendLine("✅ GET /api/health fonctionne: ${healthResponse.take(100)}")
-        } catch (e: Exception) {
-            debugLog.appendLine("❌ GET /api/health ÉCHOUE: ${e.message}")
-            return@runCatching debugLog.toString()
-        }
-
-        debugLog.appendLine("\n=== FIN DEBUG ===")
-        debugLog.toString()
-    }
-
-    /**
-     * VERSION INTELLIGENTE - Découvre automatiquement les VRAIS noms de collections et supprime seulement tes données
-     */
+    // Suppression de la fonction de debug et de tous les println/logs
     suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
 
-        println("[RESET INTELLIGENT] 🧠 DÉCOUVERTE AUTOMATIQUE DES COLLECTIONS...")
-        println("[RESET INTELLIGENT] 👤 Utilisateur: $userId")
         var totalSupprime = 0
 
         // Liste de TOUS les noms possibles basés sur l'analyse de ton projet
@@ -337,30 +289,24 @@ class RealtimeSyncService @Inject constructor() {
         val collectionsExistantes = mutableListOf<String>()
 
         // Phase 1: Découvrir quelles collections existent vraiment
-        println("[RESET INTELLIGENT] 🔍 Test de ${nomsCollectionsPossibles.size} noms possibles...")
 
         for (nomCollection in nomsCollectionsPossibles) {
             try {
                 val response = client.effectuerRequeteGet("/api/collections/$nomCollection/records", mapOf("perPage" to "1"))
                 // Si on arrive ici sans erreur 404, la collection existe !
                 collectionsExistantes.add(nomCollection)
-                println("[RESET INTELLIGENT] ✅ Collection trouvée: $nomCollection")
             } catch (e: Exception) {
                 if (e.message?.contains("404") == true) {
                     // Collection n'existe pas, c'est normal
                 } else {
-                    println("[RESET INTELLIGENT] ⚠️ Erreur pour $nomCollection: ${e.message}")
+                    // Erreur pour $nomCollection: ${e.message}
                 }
             }
         }
 
-        println("[RESET INTELLIGENT] 🎯 Collections existantes: ${collectionsExistantes.joinToString(", ")}")
-
         // Phase 2: Supprimer SEULEMENT tes données dans chaque collection
         for (collection in collectionsExistantes) {
             try {
-                println("[RESET INTELLIGENT] 🗑️ Nettoyage de la collection: $collection")
-
                 // Récupérer TOUS les éléments de cette collection
                 val response = client.effectuerRequeteGet("/api/collections/$collection/records", mapOf(
                     "perPage" to "500"
@@ -368,8 +314,6 @@ class RealtimeSyncService @Inject constructor() {
 
                 val jsonResponse = gson.fromJson(response, JsonObject::class.java)
                 val items = jsonResponse.getAsJsonArray("items")
-
-                println("[RESET INTELLIGENT] 📋 Trouvé ${items.size()} éléments dans $collection")
 
                 if (items.size() > 0) {
                     items.forEach { item: JsonElement ->
@@ -382,43 +326,31 @@ class RealtimeSyncService @Inject constructor() {
                                 ?: "Élément"
                             val itemUserId = obj.get("utilisateur_id")?.asString
 
-                            println("[RESET INTELLIGENT] 🔍 $collection: $nom (User: ${itemUserId ?: "AUCUN"})")
-
                             // SUPPRIMER SEULEMENT SI C'EST TON UTILISATEUR
                             if (itemUserId == userId) {
                                 try {
                                     client.effectuerRequeteDelete("/api/collections/$collection/records/$id")
                                     totalSupprime++
-                                    println("[RESET INTELLIGENT] ✅ SUPPRIMÉ: $nom (ton utilisateur)")
                                 } catch (deleteE: Exception) {
-                                    println("[RESET INTELLIGENT] ❌ Erreur suppression $nom: ${deleteE.message}")
+                                    // Erreur suppression $nom: ${deleteE.message}
                                 }
-                            } else {
-                                println("[RESET INTELLIGENT] ⏭️ IGNORÉ: $nom (utilisateur: $itemUserId)")
                             }
 
                         } catch (e: Exception) {
-                            println("[RESET INTELLIGENT] ❌ Erreur traitement élément: ${e.message}")
+                            // Erreur traitement élément: ${e.message}
                         }
                     }
-                } else {
-                    println("[RESET INTELLIGENT] ⚠️ Collection $collection vide")
                 }
 
             } catch (e: Exception) {
-                println("[RESET INTELLIGENT] ❌ Erreur pour collection $collection: ${e.message}")
+                // Erreur pour collection $collection: ${e.message}
             }
         }
 
-        println("[RESET INTELLIGENT] 🧠 DÉCOUVERTE ET NETTOYAGE TERMINÉS!")
-        println("[RESET INTELLIGENT] 📊 Collections découvertes: ${collectionsExistantes.size}")
-        println("[RESET INTELLIGENT] 📊 Éléments supprimés pour TOI: $totalSupprime")
-
         if (totalSupprime == 0) {
-            println("[RESET INTELLIGENT] ⚠️ Aucune donnée trouvée pour ton utilisateur $userId")
-            println("[RESET INTELLIGENT] 📋 Collections testées: ${collectionsExistantes.joinToString(", ")}")
+            // Aucune donnée trouvée pour ton utilisateur $userId
         } else {
-            println("[RESET INTELLIGENT] 🎉 SUCCÈS! $totalSupprime éléments supprimés pour TOI SEULEMENT!")
+            // SUCCÈS! $totalSupprime éléments supprimés pour TOI SEULEMENT!
         }
     }
 }

@@ -35,7 +35,6 @@ class ComptesViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.comptesUpdated.collectLatest {
-                println("[COMPTES] 🔄 Événement comptesUpdated reçu - Rechargement des comptes")
                 chargerComptes()
             }
         }
@@ -85,20 +84,11 @@ class ComptesViewModel(
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
-                println("🔍 [DEBUG] === RÉCONCILIATION ===")
-                println("🔍 [DEBUG] Compte: ${compte.nom}")
-                println("🔍 [DEBUG] Ancien solde: ${compte.solde}")
-                println("🔍 [DEBUG] Nouveau solde: $nouveauSolde")
-
                 when (compte) {
                     is CompteCheque -> {
                         // CALCUL CORRECT : Si solde augmente de 100$, prêt à placer augmente de 100$
                         val difference = nouveauSolde - compte.solde
                         val nouveauPretAPlacer = compte.pretAPlacer + difference
-
-                        println("🔍 [DEBUG] Différence: $difference")
-                        println("🔍 [DEBUG] Ancien prêt à placer: ${compte.pretAPlacer}")
-                        println("🔍 [DEBUG] Nouveau prêt à placer: $nouveauPretAPlacer")
 
                         val compteReconcilie = CompteCheque(
                             id = compte.id,
@@ -113,12 +103,10 @@ class ComptesViewModel(
                         )
 
                         compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
-                            println("✅ [DEBUG] Réconciliation réussie")
                             _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
                             chargerComptes()
                             onCompteChange?.invoke()
                         }.onFailure { erreur ->
-                            println("❌ [DEBUG] Erreur: ${erreur.message}")
                             _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
                         }
                     }
@@ -132,19 +120,15 @@ class ComptesViewModel(
                         }
 
                         compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
-                            println("✅ [DEBUG] Réconciliation réussie")
                             _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
                             chargerComptes()
                             onCompteChange?.invoke()
                         }.onFailure { erreur ->
-                            println("❌ [DEBUG] Erreur: ${erreur.message}")
                             _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
                         }
                     }
                 }
             } catch (e: Exception) {
-                println("❌ [DEBUG] Exception: ${e.message}")
-                e.printStackTrace()
                 _uiState.update { it.copy(erreur = "Erreur réconciliation: ${e.message}") }
             }
         }
@@ -154,14 +138,8 @@ class ComptesViewModel(
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
-                println("🔍 [DEBUG] === ARCHIVAGE ===")
-                println("🔍 [DEBUG] Compte: ${compte.nom}")
-                println("🔍 [DEBUG] ID: ${compte.id}")
-                println("🔍 [DEBUG] estArchive avant: ${compte.estArchive}")
-
                 val compteArchive = when (compte) {
                     is CompteCheque -> {
-                        println("🔍 [DEBUG] Archivage CompteCheque")
                         CompteCheque(
                             id = compte.id,
                             utilisateurId = compte.utilisateurId,
@@ -175,7 +153,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteCredit -> {
-                        println("🔍 [DEBUG] Archivage CompteCredit")
                         CompteCredit(
                             id = compte.id,
                             utilisateurId = compte.utilisateurId,
@@ -190,7 +167,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteDette -> {
-                        println("🔍 [DEBUG] Archivage CompteDette")
                         CompteDette(
                             id = compte.id,
                             utilisateurId = compte.utilisateurId,
@@ -204,7 +180,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteInvestissement -> {
-                        println("🔍 [DEBUG] Archivage CompteInvestissement")
                         CompteInvestissement(
                             id = compte.id,
                             utilisateurId = compte.utilisateurId,
@@ -218,11 +193,7 @@ class ComptesViewModel(
                     }
                 }
 
-                println("🔍 [DEBUG] estArchive après création: ${compteArchive.estArchive}")
-                println("🔍 [DEBUG] Envoi au repository...")
-
                 compteRepository.mettreAJourCompte(compteArchive).onSuccess {
-                    println("✅ [DEBUG] Archivage réussi dans la base de données")
                     _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
 
                     // FORCER LE RAFRAÎCHISSEMENT IMMÉDIAT DES DEUX ÉCRANS
@@ -235,14 +206,10 @@ class ComptesViewModel(
                     // FORCER LE CALLBACK POUR BUDGET SCREEN
                     onCompteChange?.invoke()
 
-                    println("🔄 [DEBUG] Rafraîchissement forcé des écrans après archivage")
                 }.onFailure { erreur ->
-                    println("❌ [DEBUG] Erreur archivage: ${erreur.message}")
                     _uiState.update { it.copy(erreur = "Erreur archivage: ${erreur.message}") }
                 }
             } catch (e: Exception) {
-                println("❌ [DEBUG] Exception archivage: ${e.message}")
-                e.printStackTrace()
                 _uiState.update { it.copy(erreur = "Erreur archivage: ${e.message}") }
             }
         }
@@ -361,16 +328,8 @@ class ComptesViewModel(
                 val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
                 val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
 
-                println("🔍 [DEBUG] === MODIFICATION COMPTE ===")
-                println("🔍 [DEBUG] Compte original: ${compteOriginal.nom}")
-                println("🔍 [DEBUG] ID: ${compteOriginal.id}")
-                println("🔍 [DEBUG] Form.nom: '${form.nom}'")
-                println("🔍 [DEBUG] Form.solde: '${form.solde}' -> $soldeDouble")
-                println("🔍 [DEBUG] Form.pretAPlacer: '${form.pretAPlacer}' -> $pretAPlacerDouble")
-
                 val compteModifie = when (compteOriginal) {
                     is CompteCheque -> {
-                        println("🔍 [DEBUG] Modification CompteCheque")
                         CompteCheque(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
@@ -384,7 +343,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteCredit -> {
-                        println("🔍 [DEBUG] Modification CompteCredit")
                         CompteCredit(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
@@ -399,7 +357,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteDette -> {
-                        println("🔍 [DEBUG] Modification CompteDette")
                         CompteDette(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
@@ -413,7 +370,6 @@ class ComptesViewModel(
                         )
                     }
                     is CompteInvestissement -> {
-                        println("🔍 [DEBUG] Modification CompteInvestissement")
                         CompteInvestissement(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
@@ -427,22 +383,16 @@ class ComptesViewModel(
                     }
                 }
 
-                println("🔍 [DEBUG] Compte modifié créé, envoi repository...")
-
                 compteRepository.mettreAJourCompte(compteModifie).onSuccess {
-                    println("✅ [DEBUG] Modification réussie dans la base de données")
                     _uiState.update { it.copy(isModificationDialogVisible = false, compteSelectionne = null) }
                     chargerComptes()
                     realtimeSyncService.declencherMiseAJourBudget()
                     realtimeSyncService.declencherMiseAJourComptes()
                     onCompteChange?.invoke()
                 }.onFailure { e ->
-                    println("❌ [DEBUG] Erreur modification: ${e.message}")
                     _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
                 }
             } catch (e: Exception) {
-                println("❌ [DEBUG] Exception modification: ${e.message}")
-                e.printStackTrace()
                 _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
             }
         }

@@ -75,7 +75,6 @@ object UrlResolver {
         if (premiereUrlValide != null) {
             urlActive = premiereUrlValide
             derniereVerification = maintenant
-            println("[UrlResolver] ✅ URL active: $premiereUrlValide")
             return@withContext premiereUrlValide
         }
 
@@ -83,7 +82,6 @@ object UrlResolver {
         val urlFallback = urlsATester.first().first
         urlActive = urlFallback
         derniereVerification = maintenant
-        println("[UrlResolver] ⚠️ Aucune URL ne répond, utilisation du fallback: $urlFallback")
         return@withContext urlFallback
     }
 
@@ -92,8 +90,7 @@ object UrlResolver {
             val requete = Request.Builder().url("${url.trimEnd('/')}/api/health").get().build()
             val reponse = clientVerification.newCall(requete).execute()
             val estValide = reponse.isSuccessful
-            println("[UrlResolver] ${if (estValide) "✅" else "❌"} $description ($url) - ${if (estValide) "OK" else "ÉCHEC"}")
-            estValide
+            return estValide
         } catch (e: Exception) {
             val messageErreur = when (e) {
                 is SocketTimeoutException -> "Timeout"
@@ -101,15 +98,13 @@ object UrlResolver {
                 is IOException -> "Erreur réseau"
                 else -> "Erreur inconnue"
             }
-            println("[UrlResolver] ❌ $description ($url) - $messageErreur")
-            false
+            return false
         }
     }
 
     fun invaliderCache() {
         derniereVerification = 0L
         urlActive = null
-        println("[UrlResolver] 🔄 Cache invalidé")
     }
 
     fun obtenirUrlActuelle(): String? = urlActive

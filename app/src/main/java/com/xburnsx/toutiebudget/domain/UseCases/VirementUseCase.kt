@@ -118,7 +118,6 @@ class VirementUseCase @Inject constructor(
 
 
             // 5. Créer une transaction de traçabilité
-            println("[DEBUG] 📋 Création transaction de traçabilité...")
             val transaction = Transaction(
                 type = TypeTransaction.Depense,
                 montant = montant,
@@ -135,7 +134,6 @@ class VirementUseCase @Inject constructor(
             }
 
             // 🚀 DÉCLENCHER MANUELLEMENT L'ÉVÉNEMENT TEMPS RÉEL
-            println("[DEBUG] 🔄 Déclenchement manuel de l'événement temps réel...")
             try {
                 val realtimeService = AppModule.provideRealtimeSyncService()
                 // Forcer la mise à jour du budget après virement
@@ -143,7 +141,7 @@ class VirementUseCase @Inject constructor(
                     realtimeService.triggerBudgetUpdate()
                 }
             } catch (e: Exception) {
-                println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
+                // println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
             }
 
         }
@@ -166,17 +164,11 @@ class VirementUseCase @Inject constructor(
 
         coroutineScope {
             // 1. Récupérer le compte destination - utiliser la recherche dans toutes les collections
-            println("🔍 VirementUseCase: Recherche du compte avec ID: $compteId dans toutes les collections")
-
             val compteResult = compteRepository.recupererCompteParIdToutesCollections(compteId)
-            println("🔍 VirementUseCase: Résultat de la recherche: ${if (compteResult.isSuccess) "SUCCÈS" else "ÉCHEC - ${compteResult.exceptionOrNull()?.message}"}")
 
             val compte = compteResult.getOrNull() ?: run {
-                println("❌ VirementUseCase: Compte non trouvé avec ID $compteId")
                 throw IllegalArgumentException("Compte non trouvé")
             }
-
-            println("✅ VirementUseCase: Compte trouvé: ${compte.nom} (Type: ${compte::class.simpleName})")
 
             if (compte !is CompteCheque) {
                 throw IllegalArgumentException("Le prêt à placer n'est disponible que pour les comptes chèque")
@@ -193,10 +185,7 @@ class VirementUseCase @Inject constructor(
             }
             val premierJourMois = calendrier.time
 
-            println("🔍 VirementUseCase: Date utilisée pour l'allocation: $premierJourMois")
-
             // 3. D'ABORD vérifier le solde actuel de l'enveloppe AVANT de créer l'allocation
-            println("🔍 VirementUseCase: Vérification du solde actuel de l'enveloppe...")
 
             // Récupérer toutes les allocations pour ce mois et calculer le solde total
             val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
@@ -206,14 +195,11 @@ class VirementUseCase @Inject constructor(
                 .filter { it.enveloppeId == enveloppeId }
                 .sumOf { it.solde }
 
-            println("💰 VirementUseCase: Solde actuel de l'enveloppe: $soldeActuelEnveloppe$")
-
             if (soldeActuelEnveloppe < montant) {
                 throw IllegalArgumentException("Solde d'enveloppe insuffisant (${soldeActuelEnveloppe}$ disponible, ${montant}$ demandé)")
             }
 
             // MAINTENANT créer la nouvelle allocation pour le virement
-            println("📝 VirementUseCase: Création d'une nouvelle allocation pour le virement...")
             val nouvelleAllocation = AllocationMensuelle(
                 id = "",
                 utilisateurId = compte.utilisateurId,
@@ -229,8 +215,6 @@ class VirementUseCase @Inject constructor(
             // Créer l'allocation en base
             val allocationCree = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
                 .getOrThrow()
-
-            println("✅ VirementUseCase: Nouvelle allocation créée pour le virement")
 
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine

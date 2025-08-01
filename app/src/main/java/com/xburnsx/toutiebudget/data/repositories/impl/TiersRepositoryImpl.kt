@@ -88,9 +88,6 @@ class TiersRepositoryImpl : TiersRepository {
                 "utilisateur_id" to utilisateurId
             )
 
-            println("[DEBUG] TiersRepository - Création tiers: $tiersData")
-            println("[DEBUG] TiersRepository - URL: $url")
-
             val jsonBody = gson.toJson(tiersData)
             val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
 
@@ -102,24 +99,15 @@ class TiersRepositoryImpl : TiersRepository {
 
             val response = httpClient.newCall(request).execute()
 
-            println("[DEBUG] TiersRepository - Response code: ${response.code}")
-
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
-                println("[DEBUG] TiersRepository - Response body: $responseBody")
-
                 val tiersCreated = gson.fromJson(responseBody, Tiers::class.java)
-                println("[DEBUG] TiersRepository - Tiers créé: $tiersCreated")
-
                 Result.success(tiersCreated)
             } else {
                 val errorBody = response.body?.string()
-                println("[DEBUG] TiersRepository - Erreur: ${response.code} - $errorBody")
                 Result.failure(Exception("Erreur lors de la création du tiers: ${response.code} - $errorBody"))
             }
         } catch (e: Exception) {
-            println("[DEBUG] TiersRepository - Exception: ${e.message}")
-            e.printStackTrace()
             Result.failure(e)
         }
     }

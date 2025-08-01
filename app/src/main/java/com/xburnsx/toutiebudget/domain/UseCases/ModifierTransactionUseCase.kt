@@ -53,13 +53,11 @@ class ModifierTransactionUseCase(
 
         return try {
             coroutineScope {
-                println("[DEBUG] ModifierTransactionUseCase: début - transactionId=$transactionId, montant=$montant, type=$typeTransaction")
 
                 // 1. Récupérer la transaction existante
                 val transactionExistante = transactionRepository.recupererTransactionParId(transactionId)
                     .getOrNull() ?: throw Exception("Transaction non trouvée")
 
-                println("[DEBUG] Transaction existante trouvée: ${transactionExistante.id}")
 
                 // 2. Calculer les différences pour les mises à jour
                 val differenceMontant = montant - transactionExistante.montant
@@ -70,7 +68,6 @@ class ModifierTransactionUseCase(
                 // 3. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
-                    println("[DEBUG] Recherche/création allocation mensuelle pour enveloppeId=$enveloppeId")
 
                     // IMPORTANT: Les allocations mensuelles utilisent TOUJOURS le mois actuel
                     val calendrier = Calendar.getInstance().apply {
@@ -85,11 +82,9 @@ class ModifierTransactionUseCase(
 
                     val resultAllocation = obtenirOuCreerAllocationMensuelle(enveloppeId, premierJourMois, compteId, collectionCompte)
                     if (resultAllocation.isFailure) {
-                        println("[DEBUG] Erreur allocation mensuelle: ${resultAllocation.exceptionOrNull()?.message}")
                         throw resultAllocation.exceptionOrNull() ?: Exception("Erreur lors de la gestion de l'allocation")
                     }
                     allocationMensuelleId = resultAllocation.getOrNull()
-                    println("[DEBUG] Allocation mensuelle obtenue: $allocationMensuelleId")
                 }
 
                 // 4. Créer la transaction modifiée
@@ -104,20 +99,16 @@ class ModifierTransactionUseCase(
                     tiers = tiersNom
                 )
 
-                println("[DEBUG] Mise à jour transaction avec allocationMensuelleId=$allocationMensuelleId")
                 val resultTransaction = transactionRepository.mettreAJourTransaction(transactionModifiee)
                 if (resultTransaction.isFailure) {
-                    println("[DEBUG] Erreur mise à jour transaction: ${resultTransaction.exceptionOrNull()?.message}")
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour de la transaction")
                 }
-                println("[DEBUG] Transaction mise à jour avec succès")
 
                 // 5. Mettre à jour les soldes en parallèle
                 val tachesMiseAJour = mutableListOf<kotlinx.coroutines.Deferred<Result<Unit>>>()
 
                 // Mise à jour du compte (annuler l'ancienne transaction et appliquer la nouvelle)
                 tachesMiseAJour.add(async { 
-                    println("[DEBUG] Mise à jour solde compte")
                     annulerTransactionCompte(ancienCompteId, ancienneCollectionCompte, ancienType, transactionExistante.montant)
                     mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant)
                 })
@@ -125,7 +116,6 @@ class ModifierTransactionUseCase(
                 // Mise à jour de l'enveloppe si nécessaire
                 tachesMiseAJour.add(async { 
                     if (!allocationMensuelleId.isNullOrBlank()) {
-                        println("[DEBUG] Mise à jour solde enveloppe avec allocationId=$allocationMensuelleId, differenceMontant=$differenceMontant")
                         
                         // Si c'était une dépense avant, annuler l'ancienne dépense
                         if (transactionExistante.allocationMensuelleId != null) {
@@ -139,7 +129,6 @@ class ModifierTransactionUseCase(
                             Result.success(Unit)
                         }
                     } else {
-                        println("[DEBUG] Pas de mise à jour enveloppe (allocationId null)")
                         Result.success(Unit)
                     }
                 })
@@ -149,20 +138,16 @@ class ModifierTransactionUseCase(
                 // Vérifier que toutes les mises à jour ont réussi
                 resultats.forEach { resultat ->
                     if (resultat.isFailure) {
-                        println("[DEBUG] Erreur mise à jour soldes: ${resultat.exceptionOrNull()?.message}")
                         throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
                     }
                 }
-                println("[DEBUG] ModifierTransactionUseCase: succès complet")
 
                 // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
                 BudgetEvents.refreshManual()
-                println("[DEBUG] ModifierTransactionUseCase: événement de rafraîchissement déclenché")
 
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            println("[DEBUG] ModifierTransactionUseCase: erreur - ${e.message}")
             Result.failure(e)
         }
     }
@@ -261,21 +246,17 @@ class ModifierTransactionUseCase(
      */
     private suspend fun obtenirOuCreerAllocationMensuelle(enveloppeId: String, premierJourMois: Date, compteId: String, collectionCompte: String): Result<String> {
         return try {
-            println("[DEBUG] obtenirOuCreerAllocationMensuelle - Recherche allocation pour enveloppeId: $enveloppeId, mois: $premierJourMois")
 
             // Chercher l'allocation existante pour ce mois via EnveloppeRepository
             val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
             val allocationExistante = allocationsExistantes.getOrNull()?.find { allocation -> allocation.enveloppeId == enveloppeId }
 
             if (allocationExistante != null) {
-                println("[DEBUG] obtenirOuCreerAllocationMensuelle - Allocation existante trouvée: ID=${allocationExistante.id}")
                 Result.success(allocationExistante.id)
             } else {
-                println("[DEBUG] obtenirOuCreerAllocationMensuelle - Aucune allocation trouvée, création d'une nouvelle")
                 creerNouvelleAllocation(enveloppeId, premierJourMois, compteId, collectionCompte)
             }
         } catch (e: Exception) {
-            println("[DEBUG] obtenirOuCreerAllocationMensuelle - Erreur: ${e.message}")
             Result.failure(e)
         }
     }
@@ -284,17 +265,12 @@ class ModifierTransactionUseCase(
      * Crée une nouvelle allocation mensuelle avec les bonnes données.
      */
     private suspend fun creerNouvelleAllocation(enveloppeId: String, premierJourMois: Date, compteId: String, collectionCompte: String): Result<String> {
-        println("[DEBUG] creerNouvelleAllocation - Création pour enveloppeId: $enveloppeId")
-
         // Récupérer l'utilisateur connecté
         val utilisateurId = try {
-            // Utiliser le client PocketBase pour récupérer l'utilisateur connecté
-            com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
+            com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: return Result.failure(Exception("Utilisateur non connecté"))
         } catch (e: Exception) {
-            println("[DEBUG] creerNouvelleAllocation - Erreur récupération utilisateur: ${e.message}")
             return Result.failure(e)
         }
-
         val nouvelleAllocation = AllocationMensuelle(
             id = "",
             utilisateurId = utilisateurId,
@@ -306,13 +282,10 @@ class ModifierTransactionUseCase(
             compteSourceId = compteId,
             collectionCompteSource = collectionCompte
         )
-
         return try {
             val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
-            println("[DEBUG] creerNouvelleAllocation - Allocation créée avec succès: ID=${allocationCreee.id}")
             Result.success(allocationCreee.id)
         } catch (e: Exception) {
-            println("[DEBUG] creerNouvelleAllocation - Exception: ${e.message}")
             Result.failure(e)
         }
     }
