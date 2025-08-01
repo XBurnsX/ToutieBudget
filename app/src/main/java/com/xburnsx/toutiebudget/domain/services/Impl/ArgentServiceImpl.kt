@@ -521,16 +521,41 @@ class ArgentServiceImpl @Inject constructor(
         }
 
         // 4. Gérer le "Prêt à placer" pour les comptes chèque
+        // Mise à jour du prêt à placer du compte source (diminution)
         if (compteSource is com.xburnsx.toutiebudget.data.modeles.CompteCheque) {
-            println("🔍 [DEBUG] Mise à jour prêt à placer...")
-            val variationPretAPlacer = -montant // Variation négative pour retirer le montant
+            println("🔍 [DEBUG] Mise à jour prêt à placer du compte source...")
+            val variationPretAPlacerSource = -montant // Variation négative pour retirer le montant
             try {
-                compteRepository.mettreAJourPretAPlacerSeulement(compteSource.id, variationPretAPlacer).getOrThrow()
-                println("✅ [DEBUG] Prêt à placer mis à jour avec variation: $variationPretAPlacer")
+                compteRepository.mettreAJourPretAPlacerSeulement(compteSource.id, variationPretAPlacerSource).getOrThrow()
+                println("✅ [DEBUG] Prêt à placer du compte source mis à jour avec variation: $variationPretAPlacerSource")
             } catch (e: Exception) {
-                println("❌ [DEBUG] ERREUR mise à jour prêt à placer: ${e.message}")
-                throw Exception("Erreur mise à jour prêt à placer: ${e.message}")
+                println("❌ [DEBUG] ERREUR mise à jour prêt à placer du compte source: ${e.message}")
+                throw Exception("Erreur mise à jour prêt à placer du compte source: ${e.message}")
             }
+        }
+
+        // Mise à jour du prêt à placer du compte destination (augmentation)
+        if (compteDest is com.xburnsx.toutiebudget.data.modeles.CompteCheque) {
+            println("🔍 [DEBUG] Mise à jour prêt à placer du compte destination...")
+            println("🔍 [DEBUG] Compte destination: ${compteDest.nom}")
+            println("🔍 [DEBUG] ID compte destination: ${compteDest.id}")
+            println("🔍 [DEBUG] Prêt à placer actuel: ${compteDest.pretAPlacer}")
+            println("🔍 [DEBUG] Montant à ajouter: $montant")
+            val variationPretAPlacerDest = montant // Variation positive pour ajouter le montant
+            try {
+                val result = compteRepository.mettreAJourPretAPlacerSeulement(compteDest.id, variationPretAPlacerDest)
+                if (result.isSuccess) {
+                    println("✅ [DEBUG] Prêt à placer du compte destination mis à jour avec variation: $variationPretAPlacerDest")
+                } else {
+                    println("❌ [DEBUG] ÉCHEC mise à jour prêt à placer du compte destination: ${result.exceptionOrNull()?.message}")
+                    throw result.exceptionOrNull() ?: Exception("Erreur inconnue")
+                }
+            } catch (e: Exception) {
+                println("❌ [DEBUG] ERREUR mise à jour prêt à placer du compte destination: ${e.message}")
+                throw Exception("Erreur mise à jour prêt à placer du compte destination: ${e.message}")
+            }
+        } else {
+            println("🔍 [DEBUG] Compte destination n'est PAS un CompteCheque: ${compteDest::class.simpleName}")
         }
 
         // 5. Créer la transaction de sortie

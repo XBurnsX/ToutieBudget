@@ -152,6 +152,16 @@ class CompteRepositoryImpl : CompteRepository {
                     return@withContext Result.failure(Exception("Échec de la mise à jour: ${reponse.body?.string()}"))
                 }
             }
+
+            // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
+            BudgetEvents.onCompteUpdated(compte.id)
+            println("[DEBUG] mettreAJourCompte - Événement budget déclenché pour compte: ${compte.id}")
+
+            // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
+            val realtimeService = AppModule.provideRealtimeSyncService()
+            realtimeService.declencherMiseAJourComptes()
+            println("[DEBUG] mettreAJourCompte - Événement comptes déclenché pour compte: ${compte.id}")
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -209,6 +219,15 @@ class CompteRepositoryImpl : CompteRepository {
                     throw Exception("Erreur lors de la mise à jour: ${reponse.code}")
                 }
             }
+
+            // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
+            BudgetEvents.onCompteUpdated(compteId)
+            println("[DEBUG] mettreAJourSolde - Événement budget déclenché pour compte: $compteId")
+
+            // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
+            val realtimeService = AppModule.provideRealtimeSyncService()
+            realtimeService.declencherMiseAJourComptes()
+            println("[DEBUG] mettreAJourSolde - Événement comptes déclenché pour compte: $compteId")
         } catch (e: Exception) {
             throw e
         }
@@ -255,6 +274,15 @@ class CompteRepositoryImpl : CompteRepository {
             if (!reponse.isSuccessful) {
                 throw Exception("Erreur lors de la mise à jour du solde: ${reponse.code} ${reponse.body?.string()}")
             }
+
+            // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
+            BudgetEvents.onCompteUpdated(compteId)
+            println("[DEBUG] mettreAJourSoldeAvecVariation - Événement budget déclenché pour compte: $compteId")
+
+            // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
+            val realtimeService = AppModule.provideRealtimeSyncService()
+            realtimeService.declencherMiseAJourComptes()
+            println("[DEBUG] mettreAJourSoldeAvecVariation - Événement comptes déclenché pour compte: $compteId")
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -453,7 +481,12 @@ class CompteRepositoryImpl : CompteRepository {
         compteId: String,
         variationPretAPlacer: Double
     ): Result<Unit> = withContext(Dispatchers.IO) {
+        println("🔍 [DEBUG] mettreAJourPretAPlacerSeulement - DÉBUT")
+        println("🔍 [DEBUG] compteId: $compteId")
+        println("🔍 [DEBUG] variationPretAPlacer: $variationPretAPlacer")
+        
         if (!client.estConnecte()) {
+            println("❌ [DEBUG] Utilisateur non connecté")
             return@withContext Result.failure(Exception("Utilisateur non connecté"))
         }
 
@@ -463,27 +496,36 @@ class CompteRepositoryImpl : CompteRepository {
             val urlBase = UrlResolver.obtenirUrlActive()
 
             // 1. Récupérer le compte actuel (doit être un CompteCheque)
+            println("🔍 [DEBUG] Récupération du compte...")
             val resultCompte = recupererCompteParId(compteId, Collections.CHEQUE)
             if (resultCompte.isFailure) {
+                println("❌ [DEBUG] Impossible de récupérer le compte: ${resultCompte.exceptionOrNull()?.message}")
                 throw resultCompte.exceptionOrNull() ?: Exception("Impossible de récupérer le compte")
             }
 
             val compte = resultCompte.getOrNull() as? CompteCheque
                 ?: throw Exception("Le compte n'est pas un compte chèque ou n'existe pas")
+            
+            println("✅ [DEBUG] Compte récupéré: ${compte.nom}")
+            println("✅ [DEBUG] Prêt à placer actuel: ${compte.pretAPlacer}")
 
             // 2. Calculer le nouveau montant prêt à placer
             val nouveauPretAPlacer = compte.pretAPlacer + variationPretAPlacer
+            println("🔍 [DEBUG] Nouveau prêt à placer calculé: $nouveauPretAPlacer (${compte.pretAPlacer} + $variationPretAPlacer)")
 
             // 3. Vérifier que le montant ne devient pas négatif
             if (nouveauPretAPlacer < 0) {
+                println("❌ [DEBUG] Montant prêt à placer insuffisant: $nouveauPretAPlacer")
                 throw Exception("Montant prêt à placer insuffisant")
             }
 
             // 4. Préparer les données de mise à jour (seulement pret_a_placer)
             val donneesUpdate = mapOf("pret_a_placer" to nouveauPretAPlacer)
             val corpsRequete = gson.toJson(donneesUpdate)
+            println("🔍 [DEBUG] Corps de la requête: $corpsRequete")
 
             val url = "$urlBase/api/collections/${Collections.CHEQUE}/records/$compteId"
+            println("🔍 [DEBUG] URL de mise à jour: $url")
 
             val requete = Request.Builder()
                 .url(url)
@@ -493,12 +535,29 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
+            println("🔍 [DEBUG] Code de réponse: ${reponse.code}")
+            
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la mise à jour: ${reponse.code} ${reponse.body?.string()}")
+                val messageErreur = reponse.body?.string() ?: "Erreur inconnue"
+                println("❌ [DEBUG] ERREUR HTTP: ${reponse.code} - $messageErreur")
+                throw Exception("Erreur lors de la mise à jour: ${reponse.code} $messageErreur")
             }
 
+            println("✅ [DEBUG] Mise à jour réussie sur le serveur")
+
+            // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
+            BudgetEvents.onCompteUpdated(compteId)
+            println("[DEBUG] mettreAJourPretAPlacerSeulement - Événement budget déclenché pour compte: $compteId")
+
+            // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
+            val realtimeService = AppModule.provideRealtimeSyncService()
+            realtimeService.declencherMiseAJourComptes()
+            println("[DEBUG] mettreAJourPretAPlacerSeulement - Événement comptes déclenché pour compte: $compteId")
+
+            println("✅ [DEBUG] mettreAJourPretAPlacerSeulement - SUCCÈS COMPLET")
             Result.success(Unit)
         } catch (e: Exception) {
+            println("❌ [DEBUG] mettreAJourPretAPlacerSeulement - EXCEPTION: ${e.message}")
             Result.failure(e)
         }
     }

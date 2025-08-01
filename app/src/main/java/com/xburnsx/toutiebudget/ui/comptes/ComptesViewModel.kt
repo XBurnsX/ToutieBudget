@@ -35,7 +35,7 @@ class ComptesViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.comptesUpdated.collectLatest {
-                println("[REALTIME] 🔄 Comptes mis à jour automatiquement")
+                println("[COMPTES] 🔄 Événement comptesUpdated reçu - Rechargement des comptes")
                 chargerComptes()
             }
         }

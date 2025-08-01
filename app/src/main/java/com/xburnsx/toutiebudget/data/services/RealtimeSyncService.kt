@@ -113,7 +113,9 @@ class RealtimeSyncService @Inject constructor() {
      * Utilisée par les repositories pour notifier les changements.
      */
     fun declencherMiseAJourComptes() {
+        println("[REALTIME] 🔄 declencherMiseAJourComptes() appelée")
         serviceScope.launch {
+            println("[REALTIME] 📤 Émission de l'événement comptesUpdated")
             _comptesUpdated.emit(Unit)
         }
     }
@@ -209,10 +211,15 @@ class RealtimeSyncService @Inject constructor() {
      */
     private suspend fun handleRealtimeEvent(data: String) {
         try {
+            println("[REALTIME] 📨 Événement SSE reçu: $data")
             val jsonEvent = gson.fromJson(data, JsonObject::class.java)
             val action = jsonEvent.get("action")?.asString
             val record = jsonEvent.get("record")?.asJsonObject
             val collection = record?.get("collectionName")?.asString
+
+            println("[REALTIME] 🔍 Action: $action")
+            println("[REALTIME] 🔍 Collection: $collection")
+            println("[REALTIME] 🔍 Record: $record")
 
             // Notifier les ViewModels selon la collection modifiée
             when (collection) {
@@ -240,9 +247,13 @@ class RealtimeSyncService @Inject constructor() {
                     _budgetUpdated.emit(Unit)
                     _comptesUpdated.emit(Unit)
                 }
+                else -> {
+                    println("[REALTIME] ⚠️ Collection non reconnue: $collection")
+                }
             }
 
         } catch (e: Exception) {
+            println("[REALTIME] ❌ Erreur parsing événement: ${e.message}")
             // Ignorer les erreurs de parsing silencieusement
         }
     }
