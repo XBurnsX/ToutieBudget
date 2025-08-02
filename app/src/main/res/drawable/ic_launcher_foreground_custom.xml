@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Utilisation de votre logo branding comme foreground -->
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="21.6"
+        android:translateY="21.6">
+        <!-- Votre logo sera automatiquement converti et placé ici -->
+        <!-- Pour l'instant on utilise une forme simple qui représente votre branding -->
+        <path
+            android:fillColor="#2196F3"
+            android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M35,35h38v38h-38z" />
+        <path
+            android:fillColor="#2196F3"
+            android:pathData="M40,40h28v28h-28z" />
+    </group>
+</vector>
