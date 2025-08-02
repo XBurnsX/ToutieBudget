@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.util.Calendar
 
 /**
  * ViewModel pour l'écran de virement d'argent.
@@ -29,6 +31,7 @@ import java.util.Date
 class VirerArgentViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val categorieRepository: CategorieRepository,
     private val argentService: ArgentService,
     private val realtimeSyncService: RealtimeSyncService,
@@ -545,13 +548,21 @@ class VirerArgentViewModel(
                         if (enveloppeDestination == null) {
                             Result.failure(Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(destination.enveloppe.nom)))
                         } else {
-                            argentService.allouerArgentEnveloppe(
+                            val result = argentService.allouerArgentEnveloppe(
                                 enveloppeId = destination.enveloppe.id,
                                 compteSourceId = source.compte.id,
                                 collectionCompteSource = source.compte.collection,
                                 montant = montantEnDollars,
                                 mois = Date()
                             )
+                            // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                            val moisActuel = Date()
+                            try {
+                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                            } catch (e: Exception) {
+                                println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                            }
+                            result
                         }
                     }
 
@@ -561,11 +572,19 @@ class VirerArgentViewModel(
                         if (enveloppeSource == null) {
                             Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.enveloppeSourceIntrouvable(source.enveloppe.nom)))
                         } else {
-                            argentService.effectuerVirementEnveloppeVersCompte(
+                            val result = argentService.effectuerVirementEnveloppeVersCompte(
                                 enveloppe = enveloppeSource,
                                 compte = destination.compte,
                                 montant = montantEnDollars
                             )
+                            // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                            val moisActuel = Date()
+                            try {
+                                allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
+                            } catch (e: Exception) {
+                                println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                            }
+                            result
                         }
                     }
 
@@ -597,24 +616,43 @@ class VirerArgentViewModel(
                                 if (resultCompte.isFailure) {
                                     Result.failure(Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}"))
                                 } else {
-                                    // 2. Créer une nouvelle allocation mensuelle
-                                    val nouvelleAllocation = AllocationMensuelle(
-                                        id = "",
-                                        utilisateurId = compteSource.utilisateurId,
-                                        enveloppeId = destination.enveloppe.id,
-                                        mois = Date(),
-                                        solde = montantEnDollars,
-                                        alloue = montantEnDollars,
-                                        depense = 0.0,
-                                        compteSourceId = compteSource.id,
-                                        collectionCompteSource = compteSource.collection
+                                    // 2. ✅ CRÉER une allocation additive (évite les doublons)
+                                    val calendrier = Calendar.getInstance().apply {
+                                        time = Date()
+                                        set(Calendar.DAY_OF_MONTH, 1)
+                                        set(Calendar.HOUR_OF_DAY, 0)
+                                        set(Calendar.MINUTE, 0)
+                                        set(Calendar.SECOND, 0)
+                                        set(Calendar.MILLISECOND, 0)
+                                    }
+                                    val premierJourMois = calendrier.time
+
+                                    // ✅ Récupérer ou créer l'allocation pour ce mois
+                                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
+                                    
+                                    // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
+                                    val allocationMiseAJour = allocationExistante.copy(
+                                        solde = allocationExistante.solde + montantEnDollars,
+                                        alloue = allocationExistante.alloue + montantEnDollars,
+                                        // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
+                                        compteSourceId = if (allocationExistante.solde <= 0.01) compteSource.id else allocationExistante.compteSourceId,
+                                        collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
                                     )
                                     
-                                    val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-                                    if (resultAllocation.isFailure) {
-                                        Result.failure(Exception("Erreur lors de la création de l'allocation: ${resultAllocation.exceptionOrNull()?.message}"))
-                                    } else {
+                                    // 🔧 DEBUG : Vérifier la logique de provenance
+                                    println("[DEBUG_PROVENANCE] 🔍 Virement: ${compteSource.nom} vers ${destination.enveloppe.nom}")
+                                    println("[DEBUG_PROVENANCE] 🔍 Allocation existante: solde=${allocationExistante.solde}, compteSourceId=${allocationExistante.compteSourceId}")
+                                    println("[DEBUG_PROVENANCE] 🔍 Nouveau montant: $montantEnDollars, nouveau compte: ${compteSource.id}") 
+                                    println("[DEBUG_PROVENANCE] 🔍 Solde <= 0.01? ${allocationExistante.solde <= 0.01}")
+                                    println("[DEBUG_PROVENANCE] 🔍 Allocation mise à jour: solde=${allocationMiseAJour.solde}, compteSourceId=${allocationMiseAJour.compteSourceId}")
+                                    
+                                    try {
+                                        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                                        // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
+                                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
                                         Result.success(Unit)
+                                    } catch (e: Exception) {
+                                        Result.failure<Unit>(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
                                     }
                                 }
                             }
@@ -625,11 +663,19 @@ class VirerArgentViewModel(
                             if (compteDestination == null) {
                                 Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.COMPTE_DESTINATION_INTROUVABLE))
                             } else {
-                                argentService.effectuerVirementEnveloppeVersPretAPlacer(
+                                val result = argentService.effectuerVirementEnveloppeVersPretAPlacer(
                                     enveloppeId = source.enveloppe.id,
                                     compteId = compteDestination.id,
                                     montant = montantEnDollars
                                 )
+                                // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                                val moisActuel = Date()
+                                try {
+                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                } catch (e: Exception) {
+                                    println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                                }
+                                result
                             }
                         } else {
                             // Cas normal: Enveloppe vers Enveloppe
@@ -653,38 +699,37 @@ class VirerArgentViewModel(
                                         if (allocationSource == null) {
                                             Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
                                         } else {
-                                            // 2. Créer allocation NÉGATIVE pour l'enveloppe source (diminue solde + alloué)
-                                            val allocationNegative = AllocationMensuelle(
-                                                id = "",
-                                                utilisateurId = allocationSource.utilisateurId,
-                                                enveloppeId = source.enveloppe.id,
-                                                mois = moisActuel,
-                                                solde = -montantEnDollars,        // ← NÉGATIF (retire du solde)
-                                                alloue = -montantEnDollars,       // ← NÉGATIF (retire de l'allocation)
-                                                depense = 0.0,                    // ← PAS UNE DÉPENSE !
-                                                compteSourceId = allocationSource.compteSourceId,
-                                                collectionCompteSource = allocationSource.collectionCompteSource
+                                            // 2. ✅ S'assurer qu'une allocation de base existe pour la source
+                                            val allocationSourceExistante = allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                            
+                                            // ✅ FUSIONNER : Mettre à jour l'allocation SOURCE (diminue solde + alloué)
+                                            val allocationSourceMiseAJour = allocationSource.copy(
+                                                solde = allocationSource.solde - montantEnDollars,        // ← RETIRE du solde
+                                                alloue = allocationSource.alloue - montantEnDollars       // ← RETIRE de l'allocation
                                             )
                                             
-                                            val retraitResult = enveloppeRepository.creerAllocationMensuelle(allocationNegative)
-                                            
-                                            if (retraitResult.isFailure) {
-                                                retraitResult
-                                            } else {
-                                                // 3. Créer allocation POSITIVE pour l'enveloppe destination (augmente solde + alloué)
-                                                val allocationPositive = AllocationMensuelle(
-                                                    id = "",
-                                                    utilisateurId = allocationSource.utilisateurId,
-                                                    enveloppeId = destination.enveloppe.id,
-                                                    mois = moisActuel,
-                                                    solde = montantEnDollars,        // ← POSITIF (ajoute au solde)
-                                                    alloue = montantEnDollars,       // ← POSITIF (ajoute à l'allocation)
-                                                    depense = 0.0,                   // ← PAS UNE DÉPENSE !
+                                            try {
+                                                allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
+                                                // 🔥 FORCER LA RE-FUSION SOURCE APRÈS MODIFICATION !
+                                                allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                                
+                                                // 3. ✅ Récupérer ou créer l'allocation pour la destination
+                                                val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                                                
+                                                // ✅ FUSIONNER : Mettre à jour l'allocation DESTINATION (augmente solde + alloué)
+                                                val allocationDestMiseAJour = allocationDestExistante.copy(
+                                                    solde = allocationDestExistante.solde + montantEnDollars,        // ← AJOUTE au solde
+                                                    alloue = allocationDestExistante.alloue + montantEnDollars,       // ← AJOUTE à l'allocation
                                                     compteSourceId = allocationSource.compteSourceId, // ← MÊME PROVENANCE
                                                     collectionCompteSource = allocationSource.collectionCompteSource
                                                 )
                                                 
-                                                enveloppeRepository.creerAllocationMensuelle(allocationPositive)
+                                                allocationMensuelleRepository.mettreAJourAllocation(allocationDestMiseAJour)
+                                                // 🔥 FORCER LA RE-FUSION DESTINATION APRÈS MODIFICATION !
+                                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                                                Result.success(Unit)
+                                            } catch (e: Exception) {
+                                                Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
                                             }
                                         }
                                     }
@@ -694,7 +739,7 @@ class VirerArgentViewModel(
                     }
 
                     else -> {
-                        Result.failure(Exception(VirementErrorMessages.General.TYPE_VIREMENT_NON_SUPPORTE))
+                        Result.failure<Unit>(Exception(VirementErrorMessages.General.TYPE_VIREMENT_NON_SUPPORTE))
                     }
                 }
 
@@ -1150,22 +1195,35 @@ class VirerArgentViewModel(
                         return Result.failure(Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}"))
                     }
                     
-                    // 2. Créer une nouvelle allocation mensuelle
-                    val nouvelleAllocation = AllocationMensuelle(
-                        id = "",
-                        utilisateurId = compteSource.utilisateurId,
-                        enveloppeId = destination.enveloppe.id,
-                        mois = Date(),
-                        solde = montant,
-                        alloue = montant,
-                        depense = 0.0,
-                        compteSourceId = compteSource.id,
-                        collectionCompteSource = compteSource.collection
+                    // 2. ✅ CRÉER une allocation additive (évite les doublons)
+                    val calendrier = Calendar.getInstance().apply {
+                        time = Date()
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    val premierJourMois = calendrier.time
+                    
+                    // 🔥 UTILISER LA MÊME LOGIQUE DE FUSION QUE LES AUTRES VIREMENTS !
+                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
+                    
+                    // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
+                    val allocationMiseAJour = allocationExistante.copy(
+                        solde = allocationExistante.solde + montant,
+                        alloue = allocationExistante.alloue + montant,
+                        // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
+                        compteSourceId = if (allocationExistante.solde <= 0.01) compteSource.id else allocationExistante.compteSourceId,
+                        collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
                     )
                     
-                    val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-                    if (resultAllocation.isFailure) {
-                        return Result.failure(Exception("Erreur lors de la création de l'allocation: ${resultAllocation.exceptionOrNull()?.message}"))
+                    try {
+                        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                        // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
+                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
+                    } catch (e: Exception) {
+                        return Result.failure(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
                     }
                     
                     Result.success(Unit)
@@ -1175,11 +1233,20 @@ class VirerArgentViewModel(
                     val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
 
                     if (enveloppeSource != null && enveloppeDestination != null) {
-                        argentService.effectuerVirementEnveloppeVersEnveloppe(
+                        val result = argentService.effectuerVirementEnveloppeVersEnveloppe(
                             enveloppeSource = enveloppeSource,
                             enveloppeDestination = enveloppeDestination,
                             montant = montant
                         )
+                        // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                        val moisActuel = Date()
+                        try {
+                            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
+                            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, moisActuel)
+                        } catch (e: Exception) {
+                            println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                        }
+                        result
                     } else {
                         Result.failure(Exception("Enveloppe source ou destination introuvable"))
                     }
@@ -1206,11 +1273,19 @@ class VirerArgentViewModel(
                         }
 
                         // UTILISER LA MÉTHODE SPÉCIFIQUE POUR VIRER VERS PRÊT À PLACER
-                        argentService.effectuerVirementEnveloppeVersPretAPlacer(
+                        val result = argentService.effectuerVirementEnveloppeVersPretAPlacer(
                             enveloppeId = source.enveloppe.id,
                             compteId = compteDestination.id,
                             montant = montant
                         )
+                        // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                        val moisActuel = Date()
+                        try {
+                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                        } catch (e: Exception) {
+                            println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                        }
+                        result
                     } else {
                         Result.failure(Exception("Enveloppe source introuvable"))
                     }

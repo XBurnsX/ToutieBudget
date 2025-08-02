@@ -44,18 +44,45 @@ class ValidationProvenanceService @Inject constructor(
         mois: Date
     ): Result<Unit> = runCatching {
 
-        // Récupérer l'allocation existante pour ce mois
-        val allocationExistante = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, mois)
-            .getOrNull()
+        println("[VALIDATION] 🔍 Validation pour enveloppe=$enveloppeId, compte=$compteSourceId")
 
-        if (allocationExistante != null && allocationExistante.solde > 0) {
-            // Il y a déjà de l'argent dans cette enveloppe
-            val compteProvenanceExistant = allocationExistante.compteSourceId
+        // ✅ CORRIGER: Récupérer TOUTES les allocations pour ce mois et calculer le TOTAL
+        val toutesAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
+            .getOrNull() ?: emptyList()
+        
+        val allocationsPourEnveloppe = toutesAllocations.filter { it.enveloppeId == enveloppeId }
+        
+        println("[VALIDATION] 📋 Allocations trouvées pour cette enveloppe: ${allocationsPourEnveloppe.size}")
+        
+        val soldeTotalReel = allocationsPourEnveloppe.sumOf { it.solde }
+        val alloueTotalReel = allocationsPourEnveloppe.sumOf { it.alloue }
+        val depenseTotaleReel = allocationsPourEnveloppe.sumOf { it.depense }
+        
+        println("[VALIDATION] 💰 SOLDES RÉELS (somme de toutes les allocations):")
+        println("[VALIDATION]   - Solde total: $soldeTotalReel")
+        println("[VALIDATION]   - Alloué total: $alloueTotalReel") 
+        println("[VALIDATION]   - Dépense totale: $depenseTotaleReel")
+        
+        // Déterminer la provenance dominante (celle avec le plus gros solde positif)
+        val allocationsDominantes = allocationsPourEnveloppe.filter { it.solde > 0 }
+        val compteProvenanceDominant = allocationsDominantes
+            .maxByOrNull { it.solde }
+            ?.compteSourceId
+            
+        println("[VALIDATION] 🎯 Provenance dominante: $compteProvenanceDominant")
 
-            if (compteProvenanceExistant != null && compteProvenanceExistant != compteSourceId) {
+        // ✅ LOGIQUE CORRIGÉE: Vérifier le SOLDE TOTAL au lieu d'une seule allocation
+        if (soldeTotalReel > 0.01) { // Il y a vraiment de l'argent dans l'enveloppe
+            println("[VALIDATION] ⚠️ Solde total > 0.01 ($soldeTotalReel) - Vérification provenance...")
+            
+            if (compteProvenanceDominant != null && compteProvenanceDominant != compteSourceId) {
                 // Récupérer les noms des comptes pour un message plus clair
-                val nomCompteExistant = obtenirNomCompte(compteProvenanceExistant)
+                val nomCompteExistant = obtenirNomCompte(compteProvenanceDominant)
                 val nomCompteTente = obtenirNomCompte(compteSourceId)
+
+                println("[VALIDATION] ❌ CONFLIT DE PROVENANCE:")
+                println("[VALIDATION]   - Compte dominant: $nomCompteExistant ($compteProvenanceDominant)")
+                println("[VALIDATION]   - Compte tenté: $nomCompteTente ($compteSourceId)")
 
                 throw IllegalArgumentException(
                     VirementErrorMessages.PretAPlacerVersEnveloppe.conflitProvenance(
@@ -63,7 +90,11 @@ class ValidationProvenanceService @Inject constructor(
                         nomCompteTente
                     )
                 )
+            } else {
+                println("[VALIDATION] ✅ Même provenance ou provenance null - OK")
             }
+        } else {
+            println("[VALIDATION] ✅ Solde total <= 0.01 ($soldeTotalReel) - Changement de provenance autorisé")
         }
     }
 
@@ -92,7 +123,7 @@ class ValidationProvenanceService @Inject constructor(
 
         val compteProvenanceSource = allocationSource.compteSourceId
 
-        if (allocationCible != null && allocationCible.solde > 0) {
+        if (allocationCible != null && allocationCible.solde > 0.01) { // ✅ Même correction ici
             // La cible contient déjà de l'argent
             val compteProvenanceCible = allocationCible.compteSourceId
 

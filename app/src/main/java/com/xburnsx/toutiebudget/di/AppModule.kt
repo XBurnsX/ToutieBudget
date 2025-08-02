@@ -89,15 +89,16 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
  
      // ===== VIEWMODELS =====
      private val budgetViewModel: BudgetViewModel by lazy {
-         BudgetViewModel(
-             compteRepository = compteRepository,
-             enveloppeRepository = enveloppeRepository,
-             categorieRepository = categorieRepository,
-             verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
-             realtimeSyncService = realtimeSyncService,
-             validationProvenanceService = validationProvenanceService,
-             objectifCalculator = objectifCalculator
-         )
+                 BudgetViewModel(
+            compteRepository = compteRepository,
+            enveloppeRepository = enveloppeRepository,
+            categorieRepository = categorieRepository,
+            allocationMensuelleRepository = allocationMensuelleRepository, // ← AJOUT
+            verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
+            realtimeSyncService = realtimeSyncService,
+            validationProvenanceService = validationProvenanceService,
+            objectifCalculator = objectifCalculator
+        )
      }
      
      private val comptesViewModel: ComptesViewModel by lazy {
@@ -138,14 +139,15 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      }
 
      private val virerArgentViewModel: VirerArgentViewModel by lazy {
-         VirerArgentViewModel(
-             compteRepository = provideCompteRepository(),
-             enveloppeRepository = provideEnveloppeRepository(),
-             categorieRepository = provideCategorieRepository(),
-             argentService = provideArgentService(),
-             realtimeSyncService = provideRealtimeSyncService(),
-             validationProvenanceService = provideValidationProvenanceService()
-         )
+                 VirerArgentViewModel(
+            compteRepository = provideCompteRepository(),
+            enveloppeRepository = provideEnveloppeRepository(),
+            allocationMensuelleRepository = provideAllocationMensuelleRepository(), // ← AJOUT
+            categorieRepository = provideCategorieRepository(),
+            argentService = provideArgentService(),
+            realtimeSyncService = provideRealtimeSyncService(),
+            validationProvenanceService = provideValidationProvenanceService()
+        )
      }
  
      // ===== FONCTIONS PUBLIQUES =====

@@ -103,14 +103,28 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalArgumentException("Type de transaction invalide: $type. Valeurs acceptées: ${TypeTransaction.entries.joinToString()}")
         }
         
-        // 3. Créer une nouvelle allocation si c'est une dépense avec enveloppe
+        // 3. ✅ GÉRER L'ALLOCATION CORRECTEMENT - PAS DE DOUBLON
         var allocationMensuelleId: String? = null
         if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
+            // ✅ Récupérer ou créer l'allocation de base pour ce mois
+            val calendrier = java.util.Calendar.getInstance().apply {
+                time = date
+                set(java.util.Calendar.DAY_OF_MONTH, 1)
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val premierJourMois = calendrier.time
+            
+            val allocationBase = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
+            
+            // ✅ CRÉER une allocation additive pour la dépense
             val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
                 id = "",
                 utilisateurId = "",
                 enveloppeId = enveloppeId,
-                mois = date,
+                mois = premierJourMois,
                 solde = -montant, // Négatif car c'est une dépense
                 alloue = 0.0,
                 depense = montant,
@@ -287,12 +301,26 @@ class ArgentServiceImpl @Inject constructor(
         val nouveauSoldeCompte = compte.solde - montant
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
-        // CRÉER une nouvelle allocation mensuelle (pas de récupération)
+        // ✅ UTILISER recupererOuCreerAllocation + addition automatique pour éviter les doublons
+        val calendrier = Calendar.getInstance().apply {
+            time = Date()
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val premierJourMois = calendrier.time
+
+        // ✅ Obtenir/créer l'allocation de base
+                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
+
+        // ✅ CRÉER une allocation additive pour le virement
         val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
             id = "",
             utilisateurId = compte.utilisateurId,
             enveloppeId = enveloppe.id,
-            mois = Date(),
+            mois = premierJourMois,
             solde = montant,
             alloue = montant,
             depense = 0.0,
@@ -337,17 +365,31 @@ class ArgentServiceImpl @Inject constructor(
         val nouveauSoldeCompte = compte.solde + montant
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
-        // 🔥 CORRECTION : Créer une NOUVELLE allocation négative pour le virement vers prêt à placer
+        // ✅ UTILISER recupererOuCreerAllocation + allocation négative pour éviter les doublons
+        val calendrier = Calendar.getInstance().apply {
+            time = Date()
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val premierJourMois = calendrier.time
+
+        // ✅ Obtenir/créer l'allocation de base pour l'enveloppe
+                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
+
+        // ✅ CRÉER une allocation négative pour le virement vers prêt à placer (addition automatique)
         val allocationVirement = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
             id = "",
-            utilisateurId = allocation.utilisateurId,
-            enveloppeId = allocation.enveloppeId,
-            mois = Date(),
+            utilisateurId = allocationExistante.utilisateurId,
+            enveloppeId = allocationExistante.enveloppeId,
+            mois = premierJourMois,
             solde = -montant,        // Négatif pour sortir l'argent
-            alloue = -montant,       // 🔥 CORRECTION : Alloué négatif pour virement sortant
-            depense = 0.0,           // 🔥 CORRECTION : Pas une dépense, c'est un virement !
-            compteSourceId = allocation.compteSourceId,
-            collectionCompteSource = allocation.collectionCompteSource
+            alloue = -montant,       // Alloué négatif pour virement sortant
+            depense = 0.0,           // Pas une dépense, c'est un virement !
+            compteSourceId = allocationExistante.compteSourceId,
+            collectionCompteSource = allocationExistante.collectionCompteSource
         )
         allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
         
@@ -386,12 +428,27 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalStateException("Solde insuffisant dans l'enveloppe source ${enveloppeSource.nom}.")
         }
         
-        // CRÉER une nouvelle allocation pour la destination (pas de récupération)
-        val nouvelleAllocationDest = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+        // ✅ UTILISER recupererOuCreerAllocation pour éviter les doublons
+        val calendrier = Calendar.getInstance().apply {
+            time = Date()
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val premierJourMois = calendrier.time
+
+        // ✅ Obtenir/créer allocations pour les deux enveloppes
+                    val allocationSourceExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, premierJourMois)
+            val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, premierJourMois)
+
+        // ✅ CRÉER des allocations additionnelles pour les virements (addition automatique)
+        val allocationVirementDest = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
             id = "",
             utilisateurId = enveloppeDestination.utilisateurId,
             enveloppeId = enveloppeDestination.id,
-            mois = Date(),
+            mois = premierJourMois,
             solde = montant,
             alloue = montant,
             depense = 0.0,
@@ -399,22 +456,22 @@ class ArgentServiceImpl @Inject constructor(
             collectionCompteSource = null
         )
 
-        val allocationDestCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationDest)
+        val allocationDestCreee = allocationMensuelleRepository.creerNouvelleAllocation(allocationVirementDest)
 
-        // Créer une nouvelle allocation pour marquer la sortie de la source
-        val nouvelleAllocationSource = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+        // ✅ CRÉER allocation négative pour la source (addition automatique)
+        val allocationVirementSource = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
             id = "",
             utilisateurId = enveloppeSource.utilisateurId,
             enveloppeId = enveloppeSource.id,
-            mois = Date(),
+            mois = premierJourMois,
             solde = -montant,
-            alloue = -montant,  // 🔥 CORRECTION : Alloué négatif pour virement sortant
-            depense = 0.0,      // 🔥 CORRECTION : Pas une dépense, c'est un virement !
+            alloue = -montant,  // Alloué négatif pour virement sortant
+            depense = 0.0,      // Pas une dépense, c'est un virement !
             compteSourceId = null,
             collectionCompteSource = null
         )
 
-        val allocationSourceCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationSource)
+        val allocationSourceCreee = allocationMensuelleRepository.creerNouvelleAllocation(allocationVirementSource)
 
         // Créer les transactions pour tracer les virements
         val transactionSource = Transaction(

@@ -75,39 +75,20 @@ class VirementUseCase @Inject constructor(
                 throw IllegalArgumentException(validationResult.exceptionOrNull()?.message ?: "Conflit de provenance détecté")
             }
 
-            // 3. Obtenir ou créer l'allocation mensuelle
-            val allocationExistante = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, premierJourMois)
-                .getOrNull()
+            // 3. ✅ UTILISER recupererOuCreerAllocation au lieu de créer systématiquement
+            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
-            val allocationAMettreAJour: AllocationMensuelle = if (allocationExistante != null) {
-                // L'allocation existe déjà, on la met à jour
-                allocationExistante.copy(
-                    solde = allocationExistante.solde + montant,
-                    alloue = allocationExistante.alloue + montant
-                )
-            } else {
-                // L'allocation n'existe pas, on en crée une nouvelle
-                AllocationMensuelle(
-                    id = "", // PocketBase va générer un nouvel ID
-                    utilisateurId = compte.utilisateurId,
-                    enveloppeId = enveloppeId,
-                    mois = premierJourMois,
-                    solde = montant,
-                    alloue = montant,
-                    depense = 0.0,
-                    compteSourceId = compteId,
-                    collectionCompteSource = "comptes_cheque"
-                )
-            }
+            // 4. ✅ METTRE À JOUR l'allocation existante
+            val allocationMiseAJour = allocationExistante.copy(
+                solde = allocationExistante.solde + montant,
+                alloue = allocationExistante.alloue + montant,
+                compteSourceId = compteId,
+                collectionCompteSource = "comptes_cheque"
+            )
 
-            val resultAllocation = if (allocationExistante != null) {
-                // Créer une nouvelle allocation qui s'additionne automatiquement
-                enveloppeRepository.creerAllocationMensuelle(allocationAMettreAJour)
-            } else {
-                enveloppeRepository.creerAllocationMensuelle(allocationAMettreAJour)
-            }
+            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
 
-            // 4. Mettre à jour le prêt à placer du compte
+            // 5. Mettre à jour le prêt à placer du compte
             val resultCompte = compteRepository.mettreAJourPretAPlacerSeulement(
                 compteId = compteId,
                 variationPretAPlacer = -montant
@@ -117,7 +98,7 @@ class VirementUseCase @Inject constructor(
             }
 
 
-            // 5. Créer une transaction de traçabilité
+            // 6. Créer une transaction de traçabilité
             val transaction = Transaction(
                 type = TypeTransaction.Depense,
                 montant = montant,
@@ -125,7 +106,7 @@ class VirementUseCase @Inject constructor(
                 note = "Virement depuis Prêt à placer vers enveloppe",
                 compteId = compteId,
                 collectionCompte = "comptes_cheque",
-                allocationMensuelleId = allocationAMettreAJour.id
+                allocationMensuelleId = allocationMiseAJour.id
             )
 
             val resultTransaction = transactionRepository.creerTransaction(transaction)
@@ -185,9 +166,10 @@ class VirementUseCase @Inject constructor(
             }
             val premierJourMois = calendrier.time
 
-            // 3. D'ABORD vérifier le solde actuel de l'enveloppe AVANT de créer l'allocation
+            // 3. ✅ UTILISER recupererOuCreerAllocation pour obtenir/créer l'allocation
+            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
-            // Récupérer toutes les allocations pour ce mois et calculer le solde total
+            // 4. Vérifier le solde actuel de l'enveloppe
             val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
                 .getOrElse { emptyList() }
 
@@ -199,22 +181,21 @@ class VirementUseCase @Inject constructor(
                 throw IllegalArgumentException("Solde d'enveloppe insuffisant (${soldeActuelEnveloppe}$ disponible, ${montant}$ demandé)")
             }
 
-            // MAINTENANT créer la nouvelle allocation pour le virement
-            val nouvelleAllocation = AllocationMensuelle(
+            // 5. ✅ CRÉER une allocation négative pour le virement (addition automatique)
+            val allocationVirement = AllocationMensuelle(
                 id = "",
                 utilisateurId = compte.utilisateurId,
                 enveloppeId = enveloppeId,
                 mois = premierJourMois,
                 solde = -montant, // Négatif car on retire de l'enveloppe
-                alloue = 0.0,
+                alloue = -montant, // Alloué négatif pour virement sortant
                 depense = 0.0, // PAS de dépense - c'est un VIREMENT pas une transaction !
                 compteSourceId = compteId,
                 collectionCompteSource = compte.collection
             )
 
-            // Créer l'allocation en base
-            val allocationCree = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-                .getOrThrow()
+            // Créer l'allocation négative (s'additionne à l'existante)
+            val allocationCree = allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
 
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
@@ -228,17 +209,14 @@ class VirementUseCase @Inject constructor(
                 throw IllegalArgumentException(validationResult.exceptionOrNull()?.message ?: "L'argent ne peut retourner que vers son compte d'origine")
             }
 
-            // 4. PAS de mise à jour d'allocation - l'allocation créée est déjà correcte !
-            // Dans un virement, on ne change que le prêt à placer, pas le solde du compte
-
-            // 5. Mettre à jour le prêt à placer du compte (augmenter)
+            // 6. Mettre à jour le prêt à placer du compte (augmenter)
             compteRepository.mettreAJourPretAPlacerSeulement(
                 compteId = compteId,
                 variationPretAPlacer = montant
             )
 
 
-            // 6. Créer une transaction de traçabilité
+            // 7. Créer une transaction de traçabilité
             val transaction = Transaction(
                 type = TypeTransaction.Revenu,
                 montant = montant,

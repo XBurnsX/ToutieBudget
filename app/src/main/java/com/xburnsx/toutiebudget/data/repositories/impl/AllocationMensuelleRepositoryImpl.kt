@@ -191,28 +191,37 @@
         mois: Date
     ): AllocationMensuelle = withContext(Dispatchers.IO) {
         
-        // 1. Utiliser la date telle qu'elle est (plus de normalisation forcée)
+        // 🔥 OBTENIR L'UTILISATEUR CONNECTÉ SANS FORCER LE 1ER DU MOIS !
+        val utilisateurId = client.obtenirUtilisateurConnecte()?.id 
+            ?: throw Exception("Utilisateur non connecté")
+        
         println("[DEBUG] 📅 Recherche allocation pour enveloppe=$enveloppeId, mois=$mois")
 
         // 2. Chercher les allocations existantes pour cette enveloppe et ce mois
-        val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(enveloppeId, mois)
+        val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(utilisateurId, enveloppeId, mois)
          
          when {
-                         // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
+            // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
             allocationsExistantes.isEmpty() -> {
                 println("[DEBUG] ✨ Aucune allocation trouvée, création d'une nouvelle")
-                creerNouvelleAllocation(enveloppeId, mois)
+                val nouvelleAllocation = AllocationMensuelle(
+                    id = "",
+                    utilisateurId = utilisateurId,
+                    enveloppeId = enveloppeId,
+                    mois = mois,
+                    solde = 0.0,
+                    alloue = 0.0,
+                    depense = 0.0,
+                    compteSourceId = null,
+                    collectionCompteSource = null
+                )
+                creerAllocationMensuelleInterne(nouvelleAllocation)
             }
             
-            // Cas 2: Une seule allocation trouvée -> La retourner
-            allocationsExistantes.size == 1 -> {
-                println("[DEBUG] ✅ Allocation existante trouvée: ${allocationsExistantes.first().id}")
-                allocationsExistantes.first()
-            }
-            
-            // Cas 3: PROBLÈME - Plusieurs allocations trouvées -> Fusionner et nettoyer
+            // ✅ CORRECTION : TOUJOURS FUSIONNER même s'il y en a qu'une seule !
+            // Cas 2 & 3: Une ou plusieurs allocations -> FUSIONNER SYSTÉMATIQUEMENT
             else -> {
-                println("[DEBUG] ⚠️ ${allocationsExistantes.size} allocations trouvées, fusion nécessaire")
+                println("[DEBUG] 🔄 ${allocationsExistantes.size} allocations trouvées, FUSION AUTOMATIQUE")
                 fusionnerEtNettoyerAllocations(allocationsExistantes, enveloppeId, mois)
             }
          }
@@ -222,22 +231,28 @@
       * Récupère toutes les allocations pour une enveloppe et un mois donnés.
       */
      private suspend fun recupererAllocationsPourEnveloppeEtMois(
+         utilisateurId: String,
          enveloppeId: String, 
-         premierJourMois: Date
+         mois: Date
      ): List<AllocationMensuelle> = withContext(Dispatchers.IO) {
          
          try {
-             val utilisateurId = client.obtenirUtilisateurConnecte()?.id 
-                 ?: throw Exception("Utilisateur non connecté")
              val token = client.obtenirToken() 
                  ?: throw Exception("Token manquant")
              val urlBase = UrlResolver.obtenirUrlActive()
  
-             val moisIso = DATE_FORMAT.format(premierJourMois)
-             
-             // Filtre précis pour cette enveloppe ET ce mois
-             val filtre = java.net.URLEncoder.encode("enveloppe_id='$enveloppeId' && mois='$moisIso'", "UTF-8")
-             val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500"
+                         // 🔥 SIMPLE ! JUSTE LE MOIS TABARNACK !
+            val moisString = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(mois)
+            println("[DEBUG_RECHERCHE] 🔍 RECHERCHE SIMPLE - JUSTE LE MOIS: $moisString")
+            
+            // ✅ FILTRE SIMPLE COMME TU VEUX !
+            val filtre = java.net.URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && enveloppe_id='$enveloppeId' && mois ~ '$moisString'",
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500"
+            
+            println("[DEBUG_RECHERCHE] 🌐 URL: $url")
              
 
  
@@ -252,18 +267,49 @@
                  throw Exception("Erreur lors de la recherche: ${reponse.code}")
              }
  
-             val data = reponse.body!!.string()
-             val listType = com.google.gson.reflect.TypeToken.getParameterized(java.util.List::class.java, AllocationMensuelle::class.java).type
-             val allocations: List<AllocationMensuelle> = gson.fromJson(data, listType)
- 
+                         val data = reponse.body!!.string()
+            println("[DEBUG_RECHERCHE] 📤 Réponse brute: $data")
+            
+            try {
+                // 🔥 PARSING SIMPLE COMME ENVELOPEREPO !
+                val jsonObject = com.google.gson.JsonParser.parseString(data).asJsonObject
+                val itemsArray = jsonObject.getAsJsonArray("items")
+                
+                println("[DEBUG_RECHERCHE] 🔍 Items array size: ${itemsArray.size()}")
+                
+                val allocations = mutableListOf<AllocationMensuelle>()
+                for (i in 0 until itemsArray.size()) {
+                    val item = itemsArray[i].asJsonObject
+                    println("[DEBUG_RECHERCHE] 🔍 Parsing item $i: ${item}")
+                    
+                    val allocation = AllocationMensuelle(
+                        id = item.get("id")?.asString ?: "",
+                        utilisateurId = item.get("utilisateur_id")?.asString ?: "",
+                        enveloppeId = item.get("enveloppe_id")?.asString ?: "",
+                        mois = DATE_FORMAT.parse(item.get("mois")?.asString?.replace(Regex("\\.[0-9]+Z$"), "")?.replace(" ", "T") + ".000Z"),
+                        solde = item.get("solde")?.asDouble ?: 0.0,
+                        alloue = item.get("alloue")?.asDouble ?: 0.0,
+                        depense = item.get("depense")?.asDouble ?: 0.0,
+                        compteSourceId = item.get("compte_source_id")?.asString?.takeIf { it.isNotEmpty() },
+                        collectionCompteSource = item.get("collection_compte_source")?.asString?.takeIf { it.isNotEmpty() }
+                    )
+                    allocations.add(allocation)
+                }
 
-             allocations.forEach { allocation ->
+                println("[DEBUG_RECHERCHE] 📋 Allocations parsées: ${allocations.size}")
+                allocations.forEach { allocation ->
+                    println("[DEBUG_RECHERCHE] - ID: ${allocation.id}, solde: ${allocation.solde}, mois: ${allocation.mois}")
+                }
 
-             }
- 
-             allocations
+                allocations
+            } catch (e: Exception) {
+                println("[DEBUG_RECHERCHE] ❌ ERREUR PARSING: ${e.message}")
+                e.printStackTrace()
+                emptyList()
+            }
          } catch (e: Exception) {
-
+             println("[DEBUG_RECHERCHE] ❌ ERREUR GLOBALE: ${e.message}")
+             e.printStackTrace()
              emptyList()
          }
      }
@@ -271,53 +317,70 @@
      /**
       * NOUVELLE FONCTION : Fusionne plusieurs allocations en une seule et supprime les doublons.
       */
-     private suspend fun fusionnerEtNettoyerAllocations(
-         allocations: List<AllocationMensuelle>,
-         enveloppeId: String,
-         premierJourMois: Date
-     ): AllocationMensuelle = withContext(Dispatchers.IO) {
-         
-         // 1. Calculer les totaux de toutes les allocations
-         val soldeTotal = allocations.sumOf { it.solde }
-         val alloueTotal = allocations.sumOf { it.alloue }
-         val depenseTotal = allocations.sumOf { it.depense }
-         
-         // 2. Prendre les informations de la première allocation (pour les métadonnées)
-         val premiereAllocation = allocations.first()
-         
-
+          private suspend fun fusionnerEtNettoyerAllocations(
+        allocations: List<AllocationMensuelle>,
+        enveloppeId: String,
+        mois: Date
+    ): AllocationMensuelle = withContext(Dispatchers.IO) {
+        
+        println("[DEBUG_FUSION] 🔄 FUSION DE ${allocations.size} ALLOCATIONS")
+        
+        // 1. Calculer les totaux de toutes les allocations
+        val soldeTotal = allocations.sumOf { it.solde }
+        val alloueTotal = allocations.sumOf { it.alloue }
+        val depenseTotal = allocations.sumOf { it.depense }
+        
+        println("[DEBUG_FUSION] 💰 TOTAUX: solde=$soldeTotal, alloué=$alloueTotal, dépense=$depenseTotal")
+        
+        // 2. Prendre les informations de la première allocation (pour les métadonnées)
+        val premiereAllocation = allocations.first()
+        
+        // ✅ LOGIQUE PROVENANCE SIMPLE ! (comme demandé par l'utilisateur)
+        val compteProvenanceFinal = if (soldeTotal < 0.1) {
+            println("[DEBUG_FUSION] 🧹 Solde < 0.1 → RESET PROVENANCE (compteId = null)")
+            null // Reset provenance si plus d'argent
+        } else {
+            // Trouver la provenance dominante (allocation avec le plus gros solde positif)
+            val allocationDominante = allocations
+                .filter { it.solde > 0.0 }
+                .maxByOrNull { it.solde }
+            println("[DEBUG_FUSION] 🎯 Provenance dominante: ${allocationDominante?.compteSourceId}")
+            allocationDominante?.compteSourceId
+        }
  
-         // 3. Créer une nouvelle allocation fusionnée
-         val allocationFusionnee = AllocationMensuelle(
-             id = "", // Sera généré lors de la création
-             utilisateurId = premiereAllocation.utilisateurId,
-             enveloppeId = enveloppeId,
-             mois = premierJourMois,
-             solde = soldeTotal,
-             alloue = alloueTotal,
-             depense = depenseTotal,
-             compteSourceId = premiereAllocation.compteSourceId,
-             collectionCompteSource = premiereAllocation.collectionCompteSource
-         )
- 
-         try {
-             // 4. Supprimer toutes les anciennes allocations
+        // 3. Créer une nouvelle allocation fusionnée
+        val allocationFusionnee = AllocationMensuelle(
+            id = "", // Sera généré lors de la création
+            utilisateurId = premiereAllocation.utilisateurId,
+            enveloppeId = enveloppeId,
+            mois = mois,
+            solde = soldeTotal,
+            alloue = alloueTotal,
+            depense = depenseTotal,
+            compteSourceId = compteProvenanceFinal,
+            collectionCompteSource = if (compteProvenanceFinal != null) premiereAllocation.collectionCompteSource else null
+        )
 
-             allocations.forEach { allocation ->
-                 supprimerAllocation(allocation.id)
-             }
- 
-             // 5. Créer la nouvelle allocation fusionnée
+        try {
+            // 4. Supprimer toutes les anciennes allocations
+            println("[DEBUG_FUSION] 🗑️ Suppression de ${allocations.size} anciennes allocations")
+            allocations.forEach { allocation ->
+                supprimerAllocation(allocation.id)
+                println("[DEBUG_FUSION] 🗑️ Supprimé: ${allocation.id}")
+            }
 
-             val nouvelleAllocation = creerAllocationMensuelleInterne(allocationFusionnee)
-             nouvelleAllocation
-             
-         } catch (e: Exception) {
-
-             // En cas d'erreur, retourner la première allocation
-             premiereAllocation
-         }
-     }
+            // 5. Créer la nouvelle allocation fusionnée
+            println("[DEBUG_FUSION] ✨ Création de l'allocation fusionnée")
+            val nouvelleAllocation = creerAllocationMensuelleInterne(allocationFusionnee)
+            println("[DEBUG_FUSION] 🎉 FUSION TERMINÉE - 1 allocation finale ID=${nouvelleAllocation.id}")
+            nouvelleAllocation
+            
+        } catch (e: Exception) {
+            println("[DEBUG_FUSION] ❌ ERREUR: ${e.message}")
+            // En cas d'erreur, retourner la première allocation
+            premiereAllocation
+        }
+    }
  
      /**
       * Supprime une allocation par son ID.

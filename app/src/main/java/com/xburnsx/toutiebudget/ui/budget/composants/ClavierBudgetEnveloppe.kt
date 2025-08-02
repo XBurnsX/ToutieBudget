@@ -107,8 +107,8 @@ fun ClavierBudgetEnveloppe(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
 
-                        // Bulle colorée si argent provenant d'un compte
-                        if (enveloppe.couleurProvenance != null) {
+                        // Bulle colorée si argent provenant d'un compte ET solde > 0
+                        if (enveloppe.couleurProvenance != null && enveloppe.solde > 0.001) {
                             Box(
                                 modifier = Modifier
                                     .background(

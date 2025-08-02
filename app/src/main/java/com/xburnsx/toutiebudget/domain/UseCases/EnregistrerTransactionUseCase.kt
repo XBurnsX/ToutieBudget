@@ -113,7 +113,7 @@ class EnregistrerTransactionUseCase(
 
                 val resultats = tachesMiseAJour.awaitAll()
                 
-                // Vérifier que toutes les mises à jour ont réussi
+                                // Vérifier que toutes les mises à jour ont réussi
                 resultats.forEach { resultat ->
                     if (resultat.isFailure) {
                         throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
@@ -169,15 +169,8 @@ class EnregistrerTransactionUseCase(
         )
         
         return try {
-            val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-            resultAllocation.fold(
-                onSuccess = { allocationCreee ->
-                    Result.success(allocationCreee.id)
-                },
-                onFailure = { erreur ->
-                    Result.failure(erreur)
-                }
-            )
+            val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+            Result.success(allocationCreee.id)
         } catch (e: Exception) {
             Result.failure(e)
         }

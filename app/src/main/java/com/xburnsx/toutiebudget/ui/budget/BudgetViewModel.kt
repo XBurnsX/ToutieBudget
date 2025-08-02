@@ -15,6 +15,7 @@ import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
@@ -36,6 +37,7 @@ class BudgetViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository, // ← AJOUT
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
     private val realtimeSyncService: RealtimeSyncService,
     private val validationProvenanceService: ValidationProvenanceService,
@@ -487,34 +489,29 @@ class BudgetViewModel(
                     throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
                 }
 
-                // 4. Vérifier s'il existe déjà une allocation pour ce mois
+                // 4. ✅ LOGIQUE CORRIGÉE : METTRE À JOUR l'allocation existante au lieu de créer un doublon
                 val moisActuel = obtenirPremierJourDuMois(moisSelectionne)
-                val resultAllocationExistante = enveloppeRepository.recupererAllocationMensuelle(enveloppeId, moisActuel)
-
-                if (resultAllocationExistante.isFailure) {
-                    throw Exception("Erreur lors de la vérification de l'allocation: ${resultAllocationExistante.exceptionOrNull()?.message}")
-                }
-
-                val allocationExistante = resultAllocationExistante.getOrNull()
-
-                // 5. On crée TOUJOURS une nouvelle allocation avec le montant de l'ajout.
-                val nouvelleAllocation = AllocationMensuelle(
-                    id = "", // Sera généré par PocketBase
-                    utilisateurId = compteSource.utilisateurId,
-                    enveloppeId = enveloppeId,
-                    mois = moisActuel,
-                    solde = montantDollars, // Le solde est UNIQUEMENT le montant de cet ajout
-                    alloue = montantDollars, // Le montant qu'on vient de placer
-                    depense = 0.0, // Une nouvelle allocation n'a pas de dépense initiale
-                    compteSourceId = compteSourceId,
-                    collectionCompteSource = compteSource.collection ?: "comptes_cheque"
+                
+                // ✅ FUSION COMPLÈTE : Récupérer l'allocation fusionnée ET l'augmenter directement
+                val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, moisActuel)
+                
+                // 🔧 DEBUG : Avant modification
+                println("[DEBUG_FUSION] 🔍 AVANT: Allocation fusionnée: ID=${allocationFusionnee.id}, solde=${allocationFusionnee.solde}, compteSourceId=${allocationFusionnee.compteSourceId}")
+                
+                // ✅ MODIFIER DIRECTEMENT l'allocation fusionnée
+                val allocationFinale = allocationFusionnee.copy(
+                    solde = allocationFusionnee.solde + montantDollars,
+                    alloue = allocationFusionnee.alloue + montantDollars,
+                    // ✅ PROVENANCE : Changer seulement si solde était à 0
+                    compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSourceId else allocationFusionnee.compteSourceId,
+                    collectionCompteSource = if (allocationFusionnee.solde <= 0.01) (compteSource.collection ?: "comptes_cheque") else allocationFusionnee.collectionCompteSource
                 )
-
-                val resultAllocation = enveloppeRepository.creerAllocationMensuelle(nouvelleAllocation)
-
-                if (resultAllocation.isFailure) {
-                    throw Exception("Erreur lors de la création de l'allocation: ${resultAllocation.exceptionOrNull()?.message}")
-                }
+                
+                // 🔧 DEBUG : Après modification
+                println("[DEBUG_FUSION] 🔍 APRÈS: Allocation finale: ID=${allocationFinale.id}, solde=${allocationFinale.solde}, compteSourceId=${allocationFinale.compteSourceId}")
+                
+                // ✅ MISE À JOUR : Sauvegarder l'allocation unique
+                allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
                 // 6. Recharger les données pour rafraîchir l'affichage
                 chargerDonneesBudget(moisSelectionne)
