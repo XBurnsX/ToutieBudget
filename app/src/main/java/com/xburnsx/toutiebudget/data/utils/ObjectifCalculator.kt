@@ -122,18 +122,43 @@ class ObjectifCalculator {
         val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - dateDebut.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
         
-        // Calculer les mois totaux entre la date de début et l'échéance
-        val moisTotaux = max(1.0, ceil(joursRestants / 30.44))
-        val objectifMensuel = objectifTotal / moisTotaux
-        
-        // Calculer le nombre de mois qui se sont écoulés depuis la date de début jusqu'au mois sélectionné
-        val calendarDebut = Calendar.getInstance()
-        calendarDebut.time = dateDebut
+        // 🆕 CALCULER LE TEMPS RESTANT JUSQU'À L'ÉCHÉANCE EN JOURS RÉELS (très précis)
+        val calendarEcheance = Calendar.getInstance()
+        calendarEcheance.time = dateEcheance
         val calendarSelectionne = Calendar.getInstance()
         calendarSelectionne.time = moisSelectionne
         
-        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
-                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
+        // Calculer les jours restants jusqu'à l'échéance
+        val joursRestantsJusquEcheance = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - moisSelectionne.time)
+        
+        // Si on est après l'échéance, objectif passé
+        if (joursRestantsJusquEcheance <= 0) return max(0.0, objectifTotal - soldeActuel)
+        
+        // 🎯 CALCULER L'OBJECTIF MENSUEL BASÉ SUR LA PÉRIODE TOTALE DE L'OBJECTIF
+        // Calculer les jours entre la date de début et la date de fin de l'objectif
+        val dateDebutObjectif = dateDebutObjectif ?: dateDebut
+        val joursTotalObjectif = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - dateDebutObjectif.time)
+        
+        // Montant par jour = objectif total ÷ jours total de l'objectif
+        val montantParJour = objectifTotal / max(1.0, joursTotalObjectif.toDouble())
+        
+        // Calculer combien de jours il y a dans le mois sélectionné
+        val calendarMois = Calendar.getInstance()
+        calendarMois.time = moisSelectionne
+        val joursDansMois = calendarMois.getActualMaximum(Calendar.DAY_OF_MONTH)
+        
+        // Objectif mensuel = montant par jour × jours dans le mois
+        val objectifMensuel = montantParJour * joursDansMois
+        
+        // 🎯 RATTRAPAGE INTELLIGENT POUR LES ÉCHÉANCES
+        // Calculer combien de mois se sont écoulés depuis la date de début jusqu'au mois sélectionné
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebutObjectif
+        val calendarMoisRattrapage = Calendar.getInstance()
+        calendarMoisRattrapage.time = moisSelectionne
+        
+        val moisEcoules = (calendarMoisRattrapage.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
+                (calendarMoisRattrapage.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
         
         // Si le mois sélectionné est avant la date de début de l'objectif
         if (moisEcoules <= 0) {
@@ -146,7 +171,7 @@ class ObjectifCalculator {
         val devraitAvoirAlloue = min(moisEcoules * objectifMensuel, objectifTotal)
         
         // Ce qui a été réellement alloué depuis la date de début jusqu'au mois sélectionné (inclus)
-        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebut, moisSelectionne, inclureMoisSelectionne = true)
+        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebutObjectif, moisSelectionne, inclureMoisSelectionne = true)
         
         // Retard accumulé = ce qui devrait être alloué - ce qui a été réellement alloué
         val retardAccumule = max(0.0, devraitAvoirAlloue - totalRealementAlloue)
@@ -155,8 +180,8 @@ class ObjectifCalculator {
         val allocationCeMois = allocationsMensuelles.find { allocation ->
             val calendarAllocation = Calendar.getInstance()
             calendarAllocation.time = allocation.mois
-            calendarAllocation.get(Calendar.YEAR) == calendarSelectionne.get(Calendar.YEAR) &&
-            calendarAllocation.get(Calendar.MONTH) == calendarSelectionne.get(Calendar.MONTH)
+            calendarAllocation.get(Calendar.YEAR) == calendarMoisRattrapage.get(Calendar.YEAR) &&
+            calendarAllocation.get(Calendar.MONTH) == calendarMoisRattrapage.get(Calendar.MONTH)
         }
         
         val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
@@ -177,7 +202,7 @@ class ObjectifCalculator {
 
     /**
      * Pour un objectif ANNUEL récurrent.
-     * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel + rattrapage du retard accumulé.
+     * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel basé sur les jours + rattrapage du retard accumulé.
      */
     private fun calculerVersementAnnuel(
         soldeActuel: Double, 
@@ -186,34 +211,57 @@ class ObjectifCalculator {
         moisSelectionne: Date,
         allocationsMensuelles: List<AllocationMensuelle>
     ): Double {
-        val objectifMensuel = objectifAnnuel / 12.0
-        
-        // Si pas de date de début, suggérer l'objectif mensuel standard
-        if (dateDebutObjectif == null) {
-            return objectifMensuel
+        // Si pas de date de début, calculer basé sur l'année courante
+        val dateDebut = dateDebutObjectif ?: run {
+            val calendar = Calendar.getInstance()
+            calendar.set(Calendar.MONTH, Calendar.JANUARY)
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.time
         }
         
-        // Calculer combien de mois se sont écoulés depuis le DÉBUT DE L'OBJECTIF jusqu'au mois sélectionné
+        // Calculer la date de fin (1 an après la date de début)
+        val calendarFin = Calendar.getInstance()
+        calendarFin.time = dateDebut
+        calendarFin.add(Calendar.YEAR, 1)
+        val dateFin = calendarFin.time
+        
+        // 🎯 CALCULER L'OBJECTIF MENSUEL BASÉ SUR LA PÉRIODE TOTALE DE L'OBJECTIF
+        // Calculer les jours entre la date de début et la date de fin de l'objectif
+        val joursTotalObjectif = TimeUnit.MILLISECONDS.toDays(dateFin.time - dateDebut.time)
+        
+        // Montant par jour = objectif annuel ÷ jours total de l'objectif
+        val montantParJour = objectifAnnuel / max(1.0, joursTotalObjectif.toDouble())
+        
+        // Calculer combien de jours il y a dans le mois sélectionné
+        val calendarMois = Calendar.getInstance()
+        calendarMois.time = moisSelectionne
+        val joursDansMois = calendarMois.getActualMaximum(Calendar.DAY_OF_MONTH)
+        
+        // Objectif mensuel = montant par jour × jours dans le mois
+        val objectifMensuel = montantParJour * joursDansMois
+        
+        // 🎯 RATTRAPAGE INTELLIGENT POUR LES ANNUELS
+        // Calculer combien de mois se sont écoulés depuis la date de début jusqu'au mois sélectionné
         val calendarDebut = Calendar.getInstance()
-        calendarDebut.time = dateDebutObjectif
-        val calendarSelectionne = Calendar.getInstance()
-        calendarSelectionne.time = moisSelectionne
+        calendarDebut.time = dateDebut
+        val calendarMoisRattrapage = Calendar.getInstance()
+        calendarMoisRattrapage.time = moisSelectionne
         
-        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
-                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
+        val moisEcoules = (calendarMoisRattrapage.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
+                (calendarMoisRattrapage.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
         
-        // Si le mois sélectionné est avant le début de l'objectif, suggestion standard
+        // Si le mois sélectionné est avant la date de début de l'objectif
         if (moisEcoules <= 0) {
             return objectifMensuel
         }
         
         // 🎯 RATTRAPAGE INTELLIGENT : 
-        // Ce qui devrait avoir été alloué depuis le début jusqu'au mois sélectionné (inclus)
+        // Ce qui devrait avoir été alloué depuis la date de début jusqu'au mois sélectionné (inclus)
         // MAIS NE PAS DÉPASSER L'OBJECTIF TOTAL !
         val devraitAvoirAlloue = min(moisEcoules * objectifMensuel, objectifAnnuel)
         
-        // Ce qui a été réellement alloué depuis le début jusqu'au mois sélectionné (inclus)
-        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebutObjectif, moisSelectionne, inclureMoisSelectionne = true)
+        // Ce qui a été réellement alloué depuis la date de début jusqu'au mois sélectionné (inclus)
+        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebut, moisSelectionne, inclureMoisSelectionne = true)
         
         // Retard accumulé = ce qui devrait être alloué - ce qui a été réellement alloué
         val retardAccumule = max(0.0, devraitAvoirAlloue - totalRealementAlloue)
@@ -222,8 +270,8 @@ class ObjectifCalculator {
         val allocationCeMois = allocationsMensuelles.find { allocation ->
             val calendarAllocation = Calendar.getInstance()
             calendarAllocation.time = allocation.mois
-            calendarAllocation.get(Calendar.YEAR) == calendarSelectionne.get(Calendar.YEAR) &&
-            calendarAllocation.get(Calendar.MONTH) == calendarSelectionne.get(Calendar.MONTH)
+            calendarAllocation.get(Calendar.YEAR) == calendarMoisRattrapage.get(Calendar.YEAR) &&
+            calendarAllocation.get(Calendar.MONTH) == calendarMoisRattrapage.get(Calendar.MONTH)
         }
         
         val dejaAlloqueCeMois = allocationCeMois?.alloue ?: 0.0
