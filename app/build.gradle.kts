@@ -82,5 +82,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("javax.inject:javax.inject:1")
+    
+    // Splash screen natif Android
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    
     // ...existing dependencies...
 }

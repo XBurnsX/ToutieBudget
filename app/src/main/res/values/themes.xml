@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Thème splash screen natif -->
+    <style name="Theme.ToutieBudget.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <item name="postSplashScreenTheme">@style/Theme.ToutieBudget</item>
+    </style>
+
+    <!-- Thème principal de l'application -->
     <style name="Theme.ToutieBudget" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
