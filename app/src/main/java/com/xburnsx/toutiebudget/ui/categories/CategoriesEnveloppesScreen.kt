@@ -204,14 +204,6 @@ fun CategoriesEnveloppesScreen(
                                 )
                             }
                         }
-                        // Bouton de rechargement
-                        IconButton(onClick = { viewModel.chargerDonnees() }) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Recharger",
-                                tint = Color.White
-                            )
-                        }
                         // Bouton d'ajout de catégorie
                         IconButton(onClick = { viewModel.onOuvrirAjoutCategorieDialog() }) {
                             Icon(

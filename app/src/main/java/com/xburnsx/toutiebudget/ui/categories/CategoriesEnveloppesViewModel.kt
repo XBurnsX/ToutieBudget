@@ -713,6 +713,11 @@ class CategoriesEnveloppesViewModel(
 
     private fun organiserGroupes(groupes: Map<String, List<Enveloppe>>): Map<String, List<Enveloppe>> {
         val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }.map { it.nom }
-        return groupes.toSortedMap(compareBy { categoriesOrdonnees.indexOf(it) })
+        return groupes.toSortedMap(compareBy { nomCategorie ->
+            val indexExistant = categoriesOrdonnees.indexOf(nomCategorie)
+            // Si la catégorie existe déjà dans l'ordre, utiliser son index
+            // Sinon, la placer à la fin (index très grand)
+            if (indexExistant != -1) indexExistant else Int.MAX_VALUE
+        })
     }
 }
