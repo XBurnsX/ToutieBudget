@@ -71,18 +71,14 @@ class BudgetViewModel(
             }.onFailure { e ->
             }
 
-            // 🔄 ROLLOVER AUTOMATIQUE : Seulement si on est le 1er du mois
-            val aujourdhui = Calendar.getInstance()
-            val estPremierDuMois = aujourdhui.get(Calendar.DAY_OF_MONTH) == 1
-
-            if (estPremierDuMois) {
-                verifierEtExecuterRolloverUseCase().onSuccess {
-                    chargerDonneesBudget(Date())
-                }.onFailure { e ->
-                    _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
-                    chargerDonneesBudget(Date())
-                }
-            } else {
+            // 🔄 ROLLOVER AUTOMATIQUE : À chaque connexion dans un nouveau mois (pas seulement le 1er !)
+            println("[BUDGET_VM] 🔄 Vérification automatique du rollover...")
+            verifierEtExecuterRolloverUseCase().onSuccess {
+                println("[BUDGET_VM] ✅ Vérification rollover terminée")
+                chargerDonneesBudget(Date())
+            }.onFailure { e ->
+                println("[BUDGET_VM] ❌ Erreur rollover: ${e.message}")
+                _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
                 chargerDonneesBudget(Date())
             }
         }

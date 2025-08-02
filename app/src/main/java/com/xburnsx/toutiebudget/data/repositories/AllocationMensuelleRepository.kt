@@ -26,7 +26,7 @@ interface AllocationMensuelleRepository {
      * @param enveloppeId ID de l'enveloppe concernée.
      * @param mois Premier jour du mois ciblé.
      */
-    suspend fun getOrCreateAllocationMensuelle(enveloppeId: String, mois: Date): AllocationMensuelle
+    suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): AllocationMensuelle
     
     /**
      * Met à jour l'allocation complète via l'objet, plus flexible que le patch partiel.

@@ -134,14 +134,14 @@
          }
      }
  
-     /**
-      * CORRECTION PRINCIPALE : Récupère OU crée une allocation mensuelle unique par enveloppe/mois.
-      * Résout le problème de duplication des allocations.
-      */
-     override suspend fun getOrCreateAllocationMensuelle(
-         enveloppeId: String, 
-         mois: Date
-     ): AllocationMensuelle = withContext(Dispatchers.IO) {
+         /**
+     * CORRECTION PRINCIPALE : Récupère OU crée une allocation mensuelle unique par enveloppe/mois.
+     * Résout le problème de duplication des allocations.
+     */
+    override suspend fun recupererOuCreerAllocation(
+        enveloppeId: String, 
+        mois: Date
+    ): AllocationMensuelle = withContext(Dispatchers.IO) {
          
          // 1. Calculer le premier jour du mois pour la recherche
          val calendrier = Calendar.getInstance().apply {

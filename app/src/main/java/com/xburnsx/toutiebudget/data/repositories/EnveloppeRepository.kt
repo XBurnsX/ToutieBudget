@@ -40,13 +40,7 @@ interface EnveloppeRepository {
      */
     suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Enveloppe>
     
-    /**
-     * Récupère ou crée une allocation pour une enveloppe et un mois donnés.
-     * @param enveloppeId L'ID de l'enveloppe
-     * @param mois Le mois pour l'allocation
-     * @return Result contenant l'allocation trouvée ou créée
-     */
-    suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle>
+
     
     /**
      * Met à jour une enveloppe existante.

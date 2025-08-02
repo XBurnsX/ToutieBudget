@@ -8,7 +8,7 @@ Le système d'allocations mensuelles de ToutieBudget fonctionne par **ADDITION A
 ### ❌ CE QU'IL NE FAUT PAS FAIRE
 - **JAMAIS modifier une allocation existante** pour ajouter de l'argent
 - **JAMAIS utiliser `mettreAJourAllocation()` pour créer**
-- **JAMAIS utiliser `getOrCreateAllocationMensuelle()` pour les virements** (bug de parsing)
+- **JAMAIS utiliser `recupererOuCreerAllocation()` pour les virements** (bug de parsing)
 
 ### ✅ CE QU'IL FAUT FAIRE
 - **TOUJOURS créer une NOUVELLE allocation** avec `creerNouvelleAllocation()`

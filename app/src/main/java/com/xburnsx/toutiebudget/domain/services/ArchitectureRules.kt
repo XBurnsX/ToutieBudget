@@ -38,7 +38,7 @@ package com.xburnsx.toutiebudget.domain.services
  *
  * - JAMAIS modifier une allocation existante
  * - JAMAIS utiliser mettreAJourAllocation() pour ajouter de l'argent
- * - JAMAIS getOrCreateAllocationMensuelle() pour les virements
+ * - JAMAIS recupererOuCreerAllocation() pour les virements
  *
  * 🔑 RÈGLE D'OR : TOUJOURS créer une NOUVELLE allocation !
  */

@@ -370,38 +370,7 @@
          }
      }
  
-     /**
-      * Récupère ou crée une allocation pour une enveloppe et un mois donnés.
-      */
-     override suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
-         try {
-             // Essayer de récupérer une allocation existante
-             val allocationExistante = recupererAllocationMensuelle(enveloppeId, mois)
-             if (allocationExistante.isSuccess) {
-                 val allocation = allocationExistante.getOrNull()
-                 if (allocation != null) {
-                     return@withContext Result.success(allocation)
-                 }
-             }
- 
-             // Créer une nouvelle allocation
-             val nouvelleAllocation = AllocationMensuelle(
-                 id = "",
-                 utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: "",
-                 enveloppeId = enveloppeId,
-                 mois = mois,
-                 solde = 0.0,
-                 alloue = 0.0,
-                 depense = 0.0,
-                 compteSourceId = null,
-                 collectionCompteSource = null
-             )
- 
-             creerAllocationMensuelle(nouvelleAllocation)
-         } catch (e: Exception) {
-             Result.failure(e)
-         }
-     }
+     
  
      /**
       * Met à jour une enveloppe existante.
