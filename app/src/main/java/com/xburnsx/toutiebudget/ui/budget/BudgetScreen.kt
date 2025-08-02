@@ -18,6 +18,9 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.xburnsx.toutiebudget.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,18 +99,20 @@ fun BudgetScreen(
                     // Icône de virement
                     IconButton(onClick = { onVirementClick?.invoke() }) {
                         Icon(
-                            Icons.Default.SwapHoriz,
+                            ImageVector.vectorResource(R.drawable.transfert_argent),
                             contentDescription = "Virement d'argent",
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
                     // Icône des catégories (séparée)
                     IconButton(onClick = { onCategoriesClick?.invoke() }) {
                         Icon(
-                            Icons.Default.Category,
+                            ImageVector.vectorResource(R.drawable.gerer_categorie),
                             contentDescription = "Catégories",
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 

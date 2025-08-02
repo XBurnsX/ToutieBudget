@@ -135,7 +135,7 @@ private fun RowScope.CustomAnimatedBottomBarItem(
             )
 
             Icon(
-                imageVector = screen.icon,
+                imageVector = screen.iconProvider(),
                 contentDescription = screen.title,
                 modifier = Modifier.size(iconSize),
                 tint = iconTint
@@ -153,6 +153,19 @@ private fun RowScope.CustomAnimatedBottomBarItem(
                 )
             ) {
                 Spacer(Modifier.width(8.dp))
+            }
+
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn(animationSpec = tween(delayMillis = 150)) + slideInHorizontally(
+                    initialOffsetX = { fullWidth -> fullWidth / 2 },
+                    animationSpec = tween(delayMillis = 150)
+                ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 150)) + slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth / 2 },
+                    animationSpec = tween(durationMillis = 150)
+                )
+            ) {
                 Text(
                     text = screen.title,
                     color = Color.White,

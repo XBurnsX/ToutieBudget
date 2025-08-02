@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.xburnsx.toutiebudget.R
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -42,16 +44,16 @@ import com.xburnsx.toutiebudget.utils.ThemePreferences
 sealed class Screen(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val iconProvider: @Composable () -> ImageVector
 ) {
-    object Budget : Screen("budget", "Budget", Icons.Default.Home)
-    object Comptes : Screen("comptes", "Comptes", Icons.Default.Wallet)
-    object NouvelleTransaction : Screen("nouvelle_transaction", "Ajouter", Icons.Default.Add)
-    object Categories : Screen("categories", "Catégories", Icons.Default.Category)
-    object Statistiques : Screen("statistiques", "Stats", Icons.Default.BarChart)
-    object HistoriqueCompte : Screen("historique_compte/{compteId}/{collectionCompte}/{nomCompte}", "Historique", Icons.Default.History)
-    object VirerArgent : Screen("virer_argent", "Virement", Icons.Default.SwapHoriz)
-    object Settings : Screen("settings", "Paramètres", Icons.Default.Settings)
+    object Budget : Screen("budget", "Budget", { ImageVector.vectorResource(R.drawable.budget) })
+    object Comptes : Screen("comptes", "Comptes", { Icons.Default.AccountBalance })
+    object NouvelleTransaction : Screen("nouvelle_transaction", "Ajouter", { ImageVector.vectorResource(R.drawable.ajout_transaction) })
+    object Categories : Screen("categories", "Catégories", { Icons.Default.Category })
+    object Statistiques : Screen("statistiques", "Stats", { Icons.Default.BarChart })
+    object HistoriqueCompte : Screen("historique_compte/{compteId}/{collectionCompte}/{nomCompte}", "Historique", { Icons.Default.History })
+    object VirerArgent : Screen("virer_argent", "Virement", { ImageVector.vectorResource(R.drawable.transfert_argent) })
+    object Settings : Screen("settings", "Paramètres", { Icons.Default.Settings })
 
 
     companion object {
