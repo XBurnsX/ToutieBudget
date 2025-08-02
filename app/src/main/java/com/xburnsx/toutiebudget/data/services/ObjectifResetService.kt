@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.data.services
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import java.util.Calendar
 import java.util.Date
 import java.util.concurrent.TimeUnit
@@ -10,9 +11,11 @@ import java.util.concurrent.TimeUnit
 /**
  * Service responsable du reset automatique des objectifs bihebdomadaires.
  * Vérifie si les cycles de 2 semaines sont terminés et met à jour les dates automatiquement.
+ * Reset également le solde alloué à 0 pour le nouveau cycle.
  */
 class ObjectifResetService(
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository
 ) {
 
     /**
@@ -44,6 +47,7 @@ class ObjectifResetService(
                 if (updateResult.isSuccess) {
                     enveloppesResetees.add(enveloppeResetee)
                 } else {
+                    // Log l'erreur si nécessaire
                 }
             }
 
@@ -96,8 +100,9 @@ class ObjectifResetService(
      * Reset un objectif bihebdomadaire selon la logique :
      * - date_debut_objectif = ancienne date_objectif
      * - date_objectif = nouvelle date_debut + 14 jours
+     * - Reset le solde alloué à 0 pour le nouveau cycle
      */
-    private fun resetterObjectifBihebdomadaire(enveloppe: Enveloppe): Enveloppe {
+    private suspend fun resetterObjectifBihebdomadaire(enveloppe: Enveloppe): Enveloppe {
         val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
 
         // Calculer l'ancienne date d'objectif (date_debut + 14 jours)
@@ -123,9 +128,44 @@ class ObjectifResetService(
             set(Calendar.MILLISECOND, 0)
         }.time
 
+        // 🆕 RESET DU SOLDE ALLOUÉ : Créer une nouvelle allocation avec solde = 0
+        // pour le nouveau cycle (mois de la nouvelle date de début)
+        val moisNouveauCycle = obtenirPremierJourDuMois(nouvelleDateDebut)
+        
+        // Récupérer l'allocation existante pour ce mois ou en créer une nouvelle
+        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(
+            enveloppeId = enveloppe.id,
+            mois = moisNouveauCycle
+        )
+        
+        // Reset le solde alloué ET les dépenses à 0 pour le nouveau cycle
+        // Important : reset aussi depense car solde = alloue - depense
+        val allocationResetee = allocationExistante.copy(
+            solde = 0.0,
+            alloue = 0.0,
+            depense = 0.0
+        )
+        
+        // Mettre à jour l'allocation en base
+        allocationMensuelleRepository.mettreAJourAllocation(allocationResetee)
+
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,
             dateObjectif = nouvelleDateObjectif.toString()
         )
+    }
+    
+    /**
+     * Obtient le premier jour du mois pour une date donnée.
+     */
+    private fun obtenirPremierJourDuMois(date: Date): Date {
+        val calendar = Calendar.getInstance()
+        calendar.time = date
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        return calendar.time
     }
 }
