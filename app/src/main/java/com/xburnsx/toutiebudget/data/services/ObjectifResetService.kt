@@ -30,12 +30,12 @@ class ObjectifResetService(
         if (enveloppe.typeObjectif != TypeObjectif.Echeance) return false
         if (!enveloppe.resetApresEcheance) return false
         
-        val dateFinObjectif = enveloppe.dateFinObjectif ?: return false
+        val dateObjectif = enveloppe.dateObjectif ?: return false
         
         // Vérifier si la date de fin d'échéance est dépassée (avec 1 jour de grâce)
         val maintenant = Date()
         val dateFinPlusGrace = Calendar.getInstance().apply {
-            time = dateFinObjectif
+            time = dateObjectif
             add(Calendar.DAY_OF_MONTH, 1) // 1 jour de grâce
         }.time
         
@@ -43,7 +43,7 @@ class ObjectifResetService(
     }
 
     /**
-     * Vérifie et reset automatiquement les objectifs bihebdomadaires, annuels et d'échéance.
+     * Vérifie et reset automatiquement les objectifs bihebdomadaires.
      */
     suspend fun verifierEtResetterObjectifsBihebdomadaires(): Result<List<Enveloppe>> {
         return try {
@@ -51,22 +51,54 @@ class ObjectifResetService(
             val enveloppesResetees = mutableListOf<Enveloppe>()
             
             enveloppes.forEach { enveloppe ->
-                when {
-                    doitEtreResetBihebdomadaire(enveloppe) -> {
-                        val enveloppeResetee = resetterObjectifBihebdomadaire(enveloppe)
-                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
-                        enveloppesResetees.add(enveloppeResetee)
-                    }
-                    doitEtreResetAnnuel(enveloppe) -> {
-                        val enveloppeResetee = resetterObjectifAnnuel(enveloppe)
-                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
-                        enveloppesResetees.add(enveloppeResetee)
-                    }
-                    doitEtreResetEcheance(enveloppe) -> {
-                        val enveloppeResetee = resetterObjectifEcheance(enveloppe)
-                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
-                        enveloppesResetees.add(enveloppeResetee)
-                    }
+                if (doitEtreResetBihebdomadaire(enveloppe)) {
+                    val enveloppeResetee = resetterObjectifBihebdomadaire(enveloppe)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppesResetees.add(enveloppeResetee)
+                }
+            }
+            
+            Result.success(enveloppesResetees)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Vérifie et reset automatiquement les objectifs annuels.
+     */
+    suspend fun verifierEtResetterObjectifsAnnuels(): Result<List<Enveloppe>> {
+        return try {
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+            val enveloppesResetees = mutableListOf<Enveloppe>()
+            
+            enveloppes.forEach { enveloppe ->
+                if (doitEtreResetAnnuel(enveloppe)) {
+                    val enveloppeResetee = resetterObjectifAnnuel(enveloppe)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppesResetees.add(enveloppeResetee)
+                }
+            }
+            
+            Result.success(enveloppesResetees)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Vérifie et reset automatiquement les objectifs d'échéance.
+     */
+    suspend fun verifierEtResetterObjectifsEcheance(): Result<List<Enveloppe>> {
+        return try {
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+            val enveloppesResetees = mutableListOf<Enveloppe>()
+            
+            enveloppes.forEach { enveloppe ->
+                if (doitEtreResetEcheance(enveloppe)) {
+                    val enveloppeResetee = resetterObjectifEcheance(enveloppe)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppesResetees.add(enveloppeResetee)
                 }
             }
             
@@ -78,24 +110,16 @@ class ObjectifResetService(
 
     /**
      * Vérifie si un objectif bihebdomadaire doit être reseté.
-     * Reset quand aujourd'hui = date_objectif + 1 jour (pour laisser le temps de payer).
+     * Reset quand aujourd'hui = date_objectif (date de fin) + 1 jour (pour laisser le temps de payer).
      */
     private fun doitEtreResetBihebdomadaire(enveloppe: Enveloppe): Boolean {
-        val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return false
-
-        // Calculer la date d'objectif actuelle (date_debut + 14 jours)
-        val dateObjectifActuelle = Calendar.getInstance().apply {
-            time = dateDebutObjectif
-            add(Calendar.DAY_OF_YEAR, 14)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
+        if (enveloppe.typeObjectif != TypeObjectif.Bihebdomadaire) return false
+        
+        val dateObjectif = enveloppe.dateObjectif ?: return false
 
         // Calculer la date de reset (date_objectif + 1 jour de grâce)
         val dateReset = Calendar.getInstance().apply {
-            time = dateObjectifActuelle
+            time = dateObjectif
             add(Calendar.DAY_OF_YEAR, 1)
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -117,24 +141,16 @@ class ObjectifResetService(
 
     /**
      * Vérifie si un objectif annuel doit être reseté.
-     * Reset quand aujourd'hui = date_debut_objectif + 12 mois + 1 jour (pour laisser le temps de payer).
+     * Reset quand aujourd'hui = date_objectif (date de fin) + 1 jour (pour laisser le temps de payer).
      */
     private fun doitEtreResetAnnuel(enveloppe: Enveloppe): Boolean {
-        val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return false
+        if (enveloppe.typeObjectif != TypeObjectif.Annuel) return false
+        
+        val dateObjectif = enveloppe.dateObjectif ?: return false
 
-        // Calculer la date de fin de l'objectif annuel (date_debut + 12 mois)
-        val dateFinObjectif = Calendar.getInstance().apply {
-            time = dateDebutObjectif
-            add(Calendar.MONTH, 12)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        // Calculer la date de reset (date_fin + 1 jour de grâce)
+        // Calculer la date de reset (date_objectif + 1 jour de grâce)
         val dateReset = Calendar.getInstance().apply {
-            time = dateFinObjectif
+            time = dateObjectif
             add(Calendar.DAY_OF_YEAR, 1)
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -156,25 +172,15 @@ class ObjectifResetService(
 
     /**
      * Reset un objectif bihebdomadaire selon la logique :
-     * - date_debut_objectif = ancienne date_objectif
+     * - date_debut_objectif = ancienne date_objectif (la date de fin qui vient de passer)
      * - date_objectif = nouvelle date_debut + 14 jours
      * - Reset le solde alloué à 0 pour le nouveau cycle
      */
     private suspend fun resetterObjectifBihebdomadaire(enveloppe: Enveloppe): Enveloppe {
-        val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
+        val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
 
-        // Calculer l'ancienne date d'objectif (date_debut + 14 jours)
-        val ancienneDateObjectif = Calendar.getInstance().apply {
-            time = dateDebutObjectif
-            add(Calendar.DAY_OF_YEAR, 14)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        // La nouvelle date de début = ancienne date d'objectif
-        val nouvelleDateDebut = ancienneDateObjectif
+        // La nouvelle date de début = ancienne date d'objectif (la date de fin qui vient de passer)
+        val nouvelleDateDebut = dateObjectif
 
         // La nouvelle date d'objectif = nouvelle date de début + 14 jours
         val nouvelleDateObjectif = Calendar.getInstance().apply {
@@ -209,31 +215,21 @@ class ObjectifResetService(
 
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,
-            dateObjectif = nouvelleDateObjectif.toString()
+            dateObjectif = nouvelleDateObjectif
         )
     }
 
     /**
      * Reset un objectif annuel selon la logique :
-     * - date_debut_objectif = ancienne date_fin_objectif
+     * - date_debut_objectif = ancienne date_objectif (la date de fin qui vient de passer)
      * - date_objectif = nouvelle date_debut + 12 mois
      * - Reset le solde alloué ET les dépenses à 0 pour le nouveau cycle
      */
     private suspend fun resetterObjectifAnnuel(enveloppe: Enveloppe): Enveloppe {
-        val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
+        val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
 
-        // Calculer l'ancienne date de fin d'objectif (date_debut + 12 mois)
-        val ancienneDateFinObjectif = Calendar.getInstance().apply {
-            time = dateDebutObjectif
-            add(Calendar.MONTH, 12)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-
-        // La nouvelle date de début = ancienne date de fin d'objectif
-        val nouvelleDateDebut = ancienneDateFinObjectif
+        // La nouvelle date de début = ancienne date d'objectif (la date de fin qui vient de passer)
+        val nouvelleDateDebut = dateObjectif
 
         // La nouvelle date d'objectif = nouvelle date de début + 12 mois
         val nouvelleDateObjectif = Calendar.getInstance().apply {
@@ -268,30 +264,30 @@ class ObjectifResetService(
 
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,
-            dateObjectif = nouvelleDateObjectif.toString()
+            dateObjectif = nouvelleDateObjectif
         )
     }
 
     /**
      * Reset un objectif d'échéance avec reset automatique selon la logique :
-     * - Calculer la période exacte entre dateDebutObjectif et dateFinObjectif
-     * - date_debut_objectif = ancienne date_fin_objectif
-     * - date_fin_objectif = nouvelle date_debut + période calculée
+     * - Calculer la période exacte entre dateDebutObjectif et dateObjectif
+     * - date_debut_objectif = ancienne date_objectif (la date de fin qui vient de passer)
+     * - date_objectif = nouvelle date_debut + période calculée
      * - Reset SEULEMENT les dépenses à 0 (l'argent non dépensé reste)
      */
     private suspend fun resetterObjectifEcheance(enveloppe: Enveloppe): Enveloppe {
         val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
-        val dateFinObjectif = enveloppe.dateFinObjectif ?: return enveloppe
+        val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
 
         // 🆕 CALCULER LA PÉRIODE EXACTE entre début et fin
-        val periodeEnMillis = dateFinObjectif.time - dateDebutObjectif.time
-        val periodeEnJours = periodeEnMillis / (1000 * 60 * 60 * 24)
+        val periodeEnMillis = dateObjectif.time - dateDebutObjectif.time
+        val periodeEnJours = periodeEnMillis / (1000L * 60 * 60 * 24)
 
-        // La nouvelle date de début = ancienne date de fin
-        val nouvelleDateDebut = dateFinObjectif
+        // La nouvelle date de début = ancienne date d'objectif (la date de fin qui vient de passer)
+        val nouvelleDateDebut = dateObjectif
 
-        // La nouvelle date de fin = nouvelle date de début + période calculée
-        val nouvelleDateFin = Calendar.getInstance().apply {
+        // La nouvelle date d'objectif = nouvelle date de début + période calculée
+        val nouvelleDateObjectif = Calendar.getInstance().apply {
             time = nouvelleDateDebut
             add(Calendar.DAY_OF_YEAR, periodeEnJours.toInt())
             set(Calendar.HOUR_OF_DAY, 0)
@@ -321,8 +317,7 @@ class ObjectifResetService(
 
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,
-            dateFinObjectif = nouvelleDateFin,
-            dateObjectif = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(nouvelleDateFin)
+            dateObjectif = nouvelleDateObjectif
         )
     }
     

@@ -261,10 +261,16 @@ fun ClavierBudgetEnveloppe(
                 // Bouton Assigner Objectif
                 OutlinedButton(
                     onClick = {
-                        // Remplir automatiquement avec le montant objectif
-                        if (enveloppe.objectif > 0) {
-                            val montantObjectifCentimes = (enveloppe.objectif * 100).toLong()
-                            montantCentimes = montantObjectifCentimes
+                        // Remplir automatiquement avec le montant suggéré ou l'objectif complet
+                        val montantAFill = if (enveloppe.versementRecommande > 0) {
+                            enveloppe.versementRecommande
+                        } else if (enveloppe.objectif > 0) {
+                            enveloppe.objectif
+                        } else {
+                            0.0
+                        }
+                        if (montantAFill > 0) {
+                            montantCentimes = (montantAFill * 100).toLong()
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -295,7 +301,11 @@ fun ClavierBudgetEnveloppe(
                         )
                         if (enveloppe.objectif > 0) {
                             Text(
-                                text = formateurMonetaire.format(enveloppe.objectif),
+                                text = if (enveloppe.versementRecommande > 0) {
+                                    formateurMonetaire.format(enveloppe.versementRecommande)
+                                } else {
+                                    formateurMonetaire.format(enveloppe.objectif)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center

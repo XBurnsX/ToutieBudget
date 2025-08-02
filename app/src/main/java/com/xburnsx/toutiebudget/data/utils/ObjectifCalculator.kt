@@ -48,6 +48,36 @@ import kotlin.math.min
 class ObjectifCalculator {
 
     /**
+     * Parse une date depuis un string PocketBase
+     */
+    private fun parseDateFromPocketBase(dateString: String?): Date? {
+        if (dateString == null) return null
+        
+        return try {
+            when {
+                dateString.contains("T") -> {
+                    // Format ISO: "2024-01-15T10:30:00.000Z"
+                    val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                    isoFormat.parse(dateString)
+                }
+                dateString.contains(" ") -> {
+                    // Format avec espace: "2024-01-15 10:30:00.000Z"
+                    val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                    spaceFormat.parse(dateString)
+                }
+                dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                    // Format simple: "2024-01-15"
+                    val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                    simpleFormat.parse(dateString)
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
      * Calcule le montant du versement recommandé pour atteindre l'objectif de l'enveloppe.
      * C'est le montant que l'utilisateur devrait idéalement ajouter à l'enveloppe ce mois-ci.
      * 
@@ -68,34 +98,17 @@ class ObjectifCalculator {
 
         return when (enveloppe.typeObjectif) {
             TypeObjectif.Echeance -> {
-                // Pour les échéances, utiliser dateObjectif qui contient la date d'échéance
-                val dateEcheance = enveloppe.dateObjectif?.let { dateString ->
-                    try {
-                        // Parser la date d'échéance depuis le string
-                        when {
-                            dateString.contains("T") -> {
-                                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                                isoFormat.parse(dateString)
-                            }
-                            dateString.contains(" ") -> {
-                                val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                                spaceFormat.parse(dateString)
-                            }
-                            dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
-                                val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                                simpleFormat.parse(dateString)
-                            }
-                            else -> null
-                        }
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                // 🆕 UTILISER LA DATE DE DÉBUT DE L'OBJECTIF SI ELLE EST DISPONIBLE
+                // 🆕 UTILISER LES VRAIES DATES DEPUIS POCKETBASE
+                val dateFinObjectif = enveloppe.dateObjectif
                 val dateDebutObjectif = enveloppe.dateDebutObjectif
-                calculerVersementEcheance(soldeActuel, objectif, dateEcheance, moisSelectionne, allocationsMensuelles, dateDebutObjectif)
+                calculerVersementEcheance(soldeActuel, objectif, dateFinObjectif, moisSelectionne, allocationsMensuelles, dateDebutObjectif)
             }
-            TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif, moisSelectionne, allocationsMensuelles)
+            TypeObjectif.Annuel -> {
+                // 🆕 UTILISER LES VRAIES DATES DEPUIS POCKETBASE
+                val dateFinObjectif = enveloppe.dateObjectif
+                val dateDebutObjectif = enveloppe.dateDebutObjectif
+                calculerVersementAnnuel(soldeActuel, objectif, dateDebutObjectif, dateFinObjectif, moisSelectionne, allocationsMensuelles)
+            }
             TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
             TypeObjectif.Bihebdomadaire -> calculerVersementBihebdomadaire(soldeActuel, objectif, enveloppe.dateDebutObjectif)
             else -> 0.0 // Pour 'Aucun' ou autres cas.
@@ -116,8 +129,8 @@ class ObjectifCalculator {
     ): Double {
         if (dateEcheance == null) return 0.0
         
-        // 🆕 POUR LES OBJECTIFS ÉCHÉANCE : TOUJOURS UTILISER AUJOURD'HUI COMME DATE DE DÉBUT
-        val dateDebut = Date() // Pour les échéances, toujours calculer à partir d'aujourd'hui
+        // 🆕 POUR LES OBJECTIFS ÉCHÉANCE : UTILISER LA VRAIE DATE DE DÉBUT DE L'OBJECTIF OU AUJOURD'HUI
+        val dateDebut = dateDebutObjectif ?: Date() // Utiliser la vraie date de début ou aujourd'hui
         
         val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - dateDebut.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
@@ -208,10 +221,11 @@ class ObjectifCalculator {
         soldeActuel: Double, 
         objectifAnnuel: Double, 
         dateDebutObjectif: Date?,
+        dateFinObjectif: Date?,
         moisSelectionne: Date,
         allocationsMensuelles: List<AllocationMensuelle>
     ): Double {
-        // Si pas de date de début, calculer basé sur l'année courante
+        // Si pas de date de début, utiliser janvier 1er de l'année courante
         val dateDebut = dateDebutObjectif ?: run {
             val calendar = Calendar.getInstance()
             calendar.set(Calendar.MONTH, Calendar.JANUARY)
@@ -219,11 +233,13 @@ class ObjectifCalculator {
             calendar.time
         }
         
-        // Calculer la date de fin (1 an après la date de début)
-        val calendarFin = Calendar.getInstance()
-        calendarFin.time = dateDebut
-        calendarFin.add(Calendar.YEAR, 1)
-        val dateFin = calendarFin.time
+        // Utiliser la vraie date de fin ou calculer 1 an après la date de début
+        val dateFin = dateFinObjectif ?: run {
+            val calendarFin = Calendar.getInstance()
+            calendarFin.time = dateDebut
+            calendarFin.add(Calendar.YEAR, 1)
+            calendarFin.time
+        }
         
         // 🎯 CALCULER L'OBJECTIF MENSUEL BASÉ SUR LA PÉRIODE TOTALE DE L'OBJECTIF
         // Calculer les jours entre la date de début et la date de fin de l'objectif

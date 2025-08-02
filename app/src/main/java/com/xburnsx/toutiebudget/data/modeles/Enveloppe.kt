@@ -28,12 +28,10 @@ data class Enveloppe(
     val typeObjectif: TypeObjectif = TypeObjectif.Aucun,
     @SerializedName("montant_objectif")  // Nouveau nom dans PocketBase
     val objectifMontant: Double = 0.0,
-    @SerializedName("date_objectif")  // La date que l'objectif doit atteindre (ex: 23 pour le 23 du mois)
-    val dateObjectif: String? = null,
+    @SerializedName("date_objectif")  // La date de fin de l'objectif (échéance)
+    val dateObjectif: Date? = null,
     @SerializedName("date_debut_objectif")  // La date où l'objectif commence
     val dateDebutObjectif: Date? = null,
-    @SerializedName("date_fin_objectif")  // 🆕 NOUVEAU : La date de fin pour les échéances
-    val dateFinObjectif: Date? = null,
     @SerializedName("objectif_jour")  // Garder ce champ si nécessaire
     val objectifJour: Int? = null,
     @SerializedName("reset_apres_echeance")  // Nouveau champ pour les objectifs d'échéance

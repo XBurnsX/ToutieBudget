@@ -10,7 +10,7 @@
       </SelectionState>
       <SelectionState runConfigName="Toutie_Budget.app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-08-02T16:01:20.647238700Z">
+        <DropdownSelection timestamp="2025-08-02T18:51:45.663431500Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=3C041FDJG000WH" />

@@ -36,7 +36,8 @@
          .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
          .create()
      private val httpClient = okhttp3.OkHttpClient()
-     private val formateurDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+     private val formateurDate = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val formateurDateISO = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.US)
  
      // Noms des collections dans PocketBase
      private object Collections {
@@ -57,10 +58,51 @@
          }
      }
  
-     /**
-      * Convertit les valeurs PocketBase vers TypeObjectif
-      */
-     private fun pocketBaseVersTypeObjectif(str: String?): TypeObjectif {
+           /**
+       * Parse une date depuis PocketBase en gérant différents formats
+       */
+      private fun parseDateFromPocketBase(dateString: String?): Date? {
+          if (dateString == null || dateString.isBlank()) {
+              android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: dateString est null ou vide")
+              return null
+          }
+          
+          android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: parsing '$dateString'")
+          
+          return try {
+              // Essayer d'abord le format ISO complet
+              val resultISO = formateurDateISO.parse(dateString)
+              android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: SUCCESS avec ISO format -> $resultISO")
+              resultISO
+          } catch (e: Exception) {
+              android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: FAILED avec ISO format: ${e.message}")
+              try {
+                  // Essayer le format simple
+                  val resultSimple = formateurDate.parse(dateString)
+                  android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: SUCCESS avec simple format -> $resultSimple")
+                  resultSimple
+              } catch (e: Exception) {
+                  android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: FAILED avec simple format: ${e.message}")
+                  // Si c'est juste un nombre (jour), créer une date avec ce jour
+                  if (dateString.matches(Regex("\\d+"))) {
+                      val jour = dateString.toInt()
+                      val calendar = Calendar.getInstance()
+                      calendar.set(Calendar.DAY_OF_MONTH, jour)
+                      val resultJour = calendar.time
+                      android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: SUCCESS avec jour format -> $resultJour")
+                      resultJour
+                  } else {
+                      android.util.Log.d("DATE_DEBUG", "parseDateFromPocketBase: FAILED - aucun format reconnu")
+                      null
+                  }
+              }
+          }
+      }
+
+      /**
+       * Convertit les valeurs PocketBase vers TypeObjectif
+       */
+      private fun pocketBaseVersTypeObjectif(str: String?): TypeObjectif {
          return when (str) {
              "Aucun" -> TypeObjectif.Aucun
              "Mensuel" -> TypeObjectif.Mensuel
@@ -107,55 +149,42 @@
              val json = JsonParser.parseString(corpsReponse).asJsonObject
              val items = json.getAsJsonArray("items")
  
-             val enveloppes = items.map { item ->
-                 val itemObject = item.asJsonObject
-
-                 // Récupérer la date d'objectif depuis PocketBase
-                 val objectifDateString = itemObject.get("date_objectif")?.asString
-                 val objectifTypeString = itemObject.get("frequence_objectif")?.asString  // CORRIGÉ !
-                 val nom = itemObject.get("nom")?.asString ?: ""
-
-                 val objectifDate = if (objectifDateString != null && objectifDateString.isNotBlank()) {
-                     try {
-                         // Si c'est juste un nombre (jour), créer une date avec ce jour
-                         if (objectifDateString.matches(Regex("\\d+"))) {
-                             val jour = objectifDateString.toInt()
-                             val calendar = Calendar.getInstance()
-                             calendar.set(Calendar.DAY_OF_MONTH, jour)
-                             val dateCalculee = calendar.time
-                             dateCalculee
-                         } else {
-                             // Sinon, essayer de parser comme une date complète
-                             val dateParsee = formateurDate.parse(objectifDateString)
-                             dateParsee
-                         }
-                     } catch (e: Exception) {
-                         null
-                     }
-                 } else {
-                     null
-                 }
-
-                 Enveloppe(
-                     id = itemObject.get("id")?.asString ?: "",
-                     utilisateurId = itemObject.get("utilisateur_id")?.asString ?: "",
-                     nom = itemObject.get("nom")?.asString ?: "",
-                     categorieId = itemObject.get("categorie_id")?.asString ?: "",
-                     estArchive = itemObject.get("est_archive")?.asBoolean ?: false,
-                     ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
-                     typeObjectif = pocketBaseVersTypeObjectif(itemObject.get("frequence_objectif")?.asString), // Utilise frequence_objectif
-                     objectifMontant = itemObject.get("montant_objectif")?.asDouble ?: 0.0, // Utilise montant_objectif
-                     dateObjectif = itemObject.get("date_objectif")?.asString, // String pour la date d'objectif
-                     dateDebutObjectif = if (itemObject.get("date_debut_objectif")?.asString != null) {
-                         try {
-                             formateurDate.parse(itemObject.get("date_debut_objectif")?.asString)
-                         } catch (e: Exception) {
-                             null
-                         }
-                     } else null,
-                     objectifJour = (itemObject.get("objectif_jour")?.asDouble)?.toInt()
-                 )
-             }.filter { !it.estArchive }
+                                                       val enveloppes = items.map { item ->
+                   val itemObject = item.asJsonObject
+                   
+                   // 🔍 LOGS POUR DEBUG
+                   val dateObjectifRaw = itemObject.get("date_objectif")?.asString
+                   val dateDebutObjectifRaw = itemObject.get("date_debut_objectif")?.asString
+                   
+                   android.util.Log.d("DATE_DEBUG", "=== ENVELOPPE ${itemObject.get("nom")?.asString} ===")
+                   android.util.Log.d("DATE_DEBUG", "date_objectif RAW: '$dateObjectifRaw'")
+                   android.util.Log.d("DATE_DEBUG", "date_debut_objectif RAW: '$dateDebutObjectifRaw'")
+                   android.util.Log.d("DATE_DEBUG", "frequence_objectif: '${itemObject.get("frequence_objectif")?.asString}'")
+                   android.util.Log.d("DATE_DEBUG", "montant_objectif: ${itemObject.get("montant_objectif")?.asDouble}")
+ 
+                   val enveloppe = Enveloppe(
+                       id = itemObject.get("id")?.asString ?: "",
+                       utilisateurId = itemObject.get("utilisateur_id")?.asString ?: "",
+                       nom = itemObject.get("nom")?.asString ?: "",
+                       categorieId = itemObject.get("categorie_id")?.asString ?: "",
+                       estArchive = itemObject.get("est_archive")?.asBoolean ?: false,
+                       ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
+                       typeObjectif = pocketBaseVersTypeObjectif(itemObject.get("frequence_objectif")?.asString),
+                       objectifMontant = itemObject.get("montant_objectif")?.asDouble ?: 0.0,
+                       dateObjectif = parseDateFromPocketBase(dateObjectifRaw),
+                       dateDebutObjectif = parseDateFromPocketBase(dateDebutObjectifRaw),
+                       objectifJour = (itemObject.get("objectif_jour")?.asDouble)?.toInt(),
+                       resetApresEcheance = itemObject.get("reset_apres_echeance")?.asBoolean ?: false
+                   )
+                   
+                   android.util.Log.d("DATE_DEBUG", "Enveloppe parsée:")
+                   android.util.Log.d("DATE_DEBUG", "  - dateObjectif: ${enveloppe.dateObjectif}")
+                   android.util.Log.d("DATE_DEBUG", "  - dateDebutObjectif: ${enveloppe.dateDebutObjectif}")
+                   android.util.Log.d("DATE_DEBUG", "  - typeObjectif: ${enveloppe.typeObjectif}")
+                   android.util.Log.d("DATE_DEBUG", "================================")
+                   
+                   enveloppe
+               }.filter { !it.estArchive }
  
 
              Result.success(enveloppes)
@@ -336,11 +365,14 @@
                  "ordre" to enveloppe.ordre,
                  "frequence_objectif" to typeObjectifVersPocketBase(enveloppe.typeObjectif), // Utilise nouveau nom
                  "montant_objectif" to enveloppe.objectifMontant, // Utilise nouveau nom
-                 "date_objectif" to enveloppe.dateObjectif, // String au lieu de Date formatée
-                 "date_debut_objectif" to if (enveloppe.dateDebutObjectif != null) {
-                     formateurDate.format(enveloppe.dateDebutObjectif)
+                 "date_objectif" to if (enveloppe.dateObjectif != null) {
+                     formateurDateISO.format(enveloppe.dateObjectif)
                  } else null,
-                 "objectif_jour" to enveloppe.objectifJour
+                 "date_debut_objectif" to if (enveloppe.dateDebutObjectif != null) {
+                     formateurDateISO.format(enveloppe.dateDebutObjectif)
+                 } else null,
+                 "objectif_jour" to enveloppe.objectifJour,
+                 "reset_apres_echeance" to enveloppe.resetApresEcheance
              )
              
              val json = gson.toJson(donnees)
@@ -381,21 +413,37 @@
                  ?: return@withContext Result.failure(Exception("Token manquant"))
              val urlBase = client.obtenirUrlBaseActive()
  
-             val donnees = mapOf(
-                 "nom" to enveloppe.nom,
-                 "categorieId" to enveloppe.categorieId,
-                 "est_archive" to enveloppe.estArchive,
-                 "ordre" to enveloppe.ordre,
-                 "frequence_objectif" to typeObjectifVersPocketBase(enveloppe.typeObjectif), // CORRIGÉ !
-                 "montant_objectif" to enveloppe.objectifMontant,
-                 "date_objectif" to enveloppe.dateObjectif,
-                 "date_debut_objectif" to if (enveloppe.dateDebutObjectif != null) {
-                     formateurDate.format(enveloppe.dateDebutObjectif)
-                 } else {
-                     null
-                 },
-                 "objectif_jour" to enveloppe.objectifJour
-             )
+                           // 🔍 LOGS POUR DEBUG
+              android.util.Log.d("DATE_DEBUG", "=== MISE À JOUR ENVELOPPE ===")
+              android.util.Log.d("DATE_DEBUG", "Enveloppe reçue:")
+              android.util.Log.d("DATE_DEBUG", "  - dateObjectif: ${enveloppe.dateObjectif}")
+              android.util.Log.d("DATE_DEBUG", "  - dateDebutObjectif: ${enveloppe.dateDebutObjectif}")
+              android.util.Log.d("DATE_DEBUG", "  - typeObjectif: ${enveloppe.typeObjectif}")
+              
+                             val dateObjectifFormatted = if (enveloppe.dateObjectif != null) {
+                   formateurDateISO.format(enveloppe.dateObjectif)
+               } else null
+               
+               val dateDebutObjectifFormatted = if (enveloppe.dateDebutObjectif != null) {
+                   formateurDateISO.format(enveloppe.dateDebutObjectif)
+               } else null
+              
+              android.util.Log.d("DATE_DEBUG", "Dates formatées pour PocketBase:")
+              android.util.Log.d("DATE_DEBUG", "  - date_objectif: '$dateObjectifFormatted'")
+              android.util.Log.d("DATE_DEBUG", "  - date_debut_objectif: '$dateDebutObjectifFormatted'")
+              
+              val donnees = mapOf(
+                  "nom" to enveloppe.nom,
+                  "categorieId" to enveloppe.categorieId,
+                  "est_archive" to enveloppe.estArchive,
+                  "ordre" to enveloppe.ordre,
+                  "frequence_objectif" to typeObjectifVersPocketBase(enveloppe.typeObjectif), // CORRIGÉ !
+                  "montant_objectif" to enveloppe.objectifMontant,
+                  "date_objectif" to dateObjectifFormatted,
+                  "date_debut_objectif" to dateDebutObjectifFormatted,
+                  "objectif_jour" to enveloppe.objectifJour,
+                  "reset_apres_echeance" to enveloppe.resetApresEcheance
+              )
 
              val json = gson.toJson(donnees)
              val body = json.toRequestBody("application/json".toMediaType())

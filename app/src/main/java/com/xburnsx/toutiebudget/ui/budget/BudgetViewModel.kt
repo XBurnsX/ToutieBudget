@@ -67,10 +67,33 @@ class BudgetViewModel(
             objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
                 if (enveloppesResetees.isNotEmpty()) {
                     enveloppesResetees.forEach { enveloppe ->
+                        println("[BUDGET_VM] ✅ Reset bihebdomadaire pour l'enveloppe: ${enveloppe.nom}")
                     }
-                } else {
                 }
             }.onFailure { e ->
+                println("[BUDGET_VM] ❌ Erreur lors du reset bihebdomadaire: ${e.message}")
+            }
+
+            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS ANNUELS
+            objectifResetService.verifierEtResetterObjectifsAnnuels().onSuccess { enveloppesResetees ->
+                if (enveloppesResetees.isNotEmpty()) {
+                    enveloppesResetees.forEach { enveloppe ->
+                        println("[BUDGET_VM] ✅ Reset annuel pour l'enveloppe: ${enveloppe.nom}")
+                    }
+                }
+            }.onFailure { e ->
+                println("[BUDGET_VM] ❌ Erreur lors du reset annuel: ${e.message}")
+            }
+
+            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS D'ÉCHÉANCE
+            objectifResetService.verifierEtResetterObjectifsEcheance().onSuccess { enveloppesResetees ->
+                if (enveloppesResetees.isNotEmpty()) {
+                    enveloppesResetees.forEach { enveloppe ->
+                        println("[BUDGET_VM] ✅ Reset échéance pour l'enveloppe: ${enveloppe.nom}")
+                    }
+                }
+            }.onFailure { e ->
+                println("[BUDGET_VM] ❌ Erreur lors du reset échéance: ${e.message}")
             }
 
             // 🔄 ROLLOVER AUTOMATIQUE : À chaque connexion dans un nouveau mois (pas seulement le 1er !)
@@ -312,7 +335,9 @@ class BudgetViewModel(
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
-                dateObjectif = dateObjectifDynamique, // Utiliser la date dynamique
+                dateObjectif = dateObjectifDynamique?.let { date ->
+                    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(date)
+                }, // Utiliser la date dynamique formatée en String
                 versementRecommande = versementRecommande,
                 typeObjectif = enveloppe.typeObjectif // Utiliser le nouveau nom de propriété
             )

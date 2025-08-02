@@ -52,7 +52,6 @@ fun SelecteurTiers(
     modifier: Modifier = Modifier
 ) {
     var estFocused by remember { mutableStateOf(false) }
-    var dropdownVisible by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -68,25 +67,11 @@ fun SelecteurTiers(
         }
     }
 
-    // Afficher le dropdown si on a le focus et qu'il y a du contenu à afficher
-    LaunchedEffect(estFocused, texteSaisi, tiersFiltres) {
-        // Sur les vrais téléphones, garder le dropdown ouvert plus longtemps
-        dropdownVisible = estFocused && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank())
-    }
+    // Calculer si le dropdown doit être visible
+    val shouldShowDropdown = estFocused && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank())
 
     Column(
-        modifier = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                // Fermer le clavier et le dropdown quand on clique ailleurs
-                if (estFocused) {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                    dropdownVisible = false
-                }
-            },
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -141,10 +126,7 @@ fun SelecteurTiers(
                 ),
                 keyboardActions = KeyboardActions(
                     onNext = { 
-                        // Fermer le clavier et le dropdown quand on appuie sur "Suivant"
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                        dropdownVisible = false
+                        // Juste passer au champ suivant, garder le clavier ouvert
                     }
                 ),
                 trailingIcon = {
@@ -160,11 +142,9 @@ fun SelecteurTiers(
 
             // Dropdown avec les résultats
             DropdownMenu(
-                expanded = dropdownVisible,
+                expanded = shouldShowDropdown,
                 onDismissRequest = {
-                    dropdownVisible = false
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
+                    // Ne rien faire, garder le clavier ouvert
                 },
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
@@ -176,9 +156,7 @@ fun SelecteurTiers(
                     DropdownMenuItem(
                         onClick = {
                             onCreerNouveauTiers(texteSaisi)
-                            dropdownVisible = false
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
+                            // Garder le clavier ouvert
                         },
                         text = {
                             Row(
@@ -212,9 +190,7 @@ fun SelecteurTiers(
                         onClick = {
                             onTiersSelectionne(tiers)
                             onTexteSaisiChange(tiers.nom)
-                            dropdownVisible = false
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
+                            // Garder le clavier ouvert
                         },
                         text = {
                             Row(

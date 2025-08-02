@@ -323,7 +323,7 @@ class CategoriesEnveloppesViewModel(
                     montant = if (enveloppe.objectifMontant > 0) enveloppe.objectifMontant.toString() else "",
                     date = enveloppe.dateDebutObjectif, // Utilise dateDebutObjectif au lieu d'objectifDate
                     dateDebut = enveloppe.dateDebutObjectif, // CHARGER LA DATE DE DÉBUT
-                    dateFin = enveloppe.dateFinObjectif, // 🆕 CHARGER LA DATE DE FIN
+                    dateFin = enveloppe.dateObjectif, // 🆕 CHARGER LA DATE DE FIN
                     jour = enveloppe.objectifJour,
                     resetApresEcheance = enveloppe.resetApresEcheance // 🆕 CHARGER LE CHAMP RESET
                 )
@@ -443,7 +443,7 @@ class CategoriesEnveloppesViewModel(
                 val dateObjectifCalculee = when (formState.type) {
                     TypeObjectif.Mensuel -> {
                         // Pour les objectifs mensuels, la date d'objectif est la même que la date de début
-                        dateDebutCalculee?.toString()
+                        dateDebutCalculee
                     }
                     TypeObjectif.Bihebdomadaire -> {
                         // Pour les objectifs bihebdomadaires, date d'objectif = date de début + 14 jours
@@ -451,12 +451,12 @@ class CategoriesEnveloppesViewModel(
                             val calendar = Calendar.getInstance()
                             calendar.time = dateDebut
                             calendar.add(Calendar.DAY_OF_YEAR, 14) // Ajouter 14 jours
-                            calendar.time.toString()
+                            calendar.time
                         }
                     }
                     TypeObjectif.Echeance -> {
                         // 🆕 Pour les échéances, utiliser la date de fin sélectionnée
-                        formState.dateFin?.toString()
+                        formState.dateFin
                     }
                     TypeObjectif.Annuel -> {
                         // Pour les objectifs annuels, calculer date de fin = date début + 12 mois
@@ -464,7 +464,7 @@ class CategoriesEnveloppesViewModel(
                             val calendar = Calendar.getInstance()
                             calendar.time = dateDebut
                             calendar.add(Calendar.MONTH, 12) // Ajouter 12 mois
-                            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+                            calendar.time
                         }
                     }
                     else -> null
@@ -473,9 +473,8 @@ class CategoriesEnveloppesViewModel(
                 val enveloppeModifiee = enveloppe.copy(
                     objectifMontant = montant,
                     typeObjectif = formState.type,
-                    dateObjectif = dateObjectifCalculee, // 🔥 UTILISER la date d'objectif calculée
                     dateDebutObjectif = dateDebutCalculee, // 🔥 UTILISER la date de début calculée
-                    dateFinObjectif = if (formState.type == TypeObjectif.Echeance) formState.dateFin else null, // 🆕 AJOUTER la date de fin
+                    dateObjectif = if (formState.type == TypeObjectif.Echeance) formState.dateFin else dateObjectifCalculee, // 🆕 UTILISER dateObjectif au lieu de dateFinObjectif
                     objectifJour = formState.jour,
                     resetApresEcheance = formState.resetApresEcheance // 🆕 AJOUTER le champ resetApresEcheance
                 )
@@ -526,9 +525,8 @@ class CategoriesEnveloppesViewModel(
                 val enveloppeSansObjectif = enveloppe.copy(
                     typeObjectif = TypeObjectif.Aucun,
                     objectifMontant = 0.0,
-                    dateObjectif = null,
                     dateDebutObjectif = null,
-                    dateFinObjectif = null, // 🆕 RESETTER la date de fin
+                    dateObjectif = null, // 🆕 RESETTER la date d'objectif
                     objectifJour = null,
                     resetApresEcheance = false // 🆕 RESETTER le champ resetApresEcheance
                 )
