@@ -11,6 +11,8 @@ data class EnveloppeUi(
     val nom: String,
     val solde: Double,
     val depense: Double,
+    val alloue: Double, // Total alloué ce mois
+    val alloueCumulatif: Double, // ← NOUVEAU : Total alloué depuis le début de l'objectif (pour barres de progression)
     val objectif: Double,
     val couleurProvenance: String?,
     val statutObjectif: StatutObjectif,

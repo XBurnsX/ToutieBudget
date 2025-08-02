@@ -290,6 +290,8 @@ fun BudgetScreenPreview() {
             nom = "Courses",
             solde = 320.50,
             depense = 80.25,
+            alloue = 300.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 380.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 400.0,
             couleurProvenance = "#4CAF50",
             statutObjectif = StatutObjectif.JAUNE
@@ -299,6 +301,8 @@ fun BudgetScreenPreview() {
             nom = "Essence",
             solde = 150.0,
             depense = 45.0,
+            alloue = 195.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 195.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 200.0,
             couleurProvenance = "#2196F3",
             statutObjectif = StatutObjectif.VERT
@@ -318,6 +322,8 @@ fun BudgetScreenPreview() {
                     nom = "Cinéma",
                     solde = 0.0,
                     depense = 0.0,
+                    alloue = 0.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 0.0, // ← NOUVEAU : Total alloué depuis le début
                     objectif = 50.0,
                     couleurProvenance = null,
                     statutObjectif = StatutObjectif.GRIS

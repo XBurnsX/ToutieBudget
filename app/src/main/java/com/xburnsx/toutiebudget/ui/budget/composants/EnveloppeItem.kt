@@ -95,8 +95,8 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
     val couleurStatut = when {
-        // Vert : L'objectif est défini et le solde atteint ou dépasse l'objectif.
-        objectif > 0 && enveloppe.solde >= objectif -> Color(0xFF4CAF50)
+                    // Vert : L'objectif est défini et le montant alloué cumulatif atteint ou dépasse l'objectif.
+            objectif > 0 && enveloppe.alloueCumulatif >= objectif -> Color(0xFF4CAF50) // ← MODIFIÉ : alloueCumulatif
         // Jaune : L'objectif est défini et il y a de l'argent dans l'enveloppe, mais l'objectif n'est pas encore atteint.
         objectif > 0 && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
         // Jaune : Pas d'objectif, mais il y a de l'argent dans l'enveloppe.
@@ -195,7 +195,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
                                 val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
-                                if (enveloppe.solde >= objectif) {
+                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                     "Objectif atteint pour le $dateTexte"
                                 } else {
                                     "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
@@ -236,7 +236,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
                                 val dateTexte = dateFinAnnuel?.toStringCourt() ?: "fin d'année"
 
-                                if (enveloppe.solde >= objectif) {
+                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                     "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
                                     "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au $dateTexte"
@@ -245,7 +245,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
                                 val dateTexte = dateFormatee?.let { "${it.jourTexte} ${it.mois}" } ?: "fin du mois"
-                                if (enveloppe.solde >= objectif) {
+                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                     "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
                                     "Objectif mensuel: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
@@ -254,7 +254,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
                                 val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
-                                if (enveloppe.solde >= objectif) {
+                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                     "Objectif de période atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
                                     "Objectif / 2 sem: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
@@ -274,19 +274,19 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             modifier = Modifier.weight(1f)
                         )
 
-                        // Calculs pour le pourcentage
+                        // Calculs pour le pourcentage (utilise alloué cumulatif pour cohérence avec ObjectifCalculator)
                         val estDepenseComplete = enveloppe.depense == objectif
                         val progression = if (estDepenseComplete) {
                             1.0f
                         } else {
-                            (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat()
+                            (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat() // ← MODIFIÉ : alloueCumulatif
                         }
 
-                        // Couleur de la barre de progression
+                        // Couleur de la barre de progression (utilise alloué cumulatif pour cohérence)
                         val couleurBarreProgression = when {
                             estDepenseComplete -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
-                            enveloppe.solde >= objectif -> Color(0xFF4CAF50)
-                            enveloppe.solde > 0.001 -> Color(0xFFFFC107)
+                            enveloppe.alloueCumulatif >= objectif -> Color(0xFF4CAF50) // ← MODIFIÉ : alloueCumulatif
+                            enveloppe.alloueCumulatif > 0.001 -> Color(0xFFFFC107)     // ← MODIFIÉ : alloueCumulatif
                             else -> Color.Gray
                         }
 
@@ -311,16 +311,16 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
                     Spacer(modifier = Modifier.height(3.dp)) // ESPACE CONTRÔLÉ entre objectif et barre
 
-                    // Barre de progression directement sous le texte
-                    val progressionAnimee by animateFloatAsState(
-                        targetValue = if (enveloppe.depense == objectif) 1.0f else (enveloppe.solde / objectif).coerceIn(0.0, 1.0).toFloat(),
-                        label = "Animation Barre de Progression"
-                    )
+                                            // Barre de progression directement sous le texte (utilise alloué cumulatif pour cohérence)
+                        val progressionAnimee by animateFloatAsState(
+                            targetValue = if (enveloppe.depense == objectif) 1.0f else (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat(), // ← MODIFIÉ : alloueCumulatif
+                            label = "Animation Barre de Progression"
+                        )
 
                     val couleurBarre = when {
                         enveloppe.depense == objectif -> enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50)
-                        enveloppe.solde >= objectif -> Color(0xFF4CAF50)
-                        enveloppe.solde > 0.001 -> Color(0xFFFFC107)
+                        enveloppe.alloueCumulatif >= objectif -> Color(0xFF4CAF50) // ← MODIFIÉ : alloueCumulatif
+                        enveloppe.alloueCumulatif > 0.001 -> Color(0xFFFFC107)     // ← MODIFIÉ : alloueCumulatif
                         else -> Color.Gray
                     }
 
@@ -389,6 +389,8 @@ fun ApercuEnveloppeItem() {
                     nom = "🏠 Objectif Annuel",
                     solde = 250.0,
                     depense = 0.0,
+                    alloue = 200.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 800.0, // ← NOUVEAU : Total alloué depuis le début
                     objectif = 1200.0,
                     couleurProvenance = "#E91E63", // rose
                     statutObjectif = StatutObjectif.JAUNE,
@@ -404,6 +406,8 @@ fun ApercuEnveloppeItem() {
                     nom = "🍔 Objectif Mensuel",
                     solde = 300.0,
                     depense = 50.0,
+                    alloue = 350.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 400.0, // ← NOUVEAU : Total alloué depuis le début
                     objectif = 500.0,
                     couleurProvenance = "#2196F3", // bleu
                     statutObjectif = StatutObjectif.JAUNE,
@@ -419,6 +423,8 @@ fun ApercuEnveloppeItem() {
                     nom = "🚗 Objectif Échéance",
                     solde = 800.0,
                     depense = 0.0,
+                    alloue = 750.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 1500.0, // ← NOUVEAU : Total alloué depuis le début
                     objectif = 2000.0,
                     couleurProvenance = "#FF9800", // orange
                     statutObjectif = StatutObjectif.JAUNE,
@@ -435,6 +441,8 @@ fun ApercuEnveloppeItem() {
                     nom = "💼 Objectif Bihebdomadaire",
                     solde = 150.0,
                     depense = 25.0,
+                    alloue = 175.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 200.0, // ← NOUVEAU : Total alloué depuis le début
                     objectif = 300.0,
                     couleurProvenance = "#4CAF50", // vert
                     statutObjectif = StatutObjectif.JAUNE,
@@ -450,6 +458,8 @@ fun ApercuEnveloppeItem() {
                     nom = "🎯 Annuel Atteint ✓",
                     solde = 1200.0,
                     depense = 0.0,
+                    alloue = 0.0, // Exemple d'allocation ce mois (déjà atteint)
+                    alloueCumulatif = 1200.0, // ← NOUVEAU : Total alloué depuis le début (objectif atteint)
                     objectif = 1200.0,
                     couleurProvenance = "#9C27B0", // violet
                     statutObjectif = StatutObjectif.VERT,
@@ -465,6 +475,8 @@ fun ApercuEnveloppeItem() {
                     nom = "💳 Mensuel Atteint ✓",
                     solde = 500.0,
                     depense = 100.0,
+                    alloue = 100.0, // Exemple d'allocation ce mois
+                    alloueCumulatif = 600.0, // ← NOUVEAU : Total alloué depuis le début (objectif dépassé)
                     objectif = 500.0,
                     couleurProvenance = "#607D8B", // bleu-gris
                     statutObjectif = StatutObjectif.VERT,

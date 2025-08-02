@@ -183,6 +183,8 @@ private fun DialogSelectionEnveloppeVirement(
                                         nom = "${compte.nom} - Prêt à placer",
                                         solde = compte.pretAPlacer,
                                         depense = 0.0,
+                                        alloue = 0.0, // Pas d'allocation pour "prêt à placer"
+                                        alloueCumulatif = 0.0, // ← NOUVEAU : Pas d'allocation cumulative non plus
                                         objectif = 0.0,
                                         couleurProvenance = compte.couleur,
                                         statutObjectif = com.xburnsx.toutiebudget.ui.budget.StatutObjectif.VERT

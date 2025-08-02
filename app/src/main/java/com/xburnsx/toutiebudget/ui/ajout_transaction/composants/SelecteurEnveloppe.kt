@@ -298,6 +298,8 @@ private fun PreviewSelecteurEnveloppe() {
             nom = "Épicerie",
             solde = 150.50,
             depense = 0.0,
+            alloue = 120.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 250.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 300.0,
             couleurProvenance = "#10B981",
             statutObjectif = StatutObjectif.GRIS
@@ -307,6 +309,8 @@ private fun PreviewSelecteurEnveloppe() {
             nom = "Restaurants",
             solde = -25.75,
             depense = 125.75,
+            alloue = 100.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 100.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 100.0,
             couleurProvenance = "#EF4444",
             statutObjectif = StatutObjectif.GRIS
@@ -329,6 +333,8 @@ private fun PreviewDialogSelectionEnveloppe() {
             nom = "Épicerie",
             solde = 150.50,
             depense = 0.0,
+            alloue = 120.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 250.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 300.0,
             couleurProvenance = "#10B981",
             statutObjectif = StatutObjectif.GRIS
@@ -338,6 +344,8 @@ private fun PreviewDialogSelectionEnveloppe() {
             nom = "Restaurants",
             solde = -25.75,
             depense = 125.75,
+            alloue = 100.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 100.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 100.0,
             couleurProvenance = "#EF4444",
             statutObjectif = StatutObjectif.GRIS
@@ -347,6 +355,8 @@ private fun PreviewDialogSelectionEnveloppe() {
             nom = "Transport",
             solde = 75.25,
             depense = 24.75,
+            alloue = 80.0, // Exemple d'allocation ce mois
+            alloueCumulatif = 120.0, // ← NOUVEAU : Total alloué depuis le début
             objectif = 150.0,
             couleurProvenance = "#6366F1",
             statutObjectif = StatutObjectif.GRIS

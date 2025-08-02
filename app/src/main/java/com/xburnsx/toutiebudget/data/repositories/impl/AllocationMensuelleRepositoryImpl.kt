@@ -32,36 +32,57 @@
      private val gson = Gson()
      private val httpClient = OkHttpClient()
      
-     private companion object {
-         const val COLLECTION = "allocations_mensuelles"
-         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-     }
- 
-     private val formateurDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+         private companion object {
+        const val COLLECTION = "allocations_mensuelles"
+        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        private val DATE_FORMAT_CLEAN = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US) // Pour parser après nettoyage
+    }
+
+    // ✅ Suppression du formateurDate en doublon - on utilise seulement DATE_FORMAT
  
      /**
       * Récupère une allocation mensuelle par son ID.
       */
-     override suspend fun getAllocationById(id: String): AllocationMensuelle? = withContext(Dispatchers.IO) {
-         try {
-             val token = client.obtenirToken() ?: return@withContext null
-             val urlBase = UrlResolver.obtenirUrlActive()
-             
-             val requete = Request.Builder()
-                 .url("$urlBase/api/collections/$COLLECTION/records/$id")
-                 .addHeader("Authorization", "Bearer $token")
-                 .get()
-                 .build()
-                 
-             val reponse = httpClient.newCall(requete).execute()
-             if (!reponse.isSuccessful) return@withContext null
-             
-             val corpsReponse = reponse.body?.string() ?: return@withContext null
-             deserialiserAllocation(corpsReponse)
-         } catch (e: Exception) {
-             null
-         }
-     }
+         override suspend fun getAllocationById(id: String): AllocationMensuelle? = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken()
+            if (token == null) {
+                println("[DEBUG] ❌ getAllocationById: Token manquant")
+                return@withContext null
+            }
+            
+            val urlBase = UrlResolver.obtenirUrlActive()
+            
+            println("[DEBUG] 🔍 getAllocationById: Recherche ID='$id'")
+            println("[DEBUG] 🌐 URL: $urlBase/api/collections/$COLLECTION/records/$id")
+            
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/$COLLECTION/records/$id")
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+                
+            val reponse = httpClient.newCall(requete).execute()
+            
+            if (!reponse.isSuccessful) {
+                val erreur = "HTTP ${reponse.code}: ${reponse.body?.string()}"
+                println("[DEBUG] ❌ getAllocationById: $erreur")
+                return@withContext null
+            }
+            
+            val corpsReponse = reponse.body?.string()
+            if (corpsReponse == null) {
+                println("[DEBUG] ❌ getAllocationById: Corps de réponse vide")
+                return@withContext null
+            }
+            
+            println("[DEBUG] ✅ getAllocationById: Allocation trouvée")
+            deserialiserAllocation(corpsReponse)
+        } catch (e: Exception) {
+            println("[DEBUG] ❌ getAllocationById: Exception ${e.message}")
+            null
+        }
+    }
  
      /**
       * Met à jour une allocation mensuelle (version simplifiée).
@@ -91,23 +112,50 @@
      /**
       * Met à jour une allocation mensuelle complète.
       */
-     override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle) = withContext(Dispatchers.IO) {
-         try {
-             val token = client.obtenirToken() ?: return@withContext
-             val urlBase = UrlResolver.obtenirUrlActive()
-             
-             val bodyJson = gson.toJson(allocation)
-             val requete = Request.Builder()
-                 .url("$urlBase/api/collections/$COLLECTION/records/${allocation.id}")
-                 .addHeader("Authorization", "Bearer $token")
-                 .put(bodyJson.toRequestBody("application/json".toMediaType()))
-                 .build()
-                 
-             httpClient.newCall(requete).execute().close()
-         } catch (e: Exception) {
-
-         }
-     }
+         override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle) = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: throw Exception("Token manquant")
+            val urlBase = UrlResolver.obtenirUrlActive()
+            
+            println("[DEBUG] 🔄 Mise à jour allocation ID=${allocation.id}, solde=${allocation.solde}")
+            println("[DEBUG] 🌐 URL: $urlBase/api/collections/$COLLECTION/records/${allocation.id}")
+            
+            // ✅ Utiliser le bon format au lieu de gson.toJson() bugué
+            val donneesUpdate = mapOf(
+                "utilisateur_id" to allocation.utilisateurId, // ← AJOUT ! Peut-être requis pour l'autorisation
+                "solde" to allocation.solde,
+                "alloue" to allocation.alloue,
+                "depense" to allocation.depense,
+                "mois" to DATE_FORMAT.format(allocation.mois),
+                "compte_source_id" to (allocation.compteSourceId ?: ""),
+                "collection_compte_source" to (allocation.collectionCompteSource ?: "")
+            )
+            
+            val bodyJson = gson.toJson(donneesUpdate)
+            println("[DEBUG] 📤 Données envoyées: $bodyJson")
+            
+            val requete = Request.Builder()
+                .url("$urlBase/api/collections/$COLLECTION/records/${allocation.id}")
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(bodyJson.toRequestBody("application/json".toMediaType())) // ← PATCH au lieu de PUT
+                .build()
+                
+            val reponse = httpClient.newCall(requete).execute()
+            
+            if (!reponse.isSuccessful) {
+                val erreur = "Erreur HTTP ${reponse.code}: ${reponse.body?.string()}"
+                println("[DEBUG] ❌ $erreur")
+                throw Exception(erreur)
+            }
+            
+            println("[DEBUG] ✅ Allocation mise à jour avec succès")
+            reponse.close()
+        } catch (e: Exception) {
+            println("[DEBUG] ❌ ERREUR dans mettreAJourAllocation: ${e.message}")
+            throw e // ← IMPORTANT : Remonter l'erreur !
+        }
+    }
  
      /**
       * Met à jour le compte source d'une allocation.
@@ -138,42 +186,35 @@
      * CORRECTION PRINCIPALE : Récupère OU crée une allocation mensuelle unique par enveloppe/mois.
      * Résout le problème de duplication des allocations.
      */
-    override suspend fun recupererOuCreerAllocation(
+        override suspend fun recupererOuCreerAllocation(
         enveloppeId: String, 
         mois: Date
     ): AllocationMensuelle = withContext(Dispatchers.IO) {
-         
-         // 1. Calculer le premier jour du mois pour la recherche
-         val calendrier = Calendar.getInstance().apply {
-             time = mois
-             set(Calendar.DAY_OF_MONTH, 1)
-             set(Calendar.HOUR_OF_DAY, 0)
-             set(Calendar.MINUTE, 0)
-             set(Calendar.SECOND, 0)
-             set(Calendar.MILLISECOND, 0)
-         }
-         val premierJourMois = calendrier.time
- 
-         // 2. Chercher les allocations existantes pour cette enveloppe et ce mois
-         val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(enveloppeId, premierJourMois)
+        
+        // 1. Utiliser la date telle qu'elle est (plus de normalisation forcée)
+        println("[DEBUG] 📅 Recherche allocation pour enveloppe=$enveloppeId, mois=$mois")
+
+        // 2. Chercher les allocations existantes pour cette enveloppe et ce mois
+        val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(enveloppeId, mois)
          
          when {
-             // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
-             allocationsExistantes.isEmpty() -> {
-
-                 creerNouvelleAllocation(enveloppeId, premierJourMois)
-             }
-             
-             // Cas 2: Une seule allocation trouvée -> La retourner
-             allocationsExistantes.size == 1 -> {
-
-                 allocationsExistantes.first()
-             }
-             
-             // Cas 3: PROBLÈME - Plusieurs allocations trouvées -> Fusionner et nettoyer
-             else -> {
-                 fusionnerEtNettoyerAllocations(allocationsExistantes, enveloppeId, premierJourMois)
-             }
+                         // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
+            allocationsExistantes.isEmpty() -> {
+                println("[DEBUG] ✨ Aucune allocation trouvée, création d'une nouvelle")
+                creerNouvelleAllocation(enveloppeId, mois)
+            }
+            
+            // Cas 2: Une seule allocation trouvée -> La retourner
+            allocationsExistantes.size == 1 -> {
+                println("[DEBUG] ✅ Allocation existante trouvée: ${allocationsExistantes.first().id}")
+                allocationsExistantes.first()
+            }
+            
+            // Cas 3: PROBLÈME - Plusieurs allocations trouvées -> Fusionner et nettoyer
+            else -> {
+                println("[DEBUG] ⚠️ ${allocationsExistantes.size} allocations trouvées, fusion nécessaire")
+                fusionnerEtNettoyerAllocations(allocationsExistantes, enveloppeId, mois)
+            }
          }
      }
  
@@ -365,10 +406,26 @@
              // Parser manuellement pour gérer le format de date de PocketBase (comme dans TransactionRepositoryImpl)
              val jsonObject = gson.fromJson(corpsReponse, com.google.gson.JsonObject::class.java)
 
-             // Nettoyer la date (enlever .000Z)
-             val moisString = jsonObject.get("mois").asString
-             val dateClean = moisString.replace(".000Z", "")
-             val dateParsee = DATE_FORMAT.parse(dateClean)
+                         // Parsing intelligent de date PocketBase
+            val moisString = jsonObject.get("mois").asString
+            println("[DEBUG] Date reçue de PocketBase: '$moisString'")
+            
+            val dateParsee = try {
+                // Essayer d'abord le format complet
+                DATE_FORMAT.parse(moisString)
+            } catch (e: Exception) {
+                try {
+                    // Nettoyer TOUTES les millisecondes + Z et ajouter le T manquant
+                    val dateClean = moisString.replace(Regex("\\.[0-9]+Z$"), "").replace(" ", "T")
+                    println("[DEBUG] Date nettoyée: '$dateClean'")
+                    DATE_FORMAT_CLEAN.parse(dateClean)
+                } catch (e2: Exception) {
+                    println("[DEBUG] ❌ Impossible de parser '$moisString', utilisation de Date()")
+                    Date() // Fallback vers la date actuelle
+                }
+            }
+            
+            println("[DEBUG] Date parsée avec succès: $dateParsee")
 
              val allocationCreee = AllocationMensuelle(
                  id = jsonObject.get("id").asString,
@@ -388,12 +445,46 @@
          }
      }
  
-     /**
-      * Désérialise une allocation mensuelle depuis JSON (string seulement dans cette version).
-      */
-     private fun deserialiserAllocation(source: String): AllocationMensuelle {
-         return gson.fromJson(source, AllocationMensuelle::class.java)
-     }
+         /**
+     * Désérialise une allocation mensuelle depuis JSON avec parsing intelligent des dates.
+     */
+    private fun deserialiserAllocation(source: String): AllocationMensuelle {
+        // Parser manuellement pour gérer le format de date de PocketBase
+        val jsonObject = gson.fromJson(source, com.google.gson.JsonObject::class.java)
+
+        // Parsing intelligent de date PocketBase (même logique que creerAllocationMensuelleInterne)
+        val moisString = jsonObject.get("mois").asString
+        println("[DEBUG] 📅 deserialiserAllocation - Date reçue: '$moisString'")
+        
+        val dateParsee = try {
+            // Essayer d'abord le format complet
+            DATE_FORMAT.parse(moisString)
+        } catch (e: Exception) {
+            try {
+                // Nettoyer TOUTES les millisecondes + Z et ajouter le T manquant
+                val dateClean = moisString.replace(Regex("\\.[0-9]+Z$"), "").replace(" ", "T")
+                println("[DEBUG] 📅 deserialiserAllocation - Date nettoyée: '$dateClean'")
+                DATE_FORMAT_CLEAN.parse(dateClean)
+            } catch (e2: Exception) {
+                println("[DEBUG] ❌ deserialiserAllocation - Impossible de parser '$moisString', utilisation de Date()")
+                Date() // Fallback vers la date actuelle
+            }
+        }
+        
+        println("[DEBUG] ✅ deserialiserAllocation - Date parsée: $dateParsee")
+
+        return AllocationMensuelle(
+            id = jsonObject.get("id").asString,
+            utilisateurId = jsonObject.get("utilisateur_id").asString,
+            enveloppeId = jsonObject.get("enveloppe_id").asString,
+            mois = dateParsee,
+            solde = jsonObject.get("solde").asDouble,
+            alloue = jsonObject.get("alloue").asDouble,
+            depense = jsonObject.get("depense").asDouble,
+            compteSourceId = jsonObject.get("compte_source_id")?.asString ?: "",
+            collectionCompteSource = jsonObject.get("collection_compte_source")?.asString ?: ""
+        )
+    }
 
      override suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle {
          return creerAllocationMensuelleInterne(allocation)

@@ -59,7 +59,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
-     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository) }
+     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
      
      // ===== SERVICES D'OPTIMISATION =====

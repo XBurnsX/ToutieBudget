@@ -142,8 +142,8 @@ fun ClavierBudgetEnveloppe(
                             color = MaterialTheme.colorScheme.primary
                         )
 
-                        // Barre de progression vers l'objectif
-                        val progression = (enveloppe.solde / enveloppe.objectif).coerceIn(0.0, 1.0)
+                        // Barre de progression vers l'objectif (utilise alloué cumulatif pour cohérence avec ObjectifCalculator)
+                        val progression = (enveloppe.alloueCumulatif / enveloppe.objectif).coerceIn(0.0, 1.0) // ← MODIFIÉ : alloueCumulatif
                         LinearProgressIndicator(
                             progress = { progression.toFloat() },
                             modifier = Modifier

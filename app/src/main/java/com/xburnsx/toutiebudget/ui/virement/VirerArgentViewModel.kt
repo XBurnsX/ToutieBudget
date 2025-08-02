@@ -337,6 +337,8 @@ class VirerArgentViewModel(
                 nom = enveloppe.nom,
                 solde = allocation?.solde ?: 0.0,
                 depense = allocation?.depense ?: 0.0,
+                alloue = allocation?.alloue ?: 0.0, // Alloué ce mois
+                alloueCumulatif = allocation?.alloue ?: 0.0, // ← NOUVEAU : Pour simplifier, on utilise la même valeur
                 objectif = enveloppe.objectifMontant,
                 couleurProvenance = compteSource?.couleur, // ✅ VRAIE COULEUR DU COMPTE SOURCE
                 statutObjectif = StatutObjectif.GRIS  // Simplifié pour le virement

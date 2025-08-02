@@ -239,9 +239,17 @@ class BudgetViewModel(
             // Récupérer toutes les allocations pour cette enveloppe pour le mois en cours
             val allocationsDeLEnveloppe = allocationsGroupees[enveloppe.id] ?: emptyList()
 
-            // Calculer le solde et les dépenses en faisant la SOMME de toutes les allocations concernées
+            // Calculer le solde, les dépenses ET le total alloué en faisant la SOMME de toutes les allocations concernées
             val soldeTotal = allocationsDeLEnveloppe.sumOf { it.solde }
             val depenseTotale = allocationsDeLEnveloppe.sumOf { it.depense }
+            val alloueTotal = allocationsDeLEnveloppe.sumOf { it.alloue } // Total alloué ce mois
+            
+            // ✨ NOUVEAU : Calculer l'alloué cumulatif depuis le début de l'objectif (même logique qu'ObjectifCalculator)
+            val alloueCumulatif = calculerAllocationCumulativeDepuisDebutObjectif(
+                enveloppe, 
+                toutesAllocationsPassées.filter { it.enveloppeId == enveloppe.id },
+                moisCible
+            )
 
             // Pour la couleur, on se base sur la provenance de la dernière allocation (la plus récente)
             val derniereAllocation = allocationsDeLEnveloppe.lastOrNull()
@@ -297,6 +305,8 @@ class BudgetViewModel(
                 nom = enveloppe.nom,
                 solde = soldeTotal,
                 depense = depenseTotale,
+                alloue = alloueTotal, // Total alloué ce mois
+                alloueCumulatif = alloueCumulatif, // ← NOUVEAU : Total alloué depuis le début (pour barres de progression)
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
@@ -305,6 +315,55 @@ class BudgetViewModel(
                 typeObjectif = enveloppe.typeObjectif // Utiliser le nouveau nom de propriété
             )
         }
+    }
+
+    /**
+     * Calcule l'allocation cumulative depuis le début de l'objectif (même logique qu'ObjectifCalculator).
+     * Retourne le total alloué depuis le début de l'objectif jusqu'au mois sélectionné inclus.
+     */
+    private fun calculerAllocationCumulativeDepuisDebutObjectif(
+        enveloppe: Enveloppe,
+        allocations: List<AllocationMensuelle>,
+        moisSelectionne: Date
+    ): Double {
+        val dateDebut = enveloppe.dateDebutObjectif ?: return allocations.filter { allocation ->
+            val calendarAllocation = Calendar.getInstance()
+            calendarAllocation.time = allocation.mois
+            val calendarSelectionne = Calendar.getInstance()
+            calendarSelectionne.time = moisSelectionne
+            
+            // Inclure toutes les allocations jusqu'au mois sélectionné inclus
+            (calendarAllocation.get(Calendar.YEAR) < calendarSelectionne.get(Calendar.YEAR)) ||
+            (calendarAllocation.get(Calendar.YEAR) == calendarSelectionne.get(Calendar.YEAR) && 
+             calendarAllocation.get(Calendar.MONTH) <= calendarSelectionne.get(Calendar.MONTH))
+        }.sumOf { it.alloue }
+
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebut
+        val anneeDebut = calendarDebut.get(Calendar.YEAR)
+        val moisDebut = calendarDebut.get(Calendar.MONTH)
+        
+        val calendarSelectionne = Calendar.getInstance()
+        calendarSelectionne.time = moisSelectionne
+        val anneeSelectionnee = calendarSelectionne.get(Calendar.YEAR)
+        val moisSelectionneInt = calendarSelectionne.get(Calendar.MONTH)
+        
+        return allocations.filter { allocation ->
+            val calendarAllocation = Calendar.getInstance()
+            calendarAllocation.time = allocation.mois
+            val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
+            val moisAllocation = calendarAllocation.get(Calendar.MONTH)
+            
+            // Inclure les allocations depuis dateDebut
+            val apresDebut = (anneeAllocation > anneeDebut) || 
+                           (anneeAllocation == anneeDebut && moisAllocation >= moisDebut)
+            
+            // Inclure jusqu'au mois sélectionné inclus
+            val avantOuEgalSelection = (anneeAllocation < anneeSelectionnee) || 
+                                     (anneeAllocation == anneeSelectionnee && moisAllocation <= moisSelectionneInt)
+            
+            apresDebut && avantOuEgalSelection
+        }.sumOf { it.alloue }
     }
 
     /**
