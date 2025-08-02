@@ -32,6 +32,10 @@ data class Enveloppe(
     val dateObjectif: String? = null,
     @SerializedName("date_debut_objectif")  // La date où l'objectif commence
     val dateDebutObjectif: Date? = null,
+    @SerializedName("date_fin_objectif")  // 🆕 NOUVEAU : La date de fin pour les échéances
+    val dateFinObjectif: Date? = null,
     @SerializedName("objectif_jour")  // Garder ce champ si nécessaire
-    val objectifJour: Int? = null
+    val objectifJour: Int? = null,
+    @SerializedName("reset_apres_echeance")  // Nouveau champ pour les objectifs d'échéance
+    val resetApresEcheance: Boolean = false
 )

@@ -323,7 +323,9 @@ class CategoriesEnveloppesViewModel(
                     montant = if (enveloppe.objectifMontant > 0) enveloppe.objectifMontant.toString() else "",
                     date = enveloppe.dateDebutObjectif, // Utilise dateDebutObjectif au lieu d'objectifDate
                     dateDebut = enveloppe.dateDebutObjectif, // CHARGER LA DATE DE DÉBUT
-                    jour = enveloppe.objectifJour
+                    dateFin = enveloppe.dateFinObjectif, // 🆕 CHARGER LA DATE DE FIN
+                    jour = enveloppe.objectifJour,
+                    resetApresEcheance = enveloppe.resetApresEcheance // 🆕 CHARGER LE CHAMP RESET
                 )
             )
         }
@@ -365,9 +367,21 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
+    fun onObjectifDateFinChange(date: Date?) {
+        _uiState.update {
+            it.copy(objectifFormState = it.objectifFormState.copy(dateFin = date))
+        }
+    }
+
     fun onObjectifJourChange(jour: Int?) {
         _uiState.update { 
             it.copy(objectifFormState = it.objectifFormState.copy(jour = jour))
+        }
+    }
+
+    fun onObjectifResetApresEcheanceChange(resetApresEcheance: Boolean) {
+        _uiState.update { 
+            it.copy(objectifFormState = it.objectifFormState.copy(resetApresEcheance = resetApresEcheance))
         }
     }
 
@@ -441,8 +455,8 @@ class CategoriesEnveloppesViewModel(
                         }
                     }
                     TypeObjectif.Echeance -> {
-                        // Pour les échéances, utiliser la date sélectionnée
-                        formState.date?.toString()
+                        // 🆕 Pour les échéances, utiliser la date de fin sélectionnée
+                        formState.dateFin?.toString()
                     }
                     TypeObjectif.Annuel -> {
                         // Pour les objectifs annuels, calculer date de fin = date début + 12 mois
@@ -461,7 +475,9 @@ class CategoriesEnveloppesViewModel(
                     typeObjectif = formState.type,
                     dateObjectif = dateObjectifCalculee, // 🔥 UTILISER la date d'objectif calculée
                     dateDebutObjectif = dateDebutCalculee, // 🔥 UTILISER la date de début calculée
-                    objectifJour = formState.jour
+                    dateFinObjectif = if (formState.type == TypeObjectif.Echeance) formState.dateFin else null, // 🆕 AJOUTER la date de fin
+                    objectifJour = formState.jour,
+                    resetApresEcheance = formState.resetApresEcheance // 🆕 AJOUTER le champ resetApresEcheance
                 )
 
                 // Mise à jour instantanée de l'interface
@@ -512,7 +528,9 @@ class CategoriesEnveloppesViewModel(
                     objectifMontant = 0.0,
                     dateObjectif = null,
                     dateDebutObjectif = null,
-                    objectifJour = null
+                    dateFinObjectif = null, // 🆕 RESETTER la date de fin
+                    objectifJour = null,
+                    resetApresEcheance = false // 🆕 RESETTER le champ resetApresEcheance
                 )
 
                 // Mise à jour instantanée de l'interface

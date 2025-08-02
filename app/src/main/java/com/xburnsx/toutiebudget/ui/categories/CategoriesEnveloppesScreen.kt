@@ -106,11 +106,14 @@ fun CategoriesEnveloppesScreen(
         DefinirObjectifDialog(
             nomEnveloppe = uiState.enveloppePourObjectif?.nom ?: "",
             formState = uiState.objectifFormState,
-            onValueChange = { type, montant, date, jour ->
+            onValueChange = { type, montant, date, jour, resetApresEcheance, dateFin, dateDebut ->
                 type?.let { viewModel.onObjectifTypeChange(it) }
                 montant?.let { viewModel.onObjectifMontantChange(it) }
                 date?.let { viewModel.onObjectifDateChange(it) }
                 jour?.let { viewModel.onObjectifJourChange(it) }
+                resetApresEcheance?.let { viewModel.onObjectifResetApresEcheanceChange(it) }
+                dateFin?.let { viewModel.onObjectifDateFinChange(it) }
+                dateDebut?.let { viewModel.onObjectifDateDebutChange(it) }
             },
             onDismissRequest = viewModel::onFermerObjectifDialog,
             onSave = viewModel::onSauvegarderObjectif,

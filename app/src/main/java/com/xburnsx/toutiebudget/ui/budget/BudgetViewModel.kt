@@ -45,7 +45,7 @@ class BudgetViewModel(
 ) : ViewModel() {
 
     // Service de reset automatique des objectifs bihebdomadaires
-    private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository)
+    private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
 
     // --- Cache en mémoire pour éviter les écrans de chargement ---
     private var cacheComptes: List<Compte> = emptyList()

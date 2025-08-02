@@ -10,7 +10,9 @@ data class ObjectifFormState(
     val montant: String = "",
     val date: Date? = null,
     val dateDebut: Date? = null, // AJOUT : Pour la date de début
-    val jour: Int? = null
+    val dateFin: Date? = null, // 🆕 NOUVEAU : Pour la date de fin des échéances
+    val jour: Int? = null,
+    val resetApresEcheance: Boolean = false // AJOUT : Pour les objectifs d'échéance
 )
 
 data class CategoriesEnveloppesUiState(

@@ -30,7 +30,7 @@ import java.util.Locale
 fun DefinirObjectifDialog(
     nomEnveloppe: String,
     formState: ObjectifFormState,
-    onValueChange: (TypeObjectif?, String?, Date?, Int?) -> Unit,
+    onValueChange: (TypeObjectif?, String?, Date?, Int?, Boolean?, Date?, Date?) -> Unit,
     onDismissRequest: () -> Unit,
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit // ✅ REMIS LE PARAMÈTRE
@@ -61,24 +61,24 @@ fun DefinirObjectifDialog(
                 )
                 
                 // *** CHAMP MONTANT AVEC CALLBACK VERS CLAVIER GLOBAL ***
-                ChampUniversel(
-                    valeur = montantEnCentimes,
-                    onValeurChange = { nouveauMontant ->
-                        val nouveauMontantString = (nouveauMontant / 100.0).toString()
-                        onValueChange(null, nouveauMontantString, null, null)
-                    },
+                                    ChampUniversel(
+                        valeur = montantEnCentimes,
+                        onValeurChange = { nouveauMontant ->
+                            val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                            onValueChange(null, nouveauMontantString, null, null, null, null, null)
+                        },
                     libelle = "Montant objectif",
                     utiliserClavier = false, // ✅ DÉSACTIVER le clavier intégré
                     isMoney = true,
                     icone = Icons.Default.Flag,
                     estObligatoire = true,
-                    onClicPersonnalise = {
-                        // ✅ UTILISER le callback vers le clavier global
-                        onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
-                            val nouveauMontantString = (nouveauMontant / 100.0).toString()
-                            onValueChange(null, nouveauMontantString, null, null)
-                        }
-                    },
+                                            onClicPersonnalise = {
+                            // ✅ UTILISER le callback vers le clavier global
+                            onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
+                                val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                                onValueChange(null, nouveauMontantString, null, null, null, null, null)
+                            }
+                        },
                     modifier = Modifier
                 )
                 
@@ -93,13 +93,13 @@ fun DefinirObjectifDialog(
                     BoutonTypeObjectif(
                         libelle = "Mensuel", 
                         estSelectionne = formState.type == TypeObjectif.Mensuel, 
-                        onClick = { onValueChange(TypeObjectif.Mensuel, null, null, null) }, 
+                        onClick = { onValueChange(TypeObjectif.Mensuel, null, null, null, null, null, null) }, 
                         modifier = Modifier.weight(1f)
                     )
                     BoutonTypeObjectif(
                         libelle = "2 semaines", 
                         estSelectionne = formState.type == TypeObjectif.Bihebdomadaire, 
-                        onClick = { onValueChange(TypeObjectif.Bihebdomadaire, null, null, null) }, 
+                        onClick = { onValueChange(TypeObjectif.Bihebdomadaire, null, null, null, null, null, null) }, 
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -108,13 +108,13 @@ fun DefinirObjectifDialog(
                     BoutonTypeObjectif(
                         libelle = "Échéance", 
                         estSelectionne = formState.type == TypeObjectif.Echeance, 
-                        onClick = { onValueChange(TypeObjectif.Echeance, null, null, null) }, 
+                        onClick = { onValueChange(TypeObjectif.Echeance, null, null, null, null, null, null) }, 
                         modifier = Modifier.weight(1f)
                     )
                     BoutonTypeObjectif(
                         libelle = "Annuel", 
                         estSelectionne = formState.type == TypeObjectif.Annuel, 
-                        onClick = { onValueChange(TypeObjectif.Annuel, null, null, null) }, 
+                        onClick = { onValueChange(TypeObjectif.Annuel, null, null, null, null, null, null) }, 
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -143,7 +143,7 @@ fun DefinirObjectifDialog(
                                         { _, year, month, dayOfMonth ->
                                             val selectedCalendar = Calendar.getInstance()
                                             selectedCalendar.set(year, month, dayOfMonth)
-                                            onValueChange(null, null, selectedCalendar.time, null)
+                                            onValueChange(null, null, selectedCalendar.time, null, null, null, null)
                                         },
                                         calendar.get(Calendar.YEAR),
                                         calendar.get(Calendar.MONTH),
@@ -162,7 +162,7 @@ fun DefinirObjectifDialog(
                     TypeObjectif.Mensuel -> {
                         SelecteurJourMois(
                             jourSelectionne = formState.jour,
-                            onJourSelected = { onValueChange(null, null, null, it) }
+                            onJourSelected = { onValueChange(null, null, null, it, null, null, null) }
                         )
                     }
                     TypeObjectif.Bihebdomadaire -> {
@@ -171,7 +171,7 @@ fun DefinirObjectifDialog(
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             SelecteurJourSemaine(
                                 jourSelectionne = formState.jour,
-                                onJourSelected = { onValueChange(null, null, null, it) }
+                                onJourSelected = { onValueChange(null, null, null, it, null, null, null) }
                             )
                             Text(
                                 text = "Date de début : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
@@ -188,7 +188,7 @@ fun DefinirObjectifDialog(
                                             val selectedCalendar = Calendar.getInstance()
                                             selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
                                             selectedCalendar.set(Calendar.MILLISECOND, 0)
-                                            onValueChange(null, null, selectedCalendar.time, null)
+                                            onValueChange(null, null, selectedCalendar.time, null, null, null, null)
                                         },
                                         calendar.get(Calendar.YEAR),
                                         calendar.get(Calendar.MONTH),
@@ -208,14 +208,15 @@ fun DefinirObjectifDialog(
                         val context = LocalContext.current
 
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // 🆕 SÉLECTEUR DE DATE DE DÉBUT
                             Text(
-                                text = "Date d'échéance : ${formState.date?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
+                                text = "Date de début : ${formState.dateDebut?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Button(
                                 onClick = {
                                     val calendar = Calendar.getInstance()
-                                    formState.date?.let { calendar.time = it }
+                                    formState.dateDebut?.let { calendar.time = it }
 
                                     val datePickerDialog = DatePickerDialog(
                                         context,
@@ -223,7 +224,38 @@ fun DefinirObjectifDialog(
                                             val selectedCalendar = Calendar.getInstance()
                                             selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
                                             selectedCalendar.set(Calendar.MILLISECOND, 0)
-                                            onValueChange(null, null, selectedCalendar.time, null)
+                                            onValueChange(null, null, null, null, null, null, selectedCalendar.time)
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    )
+                                    datePickerDialog.show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.CalendarToday, "Choisir date de début")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Choisir une date de début")
+                            }
+                            
+                            // 🆕 SÉLECTEUR DE DATE DE FIN
+                            Text(
+                                text = "Date de fin : ${formState.dateFin?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "Non définie"}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Button(
+                                onClick = {
+                                    val calendar = Calendar.getInstance()
+                                    formState.dateFin?.let { calendar.time = it }
+
+                                    val datePickerDialog = DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val selectedCalendar = Calendar.getInstance()
+                                            selectedCalendar.set(year, month, dayOfMonth, 0, 0, 0)
+                                            selectedCalendar.set(Calendar.MILLISECOND, 0)
+                                            onValueChange(null, null, null, null, null, selectedCalendar.time, null)
                                         },
                                         calendar.get(Calendar.YEAR),
                                         calendar.get(Calendar.MONTH),
@@ -235,9 +267,30 @@ fun DefinirObjectifDialog(
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.CalendarToday, "Choisir date d'échéance")
+                                Icon(Icons.Default.CalendarToday, "Choisir date de fin")
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Choisir une date d'échéance")
+                                Text("Choisir une date de fin")
+                            }
+                            
+                            // 🆕 CASE À COCHER POUR LE RESET APRÈS ÉCHÉANCE
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = formState.resetApresEcheance,
+                                    onCheckedChange = { checked ->
+                                        onValueChange(null, null, null, null, checked, null, null)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Renouveler automatiquement après échéance",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
@@ -255,20 +308,13 @@ fun DefinirObjectifDialog(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-                    null -> {
-                        Text(
-                            text = "Veuillez sélectionner un type d'objectif.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = onSave,
-                enabled = formState.type != null && formState.montant.toDoubleOrNull() != null && formState.montant.toDoubleOrNull()!! > 0
+                enabled = formState.type != null && (formState.montant.toDoubleOrNull()?.let { it > 0 } ?: false)
             ) {
                 Text("Sauvegarder")
             }

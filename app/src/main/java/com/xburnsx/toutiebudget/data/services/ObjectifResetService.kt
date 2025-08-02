@@ -7,6 +7,8 @@ import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import java.util.Calendar
 import java.util.Date
 import java.util.concurrent.TimeUnit
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Service responsable du reset automatique des objectifs bihebdomadaires.
@@ -19,42 +21,55 @@ class ObjectifResetService(
 ) {
 
     /**
-     * Vérifie et met à jour tous les objectifs bihebdomadaires et annuels qui ont terminé leur cycle.
-     * À appeler périodiquement (par exemple au chargement des données du budget).
+     * Vérifie si un objectif d'échéance doit être reset.
+     * Un objectif d'échéance doit être reset si :
+     * - La date de fin d'échéance est dépassée
+     * - L'enveloppe a resetApresEcheance = true
+     */
+    private fun doitEtreResetEcheance(enveloppe: Enveloppe): Boolean {
+        if (enveloppe.typeObjectif != TypeObjectif.Echeance) return false
+        if (!enveloppe.resetApresEcheance) return false
+        
+        val dateFinObjectif = enveloppe.dateFinObjectif ?: return false
+        
+        // Vérifier si la date de fin d'échéance est dépassée (avec 1 jour de grâce)
+        val maintenant = Date()
+        val dateFinPlusGrace = Calendar.getInstance().apply {
+            time = dateFinObjectif
+            add(Calendar.DAY_OF_MONTH, 1) // 1 jour de grâce
+        }.time
+        
+        return maintenant.after(dateFinPlusGrace)
+    }
+
+    /**
+     * Vérifie et reset automatiquement les objectifs bihebdomadaires, annuels et d'échéance.
      */
     suspend fun verifierEtResetterObjectifsBihebdomadaires(): Result<List<Enveloppe>> {
         return try {
-            // Récupérer toutes les enveloppes
-            val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
-            val enveloppes = enveloppesResult.getOrElse {
-                return Result.failure(Exception("Erreur lors de la récupération des enveloppes"))
-            }
-
-            // Filtrer les objectifs bihebdomadaires et annuels qui ont besoin d'un reset
-            val enveloppesAResetter = enveloppes.filter { enveloppe ->
-                (enveloppe.typeObjectif == TypeObjectif.Bihebdomadaire && doitEtreResetBihebdomadaire(enveloppe)) ||
-                (enveloppe.typeObjectif == TypeObjectif.Annuel && doitEtreResetAnnuel(enveloppe))
-            }
-
-            // Mettre à jour chaque enveloppe qui a besoin d'un reset
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
             val enveloppesResetees = mutableListOf<Enveloppe>()
-
-            for (enveloppe in enveloppesAResetter) {
-                val enveloppeResetee = when (enveloppe.typeObjectif) {
-                    TypeObjectif.Bihebdomadaire -> resetterObjectifBihebdomadaire(enveloppe)
-                    TypeObjectif.Annuel -> resetterObjectifAnnuel(enveloppe)
-                    else -> enveloppe // Ne devrait jamais arriver
-                }
-
-                // Sauvegarder en base
-                val updateResult = enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
-                if (updateResult.isSuccess) {
-                    enveloppesResetees.add(enveloppeResetee)
-                } else {
-                    // Log l'erreur si nécessaire
+            
+            enveloppes.forEach { enveloppe ->
+                when {
+                    doitEtreResetBihebdomadaire(enveloppe) -> {
+                        val enveloppeResetee = resetterObjectifBihebdomadaire(enveloppe)
+                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                        enveloppesResetees.add(enveloppeResetee)
+                    }
+                    doitEtreResetAnnuel(enveloppe) -> {
+                        val enveloppeResetee = resetterObjectifAnnuel(enveloppe)
+                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                        enveloppesResetees.add(enveloppeResetee)
+                    }
+                    doitEtreResetEcheance(enveloppe) -> {
+                        val enveloppeResetee = resetterObjectifEcheance(enveloppe)
+                        enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                        enveloppesResetees.add(enveloppeResetee)
+                    }
                 }
             }
-
+            
             Result.success(enveloppesResetees)
         } catch (e: Exception) {
             Result.failure(e)
@@ -254,6 +269,60 @@ class ObjectifResetService(
         return enveloppe.copy(
             dateDebutObjectif = nouvelleDateDebut,
             dateObjectif = nouvelleDateObjectif.toString()
+        )
+    }
+
+    /**
+     * Reset un objectif d'échéance avec reset automatique selon la logique :
+     * - Calculer la période exacte entre dateDebutObjectif et dateFinObjectif
+     * - date_debut_objectif = ancienne date_fin_objectif
+     * - date_fin_objectif = nouvelle date_debut + période calculée
+     * - Reset SEULEMENT les dépenses à 0 (l'argent non dépensé reste)
+     */
+    private suspend fun resetterObjectifEcheance(enveloppe: Enveloppe): Enveloppe {
+        val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
+        val dateFinObjectif = enveloppe.dateFinObjectif ?: return enveloppe
+
+        // 🆕 CALCULER LA PÉRIODE EXACTE entre début et fin
+        val periodeEnMillis = dateFinObjectif.time - dateDebutObjectif.time
+        val periodeEnJours = periodeEnMillis / (1000 * 60 * 60 * 24)
+
+        // La nouvelle date de début = ancienne date de fin
+        val nouvelleDateDebut = dateFinObjectif
+
+        // La nouvelle date de fin = nouvelle date de début + période calculée
+        val nouvelleDateFin = Calendar.getInstance().apply {
+            time = nouvelleDateDebut
+            add(Calendar.DAY_OF_YEAR, periodeEnJours.toInt())
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        // 🆕 RESET SEULEMENT DES DÉPENSES : Pour les objectifs d'échéance,
+        // on garde l'argent non dépensé mais on reset les dépenses
+        val moisNouveauCycle = obtenirPremierJourDuMois(nouvelleDateDebut)
+        
+        // Récupérer l'allocation existante pour ce mois ou en créer une nouvelle
+        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(
+            enveloppeId = enveloppe.id,
+            mois = moisNouveauCycle
+        )
+        
+        // Reset SEULEMENT les dépenses à 0, garder le solde et l'alloué
+        val allocationResetee = allocationExistante.copy(
+            depense = 0.0
+            // solde et alloue restent inchangés
+        )
+        
+        // Mettre à jour l'allocation en base
+        allocationMensuelleRepository.mettreAJourAllocation(allocationResetee)
+
+        return enveloppe.copy(
+            dateDebutObjectif = nouvelleDateDebut,
+            dateFinObjectif = nouvelleDateFin,
+            dateObjectif = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(nouvelleDateFin)
         )
     }
     

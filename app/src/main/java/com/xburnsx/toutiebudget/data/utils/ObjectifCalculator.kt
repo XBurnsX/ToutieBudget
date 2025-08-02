@@ -91,7 +91,9 @@ class ObjectifCalculator {
                         null
                     }
                 }
-                calculerVersementEcheance(soldeActuel, objectif, dateEcheance, moisSelectionne, allocationsMensuelles)
+                // 🆕 UTILISER LA DATE DE DÉBUT DE L'OBJECTIF SI ELLE EST DISPONIBLE
+                val dateDebutObjectif = enveloppe.dateDebutObjectif
+                calculerVersementEcheance(soldeActuel, objectif, dateEcheance, moisSelectionne, allocationsMensuelles, dateDebutObjectif)
             }
             TypeObjectif.Annuel -> calculerVersementAnnuel(soldeActuel, objectif, enveloppe.dateDebutObjectif, moisSelectionne, allocationsMensuelles)
             TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
@@ -109,38 +111,42 @@ class ObjectifCalculator {
         objectifTotal: Double, 
         dateEcheance: Date?,
         moisSelectionne: Date,
-        allocationsMensuelles: List<AllocationMensuelle>
+        allocationsMensuelles: List<AllocationMensuelle>,
+        dateDebutObjectif: Date?
     ): Double {
         if (dateEcheance == null) return 0.0
         
-        val maintenant = Date()
-        val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - maintenant.time)
+        // 🆕 POUR LES OBJECTIFS ÉCHÉANCE : TOUJOURS UTILISER AUJOURD'HUI COMME DATE DE DÉBUT
+        val dateDebut = Date() // Pour les échéances, toujours calculer à partir d'aujourd'hui
+        
+        val joursRestants = TimeUnit.MILLISECONDS.toDays(dateEcheance.time - dateDebut.time)
         if (joursRestants <= 0) return max(0.0, objectifTotal - soldeActuel) // Objectif passé
         
-        // Calculer les mois totaux entre maintenant et l'échéance
+        // Calculer les mois totaux entre la date de début et l'échéance
         val moisTotaux = max(1.0, ceil(joursRestants / 30.44))
         val objectifMensuel = objectifTotal / moisTotaux
         
-        // Calculer le nombre de mois qui se sont écoulés depuis maintenant jusqu'au mois sélectionné
-        val calendarMaintenant = Calendar.getInstance()
-        calendarMaintenant.time = maintenant
+        // Calculer le nombre de mois qui se sont écoulés depuis la date de début jusqu'au mois sélectionné
+        val calendarDebut = Calendar.getInstance()
+        calendarDebut.time = dateDebut
         val calendarSelectionne = Calendar.getInstance()
         calendarSelectionne.time = moisSelectionne
         
-        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarMaintenant.get(Calendar.YEAR)) * 12 +
-                (calendarSelectionne.get(Calendar.MONTH) - calendarMaintenant.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
+        val moisEcoules = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
+                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH)) + 1 // +1 pour inclure le mois sélectionné
         
-        // Si le mois sélectionné est dans le passé par rapport à maintenant
+        // Si le mois sélectionné est avant la date de début de l'objectif
         if (moisEcoules <= 0) {
             return objectifMensuel
         }
         
         // 🎯 RATTRAPAGE INTELLIGENT : 
-        // Ce qui devrait avoir été alloué depuis maintenant jusqu'au mois sélectionné (inclus)
-        val devraitAvoirAlloue = moisEcoules * objectifMensuel
+        // Ce qui devrait avoir été alloué depuis la date de début jusqu'au mois sélectionné (inclus)
+        // MAIS NE PAS DÉPASSER L'OBJECTIF TOTAL !
+        val devraitAvoirAlloue = min(moisEcoules * objectifMensuel, objectifTotal)
         
-        // Ce qui a été réellement alloué depuis maintenant jusqu'au mois sélectionné (inclus)
-        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, maintenant, moisSelectionne, inclureMoisSelectionne = true)
+        // Ce qui a été réellement alloué depuis la date de début jusqu'au mois sélectionné (inclus)
+        val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebut, moisSelectionne, inclureMoisSelectionne = true)
         
         // Retard accumulé = ce qui devrait être alloué - ce qui a été réellement alloué
         val retardAccumule = max(0.0, devraitAvoirAlloue - totalRealementAlloue)
@@ -203,7 +209,8 @@ class ObjectifCalculator {
         
         // 🎯 RATTRAPAGE INTELLIGENT : 
         // Ce qui devrait avoir été alloué depuis le début jusqu'au mois sélectionné (inclus)
-        val devraitAvoirAlloue = moisEcoules * objectifMensuel
+        // MAIS NE PAS DÉPASSER L'OBJECTIF TOTAL !
+        val devraitAvoirAlloue = min(moisEcoules * objectifMensuel, objectifAnnuel)
         
         // Ce qui a été réellement alloué depuis le début jusqu'au mois sélectionné (inclus)
         val totalRealementAlloue = calculerTotalAllocationsDepuisDebut(allocationsMensuelles, dateDebutObjectif, moisSelectionne, inclureMoisSelectionne = true)
