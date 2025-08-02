@@ -7,6 +7,7 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,6 +55,7 @@ fun SelecteurTiers(
     var dropdownVisible by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Filtrer les tiers selon le texte saisi (insensible à la casse)
     val tiersFiltres = remember(tiersDisponibles, texteSaisi) {
@@ -72,7 +75,18 @@ fun SelecteurTiers(
     }
 
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                // Fermer le clavier et le dropdown quand on clique ailleurs
+                if (estFocused) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    dropdownVisible = false
+                }
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -124,8 +138,10 @@ fun SelecteurTiers(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(
                     onNext = { 
-                        // Ne pas fermer le focus automatiquement
-                        // Laisser l'utilisateur continuer à taper
+                        // Fermer le clavier et le dropdown quand on appuie sur "Suivant"
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        dropdownVisible = false
                     }
                 ),
                 trailingIcon = {
@@ -144,7 +160,8 @@ fun SelecteurTiers(
                 expanded = dropdownVisible,
                 onDismissRequest = {
                     dropdownVisible = false
-                    // Ne pas fermer le focus automatiquement sur les vrais téléphones
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                 },
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
@@ -157,7 +174,8 @@ fun SelecteurTiers(
                         onClick = {
                             onCreerNouveauTiers(texteSaisi)
                             dropdownVisible = false
-                            // Garder le focus pour permettre la saisie continue
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                         },
                         text = {
                             Row(
@@ -192,7 +210,8 @@ fun SelecteurTiers(
                             onTiersSelectionne(tiers)
                             onTexteSaisiChange(tiers.nom)
                             dropdownVisible = false
-                            // Garder le focus pour permettre la saisie continue
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                         },
                         text = {
                             Row(
