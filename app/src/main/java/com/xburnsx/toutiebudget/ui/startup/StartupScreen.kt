@@ -127,7 +127,7 @@ fun StartupScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "ToutieBudget",
+                        text = "Toutie Budget",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
