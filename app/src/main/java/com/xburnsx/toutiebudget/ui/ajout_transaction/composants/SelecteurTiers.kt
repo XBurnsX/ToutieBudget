@@ -51,7 +51,8 @@ fun SelecteurTiers(
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var estFocused by remember { mutableStateOf(false) }
+    var dropdownVisible by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -66,9 +67,6 @@ fun SelecteurTiers(
             }
         }
     }
-
-    // Calculer si le dropdown doit être visible
-    val shouldShowDropdown = estFocused && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank())
 
     Column(
         modifier = modifier,
@@ -86,7 +84,13 @@ fun SelecteurTiers(
             // TextField principal
             OutlinedTextField(
                 value = texteSaisi,
-                onValueChange = onTexteSaisiChange,
+                onValueChange = { newValue ->
+                    onTexteSaisiChange(newValue)
+                    // Ouvrir le dropdown quand on commence à taper
+                    if (newValue.isNotBlank() && isFocused) {
+                        dropdownVisible = true
+                    }
+                },
                 placeholder = {
                     Text(
                         text = "Rechercher ou ajouter un tiers...",
@@ -97,7 +101,14 @@ fun SelecteurTiers(
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .onFocusChanged { focusState ->
-                        estFocused = focusState.isFocused
+                        isFocused = focusState.isFocused
+                        // Ouvrir le dropdown quand on clique dans le TextField
+                        if (focusState.isFocused) {
+                            dropdownVisible = true
+                        } else {
+                            // Fermer le dropdown quand on perd le focus
+                            dropdownVisible = false
+                        }
                     },
                 textStyle = TextStyle(
                     color = Color.White,
@@ -142,9 +153,9 @@ fun SelecteurTiers(
 
             // Dropdown avec les résultats
             DropdownMenu(
-                expanded = shouldShowDropdown,
+                expanded = dropdownVisible && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank()),
                 onDismissRequest = {
-                    // Ne rien faire, garder le clavier ouvert
+                    dropdownVisible = false
                 },
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
@@ -156,7 +167,9 @@ fun SelecteurTiers(
                     DropdownMenuItem(
                         onClick = {
                             onCreerNouveauTiers(texteSaisi)
-                            // Garder le clavier ouvert
+                            dropdownVisible = false
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                         },
                         text = {
                             Row(
@@ -190,7 +203,9 @@ fun SelecteurTiers(
                         onClick = {
                             onTiersSelectionne(tiers)
                             onTexteSaisiChange(tiers.nom)
-                            // Garder le clavier ouvert
+                            dropdownVisible = false
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                         },
                         text = {
                             Row(
