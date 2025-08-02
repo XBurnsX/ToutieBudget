@@ -58,7 +58,10 @@ fun ChampTiers(
                 unfocusedContainerColor = Color(0xFF1F1F1F),
                 cursorColor = Color(0xFF6366F1)
             ),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words
+            )
         )
     }
 }

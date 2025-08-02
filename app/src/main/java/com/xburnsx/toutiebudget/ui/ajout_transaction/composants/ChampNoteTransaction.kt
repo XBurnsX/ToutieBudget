@@ -58,7 +58,10 @@ fun ChampNoteTransaction(
                 cursorColor = MaterialTheme.colorScheme.primary
             ),
             maxLines = 3,
-            singleLine = false
+            singleLine = false,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences
+            )
         )
         
         // Compteur de caractères

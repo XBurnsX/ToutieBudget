@@ -29,7 +29,10 @@ fun AjoutEnveloppeDialog(
                 value = nomEnveloppe,
                 onValueChange = onNomChange,
                 label = { Text("Nom de l'enveloppe") },
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words
+                )
             )
         },
         confirmButton = {

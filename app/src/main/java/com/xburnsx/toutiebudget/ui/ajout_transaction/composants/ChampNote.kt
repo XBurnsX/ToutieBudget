@@ -27,6 +27,9 @@ fun ChampNote(
             cursorColor = MaterialTheme.colorScheme.primary,
             unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
             focusedContainerColor = Color.White.copy(alpha = 0.05f)
+        ),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences
         )
     )
 }

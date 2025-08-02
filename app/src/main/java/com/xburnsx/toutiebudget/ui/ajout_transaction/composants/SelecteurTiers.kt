@@ -135,7 +135,10 @@ fun SelecteurTiers(
                 ),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
                 keyboardActions = KeyboardActions(
                     onNext = { 
                         // Fermer le clavier et le dropdown quand on appuie sur "Suivant"

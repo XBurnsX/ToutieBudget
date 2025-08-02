@@ -52,7 +52,10 @@ fun AjoutCompteDialog(
                     value = formState.nom,
                     onValueChange = { onValueChange(it, null, null, null, null) },
                     label = { Text("Nom du compte") },
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words
+                    )
                 )
                 
                 // Sélecteur de type de compte
