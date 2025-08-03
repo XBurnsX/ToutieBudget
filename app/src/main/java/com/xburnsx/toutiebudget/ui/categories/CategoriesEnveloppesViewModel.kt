@@ -835,9 +835,6 @@ class CategoriesEnveloppesViewModel(
         System.err.println("🚨🚨🚨 [CategoriesVM] onDeplacerCategorie APPELÉE ! 🚨🚨🚨")
         System.err.println("🚨🚨🚨 [CategoriesVM] Catégorie: '$nomCategorie', Nouvelle position: $nouvellePosition 🚨🚨")
         
-        // 🔥 NOTIFICATION TEMPORAIRE POUR DÉBOGUER
-        _uiState.update { it.copy(erreur = "DEBUG: Déplacement '$nomCategorie' vers position $nouvellePosition") }
-        
         println("🔥 [CategoriesVM] onDeplacerCategorie('$nomCategorie', position: $nouvellePosition) - DÉBUT")
         println("🔥 [CategoriesVM] État actuel - Mode réorganisation: ${_uiState.value.isModeReorganisation}")
         println("🔥 [CategoriesVM] Nombre de catégories: ${categoriesMap.size}")

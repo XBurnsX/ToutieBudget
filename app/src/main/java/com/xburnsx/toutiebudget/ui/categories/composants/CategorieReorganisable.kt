@@ -94,7 +94,7 @@ fun LazyItemScope.CategorieReorganisable(
                 Color(0xFF3A3A3C) else Color(0xFF2C2C2E)
         ),
         border = if (isModeReorganisation)
-            BorderStroke(1.dp, Color(0xFF007AFF)) else null
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Column {
             // En-tête de la catégorie avec contrôles de déplacement
@@ -139,17 +139,11 @@ fun LazyItemScope.CategorieReorganisable(
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowUp,
                                 contentDescription = "Monter la catégorie",
-                                tint = if (position > 0) Color(0xFF007AFF) else Color.Gray
+                                tint = if (position > 0) MaterialTheme.colorScheme.primary else Color.Gray
                             )
                         }
 
-                        // Position actuelle
-                        Text(
-                            text = "${position + 1}",
-                            color = Color(0xFF007AFF),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+
 
                         // Bouton descendre
                         IconButton(
@@ -170,7 +164,7 @@ fun LazyItemScope.CategorieReorganisable(
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
                                 contentDescription = "Descendre la catégorie",
-                                tint = if (position < totalCategories - 1) Color(0xFF007AFF) else Color.Gray
+                                tint = if (position < totalCategories - 1) MaterialTheme.colorScheme.primary else Color.Gray
                             )
                         }
 
@@ -178,7 +172,7 @@ fun LazyItemScope.CategorieReorganisable(
                         Icon(
                             imageVector = Icons.Default.DragHandle,
                             contentDescription = "Déplacer par glisser-déposer",
-                            tint = Color(0xFF007AFF),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .pointerInput(nomCategorie) {
                                     detectDragGesturesAfterLongPress(
@@ -200,7 +194,7 @@ fun LazyItemScope.CategorieReorganisable(
                     // Affichage normal (nombre d'enveloppes)
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF007AFF),
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
                         Text(
@@ -263,18 +257,12 @@ fun LazyItemScope.CategorieReorganisable(
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowUp,
                                         contentDescription = "Monter l'enveloppe",
-                                        tint = if (indexEnv > 0) Color(0xFF007AFF) else Color.Gray,
+                                        tint = if (indexEnv > 0) MaterialTheme.colorScheme.primary else Color.Gray,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
 
-                                // Position de l'enveloppe
-                                Text(
-                                    text = "${indexEnv + 1}",
-                                    color = Color(0xFF007AFF),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+
 
                                 // Bouton descendre enveloppe
                                 IconButton(
@@ -290,7 +278,7 @@ fun LazyItemScope.CategorieReorganisable(
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowDown,
                                         contentDescription = "Descendre l'enveloppe",
-                                        tint = if (indexEnv < enveloppes.size - 1) Color(0xFF007AFF) else Color.Gray,
+                                        tint = if (indexEnv < enveloppes.size - 1) MaterialTheme.colorScheme.primary else Color.Gray,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }

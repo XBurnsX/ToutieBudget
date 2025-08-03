@@ -187,11 +187,11 @@ fun CategoriesEnveloppesScreen(
             // 🆕 Indicateur de mode réorganisation
             if (uiState.isModeReorganisation) {
                 Surface(
-                    color = Color(0xFF007AFF),
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Mode réorganisation activé - Utilisez les flèches pour déplacer les catégories",
+                        text = "Mode réorganisation activé - Utilisez les flèches pour déplacer les catégories et les enveloppes",
                         color = Color.White,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(16.dp),
