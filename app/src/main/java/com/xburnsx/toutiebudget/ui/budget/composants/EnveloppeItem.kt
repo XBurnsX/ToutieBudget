@@ -203,55 +203,66 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     ) {
                         // Texte de l'objectif adapté selon le type
                         val texteObjectif = when (enveloppe.typeObjectif) {
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
-                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
-                                val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
-                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
-                                    "Objectif atteint pour le $dateTexte"
-                                } else {
-                                    "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
-                                }
-                            }
+                                                         com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
+                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                                 val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
+                                 if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                     "Objectif atteint pour le $dateTexte"
+                                 } else {
+                                     "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFormatee?.toStringCourtAvecAnnee() ?: "date limite"}"
+                                 }
+                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
-                                // Calculer la date de fin de l'objectif annuel (dateObjectif + 12 mois)
-                                val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
-                                    try {
-                                        val dateDebut = when {
-                                            dateString.contains("T") -> {
-                                                val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                                                isoFormat.parse(dateString)
-                                            }
-                                            dateString.contains(" ") -> {
-                                                val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                                                spaceFormat.parse(dateString)
-                                            }
-                                            dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
-                                                val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                                                simpleFormat.parse(dateString)
-                                            }
-                                            else -> null
-                                        }
+                                                                                                  // dateObjectif est déjà la date de fin de l'objectif annuel
+                                 val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
+                                     try {
+                                         // DEBUG: Afficher la date de fin pour voir ce qui se passe
+                                         println("DEBUG: dateString = $dateString")
+                                         
+                                         val dateFin = when {
+                                             dateString.contains("T") -> {
+                                                 val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                 isoFormat.parse(dateString)
+                                             }
+                                             dateString.contains(" ") -> {
+                                                 // Essayer d'abord le format avec Z
+                                                 try {
+                                                     val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                     spaceFormat.parse(dateString)
+                                                 } catch (e: Exception) {
+                                                     // Si ça échoue, essayer le format sans Z
+                                                     try {
+                                                         val spaceFormatSansZ = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                                                         spaceFormatSansZ.parse(dateString)
+                                                     } catch (e2: Exception) {
+                                                         null
+                                                     }
+                                                 }
+                                             }
+                                             dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                                                 val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                                 simpleFormat.parse(dateString)
+                                             }
+                                             else -> null
+                                         }
 
-                                        if (dateDebut != null) {
-                                            val calendar = java.util.Calendar.getInstance()
-                                            calendar.time = dateDebut
-                                            calendar.add(java.util.Calendar.MONTH, 12) // + 12 mois
-                                            // Formater la date de fin
-                                            val dateFormatee = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
-                                            dateFormatee.toDateFormatee()
-                                        } else null
-                                    } catch (e: Exception) {
-                                        null
-                                    }
-                                }
+                                                                                  if (dateFin != null) {
+                                              // Utiliser directement la date de fin (pas besoin d'ajouter 1 an)
+                                              val dateFormatee = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(dateFin)
+                                              dateFormatee.toDateFormatee()
+                                          } else null
+                                     } catch (e: Exception) {
+                                         null
+                                     }
+                                 }
 
                                 val dateTexte = dateFinAnnuel?.toStringCourt() ?: "fin d'année"
 
-                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
-                                    "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
-                                } else {
-                                    "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au $dateTexte"
-                                }
+                                                                 if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                     "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
+                                 } else {
+                                     "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
+                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
@@ -556,6 +567,7 @@ data class DateFormatee(
 ) {
     fun toStringCourt(): String = "$jourTexte $mois"
     fun toStringComplet(): String = "$jourTexte $mois $annee"
+    fun toStringCourtAvecAnnee(): String = "$jourTexte $mois $annee"
 }
 
 /**
@@ -572,11 +584,21 @@ fun String?.toDateFormatee(): DateFormatee? {
                 val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
                 isoFormat.parse(this)
             }
-            this.contains(" ") -> {
-                // Format avec espace (ex: "2025-08-09 00:00:00.000Z")
-                val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
-                spaceFormat.parse(this)
-            }
+                         this.contains(" ") -> {
+                 // Essayer d'abord le format avec Z
+                 try {
+                     val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
+                     spaceFormat.parse(this)
+                 } catch (e: Exception) {
+                     // Si ça échoue, essayer le format sans Z
+                     try {
+                         val spaceFormatSansZ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                         spaceFormatSansZ.parse(this)
+                     } catch (e2: Exception) {
+                         null
+                     }
+                 }
+             }
             this.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
                 // Format date simple (ex: "2025-08-09")
                 val simpleFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
