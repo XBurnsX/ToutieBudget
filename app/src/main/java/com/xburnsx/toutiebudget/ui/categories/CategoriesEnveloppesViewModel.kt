@@ -51,6 +51,8 @@ class CategoriesEnveloppesViewModel(
     fun chargerDonnees() {
         viewModelScope.launch {
             try {
+                println("🔄 [CategoriesVM] chargerDonnees() - DÉBUT")
+
                 // Charger les données en parallèle
                 val categoriesResult = categorieRepository.recupererToutesLesCategories()
                 val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
@@ -62,16 +64,63 @@ class CategoriesEnveloppesViewModel(
                     emptyList()
                 }
 
+                println("📊 [CategoriesVM] Données chargées:")
+                println("   - ${categories.size} catégories")
+                if (categories.isEmpty()) {
+                    println("     ⚠️ AUCUNE CATÉGORIE TROUVÉE !")
+                } else {
+                    categories.forEachIndexed { index, cat ->
+                        println("     $index. Catégorie: '${cat.nom}' (ordre: ${cat.ordre}, id: ${cat.id.take(8)}...)")
+                    }
+                }
+                println("   - ${enveloppes.size} enveloppes")
+
+                // 🔥 AFFICHER L'ORDRE ACTUEL DANS POCKETBASE
+                println("🔍 [CategoriesVM] Ordre actuel dans PocketBase:")
+                if (categories.isEmpty()) {
+                    println("   ⚠️ AUCUNE CATÉGORIE À TRIER !")
+                } else {
+                    val categoriesTrieesParOrdre = categories.sortedBy { it.ordre }
+                    categoriesTrieesParOrdre.forEachIndexed { index, cat ->
+                        println("   Position $index: '${cat.nom}' (ordre DB: ${cat.ordre})")
+                    }
+                }
+
+                // 🔥 CORRIGER LES ORDRES SI TOUS SONT À 0
+                val categoriesCorrigees = if (categories.all { it.ordre == 0 } && categories.size > 1) {
+                    println("⚠️  [CategoriesVM] Toutes les catégories ont l'ordre 0 - CORRECTION AUTOMATIQUE")
+                    categories.mapIndexed { index, categorie ->
+                        val categorieCorrigee = categorie.copy(ordre = index)
+                        println("   Correction: '${categorie.nom}' -> ordre $index")
+
+                        // Mettre à jour dans PocketBase immédiatement
+                        launch {
+                            val resultat = categorieRepository.mettreAJourCategorie(categorieCorrigee)
+                            resultat.onSuccess {
+                                println("   ✅ Catégorie '${categorieCorrigee.nom}' mise à jour avec ordre ${categorieCorrigee.ordre}")
+                            }.onFailure { erreur ->
+                                println("   ❌ ERREUR mise à jour '${categorieCorrigee.nom}': ${erreur.message}")
+                            }
+                        }
+
+                        categorieCorrigee
+                    }
+                } else {
+                    println("✅ [CategoriesVM] Les catégories ont déjà des ordres différents")
+                    categories
+                }
+
                 // Mettre à jour le cache
-                categoriesMap = categories.associateBy { it.id }
+                categoriesMap = categoriesCorrigees.associateBy { it.id }
                 enveloppesList = enveloppes.filter { !it.estArchive }
 
-                // Organiser les données pour l'affichage
-                val enveloppesGroupees =
-                    OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(
-                        categories,
-                        enveloppesList
-                    )
+                // 🔥 ORGANISER LES DONNÉES EN RESPECTANT L'ORDRE DES CATÉGORIES
+                val enveloppesGroupees = organiserDonneesPourAffichage(categoriesCorrigees, enveloppesList)
+
+                println("🎯 [CategoriesVM] Groupes créés dans l'ordre:")
+                enveloppesGroupees.keys.forEachIndexed { index, nomCategorie ->
+                    println("   ${index + 1}. '$nomCategorie' -> ${enveloppesGroupees[nomCategorie]?.size ?: 0} enveloppes")
+                }
 
                 // Mettre à jour l'interface
                 _uiState.update { currentState ->
@@ -82,8 +131,11 @@ class CategoriesEnveloppesViewModel(
                     )
                 }
 
+                println("✅ [CategoriesVM] chargerDonnees() - TERMINÉ")
 
             } catch (e: Exception) {
+                println("❌ [CategoriesVM] ERREUR chargerDonnees(): ${e.message}")
+                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -92,6 +144,49 @@ class CategoriesEnveloppesViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Organise les données pour l'affichage en respectant strictement l'ordre des catégories.
+     */
+    private fun organiserDonneesPourAffichage(
+        categories: List<Categorie>,
+        enveloppes: List<Enveloppe>
+    ): Map<String, List<Enveloppe>> {
+        val categoriesMap = categories.associateBy { it.id }
+
+        // 🔥 TRIER LES CATÉGORIES PAR ORDRE (c'est la clé !)
+        val categoriesTriees = categories.sortedBy { it.ordre }
+
+        // Créer un LinkedHashMap pour préserver l'ordre d'insertion
+        val groupes = linkedMapOf<String, List<Enveloppe>>()
+
+        // Ajouter les catégories dans l'ordre trié
+        categoriesTriees.forEach { categorie ->
+            val enveloppesDeCategorie = enveloppes
+                .filter { it.categorieId == categorie.id && !it.estArchive }
+                .sortedBy { it.ordre }
+            groupes[categorie.nom] = enveloppesDeCategorie
+        }
+
+        // Ajouter les enveloppes sans catégorie à la fin (si il y en a)
+        val enveloppesSansCategorie = enveloppes
+            .filter { enveloppe ->
+                !categoriesMap.containsKey(enveloppe.categorieId) && !enveloppe.estArchive
+            }
+            .sortedBy { it.ordre }
+
+        if (enveloppesSansCategorie.isNotEmpty()) {
+            groupes["Sans catégorie"] = enveloppesSansCategorie
+        }
+
+        println("🎯 [CategoriesVM] OrganiserDonneesPourAffichage - Ordre final:")
+        groupes.keys.forEachIndexed { index, nomCategorie ->
+            println("   ${index + 1}. '$nomCategorie' -> ${groupes[nomCategorie]?.size ?: 0} enveloppes")
+        }
+
+        // 🔥 RETOURNER DIRECTEMENT LE LINKEDHASHMAP POUR PRÉSERVER L'ORDRE
+        return groupes
     }
 
 
@@ -136,11 +231,13 @@ class CategoriesEnveloppesViewModel(
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
                     ?: throw Exception("Utilisateur non connecté")
 
-                // Créer l'objet catégorie temporaire
+                // Créer l'objet catégorie temporaire avec le bon ordre
+                val nouvelOrdre = categoriesMap.values.maxByOrNull { it.ordre }?.ordre?.plus(1) ?: 0
                 val categorieTemporaire = Categorie(
                     id = "temp_${System.currentTimeMillis()}",
                     utilisateurId = utilisateurId,
-                    nom = nom
+                    nom = nom,
+                    ordre = nouvelOrdre
                 )
 
                 // Mise à jour optimiste de l'interface
@@ -696,6 +793,7 @@ class CategoriesEnveloppesViewModel(
      * Active ou désactive le mode de réorganisation des catégories.
      */
     fun onToggleModeReorganisation() {
+        println("🔄 [CategoriesVM] onToggleModeReorganisation() - Mode actuel: ${_uiState.value.isModeReorganisation}")
         _uiState.update {
             it.copy(
                 isModeReorganisation = !it.isModeReorganisation,
@@ -703,24 +801,29 @@ class CategoriesEnveloppesViewModel(
                 ordreTemporaire = emptyMap()
             )
         }
+        println("✅ [CategoriesVM] Mode réorganisation: ${_uiState.value.isModeReorganisation}")
     }
 
     /**
      * Démarre le déplacement d'une catégorie.
      */
     fun onDebuterDeplacementCategorie(nomCategorie: String) {
+        println("🚀 [CategoriesVM] onDebuterDeplacementCategorie('$nomCategorie')")
         _uiState.update {
             it.copy(categorieEnDeplacement = nomCategorie)
         }
+        println("✅ [CategoriesVM] Catégorie en déplacement: ${_uiState.value.categorieEnDeplacement}")
     }
 
     /**
      * Termine le déplacement d'une catégorie.
      */
     fun onTerminerDeplacementCategorie() {
+        println("🛑 [CategoriesVM] onTerminerDeplacementCategorie()")
         _uiState.update {
             it.copy(categorieEnDeplacement = null)
         }
+        println("✅ [CategoriesVM] Catégorie en déplacement: ${_uiState.value.categorieEnDeplacement}")
     }
 
     /**
@@ -728,12 +831,30 @@ class CategoriesEnveloppesViewModel(
      * Met à jour l'ordre des catégories et synchronise avec PocketBase.
      */
     fun onDeplacerCategorie(nomCategorie: String, nouvellePosition: Int) {
+        // 🔥 LOG TRÈS VISIBLE POUR DÉBOGUER
+        System.err.println("🚨🚨🚨 [CategoriesVM] onDeplacerCategorie APPELÉE ! 🚨🚨🚨")
+        System.err.println("🚨🚨🚨 [CategoriesVM] Catégorie: '$nomCategorie', Nouvelle position: $nouvellePosition 🚨🚨")
+        
+        // 🔥 NOTIFICATION TEMPORAIRE POUR DÉBOGUER
+        _uiState.update { it.copy(erreur = "DEBUG: Déplacement '$nomCategorie' vers position $nouvellePosition") }
+        
+        println("🔥 [CategoriesVM] onDeplacerCategorie('$nomCategorie', position: $nouvellePosition) - DÉBUT")
+        println("🔥 [CategoriesVM] État actuel - Mode réorganisation: ${_uiState.value.isModeReorganisation}")
+        println("🔥 [CategoriesVM] Nombre de catégories: ${categoriesMap.size}")
+
         viewModelScope.launch {
             try {
                 // Obtenir la liste actuelle des catégories triées par ordre
                 val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }
+                println("📋 [CategoriesVM] Catégories actuelles (${categoriesOrdonnees.size}):")
+                categoriesOrdonnees.forEachIndexed { index, cat ->
+                    println("   $index. '${cat.nom}' (ordre: ${cat.ordre})")
+                }
+
                 val categorieADeplacer = categoriesOrdonnees.find { it.nom == nomCategorie }
                     ?: throw Exception("Catégorie '$nomCategorie' introuvable")
+
+                println("🎯 [CategoriesVM] Catégorie trouvée: '${categorieADeplacer.nom}' (ordre actuel: ${categorieADeplacer.ordre})")
 
                 // Calculer les nouveaux ordres
                 val nouvellesCategories = calculerNouveauxOrdres(
@@ -742,44 +863,36 @@ class CategoriesEnveloppesViewModel(
                     nouvellePosition
                 )
 
-                // 🔥 FORCE LE REFRESH IMMÉDIAT - APPROCHE SIMPLE
-                // Créer une nouvelle map ordonnée selon les nouveaux ordres
-                val nouveauxGroupes = mutableMapOf<String, List<Enveloppe>>()
-
-                // Reconstruire la map dans le bon ordre
-                nouvellesCategories.sortedBy { it.ordre }.forEach { categorie ->
-                    val enveloppesExistantes = _uiState.value.enveloppesGroupees[categorie.nom] ?: emptyList()
-                    nouveauxGroupes[categorie.nom] = enveloppesExistantes
+                println("🔄 [CategoriesVM] Nouveaux ordres calculés:")
+                nouvellesCategories.sortedBy { it.ordre }.forEachIndexed { index, cat ->
+                    println("   $index. '${cat.nom}' (ordre: ${cat.ordre})")
                 }
 
-                // Mettre à jour le cache local AVANT l'interface
+                // 🔥 METTRE À JOUR LE CACHE LOCAL AVANT L'INTERFACE
                 categoriesMap = nouvellesCategories.associateBy { it.id }
 
-                // Force le refresh complet en créant une nouvelle instance
-                _uiState.update {
-                    CategoriesEnveloppesUiState(
-                        isLoading = false,
-                        erreur = null,
-                        enveloppesGroupees = nouveauxGroupes.toMap(),
-                        isModeReorganisation = it.isModeReorganisation,
-                        categorieEnDeplacement = null,
-                        // Copier tous les autres états existants
-                        isAjoutCategorieDialogVisible = it.isAjoutCategorieDialogVisible,
-                        isAjoutEnveloppeDialogVisible = it.isAjoutEnveloppeDialogVisible,
-                        isObjectifDialogVisible = it.isObjectifDialogVisible,
-                        isConfirmationSuppressionCategorieVisible = it.isConfirmationSuppressionCategorieVisible,
-                        isConfirmationSuppressionEnveloppeVisible = it.isConfirmationSuppressionEnveloppeVisible,
-                        categoriePourAjout = it.categoriePourAjout,
-                        categoriePourSuppression = it.categoriePourSuppression,
-                        enveloppePourSuppression = it.enveloppePourSuppression,
-                        nomNouvelleCategorie = it.nomNouvelleCategorie,
-                        nomNouvelleEnveloppe = it.nomNouvelleEnveloppe,
-                        enveloppePourObjectif = it.enveloppePourObjectif,
-                        objectifFormState = it.objectifFormState,
-                        enveloppeEnDeplacement = it.enveloppeEnDeplacement,
-                        ordreTemporaire = emptyMap()
+                // 🔥 RECONSTRUIRE LES GROUPES DANS LE BON ORDRE
+                val nouveauxGroupes = organiserDonneesPourAffichage(nouvellesCategories, enveloppesList)
+
+                println("🎨 [CategoriesVM] Nouveaux groupes créés dans l'ordre:")
+                nouveauxGroupes.keys.forEachIndexed { index, nomCat ->
+                    println("   ${index + 1}. '$nomCat' -> ${nouveauxGroupes[nomCat]?.size ?: 0} enveloppes")
+                }
+
+                // 🔥 METTRE À JOUR L'INTERFACE IMMÉDIATEMENT
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        enveloppesGroupees = nouveauxGroupes,
+                        categorieEnDeplacement = null
                     )
                 }
+
+                println("✅ [CategoriesVM] État UI mis à jour!")
+
+                // 🔥 FORCER UN RECHARGEMENT COMPLET POUR S'ASSURER QUE L'INTERFACE SE MET À JOUR
+                // Attendre un peu puis recharger les données
+                kotlinx.coroutines.delay(100)
+                chargerDonnees()
 
                 // Synchroniser avec PocketBase en batch
                 val categoriesModifiees = nouvellesCategories.filter { nouvelle ->
@@ -787,8 +900,23 @@ class CategoriesEnveloppesViewModel(
                     ancienne?.ordre != nouvelle.ordre
                 }
 
-                categoriesModifiees.forEach { categorie ->
-                    categorieRepository.mettreAJourCategorie(categorie).onFailure { erreur ->
+                println("📤 [CategoriesVM] Synchronisation PocketBase - ${categoriesModifiees.size} catégories à mettre à jour")
+                categoriesModifiees.forEach { cat ->
+                    println("   - '${cat.nom}': ordre ${cat.ordre}")
+                }
+
+                // 🔥 SYNCHRONISER AVEC POCKETBASE
+                val misesAJour = categoriesModifiees.map { categorie ->
+                    println("📤 [CategoriesVM] Mise à jour PocketBase: '${categorie.nom}' -> ordre ${categorie.ordre}")
+                    categorieRepository.mettreAJourCategorie(categorie)
+                }
+
+                // 🔥 ATTENDRE QUE TOUTES LES MISES À JOUR SOIENT TERMINÉES
+                misesAJour.forEach { resultat ->
+                    resultat.onSuccess { categorie ->
+                        println("✅ [CategoriesVM] Succès mise à jour PocketBase: '${categorie.nom}'")
+                    }.onFailure { erreur ->
+                        println("❌ [CategoriesVM] ERREUR mise à jour: ${erreur.message}")
                         _uiState.update { it.copy(erreur = "Erreur déplacement: ${erreur.message}") }
                         // En cas d'erreur, recharger les données depuis PocketBase
                         chargerDonnees()
@@ -796,10 +924,18 @@ class CategoriesEnveloppesViewModel(
                     }
                 }
 
+                // 🔥 ATTENDRE UN PEU POUR S'ASSURER QUE POCKETBASE A TRAITÉ LES MISES À JOUR
+                println("⏳ [CategoriesVM] Attente de la fin des mises à jour PocketBase...")
+                kotlinx.coroutines.delay(1000) // Attendre 1 seconde
+
                 // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier les autres ViewModels
                 realtimeSyncService.declencherMiseAJourBudget()
 
+                println("🎉 [CategoriesVM] onDeplacerCategorie() - TERMINÉ AVEC SUCCÈS")
+
             } catch (e: Exception) {
+                println("❌ [CategoriesVM] ERREUR onDeplacerCategorie(): ${e.message}")
+                e.printStackTrace()
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 chargerDonnees()
             }

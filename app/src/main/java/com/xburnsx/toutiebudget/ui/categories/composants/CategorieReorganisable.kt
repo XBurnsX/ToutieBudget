@@ -122,9 +122,15 @@ fun LazyItemScope.CategorieReorganisable(
                         // Bouton monter
                         IconButton(
                             onClick = {
+                                System.err.println("🚨🚨🚨 [CategorieReorganisable] CLIC BOUTON MONTER DÉTECTÉ ! 🚨🚨🚨")
+                                System.err.println("🚨🚨🚨 [CategorieReorganisable] Catégorie: '$nomCategorie', Position: $position 🚨🚨🚨")
+                                println("🔄 [CategorieReorganisable] CLIC BOUTON MONTER pour '$nomCategorie'")
                                 if (position > 0) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    println("🔄 [CategorieReorganisable] Déplacement '${nomCategorie}' de position $position vers ${position - 1}")
                                     onDeplacerCategorie(nomCategorie, position - 1)
+                                } else {
+                                    println("❌ [CategorieReorganisable] Impossible de monter - déjà en première position")
                                 }
                             },
                             enabled = position > 0
@@ -147,9 +153,15 @@ fun LazyItemScope.CategorieReorganisable(
                         // Bouton descendre
                         IconButton(
                             onClick = {
+                                System.err.println("🚨🚨🚨 [CategorieReorganisable] CLIC BOUTON DESCENDRE DÉTECTÉ ! 🚨🚨🚨")
+                                System.err.println("🚨🚨🚨 [CategorieReorganisable] Catégorie: '$nomCategorie', Position: $position 🚨🚨🚨")
+                                println("🔄 [CategorieReorganisable] CLIC BOUTON DESCENDRE pour '$nomCategorie'")
                                 if (position < totalCategories - 1) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    println("🔄 [CategorieReorganisable] Déplacement '${nomCategorie}' de position $position vers ${position + 1}")
                                     onDeplacerCategorie(nomCategorie, position + 1)
+                                } else {
+                                    println("❌ [CategorieReorganisable] Impossible de descendre - déjà en dernière position")
                                 }
                             },
                             enabled = position < totalCategories - 1
