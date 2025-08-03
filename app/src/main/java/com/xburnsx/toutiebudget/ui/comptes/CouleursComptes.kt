@@ -1,9 +1,21 @@
 package com.xburnsx.toutiebudget.ui.comptes
 
 val COULEURS_COMPTES = listOf(
-    "#00AD2A", "#006E1C", "#004212", "#0002FF", "#00019C", "#00015E",
-    "#FF4081", "#C51162", "#880E4F", "#FFC107", "#FFA000", "#FF6F00",
-    "#9C27B0", "#7B1FA2", "#4A148C", "#00BCD4", "#0097A7", "#006064",
-    "#CDDC39", "#AFB42B", "#827717", "#FFEB3B", "#FDD835", "#FBC02D"
+    // Verts (plus clairs)
+    "#4CAF50", "#66BB6A", "#81C784", "#A5D6A7",
+    // Bleus (plus clairs)
+    "#2196F3", "#42A5F5", "#64B5F6", "#90CAF9",
+    // Roses/Rouges (plus clairs)
+    "#E91E63", "#EC407A", "#F06292", "#F48FB1",
+    // Oranges (plus clairs)
+    "#FF9800", "#FFA726", "#FFB74D", "#FFCC80",
+    // Violets (plus clairs)
+    "#9C27B0", "#AB47BC", "#BA68C8", "#CE93D8",
+    // Cyan (plus clairs)
+    "#00BCD4", "#26C6DA", "#4DD0E1", "#80DEEA",
+    // Jaunes (plus clairs)
+    "#FFEB3B", "#FFEE58", "#FFF176", "#FFF59D",
+    // Jaunes vifs (plus clairs)
+    "#FFC107", "#FFCA28", "#FFD54F", "#FFE082",
 )
 

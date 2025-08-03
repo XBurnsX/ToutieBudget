@@ -281,18 +281,39 @@ fun CategoriesEnveloppesScreen(
 
     if (showKeyboard) {
         Dialog(
-            onDismissRequest = { showKeyboard = false },
+            onDismissRequest = {
+                showKeyboard = false
+                onMontantChangeCallback = null
+            },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            ClavierNumerique(
-                montantInitial = montantClavierInitial,
-                isMoney = true,
-                suffix = " $",
-                onMontantChange = { nouveauMontant ->
-                    onMontantChangeCallback?.invoke(nouveauMontant)
-                },
-                onFermer = { showKeyboard = false }
-            )
+            // Le Dialog garantit que le clavier sera au-dessus de tout
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Permet de cliquer à travers la Box pour fermer le dialogue
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showKeyboard = false
+                            onMontantChangeCallback = null
+                        }
+                    },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // Le clavier lui-même
+                ClavierNumerique(
+                    montantInitial = montantClavierInitial,
+                    isMoney = true,
+                    suffix = " $",
+                    onMontantChange = { nouveauMontant ->
+                        onMontantChangeCallback?.invoke(nouveauMontant)
+                    },
+                    onFermer = {
+                        showKeyboard = false
+                        onMontantChangeCallback = null
+                    }
+                )
+            }
         }
     }
 
