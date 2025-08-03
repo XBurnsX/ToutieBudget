@@ -458,8 +458,9 @@ class AjoutTransactionViewModel(
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
-                // Convertir LocalDate en Date pour le UseCase (utilisation du timezone local)
-                val dateTransaction = Date.from(state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
+                // Convertir LocalDate en Date avec l'heure actuelle
+                val maintenant = java.time.LocalDateTime.now()
+                val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                 
                 // Enregistrer la transaction
                 val result = enregistrerTransactionUseCase.executer(

@@ -212,7 +212,9 @@ class ModifierTransactionViewModel(
                     else -> "comptes_cheques"
                 }
                 
-                 val dateTransaction = Date.from(state.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
+                 // Convertir LocalDate en Date avec l'heure actuelle
+                val maintenant = java.time.LocalDateTime.now()
+                val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                  
                  val result = modifierTransactionUseCase.executer(
                      transactionId = transactionAModifier!!.id,
