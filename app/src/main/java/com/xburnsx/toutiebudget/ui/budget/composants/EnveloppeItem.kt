@@ -71,18 +71,18 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     // Récupère le solde actuel de l'enveloppe.
     // Si le solde est très proche de zéro (positif ou négatif), on l'affiche comme 0,00
     val montant = if (kotlin.math.abs(enveloppe.solde) < 0.001) 0.0 else enveloppe.solde
-         // Récupère le montant de l'objectif, s'il y en a un.
-     val objectif = enveloppe.objectif
+    // Récupère le montant de l'objectif, s'il y en a un.
+    val objectif = enveloppe.objectif
 
-     // --- LOGIQUE POUR DÉTERMINER SI L'OBJECTIF EST ATTEINT ---
-     val estObjectifAtteint = when (enveloppe.typeObjectif) {
-         // Pour les objectifs de dépense : vérifier si depense >= objectif (pas alloue + depense !)
-         com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.depense >= objectif
-         // Pour les objectifs d'épargne/accumulation : vérifier si alloueCumulatif >= objectif
-         else -> enveloppe.alloueCumulatif >= objectif
-     }
+    // --- LOGIQUE POUR DÉTERMINER SI L'OBJECTIF EST ATTEINT ---
+    val estObjectifAtteint = when (enveloppe.typeObjectif) {
+        // Pour les objectifs de dépense : vérifier si depense >= objectif (pas alloue + depense !)
+        com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.depense >= objectif
+        // Pour les objectifs d'épargne/accumulation : vérifier si alloueCumulatif >= objectif
+        else -> enveloppe.alloueCumulatif >= objectif
+    }
 
-     // --- LOGIQUE POUR LA BULLE DE MONTANT ---
+    // --- LOGIQUE POUR LA BULLE DE MONTANT ---
     // Détermine la couleur de fond de la bulle qui affiche le solde.
     val couleurBulle = when {
         // Rouge pour soldes négatifs (seulement si vraiment négatif, pas juste proche de zéro)
@@ -103,8 +103,11 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
     val couleurStatut = when {
-                    // Vert : L'objectif est défini et le montant alloué cumulatif atteint ou dépasse l'objectif.
-            objectif > 0 && enveloppe.alloueCumulatif >= objectif -> Color(0xFF4CAF50) // ← MODIFIÉ : alloueCumulatif
+        // Vert : L'objectif est défini et atteint selon le type d'objectif
+        objectif > 0 && when (enveloppe.typeObjectif) {
+            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) >= objectif
+            else -> enveloppe.alloueCumulatif >= objectif
+        } -> Color(0xFF4CAF50)
         // Jaune : L'objectif est défini et il y a de l'argent dans l'enveloppe, mais l'objectif n'est pas encore atteint.
         objectif > 0 && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
         // Jaune : Pas d'objectif, mais il y a de l'argent dans l'enveloppe.
@@ -280,99 +283,99 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                             fontSize = 12.sp,
                             lineHeight = 12.sp, // SUPPRIME l'espace vertical interne
                             modifier = Modifier.weight(1f)
-                                                 )
+                        )
 
-                                                  // Calculs pour le pourcentage
-                          val progression = if (estObjectifAtteint) {
-                             1.0f
-                         } else {
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> ((enveloppe.alloue + enveloppe.depense) / objectif).coerceIn(0.0, 1.0).toFloat()
-                                 else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
-                             }
-                         }
+                        // Calculs pour le pourcentage
+                        val progression = if (estObjectifAtteint) {
+                            1.0f
+                        } else {
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> ((enveloppe.alloue + enveloppe.depense) / objectif).coerceIn(0.0, 1.0).toFloat()
+                                else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
+                            }
+                        }
 
-                                                 // Couleur de la barre de progression
-                         val couleurBarreProgression = when {
-                             estObjectifAtteint -> {
-                                 when (enveloppe.typeObjectif) {
-                                     com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                         if (enveloppe.depense >= objectif) enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50) else Color(0xFF4CAF50)
-                                     }
-                                     else -> Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
-                                 }
-                             }
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) >= objectif
-                                 else -> enveloppe.alloueCumulatif >= objectif
-                             } -> Color(0xFF4CAF50)
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) > 0.001
-                                 else -> enveloppe.alloueCumulatif > 0.001
-                             } -> Color(0xFFFFC107)
-                             else -> Color.Gray
-                         }
+                        // Couleur de la barre de progression
+                        val couleurBarreProgression = when {
+                            estObjectifAtteint -> {
+                                when (enveloppe.typeObjectif) {
+                                    com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                                        if (enveloppe.depense >= objectif) enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50) else Color(0xFF4CAF50)
+                                    }
+                                    else -> Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
+                                }
+                            }
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) >= objectif
+                                else -> enveloppe.alloueCumulatif >= objectif
+                            } -> Color(0xFF4CAF50)
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) > 0.001
+                                else -> enveloppe.alloueCumulatif > 0.001
+                            } -> Color(0xFFFFC107)
+                            else -> Color.Gray
+                        }
 
-                                                 // Pourcentage à droite
-                         val progressionEntiere = (progression * 100).toInt()
-                         val texteAffichage = if(estObjectifAtteint) {
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                     if (enveloppe.depense >= objectif) "Dépensé ✓" else "Objectif ✓"
-                                 }
-                                 else -> "Objectif ✓"
-                             }
-                         } else {
-                             "$progressionEntiere %"
-                         }
+                        // Pourcentage à droite
+                        val progressionEntiere = (progression * 100).toInt()
+                        val texteAffichage = if(estObjectifAtteint) {
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                                    if (enveloppe.depense >= objectif) "Dépensé ✓" else "Objectif ✓"
+                                }
+                                else -> "Objectif ✓"
+                            }
+                        } else {
+                            "$progressionEntiere %"
+                        }
 
-                                                 val couleurTexte = if (progressionEntiere == 0 && !estObjectifAtteint) {
-                             Color.LightGray
-                         } else {
-                             couleurBarreProgression
-                         }
+                        val couleurTexte = if (progressionEntiere == 0 && !estObjectifAtteint) {
+                            Color.LightGray
+                        } else {
+                            couleurBarreProgression
+                        }
 
-                                                 Text(
-                             text = texteAffichage,
-                             color = couleurTexte,
-                             fontWeight = if (estObjectifAtteint) FontWeight.Bold else FontWeight.Medium,
-                             fontSize = 12.sp,
-                             lineHeight = 12.sp // SUPPRIME l'espace vertical interne
-                         )
+                        Text(
+                            text = texteAffichage,
+                            color = couleurTexte,
+                            fontWeight = if (estObjectifAtteint) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 12.sp,
+                            lineHeight = 12.sp // SUPPRIME l'espace vertical interne
+                        )
                     }
 
-                                         Spacer(modifier = Modifier.height(3.dp)) // ESPACE CONTRÔLÉ entre objectif et barre
+                    Spacer(modifier = Modifier.height(3.dp)) // ESPACE CONTRÔLÉ entre objectif et barre
 
-                                             // Barre de progression directement sous le texte
-                                                  val progressionAnimee by animateFloatAsState(
-                              targetValue = if (estObjectifAtteint) 1.0f else {
-                                  when (enveloppe.typeObjectif) {
-                                      com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> ((enveloppe.alloue + enveloppe.depense) / objectif).coerceIn(0.0, 1.0).toFloat()
-                                      else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
-                                  }
-                              },
-                              label = "Animation Barre de Progression"
-                          )
+                    // Barre de progression directement sous le texte
+                    val progressionAnimee by animateFloatAsState(
+                        targetValue = if (estObjectifAtteint) 1.0f else {
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> ((enveloppe.alloue + enveloppe.depense) / objectif).coerceIn(0.0, 1.0).toFloat()
+                                else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
+                            }
+                        },
+                        label = "Animation Barre de Progression"
+                    )
 
-                                                                     val couleurBarre = when {
-                           estObjectifAtteint -> {
-                               when (enveloppe.typeObjectif) {
-                                   com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                       if (enveloppe.depense >= objectif) enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50) else Color(0xFF4CAF50)
-                                   }
-                                   else -> Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
-                               }
-                           }
-                          when (enveloppe.typeObjectif) {
-                              com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) >= objectif
-                              else -> enveloppe.alloueCumulatif >= objectif
-                          } -> Color(0xFF4CAF50)
-                          when (enveloppe.typeObjectif) {
-                              com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) > 0.001
-                              else -> enveloppe.alloueCumulatif > 0.001
-                          } -> Color(0xFFFFC107)
-                          else -> Color.Gray
-                      }
+                    val couleurBarre = when {
+                        estObjectifAtteint -> {
+                            when (enveloppe.typeObjectif) {
+                                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                                    if (enveloppe.depense >= objectif) enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50) else Color(0xFF4CAF50)
+                                }
+                                else -> Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
+                            }
+                        }
+                        when (enveloppe.typeObjectif) {
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) >= objectif
+                            else -> enveloppe.alloueCumulatif >= objectif
+                        } -> Color(0xFF4CAF50)
+                        when (enveloppe.typeObjectif) {
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue + enveloppe.depense) > 0.001
+                            else -> enveloppe.alloueCumulatif > 0.001
+                        } -> Color(0xFFFFC107)
+                        else -> Color.Gray
+                    }
 
                     Box(
                         modifier = Modifier
