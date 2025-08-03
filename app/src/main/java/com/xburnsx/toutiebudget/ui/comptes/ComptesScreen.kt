@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -26,11 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
+import com.xburnsx.toutiebudget.ui.comptes.composants.CompteReorganisable
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.AjoutCompteDialog
 import com.xburnsx.toutiebudget.ui.comptes.dialogs.ModifierCompteDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
@@ -57,47 +61,107 @@ fun ComptesScreen(
                 title = { Text("Comptes", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
                 actions = {
-                    IconButton(onClick = { viewModel.onOuvrirAjoutDialog() }) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter un compte", tint = Color.White)
+                    // 🆕 Bouton de mode réorganisation
+                    IconButton(
+                        onClick = { viewModel.onToggleModeReorganisation() }
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.isModeReorganisation)
+                                Icons.Default.Check else Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = if (uiState.isModeReorganisation)
+                                "Terminer réorganisation" else "Réorganiser comptes",
+                            tint = if (uiState.isModeReorganisation)
+                                Color(0xFF00FF00) else Color.White
+                        )
+                    }
+
+                    // Bouton d'ajout de compte
+                    IconButton(
+                        onClick = { viewModel.onOuvrirAjoutDialog() },
+                        enabled = !uiState.isModeReorganisation // Désactivé en mode réorganisation
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Ajouter un compte",
+                            tint = if (uiState.isModeReorganisation) Color.Gray else Color.White
+                        )
                     }
                 }
             )
         }
     ) { paddingValues ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            uiState.comptesGroupes.forEach { (typeDeCompte, listeDeComptes) ->
-                stickyHeader {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // 🆕 Indicateur de mode réorganisation
+            if (uiState.isModeReorganisation) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
-                        text = typeDeCompte,
+                        text = "Mode réorganisation activé - Utilisez les flèches pour déplacer les comptes",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(horizontal = 16.dp, vertical = 12.dp)
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(16.dp),
+                        textAlign = TextAlign.Center
                     )
                 }
-                items(listeDeComptes, key = { it.id }) { compte ->
-                    CompteItem(
-                        compte = compte,
-                        onClick = {
-                            // Corriger la valeur de collection pour correspondre à ce qui est stocké dans PocketBase
-                            val collectionCompte = when (compte.javaClass.simpleName) {
-                                "CompteCheque" -> "comptes_cheques"
-                                "CompteCredit" -> "comptes_credits"
-                                "CompteDette" -> "comptes_dettes"
-                                "CompteInvestissement" -> "comptes_investissements"
-                                else -> "comptes_cheques" // Fallback par défaut
-                            }
+            }
 
-                            // Vérifications de sécurité pour éviter les paramètres null
-                            val compteId = compte.id
-                            val nomCompte = compte.nom
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                uiState.comptesGroupes.forEach { (typeDeCompte, listeDeComptes) ->
+                    stickyHeader {
+                        Text(
+                            text = typeDeCompte,
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                    items(listeDeComptes, key = { it.id }) { compte ->
+                        if (uiState.isModeReorganisation) {
+                            // Mode réorganisation : utiliser le composant spécialisé
+                            CompteReorganisable(
+                                compte = compte,
+                                position = listeDeComptes.indexOf(compte),
+                                totalComptes = listeDeComptes.size,
+                                isModeReorganisation = true,
+                                isEnDeplacement = uiState.compteEnDeplacement == compte.id,
+                                onDeplacerCompte = viewModel::onDeplacerCompte,
+                                onDebuterDeplacement = viewModel::onDebuterDeplacementCompte,
+                                onTerminerDeplacement = viewModel::onTerminerDeplacementCompte,
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        } else {
+                            // Mode normal : utiliser le composant standard
+                            CompteItem(
+                                compte = compte,
+                                onClick = {
+                                    // Corriger la valeur de collection pour correspondre à ce qui est stocké dans PocketBase
+                                    val collectionCompte = when (compte.javaClass.simpleName) {
+                                        "CompteCheque" -> "comptes_cheques"
+                                        "CompteCredit" -> "comptes_credits"
+                                        "CompteDette" -> "comptes_dettes"
+                                        "CompteInvestissement" -> "comptes_investissements"
+                                        else -> "comptes_cheques" // Fallback par défaut
+                                    }
 
-                            if (compteId.isNotEmpty() && collectionCompte.isNotEmpty()) {
-                                onCompteClick(compteId, collectionCompte, nomCompte)
-                            }
-                        },
-                        onLongClick = { viewModel.onCompteLongPress(compte) }
-                    )
+                                    // Vérifications de sécurité pour éviter les paramètres null
+                                    val compteId = compte.id
+                                    val nomCompte = compte.nom
+
+                                    if (compteId.isNotEmpty() && collectionCompte.isNotEmpty()) {
+                                        onCompteClick(compteId, collectionCompte, nomCompte)
+                                    }
+                                },
+                                onLongClick = { viewModel.onCompteLongPress(compte) }
+                            )
+                        }
+                    }
                 }
             }
         }

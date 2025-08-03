@@ -51,6 +51,8 @@ class ComptesViewModel(
                         is CompteDette -> "Dettes"
                         is CompteInvestissement -> "Investissements"
                     }
+                }.mapValues { (_, comptes) ->
+                    comptes.sortedBy { it.ordre }
                 }
                 _uiState.update {
                     it.copy(isLoading = false, comptesGroupes = comptesGroupes)
@@ -394,6 +396,159 @@ class ComptesViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
+            }
+        }
+    }
+
+    // ===== GESTION DE LA RÉORGANISATION DES COMPTES =====
+
+    /**
+     * Active ou désactive le mode de réorganisation des comptes.
+     */
+    fun onToggleModeReorganisation() {
+        _uiState.update {
+            it.copy(
+                isModeReorganisation = !it.isModeReorganisation,
+                compteEnDeplacement = null
+            )
+        }
+    }
+
+    /**
+     * Démarre le déplacement d'un compte.
+     */
+    fun onDebuterDeplacementCompte(compteId: String) {
+        _uiState.update {
+            it.copy(compteEnDeplacement = compteId)
+        }
+    }
+
+    /**
+     * Termine le déplacement d'un compte.
+     */
+    fun onTerminerDeplacementCompte() {
+        _uiState.update {
+            it.copy(compteEnDeplacement = null)
+        }
+    }
+
+    /**
+     * Déplace un compte vers une nouvelle position.
+     */
+    fun onDeplacerCompte(compteId: String, nouvellePosition: Int) {
+        viewModelScope.launch {
+            try {
+                println("🔥 [ComptesVM] onDeplacerCompte('$compteId', position: $nouvellePosition) - DÉBUT")
+
+                // Obtenir tous les comptes non archivés
+                val tousComptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                val comptesActifs = tousComptes.filter { !it.estArchive }.sortedBy { it.ordre }
+
+                println("📊 [ComptesVM] Comptes actifs: ${comptesActifs.map { "${it.nom} (ordre: ${it.ordre})" }}")
+
+                // Trouver le compte à déplacer
+                val compteADeplacer = comptesActifs.find { it.id == compteId }
+                    ?: return@launch
+
+                println("🎯 [ComptesVM] Compte à déplacer: ${compteADeplacer.nom} (ordre actuel: ${compteADeplacer.ordre})")
+
+                // Trouver le type de compte pour ne déplacer que dans le même groupe
+                val typeCompteADeplacer = when (compteADeplacer) {
+                    is CompteCheque -> "Comptes chèques"
+                    is CompteCredit -> "Cartes de crédit"
+                    is CompteDette -> "Dettes"
+                    is CompteInvestissement -> "Investissements"
+                }
+
+                println("📂 [ComptesVM] Type de compte: $typeCompteADeplacer")
+
+                // Filtrer seulement les comptes du même type
+                val comptesMemeType = comptesActifs.filter { compte ->
+                    when (compte) {
+                        is CompteCheque -> typeCompteADeplacer == "Comptes chèques"
+                        is CompteCredit -> typeCompteADeplacer == "Cartes de crédit"
+                        is CompteDette -> typeCompteADeplacer == "Dettes"
+                        is CompteInvestissement -> typeCompteADeplacer == "Investissements"
+                    }
+                }.sortedBy { it.ordre }
+
+                println("📋 [ComptesVM] Comptes du même type: ${comptesMemeType.map { "${it.nom} (ordre: ${it.ordre})" }}")
+
+                // Calculer les nouveaux ordres dans le groupe
+                val nouveauxComptes = calculerNouveauxOrdresComptes(
+                    comptesMemeType,
+                    compteADeplacer,
+                    nouvellePosition
+                )
+
+                println("🔄 [ComptesVM] Nouveaux ordres: ${nouveauxComptes.map { "${it.nom} (ordre: ${it.ordre})" }}")
+
+                // Mettre à jour tous les comptes modifiés
+                val misesAJour = nouveauxComptes.filter { nouveau ->
+                    val ancien = comptesMemeType.find { it.id == nouveau.id }
+                    ancien?.ordre != nouveau.ordre
+                }
+
+                println("💾 [ComptesVM] Comptes à mettre à jour: ${misesAJour.map { "${it.nom} (ordre: ${it.ordre})" }}")
+
+                // Synchroniser avec PocketBase
+                misesAJour.forEach { compte ->
+                    compteRepository.mettreAJourCompte(compte).onFailure { erreur ->
+                        println("❌ [ComptesVM] Erreur mise à jour ${compte.nom}: ${erreur.message}")
+                        _uiState.update { it.copy(erreur = "Erreur déplacement: ${erreur.message}") }
+                        return@launch
+                    }
+                }
+
+                println("✅ [ComptesVM] Toutes les mises à jour réussies!")
+
+                // Recharger les données
+                chargerComptes()
+
+                // 🔥 FORCER LA RECOMPOSITION DE L'INTERFACE
+                _uiState.update { currentState ->
+                    currentState.copy(versionUI = currentState.versionUI + 1)
+                }
+
+                // Notifier les autres ViewModels
+                realtimeSyncService.declencherMiseAJourComptes()
+
+                println("🎉 [ComptesVM] Déplacement terminé avec succès!")
+
+            } catch (e: Exception) {
+                println("💥 [ComptesVM] Exception: ${e.message}")
+                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Calcule les nouveaux ordres après déplacement d'un compte.
+     */
+    private fun calculerNouveauxOrdresComptes(
+        comptesOrdonnes: List<Compte>,
+        compteADeplacer: Compte,
+        nouvellePosition: Int
+    ): List<Compte> {
+        val listeModifiable = comptesOrdonnes.toMutableList()
+
+        // Retirer le compte de sa position actuelle
+        val positionActuelle = listeModifiable.indexOfFirst { it.id == compteADeplacer.id }
+        if (positionActuelle == -1) return comptesOrdonnes
+
+        listeModifiable.removeAt(positionActuelle)
+
+        // Insérer à la nouvelle position
+        val positionCible = nouvellePosition.coerceIn(0, listeModifiable.size)
+        listeModifiable.add(positionCible, compteADeplacer)
+
+        // Recalculer tous les ordres
+        return listeModifiable.mapIndexed { index, compte ->
+            when (compte) {
+                is CompteCheque -> compte.copy(ordre = index, collection = "comptes_cheques")
+                is CompteCredit -> compte.copy(ordre = index, collection = "comptes_credits")
+                is CompteDette -> compte.copy(ordre = index, collection = "comptes_dettes")
+                is CompteInvestissement -> compte.copy(ordre = index, collection = "comptes_investissement")
             }
         }
     }

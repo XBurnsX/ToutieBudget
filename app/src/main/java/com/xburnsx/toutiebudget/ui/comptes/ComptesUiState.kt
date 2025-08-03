@@ -22,5 +22,9 @@ data class ComptesUiState(
     val isReconciliationDialogVisible: Boolean = false,
     val isMenuContextuelVisible: Boolean = false,
     val formState: CompteFormState = CompteFormState(),
-    val isClavierNumeriqueVisible: Boolean = false
+    val isClavierNumeriqueVisible: Boolean = false,
+    // 🆕 PROPRIÉTÉS POUR LA RÉORGANISATION
+    val isModeReorganisation: Boolean = false,
+    val compteEnDeplacement: String? = null,
+    val versionUI: Int = 0 // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
 )

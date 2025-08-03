@@ -287,7 +287,7 @@ fun CategoriesEnveloppesScreen(
             ClavierNumerique(
                 montantInitial = montantClavierInitial,
                 isMoney = true,
-                suffix = " €",
+                suffix = " $",
                 onMontantChange = { nouveauMontant ->
                     onMontantChangeCallback?.invoke(nouveauMontant)
                 },
