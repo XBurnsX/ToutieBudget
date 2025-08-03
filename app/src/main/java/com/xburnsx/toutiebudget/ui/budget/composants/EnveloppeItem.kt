@@ -259,7 +259,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                     "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
-                                    "Objectif mensuel: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
+                                    "${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte" //Objectif mensuel: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
@@ -321,12 +321,16 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                         val texteAffichage = if(estObjectifAtteint) {
                             when (enveloppe.typeObjectif) {
                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                    if (enveloppe.depense >= objectif) "Dépensé ✓" else "Objectif ✓"
+                                    if (enveloppe.depense >= objectif) "Dépensé ✓" else "Bravo ! ✓"
                                 }
                                 else -> "Objectif ✓"
                             }
                         } else {
-                            "$progressionEntiere %"
+                            if (progressionEntiere < 100) {
+                                "$progressionEntiere %"
+                            } else {
+                                "Meow ! ✓"
+                            }
                         }
 
                         val couleurTexte = if (progressionEntiere == 0 && !estObjectifAtteint) {
