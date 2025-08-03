@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.*
 import javax.inject.Inject
 
@@ -137,7 +138,7 @@ class ArgentServiceImpl @Inject constructor(
         }
 
         // 4. Calculer le nouveau solde du compte selon le type de transaction
-        val nouveauSolde = when (typeTransaction) {
+        val nouveauSoldeBrut = when (typeTransaction) {
             TypeTransaction.Depense -> compte.solde - montant
             TypeTransaction.Revenu -> compte.solde + montant
             TypeTransaction.Pret -> compte.solde - montant
@@ -148,6 +149,9 @@ class ArgentServiceImpl @Inject constructor(
             TypeTransaction.TransfertSortant -> compte.solde - montant
             TypeTransaction.TransfertEntrant -> compte.solde + montant
         }
+        
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+        val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
         
         // 5. Mettre à jour le solde du compte
         compteRepository.mettreAJourSolde(compteId, collectionCompte, nouveauSolde)
@@ -200,8 +204,12 @@ class ArgentServiceImpl @Inject constructor(
         }
         
         // 3. Mettre à jour les soldes des deux comptes
-        val nouveauSoldeSource = compteSource.solde - montant
-        val nouveauSoldeDest = compteDest.solde + montant
+        val nouveauSoldeSourceBrut = compteSource.solde - montant
+        val nouveauSoldeDestBrut = compteDest.solde + montant
+        
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LES NOUVEAUX SOLDES
+        val nouveauSoldeSource = MoneyFormatter.roundAmount(nouveauSoldeSourceBrut)
+        val nouveauSoldeDest = MoneyFormatter.roundAmount(nouveauSoldeDestBrut)
         
         compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSoldeSource)
         compteRepository.mettreAJourSolde(compteDestId, collectionCompteDest, nouveauSoldeDest)
@@ -298,7 +306,9 @@ class ArgentServiceImpl @Inject constructor(
         }
         
         // Mettre à jour le solde du compte
-        val nouveauSoldeCompte = compte.solde - montant
+        val nouveauSoldeCompteBrut = compte.solde - montant
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+        val nouveauSoldeCompte = MoneyFormatter.roundAmount(nouveauSoldeCompteBrut)
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
         // ✅ UTILISER recupererOuCreerAllocation + addition automatique pour éviter les doublons
@@ -362,7 +372,9 @@ class ArgentServiceImpl @Inject constructor(
         }
         
         // Mettre à jour le solde du compte
-        val nouveauSoldeCompte = compte.solde + montant
+        val nouveauSoldeCompteBrut = compte.solde + montant
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+        val nouveauSoldeCompte = MoneyFormatter.roundAmount(nouveauSoldeCompteBrut)
         compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
         
         // ✅ UTILISER recupererOuCreerAllocation + allocation négative pour éviter les doublons

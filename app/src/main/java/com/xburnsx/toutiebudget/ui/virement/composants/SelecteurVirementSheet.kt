@@ -17,6 +17,7 @@ import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.ui.budget.composants.toColor
 import com.xburnsx.toutiebudget.ui.virement.ItemVirement
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -80,7 +81,7 @@ private fun VirementItemRow(item: ItemVirement, onClick: () -> Unit) {
                 montant = item.enveloppe.solde
                 couleurMontant = when {
                     item.enveloppe.solde < 0 -> Color.Red
-                    item.enveloppe.solde == 0.0 -> Color.Gray
+                    MoneyFormatter.isAmountZero(item.enveloppe.solde) -> Color.Gray
                     else -> item.enveloppe.couleurProvenance?.toColor() ?: Color.Green
                 }
             }

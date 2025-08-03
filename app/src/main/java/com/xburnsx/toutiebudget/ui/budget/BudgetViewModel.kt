@@ -21,6 +21,7 @@ import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -503,7 +504,9 @@ class BudgetViewModel(
                 }
 
                 // 3. Mettre à jour le compte source (retirer de "prêt à placer")
-                val nouveauPretAPlacer = compteSource.pretAPlacer - montantDollars
+                val nouveauPretAPlacerBrut = compteSource.pretAPlacer - montantDollars
+                // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU MONTANT
+                val nouveauPretAPlacer = MoneyFormatter.roundAmount(nouveauPretAPlacerBrut)
                 val compteModifie = compteSource.copy(
                     pretAPlacerRaw = nouveauPretAPlacer,
                     collection = compteSource.collection ?: "comptes_cheque" // Assurer qu'on a une collection

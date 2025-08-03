@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * 📊 CALCULATEUR D'OBJECTIFS INTELLIGENT AVEC RATTRAPAGE
@@ -78,6 +79,14 @@ class ObjectifCalculator {
     }
 
     /**
+     * 🎯 FONCTION UTILITAIRE : Arrondit une suggestion avec précision et tolérance
+     */
+    private fun arrondirSuggestion(suggestion: Double): Double {
+        val suggestionArrondie = (suggestion * 100).roundToInt() / 100.0
+        return if (suggestionArrondie < 0.01) 0.0 else suggestionArrondie
+    }
+
+    /**
      * Calcule le montant du versement recommandé pour atteindre l'objectif de l'enveloppe.
      * C'est le montant que l'utilisateur devrait idéalement ajouter à l'enveloppe ce mois-ci.
      * 
@@ -94,7 +103,9 @@ class ObjectifCalculator {
     ): Double {
         val objectif = enveloppe.objectifMontant
         // Si pas d'objectif ou si l'objectif est déjà atteint par le solde, pas de versement nécessaire.
-        if (objectif <= 0 || soldeActuel >= objectif) return 0.0
+        // 🎯 CORRECTION DE PRÉCISION : Utiliser une tolérance pour éviter les erreurs de précision
+        val tolerance = 0.01 // Tolérance de 1 centime
+        if (objectif <= 0 || (soldeActuel - objectif) >= -tolerance) return 0.0
 
         return when (enveloppe.typeObjectif) {
             TypeObjectif.Echeance -> {
@@ -210,7 +221,7 @@ class ObjectifCalculator {
             suggestionMensuelle
         }
         
-        return suggestion
+        return arrondirSuggestion(suggestion)
     }
 
     /**
@@ -303,7 +314,7 @@ class ObjectifCalculator {
             suggestionMensuelle
         }
         
-        return suggestion
+        return arrondirSuggestion(suggestion)
     }
 
     /**
@@ -311,7 +322,7 @@ class ObjectifCalculator {
      * Le montant à verser est simplement ce qui manque pour atteindre l'objectif du mois.
      */
     private fun calculerVersementMensuel(soldeActuel: Double, objectifMensuel: Double): Double {
-        return max(0.0, objectifMensuel - soldeActuel)
+        return arrondirSuggestion(max(0.0, objectifMensuel - soldeActuel))
     }
 
     /**
@@ -345,7 +356,7 @@ class ObjectifCalculator {
             retard
         }
 
-        return versementRecommande
+        return arrondirSuggestion(versementRecommande)
     }
 
     /**

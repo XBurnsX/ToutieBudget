@@ -21,8 +21,9 @@
  import java.util.Date
  import okhttp3.MediaType.Companion.toMediaType
  import com.xburnsx.toutiebudget.utils.SafeDateAdapter
- import java.text.SimpleDateFormat
- import java.util.*
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import java.text.SimpleDateFormat
+import java.util.*
  
  /**
   * Implémentation du repository des enveloppes avec PocketBase.
@@ -505,8 +506,8 @@
              
              // 2. Calculer les nouveaux montants
              val nouveauSoldeBrut = allocation.solde - montantDepense  // Soustraction du solde
-             // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
-             val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
+             // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+             val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
              val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
              
              // 3. Préparer les données de mise à jour
@@ -556,8 +557,8 @@
              
              // 2. Calculer les nouveaux montants
              val nouveauSoldeBrut = allocation.solde + montantDepense  // Addition au solde
-             // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
-             val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
+             // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+             val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
              val nouvelleDépense = allocation.depense - montantDepense  // Soustraction des dépenses existantes
              
              // 3. Préparer les données de mise à jour

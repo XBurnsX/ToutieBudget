@@ -69,8 +69,8 @@ fun String?.toColor(): Color {
 @Composable
 fun EnveloppeItem(enveloppe: EnveloppeUi) {
     // Récupère le solde actuel de l'enveloppe.
-    // Si le solde est très proche de zéro (positif ou négatif), on l'affiche comme 0,00
-    val montant = if (kotlin.math.abs(enveloppe.solde) < 0.001) 0.0 else enveloppe.solde
+    // 🎯 UTILISER LA NORMALISATION GLOBALE POUR UNE PRÉCISION COHÉRENTE
+    val montant = MoneyFormatter.normalizeAmount(enveloppe.solde)
     // Récupère le montant de l'objectif, s'il y en a un.
     val objectif = enveloppe.objectif
 

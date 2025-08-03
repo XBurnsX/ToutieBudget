@@ -19,6 +19,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLEncoder
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 // Classe pour désérialiser la réponse paginée de PocketBase
 data class ListeResultats<T>(
@@ -202,7 +203,9 @@ class CompteRepositoryImpl : CompteRepository {
             val token = client.obtenirToken() ?: throw Exception("Token manquant")
             val urlBase = UrlResolver.obtenirUrlActive()
 
-            val donneesUpdate = mapOf("solde" to nouveauSolde)
+            // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+            val soldeArrondi = MoneyFormatter.roundAmount(nouveauSolde)
+            val donneesUpdate = mapOf("solde" to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
 
             val requete = Request.Builder()
@@ -253,8 +256,11 @@ class CompteRepositoryImpl : CompteRepository {
             // 2. Calculer le nouveau solde
             val nouveauSolde = compte.solde + variationSolde
 
+            // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+            val soldeArrondi = MoneyFormatter.roundAmount(nouveauSolde)
+
             // 3. Préparer les données de mise à jour (seulement le solde pour cette méthode)
-            val donneesUpdate = mapOf("solde" to nouveauSolde)
+            val donneesUpdate = mapOf("solde" to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
 
             val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
@@ -403,10 +409,8 @@ class CompteRepositoryImpl : CompteRepository {
 
             // 2. Calculer le nouveau solde
             val nouveauSoldeBrut = compte.solde + variationSolde
-            // Si le solde est très proche de zéro (positif ou négatif), le mettre à 0
-            val nouveauSolde = if (kotlin.math.abs(nouveauSoldeBrut) < 0.001) 0.0 else nouveauSoldeBrut
-            if (nouveauSoldeBrut != nouveauSolde) {
-            }
+            // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+            val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
 
             // 3. Préparer les données de mise à jour
             val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {

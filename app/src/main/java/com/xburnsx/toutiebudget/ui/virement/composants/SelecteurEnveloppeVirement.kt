@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -90,7 +91,7 @@ fun SelecteurEnveloppeVirement(
                                 fontSize = 14.sp,
                                 color = when {
                                     enveloppeSelectionnee.solde < 0 -> Color(0xFFEF4444)
-                                    enveloppeSelectionnee.solde == 0.0 -> Color.Gray
+                                    MoneyFormatter.isAmountZero(enveloppeSelectionnee.solde) -> Color.Gray
                                     else -> Color(0xFF10B981)
                                 },
                                 fontWeight = FontWeight.Medium
@@ -273,7 +274,7 @@ private fun ItemEnveloppeVirement(
                     fontWeight = FontWeight.Medium,
                     color = when {
                         enveloppe.solde < 0 -> Color(0xFFEF4444)
-                        enveloppe.solde == 0.0 -> Color.Gray
+                        MoneyFormatter.isAmountZero(enveloppe.solde) -> Color.Gray
                         else -> Color(0xFF10B981)
                     }
                 )
