@@ -890,11 +890,6 @@ class CategoriesEnveloppesViewModel(
 
                 println("✅ [CategoriesVM] État UI mis à jour!")
 
-                // 🔥 FORCER UN RECHARGEMENT COMPLET POUR S'ASSURER QUE L'INTERFACE SE MET À JOUR
-                // Attendre un peu puis recharger les données
-                kotlinx.coroutines.delay(100)
-                chargerDonnees()
-
                 // Synchroniser avec PocketBase en batch
                 val categoriesModifiees = nouvellesCategories.filter { nouvelle ->
                     val ancienne = categoriesOrdonnees.find { it.id == nouvelle.id }
@@ -924,10 +919,6 @@ class CategoriesEnveloppesViewModel(
                         return@launch
                     }
                 }
-
-                // 🔥 ATTENDRE UN PEU POUR S'ASSURER QUE POCKETBASE A TRAITÉ LES MISES À JOUR
-                println("⏳ [CategoriesVM] Attente de la fin des mises à jour PocketBase...")
-                kotlinx.coroutines.delay(1000) // Attendre 1 seconde
 
                 // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier les autres ViewModels
                 realtimeSyncService.declencherMiseAJourBudget()
