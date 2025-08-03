@@ -229,141 +229,145 @@ fun CategoriesEnveloppesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (uiState.isModeEdition) Modifier.reorderable(reorderableState) else Modifier),
-                state = lazyListState, // 🐲 ASSIGNER L'ÉTAT
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Message d'erreur si présent
-                if (uiState.erreur != null) {
-                    item(key = "error_message") {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "⚠️ ${uiState.erreur}",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(onClick = { viewModel.onEffacerErreur() }) {
-                                    Text("OK")
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Message si aucune catégorie
-                if (uiState.enveloppesGroupees.isEmpty() && !uiState.isLoading) {
-                    item(key = "empty_state") {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF2C2C2E)
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "📁",
-                                    fontSize = 48.dp.value.sp
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "Aucune catégorie",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Cliquez sur '+' pour créer votre première catégorie",
-                                    color = Color.Gray,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(
-                                    onClick = { viewModel.onOuvrirAjoutCategorieDialog() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Text("Créer une catégorie")
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Liste des catégories et leurs enveloppes
-                itemsIndexed(
-                    items = uiState.enveloppesGroupees.entries.toList(),
-                    key = { _, (categorie, _) -> "categorie_$categorie" }
-                ) { _, (nomCategorie, enveloppes) ->
-                    ReorderableItem(reorderableState, key = "categorie_$nomCategorie") { isDragging ->
-                        val elevation = if (isDragging) 8.dp else 0.dp
-                        val hapticFeedback = LocalHapticFeedback.current
-
-                        CategorieCard(
-                            nomCategorie = nomCategorie,
-                            enveloppes = enveloppes,
-                            isModeEdition = uiState.isModeEdition,
-                            isDragging = isDragging, // <-- Ajout de l'état de glissement
-                            modifier = Modifier
-                                .shadow(elevation)
-                                .detectReorderAfterLongPress(reorderableState),
-                            onAjouterEnveloppeClick = {
-                                if (!isDragging) {
-                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
-                                }
-                            },
-                            onObjectifClick = { enveloppe ->
-                                if (!isDragging) {
-                                    viewModel.onOuvrirObjectifDialog(enveloppe)
-                                }
-                            },
-                            onSupprimerEnveloppe = { enveloppe ->
-                                if (!isDragging) {
-                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
-                                }
-                            },
-                            onSupprimerObjectifEnveloppe = { enveloppe ->
-                                if (!isDragging) {
-                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
-                                }
-                            },
-                            onSupprimerCategorie = { nomCat ->
-                                if (!isDragging) {
-                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
-                                }
-                            }
+            // Message d'erreur si présent
+            if (uiState.erreur != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚠️ ${uiState.erreur}",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
                         )
+                        TextButton(onClick = { viewModel.onEffacerErreur() }) {
+                            Text("OK")
+                        }
                     }
-                }
-
-                // Espacement en bas pour éviter que le contenu soit coupé
-                item(key = "bottom_spacer") {
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
-            
+            // Message si aucune catégorie
+            if (uiState.enveloppesGroupees.isEmpty() && !uiState.isLoading) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF2C2C2E)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "📁",
+                            fontSize = 48.dp.value.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Aucune catégorie",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Cliquez sur '+' pour créer votre première catégorie",
+                            color = Color.Gray,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.onOuvrirAjoutCategorieDialog() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("Créer une catégorie")
+                        }
+                    }
+                }
+            }
+            // Liste des catégories et enveloppes
+            if (uiState.enveloppesGroupees.isNotEmpty()) {
+                if (uiState.isModeEdition) {
+                    com.xburnsx.toutiebudget.ui.categories.composants.SystemeGlisserDeposerCategories(
+                        categories = uiState.enveloppesGroupees.keys.toList(),
+                        enveloppesParCategorie = uiState.enveloppesGroupees,
+                        onReordonner = { nouvelleListe ->
+                            viewModel.onReorganiserCategories(nouvelleListe)
+                        },
+                        contenuCategorie = { nomCategorie, enveloppes, isDragging ->
+                            CategorieCard(
+                                nomCategorie = nomCategorie,
+                                enveloppes = enveloppes,
+                                isModeEdition = true,
+                                isDragging = isDragging,
+                                modifier = Modifier,
+                                onAjouterEnveloppeClick = {
+                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
+                                },
+                                onObjectifClick = { enveloppe ->
+                                    viewModel.onOuvrirObjectifDialog(enveloppe)
+                                },
+                                onSupprimerEnveloppe = { enveloppe ->
+                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
+                                },
+                                onSupprimerObjectifEnveloppe = { enveloppe ->
+                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
+                                },
+                                onSupprimerCategorie = { nomCat ->
+                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
+                                }
+                            )
+                        }
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(
+                            items = uiState.enveloppesGroupees.entries.toList(),
+                            key = { _, (categorie, _) -> "categorie_$categorie" }
+                        ) { _, (nomCategorie, enveloppes) ->
+                            CategorieCard(
+                                nomCategorie = nomCategorie,
+                                enveloppes = enveloppes,
+                                isModeEdition = false,
+                                isDragging = false,
+                                modifier = Modifier,
+                                onAjouterEnveloppeClick = {
+                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
+                                },
+                                onObjectifClick = { enveloppe ->
+                                    viewModel.onOuvrirObjectifDialog(enveloppe)
+                                },
+                                onSupprimerEnveloppe = { enveloppe ->
+                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
+                                },
+                                onSupprimerObjectifEnveloppe = { enveloppe ->
+                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
+                                },
+                                onSupprimerCategorie = { nomCat ->
+                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
             // Indicateur de chargement centré
             if (uiState.isLoading) {
                 Box(

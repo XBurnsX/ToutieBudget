@@ -690,6 +690,30 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
+    // ===== DRAG & DROP CUSTOM : Réorganisation des catégories =====
+    fun onReorganiserCategories(nouvelOrdre: List<String>) {
+        viewModelScope.launch {
+            try {
+                // Mettre à jour l'état local
+                val nouveauxGroupes = nouvelOrdre.associateWith { nom ->
+                    _uiState.value.enveloppesGroupees[nom] ?: emptyList()
+                }
+                _uiState.update { it.copy(enveloppesGroupees = nouveauxGroupes) }
+
+                // Sauvegarder l'ordre dans la base
+                val nouvellesCategories = nouvelOrdre.mapIndexed { index, nomCategorie ->
+                    categoriesMap.values.find { it.nom == nomCategorie }?.copy(ordre = index)
+                }.filterNotNull()
+                nouvellesCategories.forEach { categorie ->
+                    categorieRepository.mettreAJourCategorie(categorie)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Erreur lors de la sauvegarde de l'ordre: ${e.message}") }
+                chargerDonnees()
+            }
+        }
+    }
+
     // ===== GESTION DU MODE ÉDITION =====
 
     fun onActiverModeEdition() {
