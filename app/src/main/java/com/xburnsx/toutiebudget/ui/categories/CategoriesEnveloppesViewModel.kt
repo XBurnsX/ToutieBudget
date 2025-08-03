@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
 
+
 /**
  * ViewModel pour la gestion des catégories et enveloppes.
  * Gère les créations, suppressions et mises à jour avec synchronisation instantanée.
@@ -53,20 +54,24 @@ class CategoriesEnveloppesViewModel(
                 // Charger les données en parallèle
                 val categoriesResult = categorieRepository.recupererToutesLesCategories()
                 val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
-                
-                val categories = categoriesResult.getOrElse { 
-                    emptyList() 
+
+                val categories = categoriesResult.getOrElse {
+                    emptyList()
                 }
-                val enveloppes = enveloppesResult.getOrElse { 
-                    emptyList() 
+                val enveloppes = enveloppesResult.getOrElse {
+                    emptyList()
                 }
-                
+
                 // Mettre à jour le cache
                 categoriesMap = categories.associateBy { it.id }
                 enveloppesList = enveloppes.filter { !it.estArchive }
-                
+
                 // Organiser les données pour l'affichage
-                val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(categories, enveloppesList)
+                val enveloppesGroupees =
+                    OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(
+                        categories,
+                        enveloppesList
+                    )
 
                 // Mettre à jour l'interface
                 _uiState.update { currentState ->
@@ -76,9 +81,8 @@ class CategoriesEnveloppesViewModel(
                         erreur = null
                     )
                 }
-                
 
-                
+
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -98,11 +102,11 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun onFermerAjoutCategorieDialog() {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
-                isAjoutCategorieDialogVisible = false, 
+                isAjoutCategorieDialogVisible = false,
                 nomNouvelleCategorie = ""
-            ) 
+            )
         }
     }
 
@@ -115,50 +119,50 @@ class CategoriesEnveloppesViewModel(
      */
     fun onAjouterCategorie() {
         val nom = _uiState.value.nomNouvelleCategorie.trim()
-        
+
         if (nom.isEmpty()) {
             _uiState.update { it.copy(erreur = "Le nom de la catégorie ne peut pas être vide") }
             return
         }
-        
+
         // Vérifier si la catégorie existe déjà
         if (categoriesMap.values.any { it.nom.equals(nom, ignoreCase = true) }) {
             _uiState.update { it.copy(erreur = "Une catégorie avec ce nom existe déjà") }
             return
         }
-        
+
         viewModelScope.launch {
             try {
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
                     ?: throw Exception("Utilisateur non connecté")
-                
+
                 // Créer l'objet catégorie temporaire
                 val categorieTemporaire = Categorie(
                     id = "temp_${System.currentTimeMillis()}",
                     utilisateurId = utilisateurId,
                     nom = nom
                 )
-                
+
                 // Mise à jour optimiste de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
                 nouveauxGroupes[nom] = emptyList()
-                
+
                 _uiState.update { currentState ->
                     currentState.copy(
-                        enveloppesGroupees = organiserGroupes(nouveauxGroupes),
+                        enveloppesGroupees = nouveauxGroupes,
                         isAjoutCategorieDialogVisible = false,
                         nomNouvelleCategorie = "",
                         erreur = null
                     )
                 }
-                
+
                 // Envoyer à PocketBase
                 val resultat = categorieRepository.creerCategorie(categorieTemporaire)
-                
+
                 resultat.onSuccess { categorieCreee ->
                     // Mettre à jour le cache avec la vraie catégorie
                     categoriesMap = categoriesMap + (categorieCreee.id to categorieCreee)
-                    
+
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
 
@@ -172,14 +176,13 @@ class CategoriesEnveloppesViewModel(
 
                     _uiState.update { currentState ->
                         currentState.copy(
-                            enveloppesGroupees = groupesCorriges,
-                            erreur = "Erreur lors de la création: ${erreur.message}"
+                            enveloppesGroupees = groupesCorriges
                         )
                     }
                 }
-                
+
             } catch (e: Exception) {
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
                         erreur = "Erreur: ${e.message}",
                         isAjoutCategorieDialogVisible = false
@@ -192,21 +195,21 @@ class CategoriesEnveloppesViewModel(
     // ===== GESTION DES ENVELOPPES =====
 
     fun onOuvrirAjoutEnveloppeDialog(categorie: String) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
                 isAjoutEnveloppeDialogVisible = true,
                 categoriePourAjout = categorie
-            ) 
+            )
         }
     }
 
     fun onFermerAjoutEnveloppeDialog() {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
-                isAjoutEnveloppeDialogVisible = false, 
+                isAjoutEnveloppeDialogVisible = false,
                 nomNouvelleEnveloppe = "",
                 categoriePourAjout = null
-            ) 
+            )
         }
     }
 
@@ -221,21 +224,21 @@ class CategoriesEnveloppesViewModel(
     fun onAjouterEnveloppe() {
         val nom = _uiState.value.nomNouvelleEnveloppe.trim()
         val categorieNom = _uiState.value.categoriePourAjout
-        
+
         if (nom.isEmpty() || categorieNom == null) {
             _uiState.update { it.copy(erreur = "Le nom de l'enveloppe ne peut pas être vide") }
             return
         }
-        
+
         viewModelScope.launch {
             try {
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
                     ?: throw Exception("Utilisateur non connecté")
-                
+
                 // Trouver la catégorie correspondante
                 val categorie = categoriesMap.values.find { it.nom == categorieNom }
                     ?: throw Exception("Catégorie '$categorieNom' introuvable")
-                
+
                 // ✅ CRÉATION D'UNE ENVELOPPE COMPLÈTEMENT VIDE
                 val enveloppeVide = Enveloppe(
                     id = "temp_${System.currentTimeMillis()}",
@@ -252,10 +255,11 @@ class CategoriesEnveloppesViewModel(
                     objectifJour = null                // Pas de jour spécifique
                 )
 
-                
+
                 // Mise à jour optimiste de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                val enveloppesDeCategorie = (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
+                val enveloppesDeCategorie =
+                    (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
                 enveloppesDeCategorie.add(enveloppeVide)
                 nouveauxGroupes[categorieNom] = enveloppesDeCategorie
 
@@ -268,19 +272,19 @@ class CategoriesEnveloppesViewModel(
                         erreur = null
                     )
                 }
-                
+
                 // Envoyer à PocketBase
                 val resultat = enveloppeRepository.creerEnveloppe(enveloppeVide)
-                
+
                 resultat.onSuccess { enveloppeCreee ->
                     // Mettre à jour le cache avec la vraie enveloppe
-                    enveloppesList = enveloppesList.map {
-                        if (it.id == enveloppeVide.id) enveloppeCreee else it
+                    enveloppesList = enveloppesList.map { enveloppe ->
+                        if (enveloppe.id == enveloppeVide.id) enveloppeCreee else enveloppe
                     }
-                    
+
                     // Recharger pour s'assurer de la cohérence
                     chargerDonnees()
-                    
+
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
                     realtimeSyncService.declencherMiseAJourBudget()
 
@@ -298,9 +302,9 @@ class CategoriesEnveloppesViewModel(
                         )
                     }
                 }
-                
+
             } catch (e: Exception) {
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
                         erreur = "Erreur: ${e.message}",
                         isAjoutEnveloppeDialogVisible = false
@@ -332,17 +336,17 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun onFermerObjectifDialog() {
-        _uiState.update { 
+        _uiState.update {
             it.copy(
                 isObjectifDialogVisible = false,
                 enveloppePourObjectif = null,
                 objectifFormState = ObjectifFormState()
-            ) 
+            )
         }
     }
 
     fun onObjectifTypeChange(type: TypeObjectif) {
-        _uiState.update { 
+        _uiState.update {
             // Pour les objectifs annuels, pas besoin d'initialiser une date spéciale
             // La date de début peut être aujourd'hui (null = aujourd'hui par défaut)
             it.copy(objectifFormState = it.objectifFormState.copy(type = type))
@@ -350,7 +354,7 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun onObjectifMontantChange(montant: String) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(objectifFormState = it.objectifFormState.copy(montant = montant))
         }
     }
@@ -374,13 +378,13 @@ class CategoriesEnveloppesViewModel(
     }
 
     fun onObjectifJourChange(jour: Int?) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(objectifFormState = it.objectifFormState.copy(jour = jour))
         }
     }
 
     fun onObjectifResetApresEcheanceChange(resetApresEcheance: Boolean) {
-        _uiState.update { 
+        _uiState.update {
             it.copy(objectifFormState = it.objectifFormState.copy(resetApresEcheance = resetApresEcheance))
         }
     }
@@ -413,6 +417,7 @@ class CategoriesEnveloppesViewModel(
                         }
                         calendar.time
                     }
+
                     TypeObjectif.Bihebdomadaire -> {
                         // 🔥 CORRECTION: Pour les objectifs bihebdomadaires, utiliser formState.date (pas dateDebut)
                         val dateSelectionnee = formState.date
@@ -428,14 +433,17 @@ class CategoriesEnveloppesViewModel(
                             null
                         }
                     }
+
                     TypeObjectif.Annuel -> {
                         // Pour les objectifs annuels, utiliser la date sélectionnée dans le date picker
                         formState.date ?: Date()
                     }
+
                     TypeObjectif.Echeance -> {
                         // Pour les échéances, utiliser la date définie ou aujourd'hui
                         formState.dateDebut ?: Date()
                     }
+
                     else -> null
                 }
 
@@ -445,6 +453,7 @@ class CategoriesEnveloppesViewModel(
                         // Pour les objectifs mensuels, la date d'objectif est la même que la date de début
                         dateDebutCalculee
                     }
+
                     TypeObjectif.Bihebdomadaire -> {
                         // Pour les objectifs bihebdomadaires, date d'objectif = date de début + 14 jours
                         dateDebutCalculee?.let { dateDebut ->
@@ -454,10 +463,12 @@ class CategoriesEnveloppesViewModel(
                             calendar.time
                         }
                     }
+
                     TypeObjectif.Echeance -> {
                         // 🆕 Pour les échéances, utiliser la date de fin sélectionnée
                         formState.dateFin
                     }
+
                     TypeObjectif.Annuel -> {
                         // Pour les objectifs annuels, calculer date de fin = date début + 12 mois
                         dateDebutCalculee?.let { dateDebut ->
@@ -467,6 +478,7 @@ class CategoriesEnveloppesViewModel(
                             calendar.time
                         }
                     }
+
                     else -> null
                 }
 
@@ -487,7 +499,7 @@ class CategoriesEnveloppesViewModel(
                     }
                     nouveauxGroupes[categorie] = nouvellesEnveloppes
                 }
-                
+
                 _uiState.update { currentState ->
                     currentState.copy(
                         enveloppesGroupees = nouveauxGroupes,
@@ -496,7 +508,7 @@ class CategoriesEnveloppesViewModel(
                         objectifFormState = ObjectifFormState()
                     )
                 }
-                
+
                 // Envoyer à PocketBase
                 enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee).onSuccess {
                     // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après modification d'objectif
@@ -505,7 +517,7 @@ class CategoriesEnveloppesViewModel(
                     _uiState.update { it.copy(erreur = "Erreur sauvegarde objectif: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
                 }
-                
+
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 onFermerObjectifDialog()
@@ -563,27 +575,31 @@ class CategoriesEnveloppesViewModel(
     // ===== GESTION DES SUPPRESSIONS =====
 
     fun onOuvrirConfirmationSuppressionEnveloppe(enveloppe: Enveloppe) {
-        _uiState.update { it.copy(
-            enveloppePourSuppression = enveloppe,
-            isConfirmationSuppressionEnveloppeVisible = true
-        )}
+        _uiState.update {
+            it.copy(
+                enveloppePourSuppression = enveloppe,
+                isConfirmationSuppressionEnveloppeVisible = true
+            )
+        }
     }
-    
+
     fun onFermerConfirmationSuppressionEnveloppe() {
-        _uiState.update { it.copy(
-            enveloppePourSuppression = null,
-            isConfirmationSuppressionEnveloppeVisible = false
-        )}
+        _uiState.update {
+            it.copy(
+                enveloppePourSuppression = null,
+                isConfirmationSuppressionEnveloppeVisible = false
+            )
+        }
     }
-    
+
     /**
      * Supprime une enveloppe avec mise à jour instantanée.
      */
     fun onConfirmerSuppressionEnveloppe() {
         val enveloppe = _uiState.value.enveloppePourSuppression ?: return
-        
+
         onFermerConfirmationSuppressionEnveloppe()
-        
+
         viewModelScope.launch {
             try {
                 // Mise à jour instantanée de l'interface
@@ -592,11 +608,11 @@ class CategoriesEnveloppesViewModel(
                     val nouvellesEnveloppes = enveloppes.filterNot { it.id == enveloppe.id }
                     nouveauxGroupes[categorie] = nouvellesEnveloppes
                 }
-                
+
                 _uiState.update { currentState ->
                     currentState.copy(enveloppesGroupees = nouveauxGroupes)
                 }
-                
+
                 // Envoyer à PocketBase
                 enveloppeRepository.supprimerEnveloppe(enveloppe.id).onSuccess {
 
@@ -604,56 +620,60 @@ class CategoriesEnveloppesViewModel(
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
                 }
-                
+
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 chargerDonnees()
             }
         }
     }
-    
+
     fun onOuvrirConfirmationSuppressionCategorie(nomCategorie: String) {
-        _uiState.update { it.copy(
-            categoriePourSuppression = nomCategorie,
-            isConfirmationSuppressionCategorieVisible = true
-        )}
+        _uiState.update {
+            it.copy(
+                categoriePourSuppression = nomCategorie,
+                isConfirmationSuppressionCategorieVisible = true
+            )
+        }
     }
-    
+
     fun onFermerConfirmationSuppressionCategorie() {
-        _uiState.update { it.copy(
-            categoriePourSuppression = null,
-            isConfirmationSuppressionCategorieVisible = false
-        )}
+        _uiState.update {
+            it.copy(
+                categoriePourSuppression = null,
+                isConfirmationSuppressionCategorieVisible = false
+            )
+        }
     }
-    
+
     /**
      * Supprime une catégorie avec mise à jour instantanée.
      */
     fun onConfirmerSuppressionCategorie() {
         val nomCategorie = _uiState.value.categoriePourSuppression ?: return
-        
+
         onFermerConfirmationSuppressionCategorie()
-        
+
         viewModelScope.launch {
             try {
                 val categorieObj = categoriesMap.values.find { it.nom == nomCategorie }
                     ?: throw Exception("Catégorie '$nomCategorie' introuvable")
-                
+
                 // Vérifier qu'elle est vide
                 val enveloppes = _uiState.value.enveloppesGroupees[nomCategorie] ?: emptyList()
                 if (enveloppes.isNotEmpty()) {
                     _uiState.update { it.copy(erreur = "Impossible de supprimer une catégorie contenant des enveloppes") }
                     return@launch
                 }
-                
+
                 // Mise à jour instantanée de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
                 nouveauxGroupes.remove(nomCategorie)
-                
+
                 _uiState.update { currentState ->
                     currentState.copy(enveloppesGroupees = nouveauxGroupes)
                 }
-                
+
                 // Envoyer à PocketBase
                 categorieRepository.supprimerCategorie(categorieObj.id).onSuccess {
 
@@ -661,7 +681,7 @@ class CategoriesEnveloppesViewModel(
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
                 }
-                
+
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 chargerDonnees()
@@ -669,79 +689,318 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
-    // ===== GESTION DU DRAG & DROP (NOUVELLE VERSION) =====
 
-    fun onMoveCategorie(fromKey: String, toKey: String) {
-        val fromId = fromKey.removePrefix("categorie_")
-        val toId = toKey.removePrefix("categorie_")
+    // ===== GESTION DU DÉPLACEMENT DES CATÉGORIES =====
 
-        val list = _uiState.value.enveloppesGroupees.entries.toMutableList()
-        val fromIndex = list.indexOfFirst { (key, _) -> key == fromId }
-        val toIndex = list.indexOfFirst { (key, _) -> key == toId }
-
-        if (fromIndex != -1 && toIndex != -1) {
-            val movedItem = list.removeAt(fromIndex)
-            list.add(toIndex, movedItem)
-
-            // Mettre à jour l'état avec le nouvel ordre
-            _uiState.update {
-                it.copy(enveloppesGroupees = list.associate { entry -> entry.toPair() })
-            }
+    /**
+     * Active ou désactive le mode de réorganisation des catégories.
+     */
+    fun onToggleModeReorganisation() {
+        _uiState.update {
+            it.copy(
+                isModeReorganisation = !it.isModeReorganisation,
+                categorieEnDeplacement = null,
+                ordreTemporaire = emptyMap()
+            )
         }
     }
 
-    // ===== DRAG & DROP CUSTOM : Réorganisation des catégories =====
-    fun onReorganiserCategories(nouvelOrdre: List<String>) {
+    /**
+     * Démarre le déplacement d'une catégorie.
+     */
+    fun onDebuterDeplacementCategorie(nomCategorie: String) {
+        _uiState.update {
+            it.copy(categorieEnDeplacement = nomCategorie)
+        }
+    }
+
+    /**
+     * Termine le déplacement d'une catégorie.
+     */
+    fun onTerminerDeplacementCategorie() {
+        _uiState.update {
+            it.copy(categorieEnDeplacement = null)
+        }
+    }
+
+    /**
+     * Déplace une catégorie vers une nouvelle position.
+     * Met à jour l'ordre des catégories et synchronise avec PocketBase.
+     */
+    fun onDeplacerCategorie(nomCategorie: String, nouvellePosition: Int) {
         viewModelScope.launch {
             try {
-                // Mettre à jour l'état local
-                val nouveauxGroupes = nouvelOrdre.associateWith { nom ->
-                    _uiState.value.enveloppesGroupees[nom] ?: emptyList()
-                }
-                _uiState.update { it.copy(enveloppesGroupees = nouveauxGroupes) }
+                // Obtenir la liste actuelle des catégories triées par ordre
+                val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }
+                val categorieADeplacer = categoriesOrdonnees.find { it.nom == nomCategorie }
+                    ?: throw Exception("Catégorie '$nomCategorie' introuvable")
 
-                // Sauvegarder l'ordre dans la base
-                val nouvellesCategories = nouvelOrdre.mapIndexed { index, nomCategorie ->
-                    categoriesMap.values.find { it.nom == nomCategorie }?.copy(ordre = index)
-                }.filterNotNull()
-                nouvellesCategories.forEach { categorie ->
-                    categorieRepository.mettreAJourCategorie(categorie)
+                // Calculer les nouveaux ordres
+                val nouvellesCategories = calculerNouveauxOrdres(
+                    categoriesOrdonnees,
+                    categorieADeplacer,
+                    nouvellePosition
+                )
+
+                // 🔥 FORCE LE REFRESH IMMÉDIAT - APPROCHE SIMPLE
+                // Créer une nouvelle map ordonnée selon les nouveaux ordres
+                val nouveauxGroupes = mutableMapOf<String, List<Enveloppe>>()
+
+                // Reconstruire la map dans le bon ordre
+                nouvellesCategories.sortedBy { it.ordre }.forEach { categorie ->
+                    val enveloppesExistantes = _uiState.value.enveloppesGroupees[categorie.nom] ?: emptyList()
+                    nouveauxGroupes[categorie.nom] = enveloppesExistantes
                 }
+
+                // Mettre à jour le cache local AVANT l'interface
+                categoriesMap = nouvellesCategories.associateBy { it.id }
+
+                // Force le refresh complet en créant une nouvelle instance
+                _uiState.update {
+                    CategoriesEnveloppesUiState(
+                        isLoading = false,
+                        erreur = null,
+                        enveloppesGroupees = nouveauxGroupes.toMap(),
+                        isModeReorganisation = it.isModeReorganisation,
+                        categorieEnDeplacement = null,
+                        // Copier tous les autres états existants
+                        isAjoutCategorieDialogVisible = it.isAjoutCategorieDialogVisible,
+                        isAjoutEnveloppeDialogVisible = it.isAjoutEnveloppeDialogVisible,
+                        isObjectifDialogVisible = it.isObjectifDialogVisible,
+                        isConfirmationSuppressionCategorieVisible = it.isConfirmationSuppressionCategorieVisible,
+                        isConfirmationSuppressionEnveloppeVisible = it.isConfirmationSuppressionEnveloppeVisible,
+                        categoriePourAjout = it.categoriePourAjout,
+                        categoriePourSuppression = it.categoriePourSuppression,
+                        enveloppePourSuppression = it.enveloppePourSuppression,
+                        nomNouvelleCategorie = it.nomNouvelleCategorie,
+                        nomNouvelleEnveloppe = it.nomNouvelleEnveloppe,
+                        enveloppePourObjectif = it.enveloppePourObjectif,
+                        objectifFormState = it.objectifFormState,
+                        enveloppeEnDeplacement = it.enveloppeEnDeplacement,
+                        ordreTemporaire = emptyMap()
+                    )
+                }
+
+                // Synchroniser avec PocketBase en batch
+                val categoriesModifiees = nouvellesCategories.filter { nouvelle ->
+                    val ancienne = categoriesOrdonnees.find { it.id == nouvelle.id }
+                    ancienne?.ordre != nouvelle.ordre
+                }
+
+                categoriesModifiees.forEach { categorie ->
+                    categorieRepository.mettreAJourCategorie(categorie).onFailure { erreur ->
+                        _uiState.update { it.copy(erreur = "Erreur déplacement: ${erreur.message}") }
+                        // En cas d'erreur, recharger les données depuis PocketBase
+                        chargerDonnees()
+                        return@launch
+                    }
+                }
+
+                // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier les autres ViewModels
+                realtimeSyncService.declencherMiseAJourBudget()
+
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur lors de la sauvegarde de l'ordre: ${e.message}") }
+                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
                 chargerDonnees()
             }
         }
     }
 
-    // ===== GESTION DU MODE ÉDITION =====
-
-    fun onActiverModeEdition() {
-        _uiState.update { it.copy(isModeEdition = true) }
-    }
-
-    fun onAnnulerModeEdition() {
-        chargerDonnees() // Recharger pour annuler les changements
-        _uiState.update { it.copy(isModeEdition = false) }
-    }
-
-    fun onSauvegarderOrdreCategories() {
+    /**
+     * Échange la position de deux catégories adjacentes.
+     */
+    fun onEchangerCategoriesAdjacentes(nomCategorie1: String, nomCategorie2: String) {
         viewModelScope.launch {
-            val nouvellesCategoriesOrdonnees = _uiState.value.enveloppesGroupees.keys.mapIndexed { index, nomCategorie ->
-                val categorie = categoriesMap.values.find { it.nom == nomCategorie }
-                categorie?.copy(ordre = index)
-            }.filterNotNull()
-
-            // Sauvegarder chaque catégorie individuellement
             try {
-                nouvellesCategoriesOrdonnees.forEach { categorie ->
-                    categorieRepository.mettreAJourCategorie(categorie)
+                val categorie1 = categoriesMap.values.find { it.nom == nomCategorie1 }
+                    ?: throw Exception("Catégorie '$nomCategorie1' introuvable")
+                val categorie2 = categoriesMap.values.find { it.nom == nomCategorie2 }
+                    ?: throw Exception("Catégorie '$nomCategorie2' introuvable")
+
+                // Échanger les ordres
+                val categorieModifiee1 = categorie1.copy(ordre = categorie2.ordre)
+                val categorieModifiee2 = categorie2.copy(ordre = categorie1.ordre)
+
+                // Mise à jour optimiste de l'interface
+                val nouvellesCategories = categoriesMap.values.map { categorie ->
+                    when (categorie.id) {
+                        categorie1.id -> categorieModifiee1
+                        categorie2.id -> categorieModifiee2
+                        else -> categorie
+                    }
                 }
-                _uiState.update { it.copy(isModeEdition = false) }
+
+                val nouveauxGroupes = reorganiserGroupesParOrdre(nouvellesCategories)
+                _uiState.update { currentState ->
+                    currentState.copy(enveloppesGroupees = nouveauxGroupes)
+                }
+
+                // Mettre à jour le cache
+                categoriesMap = nouvellesCategories.associateBy { it.id }
+
+                // Synchroniser avec PocketBase
+                categorieRepository.mettreAJourCategorie(categorieModifiee1)
+                categorieRepository.mettreAJourCategorie(categorieModifiee2)
+
+                // 🔥 SYNCHRONISATION TEMPS RÉEL
+                realtimeSyncService.declencherMiseAJourBudget()
+
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur sauvegarde ordre: ${e.message}") }
-                chargerDonnees() // Recharger pour annuler
+                _uiState.update { it.copy(erreur = "Erreur échange: ${e.message}") }
+                chargerDonnees()
             }
+        }
+    }
+
+    /**
+     * Calcule les nouveaux ordres après déplacement d'une catégorie.
+     */
+    private fun calculerNouveauxOrdres(
+        categoriesOrdonnees: List<Categorie>,
+        categorieADeplacer: Categorie,
+        nouvellePosition: Int
+    ): List<Categorie> {
+        val listeModifiable = categoriesOrdonnees.toMutableList()
+
+        // Retirer la catégorie de sa position actuelle
+        val positionActuelle = listeModifiable.indexOfFirst { it.id == categorieADeplacer.id }
+        if (positionActuelle == -1) return categoriesOrdonnees
+
+        listeModifiable.removeAt(positionActuelle)
+
+        // Insérer à la nouvelle position (en s'assurant qu'elle est valide)
+        val positionCible = nouvellePosition.coerceIn(0, listeModifiable.size)
+        listeModifiable.add(positionCible, categorieADeplacer)
+
+        // Recalculer tous les ordres pour garantir la cohérence
+        return listeModifiable.mapIndexed { index, categorie ->
+            categorie.copy(ordre = index)
+        }
+    }
+
+    /**
+     * Réorganise les groupes d'enveloppes selon le nouvel ordre des catégories.
+     */
+    private fun reorganiserGroupesParOrdre(nouvellesCategories: List<Categorie>): Map<String, List<Enveloppe>> {
+        val enveloppesGroupees = _uiState.value.enveloppesGroupees
+
+        return nouvellesCategories
+            .sortedBy { it.ordre }
+            .associate { categorie ->
+                categorie.nom to (enveloppesGroupees[categorie.nom] ?: emptyList())
+            }
+    }
+
+    // ===== GESTION DU DÉPLACEMENT DES ENVELOPPES =====
+
+    /**
+     * Déplace une enveloppe vers une nouvelle position dans sa catégorie.
+     * Met à jour l'ordre des enveloppes et synchronise avec PocketBase.
+     */
+    fun onDeplacerEnveloppe(enveloppeId: String, nouvellePosition: Int) {
+        viewModelScope.launch {
+            try {
+                // Trouver l'enveloppe et sa catégorie
+                val enveloppeADeplacer = enveloppesList.find { it.id == enveloppeId }
+                    ?: throw Exception("Enveloppe '$enveloppeId' introuvable")
+
+                val categorieNom =
+                    categoriesMap.values.find { it.id == enveloppeADeplacer.categorieId }?.nom
+                        ?: throw Exception("Catégorie de l'enveloppe introuvable")
+
+                // Obtenir les enveloppes de cette catégorie triées par ordre
+                val enveloppesDeCategorie = enveloppesList
+                    .filter { it.categorieId == enveloppeADeplacer.categorieId && !it.estArchive }
+                    .sortedBy { it.ordre }
+
+                // Calculer les nouveaux ordres
+                val nouvellesEnveloppes = calculerNouveauxOrdresEnveloppes(
+                    enveloppesDeCategorie,
+                    enveloppeADeplacer,
+                    nouvellePosition
+                )
+
+                // Mise à jour optimiste de l'interface
+                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
+                nouveauxGroupes[categorieNom] = nouvellesEnveloppes
+
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        enveloppesGroupees = nouveauxGroupes,
+                        enveloppeEnDeplacement = null
+                    )
+                }
+
+                // Mettre à jour le cache local
+                enveloppesList = enveloppesList.map { enveloppe ->
+                    nouvellesEnveloppes.find { it.id == enveloppe.id } ?: enveloppe
+                }
+
+                // Synchroniser avec PocketBase en batch
+                val enveloppesModifiees = nouvellesEnveloppes.filter { nouvelle ->
+                    val ancienne = enveloppesDeCategorie.find { it.id == nouvelle.id }
+                    ancienne?.ordre != nouvelle.ordre
+                }
+
+                enveloppesModifiees.forEach { enveloppe ->
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppe).onFailure { erreur ->
+                        _uiState.update { it.copy(erreur = "Erreur déplacement enveloppe: ${erreur.message}") }
+                        chargerDonnees()
+                        return@launch
+                    }
+                }
+
+                // 🔥 SYNCHRONISATION TEMPS RÉEL
+                realtimeSyncService.declencherMiseAJourBudget()
+
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
+                chargerDonnees()
+            }
+        }
+    }
+
+    /**
+     * Calcule les nouveaux ordres après déplacement d'une enveloppe.
+     */
+    private fun calculerNouveauxOrdresEnveloppes(
+        enveloppesOrdonnees: List<Enveloppe>,
+        enveloppeADeplacer: Enveloppe,
+        nouvellePosition: Int
+    ): List<Enveloppe> {
+        val listeModifiable = enveloppesOrdonnees.toMutableList()
+
+        // Retirer l'enveloppe de sa position actuelle
+        val positionActuelle = listeModifiable.indexOfFirst { it.id == enveloppeADeplacer.id }
+        if (positionActuelle == -1) return enveloppesOrdonnees
+
+        listeModifiable.removeAt(positionActuelle)
+
+        // Insérer à la nouvelle position (en s'assurant qu'elle est valide)
+        val positionCible = nouvellePosition.coerceIn(0, listeModifiable.size)
+        listeModifiable.add(positionCible, enveloppeADeplacer)
+
+        // Recalculer tous les ordres pour garantir la cohérence
+        return listeModifiable.mapIndexed { index, enveloppe ->
+            enveloppe.copy(ordre = index)
+        }
+    }
+
+    /**
+     * Démarre le déplacement d'une enveloppe.
+     */
+    fun onDebuterDeplacementEnveloppe(enveloppeId: String) {
+        _uiState.update {
+            it.copy(enveloppeEnDeplacement = enveloppeId)
+        }
+    }
+
+    /**
+     * Termine le déplacement d'une enveloppe.
+     */
+    fun onTerminerDeplacementEnveloppe() {
+        _uiState.update {
+            it.copy(enveloppeEnDeplacement = null)
         }
     }
 

@@ -4,52 +4,35 @@
 package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.categories.composants.CategorieCard
+import com.xburnsx.toutiebudget.ui.categories.composants.CategorieReorganisable
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutCategorieDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.AjoutEnveloppeDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.DefinirObjectifDialog
 import com.xburnsx.toutiebudget.ui.categories.dialogs.ConfirmationSuppressionDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.lazy.rememberLazyListState
-import org.burnoutcrew.reorderable.ReorderableItem
-import org.burnoutcrew.reorderable.detectReorderAfterLongPress
-import org.burnoutcrew.reorderable.rememberReorderableLazyListState
-import org.burnoutcrew.reorderable.reorderable
 
 /**
  * Écran principal pour la gestion des catégories et enveloppes.
@@ -68,19 +51,6 @@ fun CategoriesEnveloppesScreen(
     var montantClavierInitial by remember { mutableStateOf(0L) }
     var nomDialogClavier by remember { mutableStateOf("") }
     var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
-
-    // 🐲 NOUVEAUX ÉTATS POUR LE DRAG & DROP
-    val reorderableState = rememberReorderableLazyListState(
-        onMove = { from, to ->
-            viewModel.onMoveCategorie(from.key as String, to.key as String)
-        },
-        canDragOver = { draggedOver, _ ->
-            // Autoriser le drop sur d'autres catégories uniquement
-            (draggedOver.key as? String)?.startsWith("categorie_") == true
-        }
-    )
-    val lazyListState = reorderableState.listState
-    val scope = rememberCoroutineScope()
 
     // ===== DIALOGUES =====
     
@@ -179,217 +149,124 @@ fun CategoriesEnveloppesScreen(
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    if (uiState.isModeEdition) {
-                        // Mode édition actif - Boutons Sauvegarder et Annuler
-                        IconButton(onClick = { viewModel.onSauvegarderOrdreCategories() }) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = "Sauvegarder l'ordre",
-                                tint = Color.Green
-                            )
-                        }
-                        IconButton(onClick = { viewModel.onAnnulerModeEdition() }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Annuler",
-                                tint = Color.Red
-                            )
-                        }
-                    } else {
-                        // Mode normal - Boutons habituels
-                        // Bouton mode édition (seulement si il y a des catégories)
-                        if (uiState.enveloppesGroupees.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onActiverModeEdition() }) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Réorganiser les catégories",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                        // Bouton d'ajout de catégorie
-                        IconButton(onClick = { viewModel.onOuvrirAjoutCategorieDialog() }) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Ajouter une catégorie",
-                                tint = Color.White
-                            )
-                        }
+                    // 🆕 Bouton de mode réorganisation
+                    IconButton(
+                        onClick = { viewModel.onToggleModeReorganisation() }
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.isModeReorganisation)
+                                Icons.Default.Check else Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = if (uiState.isModeReorganisation)
+                                "Terminer réorganisation" else "Réorganiser catégories",
+                            tint = if (uiState.isModeReorganisation)
+                                Color(0xFF00FF00) else Color.White
+                        )
+                    }
+
+                    // Bouton d'ajout de catégorie
+                    IconButton(
+                        onClick = { viewModel.onOuvrirAjoutCategorieDialog() },
+                        enabled = !uiState.isModeReorganisation // Désactivé en mode réorganisation
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Ajouter une catégorie",
+                            tint = if (uiState.isModeReorganisation) Color.Gray else Color.White
+                        )
                     }
                 }
             )
         },
         containerColor = Color(0xFF121212)
     ) { paddingValues ->
-        
-        // ===== CONTENU PRINCIPAL =====
-        
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Message d'erreur si présent
-            if (uiState.erreur != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
+            // 🆕 Indicateur de mode réorganisation
+            if (uiState.isModeReorganisation) {
+                Surface(
+                    color = Color(0xFF007AFF),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Text(
+                        text = "Mode réorganisation activé - Utilisez les flèches pour déplacer les catégories",
+                        color = Color.White,
+                        fontSize = 14.sp,
                         modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "⚠️ ${uiState.erreur}",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = { viewModel.onEffacerErreur() }) {
-                            Text("OK")
-                        }
-                    }
-                }
-            }
-            // Message si aucune catégorie
-            if (uiState.enveloppesGroupees.isEmpty() && !uiState.isLoading) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2C2C2E)
+                        textAlign = TextAlign.Center
                     )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "📁",
-                            fontSize = 48.dp.value.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Aucune catégorie",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Cliquez sur '+' pour créer votre première catégorie",
-                            color = Color.Gray,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.onOuvrirAjoutCategorieDialog() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text("Créer une catégorie")
-                        }
-                    }
                 }
             }
-            // Liste des catégories et enveloppes
-            if (uiState.enveloppesGroupees.isNotEmpty()) {
-                if (uiState.isModeEdition) {
-                    com.xburnsx.toutiebudget.ui.categories.composants.SystemeGlisserDeposerCategories(
-                        categories = uiState.enveloppesGroupees.keys.toList(),
-                        enveloppesParCategorie = uiState.enveloppesGroupees,
-                        onReordonner = { nouvelleListe ->
-                            viewModel.onReorganiserCategories(nouvelleListe)
-                        },
-                        contenuCategorie = { nomCategorie, enveloppes, isDragging ->
-                            CategorieCard(
-                                nomCategorie = nomCategorie,
-                                enveloppes = enveloppes,
-                                isModeEdition = true,
-                                isDragging = isDragging,
-                                modifier = Modifier,
-                                onAjouterEnveloppeClick = {
-                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
-                                },
-                                onObjectifClick = { enveloppe ->
-                                    viewModel.onOuvrirObjectifDialog(enveloppe)
-                                },
-                                onSupprimerEnveloppe = { enveloppe ->
-                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
-                                },
-                                onSupprimerObjectifEnveloppe = { enveloppe ->
-                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
-                                },
-                                onSupprimerCategorie = { nomCat ->
-                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
-                                }
-                            )
-                        }
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        itemsIndexed(
-                            items = uiState.enveloppesGroupees.entries.toList(),
-                            key = { _, (categorie, _) -> "categorie_$categorie" }
-                        ) { _, (nomCategorie, enveloppes) ->
-                            CategorieCard(
-                                nomCategorie = nomCategorie,
-                                enveloppes = enveloppes,
-                                isModeEdition = false,
-                                isDragging = false,
-                                modifier = Modifier,
-                                onAjouterEnveloppeClick = {
-                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
-                                },
-                                onObjectifClick = { enveloppe ->
-                                    viewModel.onOuvrirObjectifDialog(enveloppe)
-                                },
-                                onSupprimerEnveloppe = { enveloppe ->
-                                    viewModel.onOuvrirConfirmationSuppressionEnveloppe(enveloppe)
-                                },
-                                onSupprimerObjectifEnveloppe = { enveloppe ->
-                                    viewModel.onSupprimerObjectifEnveloppe(enveloppe)
-                                },
-                                onSupprimerCategorie = { nomCat ->
-                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nomCat)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            // Indicateur de chargement centré
+
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Black.copy(alpha = 0.7f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.primary
+                    CircularProgressIndicator(color = Color(0xFF007AFF))
+                }
+            } else {
+                // Liste des catégories avec support de réorganisation
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { viewModel.onEffacerErreur() }
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Chargement des données...",
-                                color = Color.White
+                        },
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    // Convertir en liste ordonnée pour avoir les indices
+                    val categoriesOrdonnees = uiState.enveloppesGroupees.toList()
+
+                    itemsIndexed(
+                        items = categoriesOrdonnees,
+                        key = { _, (nomCategorie, _) -> nomCategorie }
+                    ) { index, (nomCategorie, enveloppes) ->
+                        if (uiState.isModeReorganisation) {
+                            // Mode réorganisation : utiliser le composant spécialisé
+                            CategorieReorganisable(
+                                nomCategorie = nomCategorie,
+                                enveloppes = enveloppes,
+                                position = index,
+                                totalCategories = categoriesOrdonnees.size,
+                                isModeReorganisation = true,
+                                isEnDeplacement = uiState.categorieEnDeplacement == nomCategorie,
+                                onAjouterEnveloppeClick = {
+                                    // Désactivé en mode réorganisation
+                                },
+                                onObjectifClick = {
+                                    // Désactivé en mode réorganisation
+                                },
+                                onDeplacerCategorie = viewModel::onDeplacerCategorie,
+                                onDebuterDeplacement = viewModel::onDebuterDeplacementCategorie,
+                                onTerminerDeplacement = viewModel::onTerminerDeplacementCategorie,
+                                // 🆕 NOUVEAUX PARAMÈTRES POUR LES ENVELOPPES
+                                onDeplacerEnveloppe = viewModel::onDeplacerEnveloppe,
+                                onDebuterDeplacementEnveloppe = viewModel::onDebuterDeplacementEnveloppe,
+                                onTerminerDeplacementEnveloppe = viewModel::onTerminerDeplacementEnveloppe,
+                                enveloppeEnDeplacement = uiState.enveloppeEnDeplacement,
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        } else {
+                            // Mode normal : utiliser le composant standard
+                            CategorieCard(
+                                nomCategorie = nomCategorie,
+                                enveloppes = enveloppes,
+                                onAjouterEnveloppeClick = {
+                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
+                                },
+                                onObjectifClick = viewModel::onOuvrirObjectifDialog,
+                                onSupprimerEnveloppe = viewModel::onOuvrirConfirmationSuppressionEnveloppe,
+                                onSupprimerObjectifEnveloppe = viewModel::onSupprimerObjectifEnveloppe,
+                                onSupprimerCategorie = { nom ->
+                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nom)
+                                },
+                                modifier = Modifier.animateItemPlacement()
                             )
                         }
                     }
@@ -398,38 +275,46 @@ fun CategoriesEnveloppesScreen(
         }
     }
 
-    // 🆕 CLAVIER NUMÉRIQUE PAR-DESSUS TOUT - EN BAS DE L'ÉCRAN
+    // ===== CLAVIER NUMÉRIQUE GLOBAL =====
+
     if (showKeyboard) {
         Dialog(
-            onDismissRequest = {
-                showKeyboard = false
-                onMontantChangeCallback = null
-            },
+            onDismissRequest = { showKeyboard = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            // Le Dialog garantit que le clavier sera au-dessus de tout
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            showKeyboard = false
-                            onMontantChangeCallback = null
-                        }
-                    },
-                contentAlignment = Alignment.BottomCenter
+            ClavierNumerique(
+                montantInitial = montantClavierInitial,
+                isMoney = true,
+                suffix = " €",
+                onMontantChange = { nouveauMontant ->
+                    onMontantChangeCallback?.invoke(nouveauMontant)
+                },
+                onFermer = { showKeyboard = false }
+            )
+        }
+    }
+
+    // ===== GESTION DES ERREURS =====
+
+    uiState.erreur?.let { erreur ->
+        LaunchedEffect(erreur) {
+            // L'erreur sera effacée automatiquement au tap
+        }
+
+        // Affichage de l'erreur en bas de l'écran
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Surface(
+                color = Color(0xFFFF3B30),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.padding(16.dp)
             ) {
-                ClavierNumerique(
-                    montantInitial = montantClavierInitial,
-                    isMoney = true,
-                    suffix = "",
-                    onMontantChange = { nouveauMontant ->
-                        onMontantChangeCallback?.invoke(nouveauMontant)
-                    },
-                    onFermer = {
-                        showKeyboard = false
-                        onMontantChangeCallback = null
-                    }
+                Text(
+                    text = erreur,
+                    color = Color.White,
+                    modifier = Modifier.padding(16.dp)
                 )
             }
         }

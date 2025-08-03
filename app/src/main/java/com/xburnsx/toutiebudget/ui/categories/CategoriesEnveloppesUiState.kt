@@ -31,11 +31,10 @@ data class CategoriesEnveloppesUiState(
     val nomNouvelleEnveloppe: String = "",
     val enveloppePourObjectif: Enveloppe? = null,
     val objectifFormState: ObjectifFormState = ObjectifFormState(),
-    // Nouveaux champs pour le mode édition
-    val isModeEdition: Boolean = false
-)
 
-enum class DragItemType {
-    CATEGORIE,
-    ENVELOPPE
-}
+    // 🆕 NOUVEAUX ÉTATS POUR LE DÉPLACEMENT DES CATÉGORIES ET ENVELOPPES
+    val isModeReorganisation: Boolean = false,
+    val categorieEnDeplacement: String? = null,
+    val enveloppeEnDeplacement: String? = null, // 🆕 Pour le déplacement d'enveloppes
+    val ordreTemporaire: Map<String, Int> = emptyMap() // Cache temporaire des ordres pendant le drag
+)
