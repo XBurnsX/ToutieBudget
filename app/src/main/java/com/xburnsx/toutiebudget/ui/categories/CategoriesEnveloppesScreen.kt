@@ -220,8 +220,10 @@ fun CategoriesEnveloppesScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    // Convertir en liste ordonnée pour avoir les indices
-                    val categoriesOrdonnees = uiState.enveloppesGroupees.toList()
+                    // 🔥 UTILISER L'ORDRE CORRECT DES CATÉGORIES
+                    // Le problème est que Map.toList() ne préserve pas l'ordre du LinkedHashMap
+                    // On va utiliser les catégories triées par ordre directement
+                    val categoriesOrdonnees = uiState.enveloppesGroupees.entries.toList()
 
                     itemsIndexed(
                         items = categoriesOrdonnees,

@@ -19,6 +19,7 @@ data class CategoriesEnveloppesUiState(
     val isLoading: Boolean = true,
     val erreur: String? = null,
     val enveloppesGroupees: Map<String, List<Enveloppe>> = emptyMap(),
+    val versionUI: Int = 0, // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
     val isAjoutCategorieDialogVisible: Boolean = false,
     val isAjoutEnveloppeDialogVisible: Boolean = false,
     val isObjectifDialogVisible: Boolean = false,

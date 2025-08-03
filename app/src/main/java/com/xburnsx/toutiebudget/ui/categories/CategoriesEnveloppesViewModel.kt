@@ -883,7 +883,8 @@ class CategoriesEnveloppesViewModel(
                 _uiState.update { currentState ->
                     currentState.copy(
                         enveloppesGroupees = nouveauxGroupes,
-                        categorieEnDeplacement = null
+                        categorieEnDeplacement = null,
+                        versionUI = currentState.versionUI + 1 // 🔥 FORCER LA RECOMPOSITION
                     )
                 }
 

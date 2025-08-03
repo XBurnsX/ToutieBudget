@@ -57,6 +57,7 @@ fun LazyItemScope.CategorieReorganisable(
     enveloppeEnDeplacement: String? = null,
     modifier: Modifier = Modifier
 ) {
+
     val hapticFeedback = LocalHapticFeedback.current
 
     // Animations pour le drag & drop
