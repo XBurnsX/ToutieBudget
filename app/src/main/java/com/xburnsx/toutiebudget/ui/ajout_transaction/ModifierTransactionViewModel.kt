@@ -260,6 +260,8 @@ class ModifierTransactionViewModel(
                             transactionModifiee = true
                         )
                     }
+                    // Retourner immédiatement après le succès
+                    return@launch
                 } else {
                     _uiState.update { 
                         it.copy(

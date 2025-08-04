@@ -224,10 +224,12 @@ fun ModifierTransactionScreen(
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            viewModel.modifierTransaction()
-                        },
+                                         Button(
+                         onClick = {
+                             viewModel.modifierTransaction()
+                             // Retourner immédiatement après avoir lancé la modification
+                             onTransactionModified()
+                         },
                         enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
                         modifier = Modifier
                             .fillMaxWidth()
