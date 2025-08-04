@@ -61,7 +61,7 @@ class BudgetViewModel(
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES

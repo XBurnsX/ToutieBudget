@@ -285,7 +285,11 @@ fun CategoriesEnveloppesScreen(
                 showKeyboard = false
                 onMontantChangeCallback = null
             },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
         ) {
             // Le Dialog garantit que le clavier sera au-dessus de tout
             Box(

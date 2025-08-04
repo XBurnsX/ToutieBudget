@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -97,7 +98,7 @@ class HistoriqueCompteViewModel(
      * Charge les transactions pour un compte spécifique.
      */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // D'abord, récupérer TOUTES les transactions de l'utilisateur pour voir la structure

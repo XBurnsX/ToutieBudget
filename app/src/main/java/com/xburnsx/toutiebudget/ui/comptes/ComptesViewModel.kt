@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import java.util.UUID
 
 class ComptesViewModel(
@@ -41,7 +42,7 @@ class ComptesViewModel(
     }
 
     fun chargerComptes() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             compteRepository.recupererTousLesComptes().onSuccess { comptes ->
                 val comptesGroupes = comptes.groupBy {
