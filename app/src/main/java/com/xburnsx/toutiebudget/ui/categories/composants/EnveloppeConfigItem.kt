@@ -23,7 +23,8 @@ fun EnveloppeConfigItem(
     isDragMode: Boolean = false,
     isDragged: Boolean = false,
     onObjectifClick: () -> Unit,
-    onSupprimerClick: () -> Unit = {}
+    onSupprimerClick: () -> Unit = {},
+    onSupprimerEnveloppe: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     
@@ -89,6 +90,14 @@ fun EnveloppeConfigItem(
                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                         onClick = {
                             onSupprimerClick()
+                            showMenu = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Supprimer l'enveloppe") },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                        onClick = {
+                            onSupprimerEnveloppe()
                             showMenu = false
                         }
                     )

@@ -191,6 +191,12 @@ fun CategorieCard(
                                     { onSupprimerObjectifEnveloppe(enveloppe) }
                                 } else {
                                     { /* Ne rien faire en mode drag */ }
+                                },
+                                onSupprimerEnveloppe = if (!isModeEdition && !isDragMode) {
+                                    // En mode normal (menu 3 points) : supprimer l'enveloppe entière
+                                    { onSupprimerEnveloppe(enveloppe) }
+                                } else {
+                                    { /* Ne rien faire en mode drag ou édition */ }
                                 }
                             )
                         }

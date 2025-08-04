@@ -89,7 +89,11 @@ object MoneyFormatter {
      */
     fun amountToCents(amount: Double): Long {
         val montantNormalise = normalizeAmount(amount)
-        return (montantNormalise * 100).toLong()
+        // Utiliser BigDecimal pour éviter les erreurs de précision
+        return BigDecimal.valueOf(montantNormalise)
+            .multiply(BigDecimal.valueOf(100))
+            .setScale(0, RoundingMode.HALF_UP)
+            .toLong()
     }
     
     /**
@@ -97,7 +101,10 @@ object MoneyFormatter {
      * Exemple: 1070 -> 10.70
      */
     fun centsToAmount(cents: Long): Double {
-        val amount = cents / 100.0
+        // Utiliser BigDecimal pour éviter les erreurs de précision
+        val amount = BigDecimal.valueOf(cents)
+            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+            .toDouble()
         return normalizeAmount(amount)
     }
     
