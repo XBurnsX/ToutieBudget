@@ -143,26 +143,32 @@ fun AppNavigation() {
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onModifierTransaction = { transactionId ->
-                        // Naviguer vers l'écran de modification dans le flux principal
-                        navController.navigate("modifier_transaction/$transactionId")
+                        // ✅ Naviguer vers l'écran de modification avec les paramètres de retour
+                        navController.navigate("modifier_transaction/$transactionId/$compteId/$collectionCompte/$nomCompte")
                     }
                 )
             }
             
             // Route pour l'écran de modification de transaction
             composable(
-                route = "modifier_transaction/{transactionId}",
+                route = "modifier_transaction/{transactionId}/{compteId}/{collectionCompte}/{nomCompte}",
                 arguments = listOf(
-                    navArgument("transactionId") { type = NavType.StringType }
+                    navArgument("transactionId") { type = NavType.StringType },
+                    navArgument("compteId") { type = NavType.StringType },
+                    navArgument("collectionCompte") { type = NavType.StringType },
+                    navArgument("nomCompte") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+                val compteId = backStackEntry.arguments?.getString("compteId") ?: ""
+                val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
+                val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
                 val viewModel = AppModule.provideModifierTransactionViewModel()
                 ModifierTransactionScreen(
                     transactionId = transactionId,
                     viewModel = viewModel,
                     onTransactionModified = {
-                        // Retour automatique à l'historique après modification
+                        // ✅ Retour à l'écran précédent (historique) en conservant la position de scroll
                         navController.popBackStack()
                     },
                     onNavigateBack = {
