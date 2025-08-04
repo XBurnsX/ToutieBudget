@@ -114,11 +114,11 @@ fun FractionnementDialog(
                         montantRestant = montantRestant
                     )
 
-                    // === LISTE DES FRACTIONS ===
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                                         // === LISTE DES FRACTIONS ===
+                     LazyColumn(
+                         modifier = Modifier.heightIn(max = 500.dp),
+                         verticalArrangement = Arrangement.spacedBy(12.dp)
+                     ) {
                         itemsIndexed(
                             items = fractions,
                             key = { _, fraction -> fraction.id }
