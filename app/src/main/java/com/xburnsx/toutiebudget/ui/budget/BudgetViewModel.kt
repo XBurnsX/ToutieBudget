@@ -109,6 +109,14 @@ class BudgetViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
+                // 🔄 FORCER UN RECHARGEMENT COMPLET après un virement
+                // Vider le cache pour s'assurer d'avoir les données les plus récentes
+                cacheComptes = emptyList()
+                cacheEnveloppes = emptyList()
+                cacheAllocations = emptyList()
+                cacheCategories = emptyList()
+                
+                // Recharger avec les données les plus récentes
                 chargerDonneesBudget(moisSelectionne)
             }
         }
@@ -427,7 +435,13 @@ class BudgetViewModel(
      * Utilisée quand une transaction est créée pour mettre à jour l'affichage.
      */
     fun rafraichirDonnees() {
-
+        // 🔄 FORCER UN RECHARGEMENT COMPLET
+        // Vider le cache pour s'assurer d'avoir les données les plus récentes
+        cacheComptes = emptyList()
+        cacheEnveloppes = emptyList()
+        cacheAllocations = emptyList()
+        cacheCategories = emptyList()
+        
         chargerDonneesBudget(Date())
     }
 
@@ -523,6 +537,13 @@ class BudgetViewModel(
                 // ✅ MISE À JOUR : Sauvegarder l'allocation unique
                 allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
+                // 🔄 FORCER UN RECHARGEMENT COMPLET après le virement
+                // Vider le cache pour s'assurer d'avoir les données les plus récentes
+                cacheComptes = emptyList()
+                cacheEnveloppes = emptyList()
+                cacheAllocations = emptyList()
+                cacheCategories = emptyList()
+                
                 // 6. Recharger les données pour rafraîchir l'affichage
                 chargerDonneesBudget(moisSelectionne)
 
