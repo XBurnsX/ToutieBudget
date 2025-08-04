@@ -26,6 +26,7 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.DiagnosticConnexionButton
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionnementDialog
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -48,6 +49,21 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
 
             onTransactionSuccess()
         }
+    }
+
+    // Afficher le dialog de fractionnement si nécessaire
+    if (uiState.estEnModeFractionnement) {
+        val montantTotal = uiState.montant.toDoubleOrNull() ?: 0.0
+        FractionnementDialog(
+            montantTotal = montantTotal,
+            enveloppesDisponibles = uiState.enveloppesDisponibles,
+            onFractionnementConfirme = { fractions ->
+                viewModel.confirmerFractionnement(fractions)
+            },
+            onDismiss = {
+                viewModel.fermerFractionnement()
+            }
+        )
     }
 
     Scaffold(
@@ -212,69 +228,119 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                     )
                 }
 
-                // Bouton de sauvegarde fixé en bas
-                Card(
+                // Boutons de sauvegarde et fractionnement fixés en bas
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            Color(0xFF404040)
-                        }
-                    ),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
-                        onClick = {
-                            viewModel.sauvegarderTransaction()
-                        },
-                        enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = Color.White.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        if (uiState.estEnTrainDeSauvegarder) {
+                                         // Bouton Fractionner (à gauche)
+                     Card(
+                         modifier = Modifier.weight(1f),
+                         colors = CardDefaults.cardColors(
+                             containerColor = if (uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder) {
+                                 MaterialTheme.colorScheme.secondary // Couleur secondaire du thème
+                             } else {
+                                 Color(0xFF404040)
+                             }
+                         ),
+                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                     ) {
+                         Button(
+                             onClick = {
+                                 viewModel.ouvrirFractionnement()
+                             },
+                             enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = Color.White,
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            )
+                        ) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
+                                                            Icon(
+                                imageVector = Icons.Default.CallSplit,
+                                contentDescription = null
+                            )
                                 Text(
-                                    text = "Sauvegarde...",
+                                    text = "Fractionner",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
-                        } else {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Save,
-                                    contentDescription = null
-                                )
-                                Text(
-                                    text = if (uiState.typeTransaction == TypeTransaction.Depense) {
-                                        "Enregistrer la dépense"
-                                    } else {
-                                        "Enregistrer le revenu"
-                                    },
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                        }
+                    }
+                    
+                    // Bouton Enregistrer (à droite)
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color(0xFF404040)
+                            }
+                        ),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.sauvegarderTransaction()
+                            },
+                            enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = Color.White,
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            if (uiState.estEnTrainDeSauvegarder) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "Sauvegarde...",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null
+                                    )
+                                    Text(
+                                        text = if (uiState.typeTransaction == TypeTransaction.Depense) {
+                                            "Enregistrer la dépense"
+                                        } else {
+                                            "Enregistrer le revenu"
+                                        },
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }

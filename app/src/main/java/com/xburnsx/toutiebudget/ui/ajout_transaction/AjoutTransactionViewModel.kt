@@ -20,6 +20,7 @@ import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import com.xburnsx.toutiebudget.utils.DiagnosticConnexion
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
 import java.util.Calendar
 import java.util.Date
 import java.time.LocalDate
@@ -510,6 +511,92 @@ class AjoutTransactionViewModel(
                     it.copy(
                         estEnTrainDeSauvegarder = false,
                         messageErreur = e.message ?: "Erreur lors de la sauvegarde"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Ouvre l'interface de fractionnement de transaction.
+     */
+    fun ouvrirFractionnement() {
+        _uiState.update { it.copy(estEnModeFractionnement = true) }
+    }
+
+    /**
+     * Ferme l'interface de fractionnement de transaction.
+     */
+    fun fermerFractionnement() {
+        _uiState.update { it.copy(estEnModeFractionnement = false) }
+    }
+
+    /**
+     * Confirme le fractionnement de la transaction.
+     */
+    fun confirmerFractionnement(fractions: List<FractionTransaction>) {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(estEnTrainDeSauvegarder = true, estEnModeFractionnement = false) }
+                
+                val state = _uiState.value
+                val montant = state.montant.toDoubleOrNull() ?: 0.0
+                val compte = state.compteSelectionne
+                
+                if (compte == null) {
+                    throw Exception("Aucun compte sélectionné")
+                }
+
+                // Créer la transaction principale
+                val transactionPrincipale = enregistrerTransactionUseCase.executer(
+                    typeTransaction = state.typeTransaction,
+                    montant = montant,
+                    compteId = compte.id,
+                    collectionCompte = when (compte) {
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissements"
+                        else -> "comptes_cheques"
+                    },
+                    enveloppeId = null, // Pas d'enveloppe pour la transaction principale
+                    tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                    note = state.note.takeIf { it.isNotBlank() },
+                    date = Date()
+                )
+
+                if (transactionPrincipale.isSuccess) {
+                    // TODO: Créer les transactions fractionnées
+                    // Pour l'instant, on ferme juste le dialog
+                    _uiState.update { 
+                        it.copy(
+                            estEnTrainDeSauvegarder = false, 
+                            transactionReussie = true,
+                            estEnModeFractionnement = false
+                        )
+                    }
+                    
+                    // Émettre l'événement global de rafraîchissement du budget
+                    BudgetEvents.refreshBudget.tryEmit(Unit)
+                    
+                    // Déclencher la mise à jour des comptes dans les autres écrans
+                    realtimeSyncService.declencherMiseAJourBudget()
+                } else {
+                    _uiState.update { 
+                        it.copy(
+                            estEnTrainDeSauvegarder = false,
+                            messageErreur = transactionPrincipale.exceptionOrNull()?.message,
+                            estEnModeFractionnement = false
+                        )
+                    }
+                }
+                
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        estEnTrainDeSauvegarder = false,
+                        messageErreur = e.message ?: "Erreur lors du fractionnement",
+                        estEnModeFractionnement = false
                     )
                 }
             }

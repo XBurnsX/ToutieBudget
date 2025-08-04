@@ -26,14 +26,27 @@ private fun createDarkColorScheme(couleurPrimaire: Color) = darkColorScheme(
     onError = TextPrimary,
     background = DarkBackground,
     onBackground = TextPrimary,
-    surface = DarkSurface,
+
+    // ✅ FORCE TOUS LES DIALOGS À AVOIR LA MÊME COULEUR QUE LE BACKGROUND !
+    surface = DarkBackground,
     onSurface = TextPrimary,
+    surfaceVariant = TextPrimary,           // ✅ Même couleur !
+    onSurfaceVariant = TextPrimary,
+    surfaceTint = TextPrimary,              // ✅ AJOUTE ÇA
+    surfaceBright = TextPrimary,            // ✅ AJOUTE ÇA
+    surfaceDim = TextPrimary,               // ✅ AJOUTE ÇA
+    surfaceContainer = TextPrimary,
+    surfaceContainerHigh = TextPrimary,
+    surfaceContainerHighest = TextPrimary,
+    surfaceContainerLow = TextPrimary,      // ✅ AJOUTE ÇA
+    surfaceContainerLowest = TextPrimary,   // ✅ AJOUTE ÇA
+    inverseSurface = TextPrimary,           // ✅ AJOUTE ÇA
 )
 
 @Composable
 fun ToutieBudgetTheme(
     darkTheme: Boolean = true,
-    couleurTheme: CouleurTheme = CouleurTheme.PINK,
+    couleurTheme: CouleurTheme = CouleurTheme.RED,
     content: @Composable () -> Unit
 ) {
     val colorScheme = createDarkColorScheme(couleurTheme.couleur)
@@ -42,7 +55,9 @@ fun ToutieBudgetTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()  // ✅ Navigation bar fixée
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

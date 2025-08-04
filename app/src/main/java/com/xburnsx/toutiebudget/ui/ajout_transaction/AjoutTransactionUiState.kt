@@ -53,15 +53,29 @@ data class AjoutTransactionUiState(
     val enveloppesFiltrees: Map<String, List<EnveloppeUi>> = emptyMap(), // Groupées par catégorie
     
     // --- Validation ---
-    val peutSauvegarder: Boolean = false
+    val peutSauvegarder: Boolean = false,
+    val peutFractionner: Boolean = false,
+    
+    // --- Fractionnement ---
+    val estEnModeFractionnement: Boolean = false,
+    val fractionnementEffectue: Boolean = false
 ) {
     
     /**
-     * Vérifie si le formulaire est valide pour la sauvegarde.
+     * Vérifie si le formulaire est valide pour la sauvegarde et le fractionnement.
      */
     fun calculerValidite(): AjoutTransactionUiState {
         val montantEstValide = montant.toDoubleOrNull()?.let { it > 0 } ?: false
         val compteEstSelectionne = compteSelectionne != null
+        val tiersEstRempli = texteTiersSaisi.isNotBlank()
+        
+        // Validation pour le bouton "Fractionner" : montant + compte + tiers (pas besoin d'enveloppe)
+        val peutFractionner = montantEstValide && 
+                             compteEstSelectionne && 
+                             tiersEstRempli &&
+                             !estEnTrainDeSauvegarder
+        
+        // Validation pour le bouton "Enregistrer" : montant + compte + tiers + enveloppe
         val enveloppeEstValideOuPasRequise = when (modeOperation) {
             "Standard" -> when (typeTransaction) {
                 TypeTransaction.Depense -> enveloppeSelectionnee != null
@@ -73,12 +87,14 @@ data class AjoutTransactionUiState(
         
         val peutSauvegarde = montantEstValide && 
                             compteEstSelectionne && 
+                            tiersEstRempli &&
                             enveloppeEstValideOuPasRequise &&
                             !estEnTrainDeSauvegarder
 
         return copy(
             montantValide = montantEstValide,
-            peutSauvegarder = peutSauvegarde
+            peutSauvegarder = peutSauvegarde,
+            peutFractionner = peutFractionner
         )
     }
 }
