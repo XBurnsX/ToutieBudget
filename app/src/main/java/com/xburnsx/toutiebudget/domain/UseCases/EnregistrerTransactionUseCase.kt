@@ -59,10 +59,10 @@ class EnregistrerTransactionUseCase(
                 var allocationMensuelleId: String? = null
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
 
-                    // IMPORTANT: Les allocations mensuelles utilisent TOUJOURS le mois actuel
-                    // même si la transaction a une date différente
+                    // IMPORTANT: Les allocations mensuelles utilisent la date de la transaction
+                    // pour déterminer le mois approprié
                     val calendrier = Calendar.getInstance().apply {
-                        time = Date() // Utiliser la date actuelle, pas la date de la transaction
+                        time = date // Utiliser la date de la transaction sélectionnée par l'utilisateur
                         set(Calendar.DAY_OF_MONTH, 1)
                         set(Calendar.HOUR_OF_DAY, 0)
                         set(Calendar.MINUTE, 0)

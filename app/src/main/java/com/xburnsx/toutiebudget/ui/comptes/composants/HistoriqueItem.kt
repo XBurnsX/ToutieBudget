@@ -16,7 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,9 +32,7 @@ import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
-import java.text.NumberFormat
 import java.util.Date
-import java.util.Locale
 
 @Composable
 fun HistoriqueItem(
@@ -42,7 +43,9 @@ fun HistoriqueItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var tapPosition by remember { mutableStateOf(Offset.Zero) }
+    var cardPosition by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
 
     val couleurMontant = when (transaction.type) {
         TypeTransaction.Depense -> Color.Red
@@ -57,6 +60,12 @@ fun HistoriqueItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
+                .onGloballyPositioned { coordinates ->
+                    cardPosition = Offset(
+                        coordinates.positionInWindow().x,
+                        coordinates.positionInWindow().y
+                    )
+                }
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onLongPress = { offset -> 
@@ -164,22 +173,47 @@ fun HistoriqueItem(
             onDismissRequest = { showMenu = false },
             properties = PopupProperties(focusable = true),
             offset = with(density) {
+                val screenWidth = configuration.screenWidthDp.dp.toPx()
+                val screenHeight = configuration.screenHeightDp.dp.toPx()
+                val menuWidth = 160.dp.toPx()
+                val menuHeight = 120.dp.toPx()
+
+                // Position exacte du tap avec décalage de -250dp vers le haut
+                val exactX = cardPosition.x + tapPosition.x
+                val exactY = cardPosition.y + tapPosition.y - 170.dp.toPx()
+
+                // Ajuster uniquement si le menu sort de l'écran
+                val adjustedX = when {
+                    exactX + menuWidth > screenWidth ->
+                        (exactX - menuWidth).coerceAtLeast(0f)
+                    else -> exactX
+                }
+
+                val adjustedY = when {
+                    exactY + menuHeight > screenHeight ->
+                        (exactY - menuHeight).coerceAtLeast(0f)
+                    exactY < 0f -> 0f
+                    else -> exactY
+                }
+
                 IntOffset(
-                    tapPosition.x.toDp().roundToPx(),
-                    tapPosition.y.toDp().roundToPx()
+                    adjustedX.toInt(),
+                    adjustedY.toInt()
                 )
             }
         ) {
             Card(
                 modifier = Modifier
+                    .width(160.dp)
                     .background(Color(0xFF2C2C2E))
                     .padding(4.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column {
                     Row(
                         modifier = Modifier
-                            .clickable { 
+                            .clickable {
                                 showMenu = false
                                 onModifier(transaction)
                             }
@@ -195,10 +229,10 @@ fun HistoriqueItem(
                         )
                         Text("Modifier", color = Color.White)
                     }
-                    
+
                     Row(
                         modifier = Modifier
-                            .clickable { 
+                            .clickable {
                                 showMenu = false
                                 onSupprimer(transaction)
                             }

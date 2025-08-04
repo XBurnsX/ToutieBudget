@@ -121,8 +121,19 @@ class HistoriqueCompteViewModel(
                 val transactionsUi = transactions.map { transaction ->
                     // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
                     val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
-                        // Récupérer les allocations seulement si nécessaire
-                        val allocations = enveloppeRepository.recupererAllocationsPourMois(Date()).getOrNull() ?: emptyList()
+                        // Récupérer les allocations pour le mois de la transaction
+                        val dateTransaction = transaction.date ?: Date()
+                        val calendrier = Calendar.getInstance().apply {
+                            time = dateTransaction
+                            set(Calendar.DAY_OF_MONTH, 1)
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                        val premierJourMois = calendrier.time
+                        
+                        val allocations = enveloppeRepository.recupererAllocationsPourMois(premierJourMois).getOrNull() ?: emptyList()
                         val allocation = allocations.find { it.id == transaction.allocationMensuelleId }
                         enveloppes.find { it.id == allocation?.enveloppeId }?.nom
                     } else {
