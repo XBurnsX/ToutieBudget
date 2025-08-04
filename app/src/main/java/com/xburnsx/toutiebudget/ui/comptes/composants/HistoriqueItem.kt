@@ -64,7 +64,7 @@ fun HistoriqueItem(
             timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local
         }
     }
-    val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
+    val titreComplet = "${transaction.tiers}" //  Avec Date et heure  val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
 
     Box {
         Card(
