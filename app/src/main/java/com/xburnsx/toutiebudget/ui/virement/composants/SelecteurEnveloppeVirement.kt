@@ -146,7 +146,7 @@ private fun DialogSelectionEnveloppeVirement(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 500.dp),
+                .heightIn(max = 800.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(16.dp)
         ) {

@@ -160,7 +160,7 @@ fun SelecteurTiers(
                 properties = PopupProperties(focusable = false),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 200.dp)
+                    .heightIn(max = 500.dp)
             ) {
                 // Option pour créer un nouveau tiers si le texte n'est pas vide
                 if (texteSaisi.isNotBlank() && tiersFiltres.none { it.nom.equals(texteSaisi, ignoreCase = true) }) {
