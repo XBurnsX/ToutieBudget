@@ -65,7 +65,10 @@ class ModifierTransactionViewModel(
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 val resultTiers = tiersRepository.recupererTousLesTiers()
-                val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(transactionAModifier!!.date)
+                
+                // Charger les allocations pour le mois de la transaction ET le mois actuel
+                val resultAllocationsTransaction = enveloppeRepository.recupererAllocationsPourMois(transactionAModifier!!.date)
+                val resultAllocationsActuel = enveloppeRepository.recupererAllocationsPourMois(Date())
 
                 // Vérifier les erreurs
                 if (resultComptes.isFailure) {
@@ -77,8 +80,11 @@ class ModifierTransactionViewModel(
                 if (resultCategories.isFailure) {
                     throw Exception("Erreur lors du chargement des catégories: ${resultCategories.exceptionOrNull()?.message}")
                 }
-                if (resultAllocations.isFailure) {
-                    throw Exception("Erreur lors du chargement des allocations: ${resultAllocations.exceptionOrNull()?.message}")
+                if (resultAllocationsTransaction.isFailure) {
+                    throw Exception("Erreur lors du chargement des allocations de la transaction: ${resultAllocationsTransaction.exceptionOrNull()?.message}")
+                }
+                if (resultAllocationsActuel.isFailure) {
+                    throw Exception("Erreur lors du chargement des allocations actuelles: ${resultAllocationsActuel.exceptionOrNull()?.message}")
                 }
 
                 // Stocker les données
@@ -86,10 +92,18 @@ class ModifierTransactionViewModel(
                 allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 allCategories = resultCategories.getOrNull() ?: emptyList()
                 allTiers = resultTiers.getOrNull() ?: emptyList()
-                allAllocations = resultAllocations.getOrNull() ?: emptyList()
+                
+                // Combiner les allocations des deux mois
+                val allocationsTransaction = resultAllocationsTransaction.getOrNull() ?: emptyList()
+                val allocationsActuel = resultAllocationsActuel.getOrNull() ?: emptyList()
+                allAllocations = (allocationsTransaction + allocationsActuel).distinctBy { it.id }
 
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
+                println("DEBUG: enveloppesUi.size = ${enveloppesUi.size}")
+                println("DEBUG: allEnveloppes.size = ${allEnveloppes.size}")
+                println("DEBUG: allAllocations.size = ${allAllocations.size}")
+                
                 val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
                 val enveloppesFiltrees = enveloppesGroupees.mapValues { (_, enveloppesCategorie) ->
                     enveloppesUi.filter { enveloppeUi ->
@@ -98,6 +112,8 @@ class ModifierTransactionViewModel(
                         enveloppesCategorie.indexOfFirst { it.id == enveloppeUi.id }
                     }
                 }
+                
+                println("DEBUG: enveloppesFiltrees total size = ${enveloppesFiltrees.values.sumOf { it.size }}")
 
                 // Remplir le formulaire avec les données de la transaction
                 remplirFormulaireAvecTransaction(transactionAModifier!!)
@@ -111,6 +127,13 @@ class ModifierTransactionViewModel(
                         tiersDisponibles = allTiers,
                         messageErreur = null
                     )
+                }
+                
+                // Si l'enveloppe n'a pas été trouvée, essayer de la charger séparément
+                val allocationId = transactionAModifier!!.allocationMensuelleId
+                if (allocationId != null && 
+                    allAllocations.none { it.id == allocationId }) {
+                    chargerEnveloppeManquante(allocationId)
                 }
             } catch (e: Exception) {
                 _uiState.update { 
@@ -133,6 +156,7 @@ class ModifierTransactionViewModel(
                 montant = (transaction.montant * 100).toLong().toString(), // Convertir en centimes
                 compteSelectionne = allComptes.find { it.id == transaction.compteId },
                 enveloppeSelectionnee = if (transaction.allocationMensuelleId != null) {
+                    // Essayer de trouver l'allocation dans les allocations chargées
                     allAllocations.find { it.id == transaction.allocationMensuelleId }?.let { allocation ->
                         allEnveloppes.find { enveloppe -> enveloppe.id == allocation.enveloppeId }?.let { construireEnveloppeUi(it) }
                     }
@@ -336,5 +360,37 @@ class ModifierTransactionViewModel(
 
     fun effacerMessageErreur() {
         _uiState.update { it.copy(messageErreur = null) }
+    }
+    
+    /**
+     * Charge une enveloppe manquante si elle n'a pas été trouvée dans les allocations initiales.
+     */
+    private fun chargerEnveloppeManquante(allocationId: String) {
+        viewModelScope.launch {
+            try {
+                // Récupérer l'allocation directement par son ID
+                val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
+                if (resultAllocation.isSuccess) {
+                    val allocation = resultAllocation.getOrNull()
+                    if (allocation != null) {
+                        // Ajouter l'allocation à la liste
+                        allAllocations = allAllocations + allocation
+                        
+                        // Trouver l'enveloppe correspondante
+                        val enveloppe = allEnveloppes.find { it.id == allocation.enveloppeId }
+                        if (enveloppe != null) {
+                            val enveloppeUi = construireEnveloppeUi(enveloppe)
+                            
+                            // Mettre à jour l'état avec l'enveloppe trouvée
+                            _uiState.update { state ->
+                                state.copy(enveloppeSelectionnee = enveloppeUi)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignorer l'erreur, l'enveloppe restera vide
+            }
+        }
     }
 } 

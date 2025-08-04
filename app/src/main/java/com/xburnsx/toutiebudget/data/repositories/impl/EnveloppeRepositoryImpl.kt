@@ -726,10 +726,10 @@ import java.util.*
          }
      }
  
-     /**
-      * Récupère une allocation par son ID.
-      */
-     private suspend fun recupererAllocationParId(id: String): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
+         /**
+     * Récupère une allocation par son ID.
+     */
+    override suspend fun recupererAllocationParId(id: String): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
          try {
              val token = client.obtenirToken() ?: throw Exception("Token manquant")
              val urlBase = client.obtenirUrlBaseActive()

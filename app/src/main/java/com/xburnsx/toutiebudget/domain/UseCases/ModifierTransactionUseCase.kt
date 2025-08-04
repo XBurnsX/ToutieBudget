@@ -109,25 +109,26 @@ class ModifierTransactionUseCase(
 
                 // Mise à jour du compte (annuler l'ancienne transaction et appliquer la nouvelle)
                 tachesMiseAJour.add(async { 
-                    annulerTransactionCompte(ancienCompteId, ancienneCollectionCompte, ancienType, transactionExistante.montant)
+                    val resultatAnnulation = annulerTransactionCompte(ancienCompteId, ancienneCollectionCompte, ancienType, transactionExistante.montant)
+                    if (resultatAnnulation.isFailure) {
+                        return@async resultatAnnulation
+                    }
                     mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant)
                 })
 
                 // Mise à jour de l'enveloppe si nécessaire
                 tachesMiseAJour.add(async { 
-                    if (!allocationMensuelleId.isNullOrBlank()) {
-                        
-                        // Si c'était une dépense avant, annuler l'ancienne dépense
-                        if (transactionExistante.allocationMensuelleId != null) {
-                            enveloppeRepository.annulerDepenseAllocation(transactionExistante.allocationMensuelleId, transactionExistante.montant)
+                    // 1. Annuler l'ancienne dépense si elle existait
+                    if (transactionExistante.allocationMensuelleId != null && transactionExistante.type == TypeTransaction.Depense) {
+                        val resultatAnnulation = enveloppeRepository.annulerDepenseAllocation(transactionExistante.allocationMensuelleId, transactionExistante.montant)
+                        if (resultatAnnulation.isFailure) {
+                            return@async resultatAnnulation
                         }
-                        
-                        // Si c'est une dépense maintenant, ajouter la nouvelle dépense
-                        if (typeTransaction == TypeTransaction.Depense) {
-                            enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
-                        } else {
-                            Result.success(Unit)
-                        }
+                    }
+                    
+                    // 2. Ajouter la nouvelle dépense si c'est une dépense maintenant
+                    if (typeTransaction == TypeTransaction.Depense && !allocationMensuelleId.isNullOrBlank()) {
+                        enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
                     } else {
                         Result.success(Unit)
                     }

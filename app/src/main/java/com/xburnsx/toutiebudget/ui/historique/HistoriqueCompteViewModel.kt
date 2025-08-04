@@ -61,6 +61,21 @@ class HistoriqueCompteViewModel(
     }
 
     /**
+     * Sauvegarde la position de scroll actuelle.
+     */
+    fun sauvegarderPositionScroll(position: Int) {
+        _uiState.update { it.copy(scrollPosition = position) }
+    }
+
+    /**
+     * Restaure la position de scroll après modification.
+     */
+    fun restaurerPositionScroll() {
+        // La position est déjà sauvegardée dans l'état
+        // Cette méthode peut être utilisée pour déclencher la restauration
+    }
+
+    /**
      * Supprime une transaction.
      */
     fun supprimerTransaction(transactionId: String) {
@@ -122,21 +137,14 @@ class HistoriqueCompteViewModel(
                 val transactionsUi = transactions.map { transaction ->
                     // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
                     val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
-                        // Récupérer les allocations pour le mois de la transaction
-                        val dateTransaction = transaction.date ?: Date()
-                        val calendrier = Calendar.getInstance().apply {
-                            time = dateTransaction
-                            set(Calendar.DAY_OF_MONTH, 1)
-                            set(Calendar.HOUR_OF_DAY, 0)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                            set(Calendar.MILLISECOND, 0)
+                        // Essayer de récupérer l'allocation directement par son ID
+                        val resultAllocation = enveloppeRepository.recupererAllocationParId(transaction.allocationMensuelleId)
+                        if (resultAllocation.isSuccess) {
+                            val allocation = resultAllocation.getOrNull()
+                            enveloppes.find { it.id == allocation?.enveloppeId }?.nom
+                        } else {
+                            null
                         }
-                        val premierJourMois = calendrier.time
-                        
-                        val allocations = enveloppeRepository.recupererAllocationsPourMois(premierJourMois).getOrNull() ?: emptyList()
-                        val allocation = allocations.find { it.id == transaction.allocationMensuelleId }
-                        enveloppes.find { it.id == allocation?.enveloppeId }?.nom
                     } else {
                         null
                     }
