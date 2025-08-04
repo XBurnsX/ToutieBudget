@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * 🎯 CHAMP DE SAISIE UNIVERSEL POUR MONTANTS ET VALEURS
@@ -58,13 +60,30 @@ fun ChampUniversel(
     onClicPersonnalise: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // Debug: afficher quand le composant est recréé avec une nouvelle valeur
+    LaunchedEffect(valeur) {
+        println("DEBUG CHAMP RECREATION: composant recréé avec valeur = $valeur centimes")
+    }
     // État pour contrôler l'affichage du clavier
     var afficherClavier by remember { mutableStateOf(false) }
 
     // Formatage de la valeur affichée
     val valeurAffichee = remember(valeur, isMoney, suffix) {
         if (isMoney) {
-            String.format("%.2f $", valeur / 100.0)
+            // Debug: afficher la valeur exacte reçue
+            println("DEBUG CHAMP: valeur Long reçue = $valeur")
+            
+            // Utiliser BigDecimal pour éviter les erreurs de précision
+            val bigDecimal = BigDecimal.valueOf(valeur)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+            
+            // Debug: afficher le BigDecimal
+            println("DEBUG CHAMP: BigDecimal = $bigDecimal")
+            
+            // Forcer le formatage avec exactement 2 décimales
+            val resultat = String.format("%.2f $", bigDecimal.toDouble())
+            println("DEBUG CHAMP: résultat final = $resultat")
+            resultat
         } else {
             "$valeur$suffix"
         }
@@ -160,7 +179,10 @@ fun ChampUniversel(
                 montantInitial = valeur,
                 isMoney = isMoney,
                 suffix = suffix,
-                onMontantChange = onValeurChange,
+                onMontantChange = { nouveauMontant ->
+                    println("DEBUG CHAMP CALLBACK: reçoit $nouveauMontant centimes du clavier")
+                    onValeurChange(nouveauMontant)
+                },
                 onFermer = { afficherClavier = false }
             )
         }

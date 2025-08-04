@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * 🎯 CLAVIER NUMÉRIQUE RÉUTILISABLE
@@ -168,11 +170,24 @@ fun ClavierNumerique(
         // Convertir vers Long pour le callback
         val valeurLong = if (isMoney) {
             val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
-            val valeurDouble = MoneyFormatter.validateAndCleanAmount(texteNettoye) ?: 0.0
-            MoneyFormatter.amountToCents(valeurDouble)
+            // Conversion directe sans passer par MoneyFormatter pour éviter les erreurs de précision
+            try {
+                val valeurDouble = texteNettoye.toDouble()
+                // Utiliser BigDecimal pour une conversion parfaitement précise
+                val bigDecimal = BigDecimal.valueOf(valeurDouble)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(0, RoundingMode.HALF_UP)
+                val resultat = bigDecimal.toLong()
+                println("DEBUG CLAVIER: '$texteNettoye' -> $valeurDouble -> $bigDecimal -> $resultat centimes")
+                resultat
+            } catch (e: NumberFormatException) {
+                println("DEBUG CLAVIER: Erreur de conversion pour '$texteNettoye'")
+                0L
+            }
         } else {
             texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
         }
+        println("DEBUG CLAVIER FINAL: envoi de $valeurLong centimes au callback")
         onMontantChange(valeurLong)
     }
 
@@ -225,11 +240,20 @@ fun ClavierNumerique(
             // Convertir vers Long pour le callback
             val valeurLong = if (isMoney) {
                 val texteNettoye = texteActuel.replace("$", "").replace(" ", "")
-                val valeurDouble = MoneyFormatter.validateAndCleanAmount(texteNettoye) ?: 0.0
-                MoneyFormatter.amountToCents(valeurDouble)
+                // Conversion directe sans passer par MoneyFormatter pour éviter les erreurs de précision
+                try {
+                    val valeurDouble = texteNettoye.toDouble()
+                    val bigDecimal = BigDecimal.valueOf(valeurDouble)
+                        .multiply(BigDecimal.valueOf(100))
+                        .setScale(0, RoundingMode.HALF_UP)
+                    bigDecimal.toLong()
+                } catch (e: NumberFormatException) {
+                    0L
+                }
             } else {
                 texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
             }
+            println("DEBUG CLAVIER BACKSPACE: envoi de $valeurLong centimes au callback")
             onMontantChange(valeurLong)
         }
 

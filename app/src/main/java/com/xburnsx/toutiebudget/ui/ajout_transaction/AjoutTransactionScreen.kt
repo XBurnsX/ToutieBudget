@@ -131,8 +131,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
 
                     // 2. Champ de montant avec clavier personnalisé
                     ChampUniversel(
-                        valeur = uiState.montant.toLongOrNull() ?: 0L,
+                        valeur = {
+                            println("DEBUG SCREEN: uiState.montant = '${uiState.montant}'")
+                            val valeurLong = uiState.montant.toLongOrNull() ?: 0L
+                            println("DEBUG SCREEN: valeurLong = $valeurLong")
+                            valeurLong
+                        }(),
                         onValeurChange = { nouveauMontant ->
+                            println("DEBUG SCREEN: onValeurChange appelé avec nouveauMontant = $nouveauMontant")
                             viewModel.onMontantChanged(nouveauMontant.toString())
                         },
                         modifier = Modifier.fillMaxWidth(),

@@ -20,6 +20,8 @@ import com.xburnsx.toutiebudget.ui.categories.ObjectifFormState
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourMois
 import com.xburnsx.toutiebudget.ui.categories.composants.SelecteurJourSemaine
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -41,7 +43,11 @@ fun DefinirObjectifDialog(
             0L
         } else {
             try {
-                (formState.montant.toDouble() * 100).toLong()
+                // Utiliser BigDecimal pour éviter les erreurs de précision
+                BigDecimal(formState.montant)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(0, RoundingMode.HALF_UP)
+                    .toLong()
             } catch (e: Exception) {
                 0L
             }
@@ -64,7 +70,12 @@ fun DefinirObjectifDialog(
                                     ChampUniversel(
                         valeur = montantEnCentimes,
                         onValeurChange = { nouveauMontant ->
-                            val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                            // Utiliser BigDecimal pour éviter les erreurs de précision
+                            val nouveauMontantString = String.format("%.2f", 
+                                BigDecimal.valueOf(nouveauMontant)
+                                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                                    .toDouble()
+                            )
                             onValueChange(null, nouveauMontantString, null, null, null, null, null)
                         },
                     libelle = "Montant objectif",
@@ -75,7 +86,12 @@ fun DefinirObjectifDialog(
                                             onClicPersonnalise = {
                             // ✅ UTILISER le callback vers le clavier global
                             onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
-                                val nouveauMontantString = (nouveauMontant / 100.0).toString()
+                                // Utiliser BigDecimal pour éviter les erreurs de précision
+                                val nouveauMontantString = String.format("%.2f", 
+                                    BigDecimal.valueOf(nouveauMontant)
+                                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                                        .toDouble()
+                                )
                                 onValueChange(null, nouveauMontantString, null, null, null, null, null)
                             }
                         },

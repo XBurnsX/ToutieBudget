@@ -282,6 +282,7 @@ class AjoutTransactionViewModel(
      * Met à jour le montant saisi.
      */
     fun onMontantChanged(nouveauMontant: String) {
+        println("DEBUG VIEWMODEL: onMontantChanged appelé avec nouveauMontant = '$nouveauMontant'")
         _uiState.update { state ->
             state.copy(montant = nouveauMontant).calculerValidite()
         }

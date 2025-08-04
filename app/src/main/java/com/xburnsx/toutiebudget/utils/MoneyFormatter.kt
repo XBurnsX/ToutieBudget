@@ -79,7 +79,10 @@ object MoneyFormatter {
      * Exemple: 1070 -> "10,70 $" (1070 centimes = 10.70$)
      */
     fun formatAmountFromCents(cents: Long): String {
-        val amount = cents / 100.0
+        // Utiliser BigDecimal pour éviter les erreurs de précision
+        val amount = BigDecimal.valueOf(cents)
+            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+            .toDouble()
         return formatAmount(amount)
     }
     

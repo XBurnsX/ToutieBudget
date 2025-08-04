@@ -56,7 +56,7 @@ fun EnveloppeConfigItem(
             // Mode normal : Bouton objectif
             TextButton(onClick = onObjectifClick) {
                 Text(
-                    text = if (enveloppe.objectifMontant > 0) "${enveloppe.objectifMontant}$" else "Objectif",
+                    text = if (enveloppe.objectifMontant > 0) "${String.format("%.2f", enveloppe.objectifMontant)}$" else "Objectif",
                     color = if (enveloppe.objectifMontant > 0) Color.Green else MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
