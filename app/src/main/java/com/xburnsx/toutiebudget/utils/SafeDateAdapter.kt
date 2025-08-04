@@ -10,23 +10,24 @@ import java.util.TimeZone
 
 class SafeDateAdapter : TypeAdapter<Date?>() {
 
-    // Formats de date à essayer pour le parsing
+    // Formats de date à essayer pour le parsing (PocketBase renvoie toujours en UTC)
     private val dateFormats = listOf(
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US),
-        SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
     )
 
     override fun write(out: JsonWriter, value: Date?) {
         if (value == null) {
             out.nullValue()
         } else {
-            // Écrire au format ISO 8601
+            // ✅ Envoyer la date en UTC vers PocketBase
+            // Date() représente déjà un timestamp UTC, on l'envoie directement
             val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.US)
-            formatter.timeZone = TimeZone.getTimeZone("UTC")
+            formatter.timeZone = TimeZone.getTimeZone("UTC") // Forcer UTC pour l'envoi
             out.value(formatter.format(value))
         }
     }
@@ -42,6 +43,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
                 if (dateString.isBlank()) {
                     null
                 } else {
+                    // ✅ Parser la date UTC reçue de PocketBase
                     parseDate(dateString)
                 }
             }
@@ -61,7 +63,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
     }
 
     private fun parseDate(dateString: String): Date? {
-        // Essayer de parser avec différents formats
+        // ✅ PARSING CORRECT : PocketBase renvoie toujours en UTC, on parse en UTC
         for (format in dateFormats) {
             try {
                 return format.parse(dateString)

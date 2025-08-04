@@ -236,7 +236,8 @@ class ModifierTransactionViewModel(
                     else -> "comptes_cheques"
                 }
                 
-                 // Convertir LocalDate en Date avec l'heure actuelle
+                 // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
+                 // pour utiliser l'heure réelle de création de la transaction
                 val maintenant = java.time.LocalDateTime.now()
                 val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                  

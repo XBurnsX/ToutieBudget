@@ -102,7 +102,7 @@ class VirementUseCase @Inject constructor(
             val transaction = Transaction(
                 type = TypeTransaction.Depense,
                 montant = montant,
-                date = Date(),
+                date = Date(), // Utilise l'heure locale actuelle du téléphone
                 note = "Virement depuis Prêt à placer vers enveloppe",
                 compteId = compteId,
                 collectionCompte = "comptes_cheque",
@@ -220,7 +220,7 @@ class VirementUseCase @Inject constructor(
             val transaction = Transaction(
                 type = TypeTransaction.Revenu,
                 montant = montant,
-                date = Date(),
+                date = Date(), // Utilise l'heure locale actuelle du téléphone
                 note = "Virement depuis enveloppe vers Prêt à placer",
                 compteId = compteId,
                 collectionCompte = "comptes_cheque",

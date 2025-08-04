@@ -19,6 +19,7 @@ import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Implémentation du repository des transactions avec PocketBase.
@@ -32,7 +33,9 @@ class TransactionRepositoryImpl : TransactionRepository {
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
     private val httpClient = okhttp3.OkHttpClient()
-    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+        timeZone = TimeZone.getTimeZone("UTC") // ✅ Envoyer en UTC vers PocketBase
+    }
 
     // Noms des collections dans PocketBase
     private object Collections {
@@ -53,11 +56,12 @@ class TransactionRepositoryImpl : TransactionRepository {
             val urlBase = client.obtenirUrlBaseActive()
 
             // Préparer les données pour PocketBase
+            val dateEnUTC = dateFormatter.format(transaction.date)
             val donneesTransaction = mapOf(
                 "utilisateur_id" to utilisateurId,
                 "type" to transaction.type.valeurPocketBase,
                 "montant" to transaction.montant,
-                "date" to dateFormatter.format(transaction.date),
+                "date" to dateEnUTC,
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,
@@ -300,10 +304,11 @@ class TransactionRepositoryImpl : TransactionRepository {
             val urlBase = client.obtenirUrlBaseActive()
 
             // Préparer les données pour PocketBase
+            val dateEnUTC = dateFormatter.format(transaction.date)
             val donneesTransaction = mapOf(
                 "type" to transaction.type.valeurPocketBase,
                 "montant" to transaction.montant,
-                "date" to dateFormatter.format(transaction.date),
+                "date" to dateEnUTC,
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,

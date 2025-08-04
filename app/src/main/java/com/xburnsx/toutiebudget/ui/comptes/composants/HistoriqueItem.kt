@@ -32,7 +32,10 @@ import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun HistoriqueItem(
@@ -54,6 +57,14 @@ fun HistoriqueItem(
         TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
         else -> Color.Yellow
     }
+
+    // ✅ Formater la date et l'heure complète
+    val formateurDate = remember { 
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+            timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local
+        }
+    }
+    val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
 
     Box {
         Card(
@@ -82,13 +93,13 @@ fun HistoriqueItem(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                // Ligne principale avec tiers et montant
+                // Ligne principale avec tiers+date et montant
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 👤 TIERS avec icône
+                    // 👤 TIERS + DATE avec icône
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
@@ -101,7 +112,7 @@ fun HistoriqueItem(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = transaction.tiers,
+                            text = titreComplet,
                             fontSize = 16.sp,
                             color = Color.White,
                             fontWeight = FontWeight.Medium,
@@ -264,7 +275,7 @@ fun HistoriqueItemPreview() {
             type = TypeTransaction.Depense,
             montant = 25.99,
             date = Date(),
-            tiers = "Épicerie Metro",
+            tiers = "Arbec",
             nomEnveloppe = "Alimentation",
             note = "Courses hebdomadaires"
         )

@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * ViewModel pour l'écran d'historique des transactions d'un compte.
@@ -164,7 +165,9 @@ class HistoriqueCompteViewModel(
                 }.sortedByDescending { it.date }
 
                 // Grouper les transactions par date avec format français et garantir l'ordre
-                val formateurDate = SimpleDateFormat("d MMMM yyyy", Locale.FRENCH)
+                val formateurDate = SimpleDateFormat("d MMMM yyyy", Locale.FRENCH).apply {
+                    timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local pour l'affichage
+                }
 
                 // Créer une liste de paires (date, transactions) triée par date décroissante
                 val transactionsGroupees = transactionsUi

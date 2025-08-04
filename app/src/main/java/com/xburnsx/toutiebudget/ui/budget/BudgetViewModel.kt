@@ -33,6 +33,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 class BudgetViewModel(
     private val compteRepository: CompteRepository,
@@ -430,7 +431,9 @@ class BudgetViewModel(
      * Formate une date pour le debug.
      */
     private fun formatDatePourDebug(date: Date): String {
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+            timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local
+        }
         return format.format(date)
     }
 
