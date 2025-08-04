@@ -439,19 +439,13 @@ class ComptesViewModel(
     fun onDeplacerCompte(compteId: String, nouvellePosition: Int) {
         viewModelScope.launch {
             try {
-                println("🔥 [ComptesVM] onDeplacerCompte('$compteId', position: $nouvellePosition) - DÉBUT")
-
                 // Obtenir tous les comptes non archivés
                 val tousComptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
                 val comptesActifs = tousComptes.filter { !it.estArchive }.sortedBy { it.ordre }
 
-                println("📊 [ComptesVM] Comptes actifs: ${comptesActifs.map { "${it.nom} (ordre: ${it.ordre})" }}")
-
                 // Trouver le compte à déplacer
                 val compteADeplacer = comptesActifs.find { it.id == compteId }
                     ?: return@launch
-
-                println("🎯 [ComptesVM] Compte à déplacer: ${compteADeplacer.nom} (ordre actuel: ${compteADeplacer.ordre})")
 
                 // Trouver le type de compte pour ne déplacer que dans le même groupe
                 val typeCompteADeplacer = when (compteADeplacer) {
@@ -460,8 +454,6 @@ class ComptesViewModel(
                     is CompteDette -> "Dettes"
                     is CompteInvestissement -> "Investissements"
                 }
-
-                println("📂 [ComptesVM] Type de compte: $typeCompteADeplacer")
 
                 // Filtrer seulement les comptes du même type
                 val comptesMemeType = comptesActifs.filter { compte ->
@@ -473,8 +465,6 @@ class ComptesViewModel(
                     }
                 }.sortedBy { it.ordre }
 
-                println("📋 [ComptesVM] Comptes du même type: ${comptesMemeType.map { "${it.nom} (ordre: ${it.ordre})" }}")
-
                 // Calculer les nouveaux ordres dans le groupe
                 val nouveauxComptes = calculerNouveauxOrdresComptes(
                     comptesMemeType,
@@ -482,26 +472,19 @@ class ComptesViewModel(
                     nouvellePosition
                 )
 
-                println("🔄 [ComptesVM] Nouveaux ordres: ${nouveauxComptes.map { "${it.nom} (ordre: ${it.ordre})" }}")
-
                 // Mettre à jour tous les comptes modifiés
                 val misesAJour = nouveauxComptes.filter { nouveau ->
                     val ancien = comptesMemeType.find { it.id == nouveau.id }
                     ancien?.ordre != nouveau.ordre
                 }
 
-                println("💾 [ComptesVM] Comptes à mettre à jour: ${misesAJour.map { "${it.nom} (ordre: ${it.ordre})" }}")
-
                 // Synchroniser avec PocketBase
                 misesAJour.forEach { compte ->
                     compteRepository.mettreAJourCompte(compte).onFailure { erreur ->
-                        println("❌ [ComptesVM] Erreur mise à jour ${compte.nom}: ${erreur.message}")
                         _uiState.update { it.copy(erreur = "Erreur déplacement: ${erreur.message}") }
                         return@launch
                     }
                 }
-
-                println("✅ [ComptesVM] Toutes les mises à jour réussies!")
 
                 // Recharger les données
                 chargerComptes()
@@ -514,10 +497,7 @@ class ComptesViewModel(
                 // Notifier les autres ViewModels
                 realtimeSyncService.declencherMiseAJourComptes()
 
-                println("🎉 [ComptesVM] Déplacement terminé avec succès!")
-
             } catch (e: Exception) {
-                println("💥 [ComptesVM] Exception: ${e.message}")
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
             }
         }

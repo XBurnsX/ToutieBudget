@@ -47,14 +47,10 @@
         try {
             val token = client.obtenirToken()
             if (token == null) {
-                println("[DEBUG] ❌ getAllocationById: Token manquant")
                 return@withContext null
             }
             
             val urlBase = UrlResolver.obtenirUrlActive()
-            
-            println("[DEBUG] 🔍 getAllocationById: Recherche ID='$id'")
-            println("[DEBUG] 🌐 URL: $urlBase/api/collections/$COLLECTION/records/$id")
             
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$COLLECTION/records/$id")
@@ -65,21 +61,16 @@
             val reponse = httpClient.newCall(requete).execute()
             
             if (!reponse.isSuccessful) {
-                val erreur = "HTTP ${reponse.code}: ${reponse.body?.string()}"
-                println("[DEBUG] ❌ getAllocationById: $erreur")
                 return@withContext null
             }
             
             val corpsReponse = reponse.body?.string()
             if (corpsReponse == null) {
-                println("[DEBUG] ❌ getAllocationById: Corps de réponse vide")
                 return@withContext null
             }
             
-            println("[DEBUG] ✅ getAllocationById: Allocation trouvée")
             deserialiserAllocation(corpsReponse)
         } catch (e: Exception) {
-            println("[DEBUG] ❌ getAllocationById: Exception ${e.message}")
             null
         }
     }
@@ -117,9 +108,6 @@
             val token = client.obtenirToken() ?: throw Exception("Token manquant")
             val urlBase = UrlResolver.obtenirUrlActive()
             
-            println("[DEBUG] 🔄 Mise à jour allocation ID=${allocation.id}, solde=${allocation.solde}")
-            println("[DEBUG] 🌐 URL: $urlBase/api/collections/$COLLECTION/records/${allocation.id}")
-            
             // ✅ Utiliser le bon format au lieu de gson.toJson() bugué
             val donneesUpdate = mapOf(
                 "utilisateur_id" to allocation.utilisateurId, // ← AJOUT ! Peut-être requis pour l'autorisation
@@ -132,7 +120,6 @@
             )
             
             val bodyJson = gson.toJson(donneesUpdate)
-            println("[DEBUG] 📤 Données envoyées: $bodyJson")
             
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$COLLECTION/records/${allocation.id}")
@@ -145,14 +132,11 @@
             
             if (!reponse.isSuccessful) {
                 val erreur = "Erreur HTTP ${reponse.code}: ${reponse.body?.string()}"
-                println("[DEBUG] ❌ $erreur")
                 throw Exception(erreur)
             }
             
-            println("[DEBUG] ✅ Allocation mise à jour avec succès")
             reponse.close()
         } catch (e: Exception) {
-            println("[DEBUG] ❌ ERREUR dans mettreAJourAllocation: ${e.message}")
             throw e // ← IMPORTANT : Remonter l'erreur !
         }
     }
@@ -194,8 +178,6 @@
         // 🔥 OBTENIR L'UTILISATEUR CONNECTÉ SANS FORCER LE 1ER DU MOIS !
         val utilisateurId = client.obtenirUtilisateurConnecte()?.id 
             ?: throw Exception("Utilisateur non connecté")
-        
-        println("[DEBUG] 📅 Recherche allocation pour enveloppe=$enveloppeId, mois=$mois")
 
         // 2. Chercher les allocations existantes pour cette enveloppe et ce mois
         val allocationsExistantes = recupererAllocationsPourEnveloppeEtMois(utilisateurId, enveloppeId, mois)
@@ -203,7 +185,6 @@
          when {
             // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
             allocationsExistantes.isEmpty() -> {
-                println("[DEBUG] ✨ Aucune allocation trouvée, création d'une nouvelle")
                 val nouvelleAllocation = AllocationMensuelle(
                     id = "",
                     utilisateurId = utilisateurId,
@@ -221,7 +202,6 @@
             // ✅ CORRECTION : TOUJOURS FUSIONNER même s'il y en a qu'une seule !
             // Cas 2 & 3: Une ou plusieurs allocations -> FUSIONNER SYSTÉMATIQUEMENT
             else -> {
-                println("[DEBUG] 🔄 ${allocationsExistantes.size} allocations trouvées, FUSION AUTOMATIQUE")
                 fusionnerEtNettoyerAllocations(allocationsExistantes, enveloppeId, mois)
             }
          }
@@ -243,7 +223,6 @@
  
                          // 🔥 SIMPLE ! JUSTE LE MOIS TABARNACK !
             val moisString = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(mois)
-            println("[DEBUG_RECHERCHE] 🔍 RECHERCHE SIMPLE - JUSTE LE MOIS: $moisString")
             
             // ✅ FILTRE SIMPLE COMME TU VEUX !
             val filtre = java.net.URLEncoder.encode(
@@ -252,11 +231,7 @@
             )
             val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500"
             
-            println("[DEBUG_RECHERCHE] 🌐 URL: $url")
-             
-
- 
-             val requete = Request.Builder()
+            val requete = Request.Builder()
                  .url(url)
                  .addHeader("Authorization", "Bearer $token")
                  .get()
@@ -268,19 +243,15 @@
              }
  
                          val data = reponse.body!!.string()
-            println("[DEBUG_RECHERCHE] 📤 Réponse brute: $data")
             
             try {
                 // 🔥 PARSING SIMPLE COMME ENVELOPEREPO !
                 val jsonObject = com.google.gson.JsonParser.parseString(data).asJsonObject
                 val itemsArray = jsonObject.getAsJsonArray("items")
                 
-                println("[DEBUG_RECHERCHE] 🔍 Items array size: ${itemsArray.size()}")
-                
                 val allocations = mutableListOf<AllocationMensuelle>()
                 for (i in 0 until itemsArray.size()) {
                     val item = itemsArray[i].asJsonObject
-                    println("[DEBUG_RECHERCHE] 🔍 Parsing item $i: ${item}")
                     
                     val allocation = AllocationMensuelle(
                         id = item.get("id")?.asString ?: "",
@@ -296,20 +267,11 @@
                     allocations.add(allocation)
                 }
 
-                println("[DEBUG_RECHERCHE] 📋 Allocations parsées: ${allocations.size}")
-                allocations.forEach { allocation ->
-                    println("[DEBUG_RECHERCHE] - ID: ${allocation.id}, solde: ${allocation.solde}, mois: ${allocation.mois}")
-                }
-
                 allocations
             } catch (e: Exception) {
-                println("[DEBUG_RECHERCHE] ❌ ERREUR PARSING: ${e.message}")
-                e.printStackTrace()
                 emptyList()
             }
          } catch (e: Exception) {
-             println("[DEBUG_RECHERCHE] ❌ ERREUR GLOBALE: ${e.message}")
-             e.printStackTrace()
              emptyList()
          }
      }
@@ -323,28 +285,22 @@
         mois: Date
     ): AllocationMensuelle = withContext(Dispatchers.IO) {
         
-        println("[DEBUG_FUSION] 🔄 FUSION DE ${allocations.size} ALLOCATIONS")
-        
         // 1. Calculer les totaux de toutes les allocations
         val soldeTotal = allocations.sumOf { it.solde }
         val alloueTotal = allocations.sumOf { it.alloue }
         val depenseTotal = allocations.sumOf { it.depense }
-        
-        println("[DEBUG_FUSION] 💰 TOTAUX: solde=$soldeTotal, alloué=$alloueTotal, dépense=$depenseTotal")
         
         // 2. Prendre les informations de la première allocation (pour les métadonnées)
         val premiereAllocation = allocations.first()
         
         // ✅ LOGIQUE PROVENANCE SIMPLE ! (comme demandé par l'utilisateur)
         val compteProvenanceFinal = if (soldeTotal < 0.1) {
-            println("[DEBUG_FUSION] 🧹 Solde < 0.1 → RESET PROVENANCE (compteId = null)")
             null // Reset provenance si plus d'argent
         } else {
             // Trouver la provenance dominante (allocation avec le plus gros solde positif)
             val allocationDominante = allocations
                 .filter { it.solde > 0.0 }
                 .maxByOrNull { it.solde }
-            println("[DEBUG_FUSION] 🎯 Provenance dominante: ${allocationDominante?.compteSourceId}")
             allocationDominante?.compteSourceId
         }
  
@@ -363,20 +319,15 @@
 
         try {
             // 4. Supprimer toutes les anciennes allocations
-            println("[DEBUG_FUSION] 🗑️ Suppression de ${allocations.size} anciennes allocations")
             allocations.forEach { allocation ->
                 supprimerAllocation(allocation.id)
-                println("[DEBUG_FUSION] 🗑️ Supprimé: ${allocation.id}")
             }
 
             // 5. Créer la nouvelle allocation fusionnée
-            println("[DEBUG_FUSION] ✨ Création de l'allocation fusionnée")
             val nouvelleAllocation = creerAllocationMensuelleInterne(allocationFusionnee)
-            println("[DEBUG_FUSION] 🎉 FUSION TERMINÉE - 1 allocation finale ID=${nouvelleAllocation.id}")
             nouvelleAllocation
             
         } catch (e: Exception) {
-            println("[DEBUG_FUSION] ❌ ERREUR: ${e.message}")
             // En cas d'erreur, retourner la première allocation
             premiereAllocation
         }
@@ -471,7 +422,6 @@
 
                          // Parsing intelligent de date PocketBase
             val moisString = jsonObject.get("mois").asString
-            println("[DEBUG] Date reçue de PocketBase: '$moisString'")
             
             val dateParsee = try {
                 // Essayer d'abord le format complet
@@ -480,15 +430,11 @@
                 try {
                     // Nettoyer TOUTES les millisecondes + Z et ajouter le T manquant
                     val dateClean = moisString.replace(Regex("\\.[0-9]+Z$"), "").replace(" ", "T")
-                    println("[DEBUG] Date nettoyée: '$dateClean'")
                     DATE_FORMAT_CLEAN.parse(dateClean)
                 } catch (e2: Exception) {
-                    println("[DEBUG] ❌ Impossible de parser '$moisString', utilisation de Date()")
                     Date() // Fallback vers la date actuelle
                 }
             }
-            
-            println("[DEBUG] Date parsée avec succès: $dateParsee")
 
              val allocationCreee = AllocationMensuelle(
                  id = jsonObject.get("id").asString,
@@ -517,7 +463,6 @@
 
         // Parsing intelligent de date PocketBase (même logique que creerAllocationMensuelleInterne)
         val moisString = jsonObject.get("mois").asString
-        println("[DEBUG] 📅 deserialiserAllocation - Date reçue: '$moisString'")
         
         val dateParsee = try {
             // Essayer d'abord le format complet
@@ -526,15 +471,11 @@
             try {
                 // Nettoyer TOUTES les millisecondes + Z et ajouter le T manquant
                 val dateClean = moisString.replace(Regex("\\.[0-9]+Z$"), "").replace(" ", "T")
-                println("[DEBUG] 📅 deserialiserAllocation - Date nettoyée: '$dateClean'")
                 DATE_FORMAT_CLEAN.parse(dateClean)
             } catch (e2: Exception) {
-                println("[DEBUG] ❌ deserialiserAllocation - Impossible de parser '$moisString', utilisation de Date()")
                 Date() // Fallback vers la date actuelle
             }
         }
-        
-        println("[DEBUG] ✅ deserialiserAllocation - Date parsée: $dateParsee")
 
         return AllocationMensuelle(
             id = jsonObject.get("id").asString,

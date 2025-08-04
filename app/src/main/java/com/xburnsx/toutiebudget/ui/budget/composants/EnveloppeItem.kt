@@ -219,8 +219,6 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                                                                                   // dateObjectif est déjà la date de fin de l'objectif annuel
                                  val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
                                      try {
-                                         // DEBUG: Afficher la date de fin pour voir ce qui se passe
-                                         println("DEBUG: dateString = $dateString")
                                          
                                          val dateFin = when {
                                              dateString.contains("T") -> {

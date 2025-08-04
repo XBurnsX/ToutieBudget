@@ -67,44 +67,29 @@ class BudgetViewModel(
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES
             objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
-                if (enveloppesResetees.isNotEmpty()) {
-                    enveloppesResetees.forEach { enveloppe ->
-                        println("[BUDGET_VM] ✅ Reset bihebdomadaire pour l'enveloppe: ${enveloppe.nom}")
-                    }
-                }
+                // Reset bihebdomadaire effectué
             }.onFailure { e ->
-                println("[BUDGET_VM] ❌ Erreur lors du reset bihebdomadaire: ${e.message}")
+                // Erreur silencieuse
             }
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS ANNUELS
             objectifResetService.verifierEtResetterObjectifsAnnuels().onSuccess { enveloppesResetees ->
-                if (enveloppesResetees.isNotEmpty()) {
-                    enveloppesResetees.forEach { enveloppe ->
-                        println("[BUDGET_VM] ✅ Reset annuel pour l'enveloppe: ${enveloppe.nom}")
-                    }
-                }
+                // Reset annuel effectué
             }.onFailure { e ->
-                println("[BUDGET_VM] ❌ Erreur lors du reset annuel: ${e.message}")
+                // Erreur silencieuse
             }
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS D'ÉCHÉANCE
             objectifResetService.verifierEtResetterObjectifsEcheance().onSuccess { enveloppesResetees ->
-                if (enveloppesResetees.isNotEmpty()) {
-                    enveloppesResetees.forEach { enveloppe ->
-                        println("[BUDGET_VM] ✅ Reset échéance pour l'enveloppe: ${enveloppe.nom}")
-                    }
-                }
+                // Reset échéance effectué
             }.onFailure { e ->
-                println("[BUDGET_VM] ❌ Erreur lors du reset échéance: ${e.message}")
+                // Erreur silencieuse
             }
 
             // 🔄 ROLLOVER AUTOMATIQUE : À chaque connexion dans un nouveau mois (pas seulement le 1er !)
-            println("[BUDGET_VM] 🔄 Vérification automatique du rollover...")
             verifierEtExecuterRolloverUseCase().onSuccess {
-                println("[BUDGET_VM] ✅ Vérification rollover terminée")
                 chargerDonneesBudget(Date())
             }.onFailure { e ->
-                println("[BUDGET_VM] ❌ Erreur rollover: ${e.message}")
                 _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
                 chargerDonneesBudget(Date())
             }
@@ -526,9 +511,6 @@ class BudgetViewModel(
                 // ✅ FUSION COMPLÈTE : Récupérer l'allocation fusionnée ET l'augmenter directement
                 val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, moisActuel)
                 
-                // 🔧 DEBUG : Avant modification
-                println("[DEBUG_FUSION] 🔍 AVANT: Allocation fusionnée: ID=${allocationFusionnee.id}, solde=${allocationFusionnee.solde}, compteSourceId=${allocationFusionnee.compteSourceId}")
-                
                 // ✅ MODIFIER DIRECTEMENT l'allocation fusionnée
                 val allocationFinale = allocationFusionnee.copy(
                     solde = allocationFusionnee.solde + montantDollars,
@@ -537,9 +519,6 @@ class BudgetViewModel(
                     compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSourceId else allocationFusionnee.compteSourceId,
                     collectionCompteSource = if (allocationFusionnee.solde <= 0.01) (compteSource.collection ?: "comptes_cheque") else allocationFusionnee.collectionCompteSource
                 )
-                
-                // 🔧 DEBUG : Après modification
-                println("[DEBUG_FUSION] 🔍 APRÈS: Allocation finale: ID=${allocationFinale.id}, solde=${allocationFinale.solde}, compteSourceId=${allocationFinale.compteSourceId}")
                 
                 // ✅ MISE À JOUR : Sauvegarder l'allocation unique
                 allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)

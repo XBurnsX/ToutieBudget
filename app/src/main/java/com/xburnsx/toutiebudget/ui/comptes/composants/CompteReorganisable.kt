@@ -75,9 +75,7 @@ fun CompteReorganisable(
                     // Flèche vers le haut
                     IconButton(
                         onClick = {
-                            println("⬆️ [CompteReorganisable] Clic flèche haut pour ${compte.nom} (position: $position)")
                             if (position > 0) {
-                                println("🚀 [CompteReorganisable] Déplacement de ${compte.nom} vers position ${position - 1}")
                                 onDeplacerCompte(compte.id, position - 1)
                             }
                         },
@@ -93,9 +91,7 @@ fun CompteReorganisable(
                     // Flèche vers le bas
                     IconButton(
                         onClick = {
-                            println("⬇️ [CompteReorganisable] Clic flèche bas pour ${compte.nom} (position: $position)")
                             if (position < totalComptes - 1) {
-                                println("🚀 [CompteReorganisable] Déplacement de ${compte.nom} vers position ${position + 1}")
                                 onDeplacerCompte(compte.id, position + 1)
                             }
                         },

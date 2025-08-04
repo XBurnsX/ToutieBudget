@@ -560,7 +560,7 @@ class VirerArgentViewModel(
                             try {
                                 allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
                             } catch (e: Exception) {
-                                println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                                // Erreur silencieuse
                             }
                             result
                         }
@@ -582,7 +582,7 @@ class VirerArgentViewModel(
                             try {
                                 allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
                             } catch (e: Exception) {
-                                println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                                // Erreur silencieuse
                             }
                             result
                         }
@@ -639,12 +639,7 @@ class VirerArgentViewModel(
                                         collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
                                     )
                                     
-                                    // 🔧 DEBUG : Vérifier la logique de provenance
-                                    println("[DEBUG_PROVENANCE] 🔍 Virement: ${compteSource.nom} vers ${destination.enveloppe.nom}")
-                                    println("[DEBUG_PROVENANCE] 🔍 Allocation existante: solde=${allocationExistante.solde}, compteSourceId=${allocationExistante.compteSourceId}")
-                                    println("[DEBUG_PROVENANCE] 🔍 Nouveau montant: $montantEnDollars, nouveau compte: ${compteSource.id}") 
-                                    println("[DEBUG_PROVENANCE] 🔍 Solde <= 0.01? ${allocationExistante.solde <= 0.01}")
-                                    println("[DEBUG_PROVENANCE] 🔍 Allocation mise à jour: solde=${allocationMiseAJour.solde}, compteSourceId=${allocationMiseAJour.compteSourceId}")
+                                    // Logique de provenance
                                     
                                     try {
                                         allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
@@ -670,11 +665,11 @@ class VirerArgentViewModel(
                                 )
                                 // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
                                 val moisActuel = Date()
-                                try {
-                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                                } catch (e: Exception) {
-                                    println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
-                                }
+                                                        try {
+                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                        } catch (e: Exception) {
+                            // Erreur silencieuse
+                        }
                                 result
                             }
                         } else {
@@ -1244,7 +1239,7 @@ class VirerArgentViewModel(
                             allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
                             allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, moisActuel)
                         } catch (e: Exception) {
-                            println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
+                            // Erreur silencieuse
                         }
                         result
                     } else {
@@ -1280,11 +1275,11 @@ class VirerArgentViewModel(
                         )
                         // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
                         val moisActuel = Date()
-                        try {
-                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                        } catch (e: Exception) {
-                            println("[DEBUG_FUSION] ⚠️ Erreur re-fusion après ArgentService: ${e.message}")
-                        }
+                                                        try {
+                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                } catch (e: Exception) {
+                                    // Erreur silencieuse
+                                }
                         result
                     } else {
                         Result.failure(Exception("Enveloppe source introuvable"))

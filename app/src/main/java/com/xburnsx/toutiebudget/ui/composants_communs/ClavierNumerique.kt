@@ -178,16 +178,14 @@ fun ClavierNumerique(
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(0, RoundingMode.HALF_UP)
                 val resultat = bigDecimal.toLong()
-                println("DEBUG CLAVIER: '$texteNettoye' -> $valeurDouble -> $bigDecimal -> $resultat centimes")
                 resultat
             } catch (e: NumberFormatException) {
-                println("DEBUG CLAVIER: Erreur de conversion pour '$texteNettoye'")
                 0L
             }
         } else {
             texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
         }
-        println("DEBUG CLAVIER FINAL: envoi de $valeurLong centimes au callback")
+
         onMontantChange(valeurLong)
     }
 
@@ -253,7 +251,7 @@ fun ClavierNumerique(
             } else {
                 texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
             }
-            println("DEBUG CLAVIER BACKSPACE: envoi de $valeurLong centimes au callback")
+
             onMontantChange(valeurLong)
         }
 

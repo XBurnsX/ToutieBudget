@@ -55,7 +55,6 @@ fun ModifierTransactionScreen(
                 title = { Text("Modifier Transaction", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
-                        println("DEBUG: Bouton retour cliqué")
                         onNavigateBack()
                     }) {
                         Icon(Icons.Default.ArrowBack, "Retour")

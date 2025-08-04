@@ -122,7 +122,7 @@ class VirementUseCase @Inject constructor(
                     realtimeService.triggerBudgetUpdate()
                 }
             } catch (e: Exception) {
-                // println("[DEBUG] ⚠️ Erreur déclenchement temps réel: ${e.message}")
+                // Erreur silencieuse
             }
 
         }

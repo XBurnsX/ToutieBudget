@@ -100,9 +100,6 @@ class ModifierTransactionViewModel(
 
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
-                println("DEBUG: enveloppesUi.size = ${enveloppesUi.size}")
-                println("DEBUG: allEnveloppes.size = ${allEnveloppes.size}")
-                println("DEBUG: allAllocations.size = ${allAllocations.size}")
                 
                 val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
                 val enveloppesFiltrees = enveloppesGroupees.mapValues { (_, enveloppesCategorie) ->
@@ -112,8 +109,6 @@ class ModifierTransactionViewModel(
                         enveloppesCategorie.indexOfFirst { it.id == enveloppeUi.id }
                     }
                 }
-                
-                println("DEBUG: enveloppesFiltrees total size = ${enveloppesFiltrees.values.sumOf { it.size }}")
 
                 // Remplir le formulaire avec les données de la transaction
                 remplirFormulaireAvecTransaction(transactionAModifier!!)

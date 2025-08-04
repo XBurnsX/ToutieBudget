@@ -259,7 +259,7 @@ class RealtimeSyncService @Inject constructor() {
         startRealtimeSync()
     }
 
-    // Suppression de la fonction de debug et de tous les println/logs
+
     suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
 
