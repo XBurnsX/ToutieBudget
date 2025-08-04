@@ -162,7 +162,7 @@ fun AppNavigation() {
                     transactionId = transactionId,
                     viewModel = viewModel,
                     onTransactionModified = {
-                        // Retour à l'écran précédent après modification
+                        // Retour automatique à l'historique après modification
                         navController.popBackStack()
                     },
                     onNavigateBack = {

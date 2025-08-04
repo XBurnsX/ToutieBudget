@@ -260,12 +260,6 @@ class ModifierTransactionViewModel(
                             transactionModifiee = true
                         )
                     }
-                    
-                    // Réinitialiser transactionModifiee après un délai pour permettre la navigation
-                    kotlinx.coroutines.delay(100)
-                    _uiState.update { 
-                        it.copy(transactionModifiee = false)
-                    }
                 } else {
                     _uiState.update { 
                         it.copy(
@@ -283,6 +277,13 @@ class ModifierTransactionViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Réinitialise le flag transactionModifiee.
+     */
+    fun reinitialiserTransactionModifiee() {
+        _uiState.update { it.copy(transactionModifiee = false) }
     }
 
     /**

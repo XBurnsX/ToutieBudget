@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -31,17 +32,25 @@ fun HistoriqueCompteScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val navigationEvents by viewModel.navigationEvents.collectAsState()
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = uiState.scrollPosition)
     
     // Observer les événements de navigation
     LaunchedEffect(navigationEvents) {
         navigationEvents?.let { event ->
             when (event) {
                 is HistoriqueNavigationEvent.ModifierTransaction -> {
+                    // Sauvegarder la position actuelle avant de naviguer
+                    viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
                     onModifierTransaction(event.transactionId)
                     viewModel.effacerNavigationEvent()
                 }
             }
         }
+    }
+
+    // Sauvegarder la position de scroll quand elle change
+    LaunchedEffect(listState.firstVisibleItemIndex) {
+        viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
     }
 
     Scaffold(
@@ -73,7 +82,10 @@ fun HistoriqueCompteScreen(
             } else if (uiState.transactionsGroupees.isEmpty()) {
                 Text("Aucune transaction pour ce compte.", color = Color.Gray)
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     // Convertir en liste ordonnée pour garantir l'ordre
                     val datesList = uiState.transactionsGroupees.toList()
 

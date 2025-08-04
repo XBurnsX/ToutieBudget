@@ -44,6 +44,8 @@ fun ModifierTransactionScreen(
     LaunchedEffect(uiState.transactionModifiee) {
         if (uiState.transactionModifiee) {
             onTransactionModified()
+            // Réinitialiser immédiatement pour éviter les déclenchements multiples
+            viewModel.reinitialiserTransactionModifiee()
         }
     }
 
@@ -52,7 +54,10 @@ fun ModifierTransactionScreen(
             TopAppBar(
                 title = { Text("Modifier Transaction", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        println("DEBUG: Bouton retour cliqué")
+                        onNavigateBack()
+                    }) {
                         Icon(Icons.Default.ArrowBack, "Retour")
                     }
                 },

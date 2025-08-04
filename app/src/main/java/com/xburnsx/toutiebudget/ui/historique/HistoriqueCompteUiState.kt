@@ -12,7 +12,8 @@ data class HistoriqueCompteUiState(
     val erreur: String? = null,
     val nomCompte: String = "",
     val transactions: List<TransactionUi> = emptyList(),
-    val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap()
+    val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
+    val scrollPosition: Int = 0
 )
 
 /**
