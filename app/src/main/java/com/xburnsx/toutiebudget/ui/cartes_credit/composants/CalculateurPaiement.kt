@@ -184,7 +184,7 @@ fun CalculateurPaiement(
 
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        containerColor = Color(0xFF1A1A1A)
                     )
                 ) {
                     Column(
@@ -199,12 +199,14 @@ fun CalculateurPaiement(
                         ) {
                             Text(
                                 text = "Temps de remboursement :",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White
                             )
                             Text(
                                 text = if (tempsEstime != null) "$tempsEstime mois" else "Impossible",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
                         }
 
@@ -215,13 +217,14 @@ fun CalculateurPaiement(
                             ) {
                                 Text(
                                     text = "Intérêts totaux :",
-                                    style = MaterialTheme.typography.bodySmall
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White
                                 )
                                 Text(
-                                    text = MoneyFormatter.formatAmount(interetsTotal), // Changé CurrencyFormatter vers MoneyFormatter
+                                    text = MoneyFormatter.formatAmount(interetsTotal),
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = Color(0xFFFF6B6B)
                                 )
                             }
                         }

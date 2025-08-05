@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.ui.cartes_credit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
 import com.xburnsx.toutiebudget.data.repositories.impl.CarteCreditRepositoryImpl
 import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
@@ -38,8 +39,17 @@ class CartesCreditViewModel : ViewModel() {
 
             carteCreditRepository.recupererCartesCredit()
                 .onSuccess { cartes ->
+                    // Préserver la carte sélectionnée si elle existe
+                    val carteSelectionneeId = _uiState.value.carteSelectionnee?.id
+                    val nouvelleCarteSelectionnee = if (carteSelectionneeId != null) {
+                        cartes.find { it.id == carteSelectionneeId }
+                    } else {
+                        _uiState.value.carteSelectionnee
+                    }
+                    
                     _uiState.value = _uiState.value.copy(
                         cartesCredit = cartes,
+                        carteSelectionnee = nouvelleCarteSelectionnee,
                         estEnChargement = false
                     )
                 }
@@ -259,12 +269,14 @@ class CartesCreditViewModel : ViewModel() {
                 soldeUtilise = -(formulaire.soldeActuel.toDoubleOrNull() ?: 0.0),
                 limiteCredit = formulaire.limiteCredit.toDoubleOrNull() ?: 0.0,
                 tauxInteret = formulaire.tauxInteret.toDoubleOrNull(),
-                couleur = formulaire.couleur
+                couleur = formulaire.couleur,
+                collection = "comptes_credits"
             )
 
             carteCreditRepository.mettreAJourCarteCredit(carteModifiee)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(afficherDialogModification = false)
+                    // Recharger les cartes (la carte sélectionnée sera préservée automatiquement)
                     chargerCartesCredit()
                 }
                 .onFailure { erreur ->
@@ -410,9 +422,11 @@ class CartesCreditViewModel : ViewModel() {
      * Affiche le dialog de modification des frais mensuels fixes.
      */
     fun afficherDialogModificationFrais(carte: CompteCredit) {
+        // Pour l'instant, on utilise le premier frais ou des valeurs vides
+        val premierFrais = carte.fraisMensuels.firstOrNull()
         _formulaire.value = _formulaire.value.copy(
-            fraisMensuelsFixes = carte.fraisMensuelsFixes?.toString() ?: "",
-            nomFraisMensuels = carte.nomFraisMensuels ?: ""
+            fraisMensuelsFixes = premierFrais?.montant?.toString() ?: "",
+            nomFraisMensuels = premierFrais?.nom ?: ""
         )
         _uiState.value = _uiState.value.copy(
             carteSelectionnee = carte,
@@ -458,9 +472,26 @@ class CartesCreditViewModel : ViewModel() {
 
             val frais = _formulaire.value.fraisMensuelsFixes.toDoubleOrNull()
             val nomFrais = _formulaire.value.nomFraisMensuels.takeIf { it.isNotBlank() }
+            
+            // Créer un nouveau frais mensuel
+            val nouveauFrais = if (frais != null && nomFrais != null) {
+                listOf(FraisMensuel(nom = nomFrais, montant = frais))
+            } else {
+                emptyList<FraisMensuel>()
+            }
+            
+            // Convertir en JsonElement
+            val fraisJson = if (nouveauFrais.isNotEmpty()) {
+                val gson = com.google.gson.Gson()
+                val jsonString = gson.toJson(nouveauFrais.toTypedArray())
+                gson.fromJson(jsonString, com.google.gson.JsonElement::class.java)
+            } else {
+                null
+            }
+            
             val carteModifiee = carteOriginale.copy(
-                fraisMensuelsFixes = frais,
-                nomFraisMensuels = nomFrais
+                fraisMensuelsJson = fraisJson,
+                collection = "comptes_credits"
             )
 
             carteCreditRepository.mettreAJourCarteCredit(carteModifiee)

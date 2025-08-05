@@ -44,20 +44,22 @@ fun CarteCreditDetailCard(
                     text = carte.nom,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = try {
+                        Color(android.graphics.Color.parseColor(carte.couleur))
+                    } catch (e: Exception) {
+                        Color.White
+                    }
                 )
                 
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(
-                            color = try {
-                                Color(android.graphics.Color.parseColor(carte.couleur))
-                            } catch (e: Exception) {
-                                Color(0xFF2196F3)
-                            },
-                            shape = CircleShape
-                        )
+                Icon(
+                    imageVector = Icons.Default.CreditCard,
+                    contentDescription = "Carte de crédit",
+                    tint = try {
+                        Color(android.graphics.Color.parseColor(carte.couleur))
+                    } catch (e: Exception) {
+                        Color(0xFF2196F3)
+                    },
+                    modifier = Modifier.size(24.dp)
                 )
             }
 

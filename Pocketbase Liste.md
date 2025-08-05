@@ -31,12 +31,13 @@ Stocke les cartes de crédit.
 | :---- | :---- | :---- |
 | utilisateur\_id | Relation (users) | Lie le compte à un utilisateur. **(Non nul)** |
 | nom | Text | Nom de la carte. **(Non nul)** |
-| solde | Number | Solde actuel (généralement négatif). **(Non nul, défaut: 0\)** |
+| solde\_utilise | Number | Solde utilisé sur la carte (généralement négatif). **(Non nul, défaut: 0\)** |
 | limite\_credit | Number | Limite de la carte de crédit. |
-| interet | Number | Taux d'intérêt en %. |
+| taux\_interet | Number | Taux d'intérêt en %. |
 | couleur | Text | Code couleur hexadécimal. **(Non nul)** |
-| est\_archive | Bool | true si la carte est archivée. **(Défaut: false)** |
+| archive | Bool | true si la carte est archivée. **(Défaut: false)** |
 | ordre | Number | Pour le tri manuel de l'affichage. |
+| frais\_mensuels\_json | Text | JSON array des frais mensuels fixes. **(Peut être nul)** |
 
 #### **Collection : comptes\_dette**
 

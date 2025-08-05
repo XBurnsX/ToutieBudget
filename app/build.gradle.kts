@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "com.xburnsx.toutiebudget"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.xburnsx.toutiebudget"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 11  // ← BUILD 1.0 build 11
         versionName = "1.0"
 
@@ -71,6 +71,8 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.7.2")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
@@ -85,6 +87,7 @@ dependencies {
     
     // Splash screen natif Android
     implementation("androidx.core:core-splashscreen:1.0.1")
-    
+    debugImplementation(libs.ui.tooling)
+
     // ...existing dependencies...
 }

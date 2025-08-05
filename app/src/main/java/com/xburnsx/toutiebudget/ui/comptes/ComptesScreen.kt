@@ -135,7 +135,7 @@ fun ComptesScreen(
                                 onDeplacerCompte = viewModel::onDeplacerCompte,
                                 onDebuterDeplacement = viewModel::onDebuterDeplacementCompte,
                                 onTerminerDeplacement = viewModel::onTerminerDeplacementCompte,
-                                modifier = Modifier.animateItemPlacement()
+                                modifier = Modifier
                             )
                         } else {
                             // Mode normal : utiliser le composant standard

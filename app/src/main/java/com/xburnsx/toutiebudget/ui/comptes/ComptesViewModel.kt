@@ -116,7 +116,7 @@ class ComptesViewModel(
                     else -> {
                         // Pour les autres types de comptes, juste changer le solde
                         val compteReconcilie = when (compte) {
-                            is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde) // Changé solde vers soldeUtilise
+                            is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde, collection = "comptes_credits") // Changé solde vers soldeUtilise
                             is CompteDette -> compte.copy(solde = nouveauSolde)
                             is CompteInvestissement -> compte.copy(solde = nouveauSolde)
                             else -> return@launch

@@ -1,6 +1,8 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit.composants
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -41,7 +43,7 @@ fun FraisMensuelsCard(
                     Icon(
                         imageVector = Icons.Default.Receipt,
                         contentDescription = null,
-                        tint = Color(0xFF64B5F6),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
@@ -59,7 +61,7 @@ fun FraisMensuelsCard(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Modifier les frais",
-                        tint = Color(0xFF64B5F6),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -67,33 +69,39 @@ fun FraisMensuelsCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (carte.fraisMensuelsFixes != null && carte.fraisMensuelsFixes > 0) {
+            if (carte.fraisMensuels.isNotEmpty()) {
                 // Affichage des frais existants
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = carte.nomFraisMensuels ?: "Frais mensuel",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFB0B0B0)
-                        )
-                        Text(
-                            text = MoneyFormatter.formatAmount(carte.fraisMensuelsFixes),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF64B5F6)
-                        )
+                Column {
+                    carte.fraisMensuels.forEach { frais ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = frais.nom,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFFB0B0B0)
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatAmount(frais.montant),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(24.dp)
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -127,7 +135,7 @@ fun FraisMensuelsCard(
                             color = Color(0xFFB0B0B0)
                         )
                         Text(
-                            text = "+${MoneyFormatter.formatAmount(carte.fraisMensuelsFixes)}",
+                            text = "+${MoneyFormatter.formatAmount(carte.totalFraisMensuels)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFFFF6B6B)
                         )
@@ -172,6 +180,9 @@ fun FraisMensuelsCard(
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 fun FraisMensuelsCardPreview() {
+    val gson = com.google.gson.Gson()
+    val fraisJson = gson.fromJson("[{\"nom\":\"Assurance\",\"montant\":15.50}]", com.google.gson.JsonElement::class.java)
+    
     val carteCredit = CompteCredit(
         id = "1",
         utilisateurId = "user1",
@@ -182,8 +193,7 @@ fun FraisMensuelsCardPreview() {
         ordre = 1,
         limiteCredit = 10000.0,
         tauxInteret = 19.99,
-        fraisMensuelsFixes = 15.50,
-        nomFraisMensuels = "Assurance"
+        fraisMensuelsJson = fraisJson
     )
     
     FraisMensuelsCard(

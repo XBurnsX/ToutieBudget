@@ -15,6 +15,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.CarteCreditDetailCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.CalculateurPaiement
@@ -25,6 +29,7 @@ import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierCarteCreditDial
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.PlanRemboursementDialog
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierFraisDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.DialogErreur
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +40,11 @@ fun GestionCarteCreditScreen(
     onRetour: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // États pour le clavier numérique
+    var showKeyboard by remember { mutableStateOf(false) }
+    var montantClavierInitial by remember { mutableStateOf(0L) }
+    var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
 
     // Charger la carte spécifique au démarrage
     LaunchedEffect(carteCreditId) {
@@ -208,7 +218,12 @@ fun GestionCarteCreditScreen(
             onNomFraisChange = viewModel::mettreAJourNomFraisMensuels,
             onFraisChange = viewModel::mettreAJourFraisMensuelsFixes,
             onSauvegarder = viewModel::sauvegarderModificationFrais,
-            onDismiss = viewModel::fermerDialogs
+            onDismiss = viewModel::fermerDialogs,
+            onOpenKeyboard = { montantInitial, callback ->
+                montantClavierInitial = montantInitial
+                onMontantChangeCallback = callback
+                showKeyboard = true
+            }
         )
     }
 
@@ -219,6 +234,45 @@ fun GestionCarteCreditScreen(
             messageErreur = erreur,
             onDismiss = viewModel::effacerErreur
         )
+    }
+
+    // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal
+    if (showKeyboard) {
+        Dialog(
+            onDismissRequest = {
+                showKeyboard = false
+                onMontantChangeCallback = null
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            // Le Dialog garantit que le clavier sera au-dessus de tout
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Permet de cliquer à travers la Box pour fermer le dialogue
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            showKeyboard = false
+                            onMontantChangeCallback = null
+                        }
+                    },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // Le clavier lui-même
+                ClavierNumerique(
+                    montantInitial = montantClavierInitial,
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = { nouveauMontant ->
+                        onMontantChangeCallback?.invoke(nouveauMontant)
+                    },
+                    onFermer = {
+                        showKeyboard = false
+                        onMontantChangeCallback = null
+                    }
+                )
+            }
+        }
     }
 }
 

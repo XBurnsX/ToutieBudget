@@ -109,7 +109,7 @@ class CompteRepositoryImpl : CompteRepository {
                     utilisateurId = utilisateurId,
                     pretAPlacerRaw = compte.solde // Initialiser pret_a_placer avec le solde
                 )
-                is CompteCredit -> compte.copy(utilisateurId = utilisateurId)
+                is CompteCredit -> compte.copy(utilisateurId = utilisateurId, collection = "comptes_credits")
                 is CompteDette -> compte.copy(utilisateurId = utilisateurId)
                 is CompteInvestissement -> compte.copy(utilisateurId = utilisateurId)
             }

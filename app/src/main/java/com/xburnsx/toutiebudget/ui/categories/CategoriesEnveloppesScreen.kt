@@ -252,7 +252,7 @@ fun CategoriesEnveloppesScreen(
                                 onDebuterDeplacementEnveloppe = viewModel::onDebuterDeplacementEnveloppe,
                                 onTerminerDeplacementEnveloppe = viewModel::onTerminerDeplacementEnveloppe,
                                 enveloppeEnDeplacement = uiState.enveloppeEnDeplacement,
-                                modifier = Modifier.animateItemPlacement()
+                                modifier = Modifier
                             )
                         } else {
                             // Mode normal : utiliser le composant standard
@@ -268,7 +268,7 @@ fun CategoriesEnveloppesScreen(
                                 onSupprimerCategorie = { nom ->
                                     viewModel.onOuvrirConfirmationSuppressionCategorie(nom)
                                 },
-                                modifier = Modifier.animateItemPlacement()
+                                modifier = Modifier
                             )
                         }
                     }

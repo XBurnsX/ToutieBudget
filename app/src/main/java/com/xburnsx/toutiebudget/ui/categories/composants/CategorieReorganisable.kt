@@ -87,7 +87,7 @@ fun LazyItemScope.CategorieReorganisable(
                 this.alpha = alpha
             }
             .zIndex(if (isEnDeplacement) 1f else 0f)
-            .animateItemPlacement(),
+            ,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isModeReorganisation)
