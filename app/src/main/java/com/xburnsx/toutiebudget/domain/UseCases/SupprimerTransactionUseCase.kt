@@ -96,16 +96,16 @@ class SupprimerTransactionUseCase(
             // Rembourser chaque fraction
             for (sousItem in sousItems) {
                 val allocationId = sousItem["allocation_mensuelle_id"] as? String
-                val montantEnCentimes = (sousItem["montant"] as? Double) ?: 0.0
+                val montantEnDollars = (sousItem["montant"] as? Double) ?: 0.0
                 
                 if (allocationId != null) {
                     // Récupérer l'allocation
                     val allocation = allocationMensuelleRepository.getAllocationById(allocationId)
                     if (allocation != null) {
-                        // Rembourser en soustrayant le montant (convertir centimes en dollars)
+                        // Rembourser en soustrayant le montant (déjà en dollars dans le JSON)
                         val allocationRemboursee = allocation.copy(
-                            depense = allocation.depense - (montantEnCentimes / 100.0),
-                            solde = allocation.solde + (montantEnCentimes / 100.0)
+                            depense = allocation.depense - montantEnDollars,
+                            solde = allocation.solde + montantEnDollars
                         )
                         allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
                     }

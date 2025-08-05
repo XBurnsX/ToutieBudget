@@ -159,7 +159,8 @@ class ModifierTransactionViewModel(
                 jsonArray.mapNotNull { element ->
                     val obj = element.asJsonObject
                     val description = obj.get("description")?.asString ?: ""
-                    val montant = obj.get("montant")?.asDouble ?: 0.0
+                    val montantEnDollars = obj.get("montant")?.asDouble ?: 0.0
+                    val montant = (montantEnDollars * 100).toDouble() // Convertir dollars en centimes
                     val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
                     val note = obj.get("note")?.asString ?: ""
                     
@@ -270,7 +271,7 @@ class ModifierTransactionViewModel(
                 val maintenant = java.time.LocalDateTime.now()
                 val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                 
-                // ÉTAPE 1: Supprimer complètement l'ancienne transaction et rembourser les enveloppes
+                // ÉTAPE 1: Rembourser les anciennes allocations si c'est une transaction fractionnée
                 if (transactionAModifier!!.estFractionnee && transactionAModifier!!.sousItems != null) {
                     // Rembourser les allocations des fractions existantes
                     try {
@@ -284,43 +285,33 @@ class ModifierTransactionViewModel(
                         // Rembourser les effets des anciennes allocations
                         for (ancienSousItem in anciensSousItems) {
                             val ancienneAllocationId = ancienSousItem["allocation_mensuelle_id"] as? String
-                            val ancienMontantEnCentimes = (ancienSousItem["montant"] as? Double) ?: 0.0
+                            val ancienMontantEnDollars = (ancienSousItem["montant"] as? Double) ?: 0.0
                             
                             if (ancienneAllocationId != null) {
+                                // Récupérer l'allocation
                                 val ancienneAllocation = allocationMensuelleRepository.getAllocationById(ancienneAllocationId)
                                 if (ancienneAllocation != null) {
-                                    // Rembourser en soustrayant le montant (convertir centimes en dollars)
+                                    // Rembourser en soustrayant le montant (déjà en dollars dans le JSON)
                                     val allocationRemboursee = ancienneAllocation.copy(
-                                        depense = ancienneAllocation.depense - (ancienMontantEnCentimes / 100.0),
-                                        solde = ancienneAllocation.solde + (ancienMontantEnCentimes / 100.0)
+                                        depense = ancienneAllocation.depense - ancienMontantEnDollars,
+                                        solde = ancienneAllocation.solde + ancienMontantEnDollars
                                     )
                                     allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
                                 }
                             }
                         }
                     } catch (e: Exception) {
-                        println("Erreur lors du remboursement des anciennes allocations: ${e.message}")
-                    }
-                } else if (transactionAModifier!!.allocationMensuelleId != null) {
-                    // Rembourser l'allocation normale
-                    val ancienneAllocation = allocationMensuelleRepository.getAllocationById(transactionAModifier!!.allocationMensuelleId!!)
-                    if (ancienneAllocation != null) {
-                        val montantAncien = transactionAModifier!!.montant / 100.0 // Convertir en dollars
-                        val allocationRemboursee = ancienneAllocation.copy(
-                            depense = ancienneAllocation.depense - montantAncien,
-                            solde = ancienneAllocation.solde + montantAncien
-                        )
-                        allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                        // Ignorer l'erreur de parsing, continuer
                     }
                 }
                 
-                // Supprimer l'ancienne transaction AVANT de créer la nouvelle
-                val resultSuppression = supprimerTransactionUseCase.executer(transactionAModifier!!.id)
+                // ÉTAPE 2: Supprimer l'ancienne transaction
+                val resultSuppression = transactionRepository.supprimerTransaction(transactionAModifier!!.id)
                 if (resultSuppression.isFailure) {
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
                 }
                 
-                // ÉTAPE 2: Créer une nouvelle transaction avec les nouveaux détails
+                // ÉTAPE 3: Créer une nouvelle transaction avec les nouveaux détails
                 if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
                     // Créer une nouvelle transaction fractionnée
                     val fractions = state.fractionsSauvegardees
