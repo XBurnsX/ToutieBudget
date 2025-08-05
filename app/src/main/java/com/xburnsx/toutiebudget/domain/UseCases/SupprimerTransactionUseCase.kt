@@ -14,7 +14,8 @@ import kotlinx.coroutines.coroutineScope
 class SupprimerTransactionUseCase(
     private val transactionRepository: TransactionRepository,
     private val compteRepository: CompteRepository,
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository
 ) {
 
     /**
@@ -45,9 +46,13 @@ class SupprimerTransactionUseCase(
                     )
                 })
 
-                // Annuler l'effet de la transaction sur l'enveloppe si c'était une dépense
+                // Gérer les allocations selon le type de transaction
                 tachesMiseAJour.add(async { 
-                    if (transaction.allocationMensuelleId != null && transaction.type == TypeTransaction.Depense) {
+                    if (transaction.estFractionnee && transaction.sousItems != null) {
+                        // Transaction fractionnée : rembourser toutes les allocations des fractions
+                        rembourserTransactionFractionnee(transaction.sousItems)
+                    } else if (transaction.allocationMensuelleId != null && transaction.type == TypeTransaction.Depense) {
+                        // Transaction normale : rembourser l'allocation normale
                         enveloppeRepository.annulerDepenseAllocation(transaction.allocationMensuelleId, transaction.montant)
                     } else {
                         Result.success(Unit)
@@ -74,6 +79,38 @@ class SupprimerTransactionUseCase(
 
                 Result.success(Unit)
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Rembourse toutes les allocations d'une transaction fractionnée.
+     */
+    private suspend fun rembourserTransactionFractionnee(sousItemsJson: String): Result<Unit> {
+        return try {
+            val gson = com.google.gson.Gson()
+            val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
+            val sousItems = gson.fromJson<List<Map<String, Any>>>(sousItemsJson, type)
+            
+            // Rembourser chaque fraction
+            for (sousItem in sousItems) {
+                val allocationId = sousItem["allocation_mensuelle_id"] as String
+                val montant = (sousItem["montant"] as Double)
+                
+                // Récupérer l'allocation
+                val allocation = allocationMensuelleRepository.getAllocationById(allocationId)
+                if (allocation != null) {
+                    // Rembourser en soustrayant le montant (inverse de l'ajout)
+                    val allocationRemboursee = allocation.copy(
+                        depense = allocation.depense - montant,
+                        solde = allocation.solde + montant
+                    )
+                    allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                }
+            }
+            
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -60,7 +60,8 @@ data class AjoutTransactionUiState(
     // --- Fractionnement ---
     val estEnModeFractionnement: Boolean = false,
     val fractionnementEffectue: Boolean = false,
-    val fractionsSauvegardees: List<FractionTransaction> = emptyList()
+    val fractionsSauvegardees: List<FractionTransaction> = emptyList(),
+    val estFractionnee: Boolean = false
 ) {
     
     /**

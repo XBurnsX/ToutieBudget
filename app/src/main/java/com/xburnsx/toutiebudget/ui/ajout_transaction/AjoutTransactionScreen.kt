@@ -72,7 +72,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
         val montantTotal = montantTotalEnCents / 100.0 // Convertir en dollars
         FractionnementDialog(
             montantTotal = montantTotal,
-            enveloppesDisponibles = uiState.enveloppesDisponibles,
+            enveloppesDisponibles = uiState.enveloppesFiltrees,
             fractionsInitiales = uiState.fractionsSauvegardees, // Passer les fractions sauvegardées
             onFractionnementConfirme = { fractions ->
                 viewModel.confirmerFractionnement(fractions)

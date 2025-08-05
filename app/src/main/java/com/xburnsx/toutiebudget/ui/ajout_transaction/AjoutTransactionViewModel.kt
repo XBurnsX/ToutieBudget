@@ -469,8 +469,8 @@ class AjoutTransactionViewModel(
                             mois = dateTransaction // Mois de la transaction
                         )
                         
-                        // Convertir le montant de centimes en dollars pour le JSON
-                        val montantEnDollars = fraction.montant / 100.0
+                        // Le montant est déjà en dollars
+                        val montantEnDollars = fraction.montant
                         
                         // Déterminer la collection du compte
                         val collectionCompte = when (compte) {
@@ -643,6 +643,11 @@ class AjoutTransactionViewModel(
      * Ouvre l'interface de fractionnement de transaction.
      */
     fun ouvrirFractionnement() {
+        // S'assurer que les enveloppes sont chargées
+        if (_uiState.value.enveloppesDisponibles.isEmpty()) {
+            // Recharger les données si les enveloppes ne sont pas disponibles
+            chargerDonneesInitiales()
+        }
         _uiState.update { it.copy(estEnModeFractionnement = true) }
     }
 
@@ -657,7 +662,7 @@ class AjoutTransactionViewModel(
      * Confirme le fractionnement de la transaction.
      */
     fun confirmerFractionnement(fractions: List<FractionTransaction>) {
-        // Les montants sont déjà en cents dans le dialog, pas besoin de conversion
+        // Les montants sont maintenant en dollars dans le dialog
         _uiState.update { 
             it.copy(
                 estEnModeFractionnement = false,

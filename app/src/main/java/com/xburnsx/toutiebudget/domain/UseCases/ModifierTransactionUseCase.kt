@@ -32,6 +32,8 @@ class ModifierTransactionUseCase(
      * @param tiersNom Nouveau tiers associé à la transaction
      * @param note Nouvelle note facultative
      * @param date Nouvelle date de la transaction
+     * @param estFractionnee Si la transaction est fractionnée
+     * @param sousItems JSON des sous-items pour les transactions fractionnées
      * 
      * @return Result indiquant le succès ou l'échec avec l'exception
      */
@@ -44,7 +46,9 @@ class ModifierTransactionUseCase(
         enveloppeId: String? = null,
         tiersNom: String? = null,
         note: String? = null,
-        date: Date = Date()
+        date: Date = Date(),
+        estFractionnee: Boolean = false,
+        sousItems: String? = null
     ): Result<Unit> {
         
         if (montant <= 0) {
@@ -95,8 +99,10 @@ class ModifierTransactionUseCase(
                     note = note,
                     compteId = compteId,
                     collectionCompte = collectionCompte,
-                    allocationMensuelleId = allocationMensuelleId,
-                    tiers = tiersNom
+                    allocationMensuelleId = if (estFractionnee) null else allocationMensuelleId, // Pas d'allocation pour les transactions fractionnées
+                    tiers = tiersNom,
+                    estFractionnee = estFractionnee,
+                    sousItems = sousItems
                 )
 
                 val resultTransaction = transactionRepository.mettreAJourTransaction(transactionModifiee)

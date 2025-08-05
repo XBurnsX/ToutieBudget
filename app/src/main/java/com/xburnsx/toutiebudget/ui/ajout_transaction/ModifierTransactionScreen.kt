@@ -13,10 +13,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.domain.usecases.ModifierTransactionUseCase
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.*
@@ -47,6 +50,18 @@ fun ModifierTransactionScreen(
             // Réinitialiser immédiatement pour éviter les déclenchements multiples
             viewModel.reinitialiserTransactionModifiee()
         }
+    }
+
+    // États pour le clavier global
+    var afficherClavier by remember { mutableStateOf(false) }
+    var montantClavier by remember { mutableStateOf(0L) }
+    var onMontantChangeClavier by remember { mutableStateOf<(Long) -> Unit>({}) }
+
+    // Fonction pour ouvrir le clavier
+    val ouvrirClavier = { montantInitial: Long, onMontantChange: (Long) -> Unit ->
+        montantClavier = montantInitial
+        onMontantChangeClavier = onMontantChange
+        afficherClavier = true
     }
 
     Scaffold(
@@ -140,14 +155,24 @@ fun ModifierTransactionScreen(
                     ChampUniversel(
                         valeur = uiState.montant.toLongOrNull() ?: 0L,
                         onValeurChange = { nouveauMontant ->
+                            // Le nouveauMontant est déjà en centimes, on le convertit en string
                             viewModel.onMontantChanged(nouveauMontant.toString())
                         },
                         modifier = Modifier.fillMaxWidth(),
                         libelle = "Montant de la transaction",
-                        utiliserClavier = true,
+                        utiliserClavier = false, // Désactiver le clavier intégré
                         isMoney = true,
                         couleurValeur = obtenirCouleurMontant(uiState),
-                        tailleValeur = 30.sp
+                        tailleValeur = 30.sp,
+                        onClicPersonnalise = {
+                            // Ouvrir le clavier global quand on clique sur le champ
+                            ouvrirClavier(
+                                uiState.montant.toLongOrNull() ?: 0L,
+                                { nouveauMontant ->
+                                    viewModel.onMontantChanged(nouveauMontant.toString())
+                                }
+                            )
+                        }
                     )
 
                     // Sélecteur de tiers
@@ -209,69 +234,160 @@ fun ModifierTransactionScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Bouton de sauvegarde fixé en bas
+                // Boutons d'action fixés en bas
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            Color(0xFF404040)
-                        }
-                    ),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
-                                         Button(
-                         onClick = {
-                             viewModel.modifierTransaction()
-                             // Retourner immédiatement après avoir lancé la modification
-                             onTransactionModified()
-                         },
-                        enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = Color.White.copy(alpha = 0.5f)
-                        )
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (uiState.estEnTrainDeSauvegarder) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                                Text(
-                                    text = "Modification...",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        } else {
+                        // Bouton Fractionner (gauche)
+                        Button(
+                            onClick = { viewModel.ouvrirFractionnement() },
+                            enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.peutFractionner) {
+                                    MaterialTheme.colorScheme.secondary
+                                } else {
+                                    Color(0xFF404040)
+                                },
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFF404040),
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Save,
-                                    contentDescription = null
+                                    imageVector = Icons.Default.CallSplit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Modifier la transaction",
-                                    fontSize = 16.sp,
+                                    text = "Fractionner",
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
+
+                        // Bouton Modifier (droite)
+                        Button(
+                            onClick = {
+                                viewModel.modifierTransaction()
+                                // Retourner immédiatement après avoir lancé la modification
+                                onTransactionModified()
+                            },
+                            enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.peutSauvegarder) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color(0xFF404040)
+                                },
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFF404040),
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            if (uiState.estEnTrainDeSauvegarder) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "Modification...",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Modifier",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Dialog de fractionnement
+            if (uiState.estEnModeFractionnement) {
+                val montantTotalEnCents = uiState.montant.toLongOrNull() ?: 0L
+                val montantTotal = montantTotalEnCents / 100.0 // Convertir en dollars
+                FractionnementDialog(
+                    montantTotal = montantTotal,
+                    enveloppesDisponibles = uiState.enveloppesFiltrees,
+                    fractionsInitiales = uiState.fractionsSauvegardees, // Passer les fractions sauvegardées
+                    onFractionnementConfirme = { fractions ->
+                        viewModel.confirmerFractionnement(fractions)
+                    },
+                    onDismiss = {
+                        viewModel.fermerFractionnement()
+                    },
+                    onOpenKeyboard = ouvrirClavier
+                )
+            }
+
+            // Clavier numérique global
+            if (afficherClavier) {
+                Dialog(
+                    onDismissRequest = {
+                        afficherClavier = false
+                        onMontantChangeClavier = {}
+                    },
+                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    // Le Dialog garantit que le clavier sera au-dessus de tout
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        // Le clavier lui-même
+                        ClavierNumerique(
+                            montantInitial = montantClavier,
+                            isMoney = true,
+                            suffix = "",
+                            onMontantChange = { nouveauMontant ->
+                                onMontantChangeClavier(nouveauMontant)
+                            },
+                            onFermer = {
+                                afficherClavier = false
+                                onMontantChangeClavier = {}
+                            }
+                        )
                     }
                 }
             }

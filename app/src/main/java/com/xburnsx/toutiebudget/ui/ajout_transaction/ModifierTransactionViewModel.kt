@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.usecases.ModifierTransactionUseCase
+import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
+import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +30,10 @@ class ModifierTransactionViewModel(
     private val categorieRepository: CategorieRepository,
     private val tiersRepository: TiersRepository,
     private val transactionRepository: TransactionRepository,
-    private val modifierTransactionUseCase: ModifierTransactionUseCase
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
+    private val modifierTransactionUseCase: ModifierTransactionUseCase,
+    private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
+    private val supprimerTransactionUseCase: SupprimerTransactionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
@@ -145,12 +151,38 @@ class ModifierTransactionViewModel(
      * Remplit le formulaire avec les données de la transaction existante.
      */
     private fun remplirFormulaireAvecTransaction(transaction: Transaction) {
+        // Parser les fractions si c'est une transaction fractionnée
+        val fractionsInitiales = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+            try {
+                val gson = com.google.gson.Gson()
+                val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
+                jsonArray.mapNotNull { element ->
+                    val obj = element.asJsonObject
+                    val description = obj.get("description")?.asString ?: ""
+                    val montant = obj.get("montant")?.asDouble ?: 0.0
+                    val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
+                    val note = obj.get("note")?.asString ?: ""
+                    
+                    FractionTransaction(
+                        id = "temp_${jsonArray.indexOf(element) + 1}",
+                        enveloppeId = enveloppeId,
+                        montant = montant, // Déjà en Double
+                        note = note.ifBlank { description }
+                    )
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
         _uiState.update { state ->
             state.copy(
                 typeTransaction = transaction.type,
                 montant = (transaction.montant * 100).toLong().toString(), // Convertir en centimes
                 compteSelectionne = allComptes.find { it.id == transaction.compteId },
-                enveloppeSelectionnee = if (transaction.allocationMensuelleId != null) {
+                enveloppeSelectionnee = if (transaction.allocationMensuelleId != null && !transaction.estFractionnee) {
                     // Essayer de trouver l'allocation dans les allocations chargées
                     allAllocations.find { it.id == transaction.allocationMensuelleId }?.let { allocation ->
                         allEnveloppes.find { enveloppe -> enveloppe.id == allocation.enveloppeId }?.let { construireEnveloppeUi(it) }
@@ -167,7 +199,10 @@ class ModifierTransactionViewModel(
                     transaction.tiers ?: ""
                 },
                 note = transaction.note ?: "",
-                dateTransaction = transaction.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                dateTransaction = transaction.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
+                estFractionnee = transaction.estFractionnee,
+                fractionnementEffectue = transaction.estFractionnee,
+                fractionsSauvegardees = fractionsInitiales
             ).calculerValidite() // ✅ Ajouter calculerValidite() ici
         }
     }
@@ -220,7 +255,7 @@ class ModifierTransactionViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, messageErreur = null) }
+            _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
             
             try {
                 val collectionCompte = when (state.compteSelectionne) {
@@ -231,45 +266,191 @@ class ModifierTransactionViewModel(
                     else -> "comptes_cheques"
                 }
                 
-                 // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
-                 // pour utiliser l'heure réelle de création de la transaction
+                // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
                 val maintenant = java.time.LocalDateTime.now()
                 val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
-                 
-                 val result = modifierTransactionUseCase.executer(
-                     transactionId = transactionAModifier!!.id,
-                     typeTransaction = state.typeTransaction,
-                     montant = montantEnDollars,
-                     compteId = state.compteSelectionne!!.id,
-                     collectionCompte = collectionCompte,
-                     enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) state.enveloppeSelectionnee?.id else null,
-                     tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() },
-                     note = state.note.takeIf { it.isNotBlank() },
-                     date = dateTransaction // Utiliser la date convertie
-                 )
-
-                if (result.isSuccess) {
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false,
-                            messageErreur = null,
-                            transactionModifiee = true
+                
+                // ÉTAPE 1: Supprimer complètement l'ancienne transaction et rembourser les enveloppes
+                if (transactionAModifier!!.estFractionnee && transactionAModifier!!.sousItems != null) {
+                    // Rembourser les allocations des fractions existantes
+                    try {
+                        val gson = com.google.gson.Gson()
+                        val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
+                        val anciensSousItems = gson.fromJson<List<Map<String, Any>>>(
+                            transactionAModifier!!.sousItems,
+                            type
+                        )
+                        
+                        // Rembourser les effets des anciennes allocations
+                        for (ancienSousItem in anciensSousItems) {
+                            val ancienneAllocationId = ancienSousItem["allocation_mensuelle_id"] as String
+                            val ancienMontant = (ancienSousItem["montant"] as Double)
+                            
+                            val ancienneAllocation = allocationMensuelleRepository.getAllocationById(ancienneAllocationId)
+                            if (ancienneAllocation != null) {
+                                // Rembourser en soustrayant le montant (inverse de l'ajout)
+                                val allocationRemboursee = ancienneAllocation.copy(
+                                    depense = ancienneAllocation.depense - ancienMontant,
+                                    solde = ancienneAllocation.solde + ancienMontant
+                                )
+                                allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("Erreur lors du remboursement des anciennes allocations: ${e.message}")
+                    }
+                } else if (transactionAModifier!!.allocationMensuelleId != null) {
+                    // Rembourser l'allocation normale
+                    val ancienneAllocation = allocationMensuelleRepository.getAllocationById(transactionAModifier!!.allocationMensuelleId!!)
+                    if (ancienneAllocation != null) {
+                        val montantAncien = transactionAModifier!!.montant / 100.0 // Convertir en dollars
+                        val allocationRemboursee = ancienneAllocation.copy(
+                            depense = ancienneAllocation.depense - montantAncien,
+                            solde = ancienneAllocation.solde + montantAncien
+                        )
+                        allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                    }
+                }
+                
+                // Supprimer l'ancienne transaction AVANT de créer la nouvelle
+                supprimerTransactionUseCase.executer(transactionAModifier!!.id)
+                
+                // ÉTAPE 2: Créer une nouvelle transaction avec les nouveaux détails
+                if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
+                    // Créer une nouvelle transaction fractionnée
+                    val fractions = state.fractionsSauvegardees
+                    
+                    // Convertir les fractions en JSON pour sousItems
+                    val sousItems = fractions.mapIndexed { index, fraction ->
+                        // Récupérer ou créer l'allocation mensuelle pour cette enveloppe
+                        val allocationActuelle = allocationMensuelleRepository.recupererOuCreerAllocation(
+                            enveloppeId = fraction.enveloppeId,
+                            mois = dateTransaction
+                        )
+                        
+                        // Le montant est déjà en dollars
+                        val montantEnDollars = fraction.montant
+                        
+                        // Mettre à jour l'allocation avec le compte source si pas déjà défini
+                        if (allocationActuelle.compteSourceId == null) {
+                            val allocationMiseAJour = allocationActuelle.copy(
+                                compteSourceId = state.compteSelectionne!!.id,
+                                collectionCompteSource = collectionCompte
+                            )
+                            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                        }
+                        
+                        // Récupérer le nom de l'enveloppe pour la description
+                        val nomEnveloppe = allEnveloppes.find { it.id == fraction.enveloppeId }?.nom ?: "Enveloppe"
+                        
+                        mapOf(
+                            "id" to "temp_${index + 1}",
+                            "description" to nomEnveloppe,
+                            "enveloppeId" to fraction.enveloppeId,
+                            "montant" to montantEnDollars,
+                            "allocation_mensuelle_id" to allocationActuelle.id,
+                            "transactionParenteId" to null
                         )
                     }
-                    // Retourner immédiatement après le succès
-                    return@launch
+                    
+                    val gson = com.google.gson.Gson()
+                    val sousItemsJson = gson.toJson(sousItems)
+
+                    // Créer une nouvelle transaction avec estFractionnee = true
+                    val result = enregistrerTransactionUseCase.executer(
+                        typeTransaction = state.typeTransaction,
+                        montant = montantEnDollars,
+                        compteId = state.compteSelectionne!!.id,
+                        collectionCompte = collectionCompte,
+                        enveloppeId = null, // Pas d'enveloppe pour la transaction principale
+                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                        note = state.note.takeIf { it.isNotBlank() },
+                        date = dateTransaction,
+                        estFractionnee = true,
+                        sousItems = sousItemsJson
+                    )
+
+                    if (result.isSuccess) {
+                        // Mettre à jour les allocations mensuelles en utilisant les données du JSON
+                        for (sousItem in sousItems) {
+                            val allocationId = sousItem["allocation_mensuelle_id"] as String
+                            val montantEnDollars = sousItem["montant"] as Double
+                            
+                            // Récupérer l'allocation par son ID (frais depuis la base de données)
+                            val allocationActuelle = allocationMensuelleRepository.getAllocationById(allocationId)
+                            
+                            if (allocationActuelle != null) {
+                                // Mettre à jour l'allocation avec le montant du JSON
+                                val nouvelleAllocation = allocationActuelle.copy(
+                                    depense = allocationActuelle.depense + montantEnDollars,
+                                    solde = allocationActuelle.solde - montantEnDollars
+                                )
+                                
+                                allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+                            }
+                        }
+                        
+                        _uiState.update { 
+                            it.copy(
+                                estEnTrainDeSauvegarder = false,
+                                messageErreur = null,
+                                transactionModifiee = true
+                            )
+                        }
+                    } else {
+                        _uiState.update { 
+                            it.copy(
+                                estEnTrainDeSauvegarder = false,
+                                messageErreur = result.exceptionOrNull()?.message ?: "Erreur lors de la modification"
+                            )
+                        }
+                    }
                 } else {
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false,
-                            messageErreur = result.exceptionOrNull()?.message ?: "Erreur lors de la modification"
-                        )
+                    // Créer une nouvelle transaction normale
+                    // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
+                    val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
+                        val enveloppeSelectionnee = state.enveloppeSelectionnee
+                        enveloppeSelectionnee?.id
+                            ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
+                    } else {
+                        null
+                    }
+                    
+                    // Créer la nouvelle transaction
+                    val result = enregistrerTransactionUseCase.executer(
+                        typeTransaction = state.typeTransaction,
+                        montant = montantEnDollars,
+                        compteId = state.compteSelectionne!!.id,
+                        collectionCompte = collectionCompte,
+                        enveloppeId = enveloppeId,
+                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
+                        note = state.note.takeIf { it.isNotBlank() },
+                        date = dateTransaction,
+                        estFractionnee = false,
+                        sousItems = null
+                    )
+
+                    if (result.isSuccess) {
+                        _uiState.update { 
+                            it.copy(
+                                estEnTrainDeSauvegarder = false,
+                                messageErreur = null,
+                                transactionModifiee = true
+                            )
+                        }
+                    } else {
+                        _uiState.update { 
+                            it.copy(
+                                estEnTrainDeSauvegarder = false,
+                                messageErreur = result.exceptionOrNull()?.message ?: "Erreur lors de la modification"
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
-                        isLoading = false,
+                        estEnTrainDeSauvegarder = false,
                         messageErreur = e.message ?: "Erreur inconnue"
                     )
                 }
@@ -390,6 +571,59 @@ class ModifierTransactionViewModel(
             } catch (e: Exception) {
                 // Ignorer l'erreur, l'enveloppe restera vide
             }
+        }
+    }
+
+    /**
+     * Ouvre l'interface de fractionnement de transaction.
+     */
+    fun ouvrirFractionnement() {
+        // S'assurer que les enveloppes sont chargées
+        if (_uiState.value.enveloppesDisponibles.isEmpty()) {
+            // Recharger les données si les enveloppes ne sont pas disponibles
+            viewModelScope.launch {
+                try {
+                    val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                    val resultCategories = categorieRepository.recupererToutesLesCategories()
+                    val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
+                    
+                    if (resultEnveloppes.isSuccess && resultCategories.isSuccess && resultAllocations.isSuccess) {
+                        allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
+                        allCategories = resultCategories.getOrNull() ?: emptyList()
+                        allAllocations = resultAllocations.getOrNull() ?: emptyList()
+                        
+                        val enveloppesUi = construireEnveloppesUi()
+                        
+                        _uiState.update { state ->
+                            state.copy(enveloppesDisponibles = enveloppesUi)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignorer l'erreur, on continuera sans enveloppes
+                }
+            }
+        }
+        _uiState.update { it.copy(estEnModeFractionnement = true) }
+    }
+
+    /**
+     * Ferme l'interface de fractionnement de transaction.
+     */
+    fun fermerFractionnement() {
+        _uiState.update { it.copy(estEnModeFractionnement = false) }
+    }
+
+    /**
+     * Confirme le fractionnement de la transaction.
+     */
+    fun confirmerFractionnement(fractions: List<FractionTransaction>) {
+        // Les montants sont déjà en cents dans le dialog, pas besoin de conversion
+        _uiState.update { 
+            it.copy(
+                estEnModeFractionnement = false,
+                fractionnementEffectue = true, // Marquer que le fractionnement a été effectué
+                fractionsSauvegardees = fractions // Sauvegarder les fractions pour les réutiliser
+            ).calculerValidite() // Recalculer la validité pour activer le bouton Modifier
         }
     }
 } 

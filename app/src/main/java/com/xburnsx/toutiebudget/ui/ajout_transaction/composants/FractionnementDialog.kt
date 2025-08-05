@@ -43,7 +43,7 @@ import kotlin.math.abs
 @Composable
 fun FractionnementDialog(
     montantTotal: Double,
-    enveloppesDisponibles: List<EnveloppeUi>,
+    enveloppesDisponibles: Map<String, List<EnveloppeUi>>,
     fractionsInitiales: List<FractionTransaction> = emptyList(),
     onFractionnementConfirme: (List<FractionTransaction>) -> Unit,
     onDismiss: () -> Unit,
@@ -75,8 +75,7 @@ fun FractionnementDialog(
 
     // Calcul des montants
     val montantTotalEnCents = (montantTotal * 100).toInt().toDouble()
-    val montantAlloueEnCents = fractions.sumOf { it.montant } // Déjà en cents
-    val montantAlloueEnDollars = montantAlloueEnCents / 100.0 // Convertir en dollars pour l'affichage
+    val montantAlloueEnDollars = fractions.sumOf { it.montant } // Déjà en dollars
     montantRestant = montantTotal - montantAlloueEnDollars // Calculer le restant en dollars
 
     Dialog(
@@ -406,14 +405,13 @@ private fun IndicateurMontant(
 private fun CardeFraction(
     fraction: FractionTransaction,
     numeroFraction: Int,
-    enveloppesDisponibles: List<EnveloppeUi>,
+    enveloppesDisponibles: Map<String, List<EnveloppeUi>>,
     peutSupprimer: Boolean,
     onFractionChanged: (FractionTransaction) -> Unit,
     onSupprimer: () -> Unit,
     onMontantFocus: (FractionTransaction) -> Unit
 ) {
-    var expandedEnveloppe by remember { mutableStateOf(false) }
-    val enveloppeSelectionnee = enveloppesDisponibles.find { it.id == fraction.enveloppeId }
+    val enveloppeSelectionnee = enveloppesDisponibles.values.flatten().find { it.id == fraction.enveloppeId }
 
     Card(
         colors = CardDefaults.cardColors(
@@ -483,89 +481,22 @@ private fun CardeFraction(
                 }
             }
 
-            // Sélection de l'enveloppe
-            ExposedDropdownMenuBox(
-                expanded = expandedEnveloppe,
-                onExpandedChange = { expandedEnveloppe = !expandedEnveloppe }
-            ) {
-                OutlinedTextField(
-                    value = enveloppeSelectionnee?.nom ?: "Sélectionner une enveloppe",
-                    onValueChange = { },
-                    readOnly = true,
-                    label = {
-                        Text(
-                            "Enveloppe",
-                            color = Color(0xFF9CA3AF)
-                        )
-                    },
-                    leadingIcon = {
-                        enveloppeSelectionnee?.let { enveloppe ->
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .background(
-                                        color = enveloppe.couleurProvenance?.toColor() ?: Color.Gray,
-                                        shape = CircleShape
-                                    )
-                            )
-                        }
-                    },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEnveloppe)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color(0xFF4B5563),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                ExposedDropdownMenu(
-                    expanded = expandedEnveloppe,
-                    onDismissRequest = { expandedEnveloppe = false },
-                    modifier = Modifier.background(Color(0xFF1E1E1E))
-                ) {
-                    enveloppesDisponibles.forEach { enveloppe ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .background(
-                                                color = enveloppe.couleurProvenance?.toColor() ?: Color.Gray,
-                                                shape = CircleShape
-                                            )
-                                    )
-                                    Text(
-                                        text = enveloppe.nom,
-                                        color = Color.White
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onFractionChanged(fraction.copy(enveloppeId = enveloppe.id))
-                                expandedEnveloppe = false
-                            }
-                        )
-                    }
-                }
-            }
+            // Sélection de l'enveloppe avec SelecteurEnveloppe
+            SelecteurEnveloppe(
+                enveloppes = enveloppesDisponibles,
+                enveloppeSelectionnee = enveloppeSelectionnee,
+                onEnveloppeChange = { nouvelleEnveloppe ->
+                    onFractionChanged(fraction.copy(enveloppeId = nouvelleEnveloppe.id))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                obligatoire = true
+            )
 
             // Champ de montant
             ChampUniversel(
-                valeur = fraction.montant.toLong(),
+                valeur = (fraction.montant * 100).toLong(), // Convertir dollars en centimes
                 onValeurChange = { nouveauMontant ->
-                    onFractionChanged(fraction.copy(montant = nouveauMontant.toDouble()))
+                    onFractionChanged(fraction.copy(montant = nouveauMontant / 100.0)) // Convertir centimes en dollars
                 },
                 libelle = "Montant ($)",
                 utiliserClavier = false, // On utilise notre propre clavier

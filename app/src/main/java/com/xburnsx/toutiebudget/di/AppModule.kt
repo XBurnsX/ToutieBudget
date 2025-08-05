@@ -81,7 +81,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
          EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
      private val supprimerTransactionUseCase: SupprimerTransactionUseCase by lazy {
-         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository)
+         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
      private val modifierTransactionUseCase: ModifierTransactionUseCase by lazy {
          ModifierTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
@@ -127,7 +127,10 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
              categorieRepository = categorieRepository,
              tiersRepository = tiersRepository,
              transactionRepository = transactionRepository,
-             modifierTransactionUseCase = modifierTransactionUseCase
+             allocationMensuelleRepository = allocationMensuelleRepository,
+             modifierTransactionUseCase = modifierTransactionUseCase,
+             enregistrerTransactionUseCase = enregistrerTransactionUseCase,
+             supprimerTransactionUseCase = supprimerTransactionUseCase
          )
      }
      
