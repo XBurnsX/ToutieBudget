@@ -6,7 +6,7 @@ package com.xburnsx.toutiebudget.ui.comptes.dialogs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -93,10 +93,19 @@ fun AjoutCompteDialog(
                         val nouveauSolde = (nouveauMontant / 100.0).toString()
                         onValueChange(null, null, nouveauSolde, null, null)
                     },
-                    libelle = "Solde initial",
+                    libelle = when (formState.type) {
+                        "Carte de crédit" -> "Limite de crédit"
+                        else -> "Solde initial"
+                    },
                     utiliserClavier = false, // Désactiver le clavier intégré
                     isMoney = true,
-                    icone = Icons.Default.AccountBalance,
+                    icone = when (formState.type) {
+                        "Carte de crédit" -> Icons.Default.CreditCard
+                        "Compte chèque" -> Icons.Default.AccountBalance
+                        "Dette" -> Icons.Default.MoneyOff
+                        "Investissement" -> Icons.Default.TrendingUp
+                        else -> Icons.Default.AttachMoney
+                    },
                     estObligatoire = false,
                     onClicPersonnalise = {
                         // Utiliser le système de clavier global

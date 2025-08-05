@@ -183,7 +183,18 @@ fun ClavierNumerique(
                 0L
             }
         } else {
-            texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
+            // Pour les valeurs non-monétaires (comme les taux d'intérêt), on doit gérer les décimales
+            val texteNettoye = texteActuel.replace(suffix, "")
+            try {
+                // Convertir en double puis multiplier par 100 pour avoir des centièmes
+                val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
+                val bigDecimal = BigDecimal.valueOf(valeurDouble)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(0, RoundingMode.HALF_UP)
+                bigDecimal.toLong()
+            } catch (e: NumberFormatException) {
+                0L
+            }
         }
 
         onMontantChange(valeurLong)
@@ -249,7 +260,18 @@ fun ClavierNumerique(
                     0L
                 }
             } else {
-                texteActuel.replace(suffix, "").toLongOrNull() ?: 0L
+                // Pour les valeurs non-monétaires (comme les taux d'intérêt), on doit gérer les décimales
+                val texteNettoye = texteActuel.replace(suffix, "")
+                try {
+                    // Convertir en double puis multiplier par 100 pour avoir des centièmes
+                    val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
+                    val bigDecimal = BigDecimal.valueOf(valeurDouble)
+                        .multiply(BigDecimal.valueOf(100))
+                        .setScale(0, RoundingMode.HALF_UP)
+                    bigDecimal.toLong()
+                } catch (e: NumberFormatException) {
+                    0L
+                }
             }
 
             onMontantChange(valeurLong)

@@ -176,6 +176,22 @@ fun AppNavigation() {
                     }
                 )
             }
+
+            // Route pour l'écran de gestion des cartes de crédit
+            composable(
+                route = "gestion_carte_credit/{carteCreditId}",
+                arguments = listOf(
+                    navArgument("carteCreditId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val carteCreditId = backStackEntry.arguments?.getString("carteCreditId") ?: ""
+                val viewModel = AppModule.provideCartesCreditViewModel()
+                com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen(
+                    carteCreditId = carteCreditId,
+                    viewModel = viewModel,
+                    onRetour = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -243,6 +259,9 @@ fun MainAppScaffold(
                         mainNavController.navigate(
                             "historique_compte/$compteId/$collectionCompte/$nomCompte"
                         )
+                    },
+                    onCarteCreditLongClick = { carteCreditId ->
+                        mainNavController.navigate("gestion_carte_credit/$carteCreditId")
                     }
                 )
             }

@@ -44,7 +44,8 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 @Composable
 fun ComptesScreen(
     viewModel: ComptesViewModel,
-    onCompteClick: (String, String, String) -> Unit
+    onCompteClick: (String, String, String) -> Unit,
+    onCarteCreditLongClick: (String) -> Unit = {} // Nouveau paramètre pour la navigation vers l'écran de gestion
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -158,7 +159,10 @@ fun ComptesScreen(
                                         onCompteClick(compteId, collectionCompte, nomCompte)
                                     }
                                 },
-                                onLongClick = { viewModel.onCompteLongPress(compte) }
+                                onLongClick = {
+                                    // Afficher le menu contextuel pour tous les types de comptes
+                                    viewModel.onCompteLongPress(compte)
+                                }
                             )
                         }
                     }
@@ -301,55 +305,87 @@ fun ComptesScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    // 📝 MODIFIER
-                    TextButton(
-                        onClick = { viewModel.onOuvrirModificationDialog() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                    // Options spécifiques selon le type de compte
+                    if (uiState.compteSelectionne is com.xburnsx.toutiebudget.data.modeles.CompteCredit) {
+                        // 💳 GÉRER LA CARTE (uniquement pour les cartes de crédit)
+                        TextButton(
+                            onClick = {
+                                viewModel.onDismissMenu()
+                                onCarteCreditLongClick(uiState.compteSelectionne!!.id)
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Modifier",
-                                tint = Color(0xFF6366F1),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Modifier",
-                                color = Color.White,
-                                fontSize = 16.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalance,
+                                    contentDescription = "Gérer la carte",
+                                    tint = Color(0xFF3B82F6),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Gérer la carte",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                    } else {
+                        // Pour les autres comptes (chèque, dette, investissement) : options normales
+
+                        // 📝 MODIFIER
+                        TextButton(
+                            onClick = { viewModel.onOuvrirModificationDialog() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Modifier",
+                                    tint = Color(0xFF6366F1),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Modifier",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+
+                        // 🔄 RÉCONCILIER
+                        TextButton(
+                            onClick = { viewModel.onOuvrirReconciliationDialog() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Réconcilier",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Réconcilier",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
                         }
                     }
 
-                    // 🔄 RÉCONCILIER
-                    TextButton(
-                        onClick = { viewModel.onOuvrirReconciliationDialog() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = "Réconcilier",
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Réconcilier",
-                                color = Color.White,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-
-                    // 🗃️ ARCHIVER
+                    // 🗃️ ARCHIVER (pour tous les types de comptes)
                     TextButton(
                         onClick = { viewModel.onArchiverCompte() },
                         modifier = Modifier.fillMaxWidth()

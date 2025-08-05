@@ -22,6 +22,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
  import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
  import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
+ import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditViewModel
  import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
  import com.xburnsx.toutiebudget.ui.login.LoginViewModel
  import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
@@ -49,6 +50,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
      private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
+     private val carteCreditRepository: CarteCreditRepository by lazy { CarteCreditRepositoryImpl(compteRepository) }
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
@@ -108,7 +110,11 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
          )
      }
      
-     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy { 
+     private val cartesCreditViewModel: CartesCreditViewModel by lazy {
+         CartesCreditViewModel()
+     }
+
+     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
          AjoutTransactionViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
@@ -195,6 +201,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
      fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
+     fun provideCartesCreditViewModel(): CartesCreditViewModel = cartesCreditViewModel
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
      fun provideModifierTransactionViewModel(): ModifierTransactionViewModel = modifierTransactionViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel

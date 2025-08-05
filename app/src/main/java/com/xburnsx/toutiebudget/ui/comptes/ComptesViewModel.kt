@@ -116,7 +116,7 @@ class ComptesViewModel(
                     else -> {
                         // Pour les autres types de comptes, juste changer le solde
                         val compteReconcilie = when (compte) {
-                            is CompteCredit -> compte.copy(solde = nouveauSolde)
+                            is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde) // Changé solde vers soldeUtilise
                             is CompteDette -> compte.copy(solde = nouveauSolde)
                             is CompteInvestissement -> compte.copy(solde = nouveauSolde)
                             else -> return@launch
@@ -160,12 +160,12 @@ class ComptesViewModel(
                             id = compte.id,
                             utilisateurId = compte.utilisateurId,
                             nom = compte.nom,
-                            solde = compte.solde,
+                            soldeUtilise = compte.soldeUtilise, // Utiliser soldeUtilise au lieu de solde
                             couleur = compte.couleur,
                             estArchive = true, // ← FORCER à true
                             ordre = compte.ordre,
                             limiteCredit = compte.limiteCredit,
-                            interet = compte.interet,
+                            tauxInteret = compte.tauxInteret, // Corriger interet vers tauxInteret
                             collection = "comptes_credits"
                         )
                     }
@@ -302,7 +302,14 @@ class ComptesViewModel(
                     estArchive = false,
                     ordre = 0
                 )
-                "Carte de crédit" -> CompteCredit(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0, limiteCredit = 0.0)
+                "Carte de crédit" -> CompteCredit(
+                    nom = formState.nom,
+                    soldeUtilise = 0.0, // Pas de dette initiale - utiliser soldeUtilise
+                    couleur = formState.couleur,
+                    estArchive = false,
+                    ordre = 0,
+                    limiteCredit = soldeInitial // Le montant saisi devient la limite de crédit
+                )
                 "Dette" -> CompteDette(nom = formState.nom, solde = soldeInitial, estArchive = false, ordre = 0, montantInitial = 0.0)
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
@@ -350,12 +357,12 @@ class ComptesViewModel(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
                             nom = form.nom,
-                            solde = soldeDouble,
+                            soldeUtilise = soldeDouble, // Changé solde vers soldeUtilise
                             couleur = form.couleur,
                             estArchive = compteOriginal.estArchive,
                             ordre = compteOriginal.ordre,
                             limiteCredit = compteOriginal.limiteCredit,
-                            interet = compteOriginal.interet,
+                            tauxInteret = compteOriginal.tauxInteret, // Changé interet vers tauxInteret
                             collection = "comptes_credits"
                         )
                     }

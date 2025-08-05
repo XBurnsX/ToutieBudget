@@ -276,10 +276,10 @@ private fun PreviewSelecteurCompte() {
             id = "2",
             utilisateurId = "",
             nom = "Visa Desjardins",
-            solde = -250.75,
+            soldeUtilise = -250.75,
             couleur = "#EF4444",
             limiteCredit = 5000.0,
-            interet = 19.99,
+            tauxInteret = 19.99,
             estArchive = false,
             ordre = 1
         )

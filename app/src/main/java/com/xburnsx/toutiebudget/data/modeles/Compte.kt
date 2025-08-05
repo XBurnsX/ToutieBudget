@@ -39,16 +39,21 @@ data class CompteCredit(
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
-    override val solde: Double,
+    @SerializedName("solde_utilise")
+    val soldeUtilise: Double, // Dette actuelle utilisée sur la carte
     override val couleur: String,
-    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
+    @SerializedName("archive")
     override val estArchive: Boolean,
     override val ordre: Int,
     @SerializedName("limite_credit")
     val limiteCredit: Double,
-    val interet: Double? = null,
+    @SerializedName("taux_interet")
+    val tauxInteret: Double? = null,
     override val collection: String = "comptes_credits"
-) : Compte
+) : Compte {
+    // Pour compatibilité avec l'interface Compte, on map soldeUtilise vers solde
+    override val solde: Double get() = soldeUtilise
+}
 
 data class CompteDette(
     override val id: String = "",

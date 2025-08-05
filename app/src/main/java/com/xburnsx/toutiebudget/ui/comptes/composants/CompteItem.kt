@@ -201,24 +201,24 @@ private fun CompteItemPreview() {
         id = "2",
         utilisateurId = "user",
         nom = "Mastercard",
-        solde = -1250.47,
+        soldeUtilise = -1250.47,
         couleur = "#FFC107",
         estArchive = false,
         ordre = 2,
         limiteCredit = 5000.0,
-        interet = 19.99
+        tauxInteret = 19.99
     )
     
     val compteCreditLimite = CompteCredit(
         id = "3",
         utilisateurId = "user",
         nom = "Marge de Crédit",
-        solde = -9500.0,
+        soldeUtilise = -9500.0,
         couleur = "#F44336",
         estArchive = false,
         ordre = 3,
         limiteCredit = 10000.0,
-        interet = 7.5
+        tauxInteret = 7.5
     )
     
     val compteDette = CompteDette(
