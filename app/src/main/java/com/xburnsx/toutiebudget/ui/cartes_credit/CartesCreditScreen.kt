@@ -13,13 +13,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.CarteCreditDetailCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.CalculateurPaiement
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.SimulateurRemboursement
+import com.xburnsx.toutiebudget.ui.cartes_credit.composants.AlertesCartesCredit
+import com.xburnsx.toutiebudget.ui.cartes_credit.composants.FraisMensuelsCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierCarteCreditDialog
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.PlanRemboursementDialog
+import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierFraisDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.DialogErreur
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
@@ -112,11 +116,34 @@ fun GestionCarteCreditScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Alertes (si disponibles)
+                if (uiState.alertes.isNotEmpty()) {
+                    item {
+                        AlertesCartesCredit(
+                            alertes = uiState.alertes,
+                            onAlerteClick = { alerte ->
+                                // Naviguer vers la carte concernée
+                                viewModel.selectionnerCarte(alerte.carte)
+                            }
+                        )
+                    }
+                }
+
                 // Carte avec détails principaux
                 item {
                     CarteCreditDetailCard(
                         carte = carteCredit,
                         statistiques = viewModel.calculerStatistiques(carteCredit)
+                    )
+                }
+
+                // Frais mensuels fixes
+                item {
+                    FraisMensuelsCard(
+                        carte = carteCredit,
+                        onModifierFrais = {
+                            viewModel.afficherDialogModificationFrais(carteCredit)
+                        }
                     )
                 }
 
@@ -142,9 +169,9 @@ fun GestionCarteCreditScreen(
                 item {
                     ActionsRapides(
                         carte = carteCredit,
-                        onPayerMinimum = { /* TODO: Intégrer avec transactions */ },
-                        onPayerComplet = { /* TODO: Intégrer avec transactions */ },
-                        onAjouterDepense = { /* TODO: Intégrer avec transactions */ }
+                        onPayerMinimum = { viewModel.effectuerPaiementMinimum(carteCredit) },
+                        onPayerComplet = { viewModel.effectuerPaiementComplet(carteCredit) },
+                        onAjouterDepense = { viewModel.ajouterDepenseCarte(carteCredit) }
                     )
                 }
             }
@@ -170,6 +197,17 @@ fun GestionCarteCreditScreen(
             carte = carteCredit!!,
             planRemboursement = uiState.planRemboursement,
             paiementMensuel = uiState.paiementMensuelSimulation,
+            onDismiss = viewModel::fermerDialogs
+        )
+    }
+
+    if (uiState.afficherDialogModificationFrais && carteCredit != null) {
+        ModifierFraisDialog(
+            carte = carteCredit,
+            formulaire = viewModel.formulaire.collectAsState().value,
+            onNomFraisChange = viewModel::mettreAJourNomFraisMensuels,
+            onFraisChange = viewModel::mettreAJourFraisMensuelsFixes,
+            onSauvegarder = viewModel::sauvegarderModificationFrais,
             onDismiss = viewModel::fermerDialogs
         )
     }
@@ -251,4 +289,13 @@ private fun ActionsRapides(
             }
         }
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+fun GestionCarteCreditScreenPreview() {
+    GestionCarteCreditScreen(
+        carteCreditId = "1",
+        onRetour = {}
+    )
 }

@@ -1,7 +1,9 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit
 
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.repositories.PaiementPlanifie
+import com.xburnsx.toutiebudget.data.services.AlerteCarteCredit
 
 /**
  * États de l'interface utilisateur pour la gestion des cartes de crédit.
@@ -16,7 +18,13 @@ data class CartesCreditUiState(
     val afficherDialogSuppression: Boolean = false,
     val afficherPlanRemboursement: Boolean = false,
     val planRemboursement: List<PaiementPlanifie> = emptyList(),
-    val paiementMensuelSimulation: Double = 0.0
+    val paiementMensuelSimulation: Double = 0.0,
+    val afficherDialogEcheance: Boolean = false,
+    val afficherDialogFacturation: Boolean = false,
+    val afficherHistoriqueTransactions: Boolean = false,
+    val transactionsHistorique: List<Transaction> = emptyList(),
+    val alertes: List<AlerteCarteCredit> = emptyList(),
+    val afficherDialogModificationFrais: Boolean = false
 )
 
 /**
@@ -28,17 +36,23 @@ data class FormulaireCarteCredit(
     val tauxInteret: String = "",
     val soldeActuel: String = "",
     val couleur: String = "#2196F3",
+    val fraisMensuelsFixes: String = "",
+    val nomFraisMensuels: String = "",
     val erreurNom: String? = null,
     val erreurLimite: String? = null,
     val erreurTaux: String? = null,
-    val erreurSolde: String? = null
+    val erreurSolde: String? = null,
+    val erreurFrais: String? = null,
+    val erreurNomFrais: String? = null
 ) {
     val estValide: Boolean
         get() = nom.isNotBlank() &&
                 erreurNom == null &&
                 erreurLimite == null &&
                 erreurTaux == null &&
-                erreurSolde == null
+                erreurSolde == null &&
+                erreurFrais == null &&
+                erreurNomFrais == null
 }
 
 /**

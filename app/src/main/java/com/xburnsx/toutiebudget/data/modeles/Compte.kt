@@ -49,6 +49,10 @@ data class CompteCredit(
     val limiteCredit: Double,
     @SerializedName("taux_interet")
     val tauxInteret: Double? = null,
+    @SerializedName("frais_mensuels_fixes")
+    val fraisMensuelsFixes: Double? = null, // Frais mensuels fixes (assurance, AccordD, etc.)
+    @SerializedName("nom_frais_mensuels")
+    val nomFraisMensuels: String? = null, // Nom du frais mensuel (ex: "Assurance", "AccordD")
     override val collection: String = "comptes_credits"
 ) : Compte {
     // Pour compatibilité avec l'interface Compte, on map soldeUtilise vers solde

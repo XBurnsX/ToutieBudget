@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
@@ -280,4 +281,25 @@ private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, 
     val totalPaiements = paiementMensuel * tempsMois
 
     return maxOf(0.0, totalPaiements - dette)
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+fun CalculateurPaiementPreview() {
+    val carteCredit = CompteCredit(
+        id = "1",
+        utilisateurId = "user1",
+        nom = "Carte Visa",
+        soldeUtilise = -2500.0,
+        couleur = "#2196F3",
+        estArchive = false,
+        ordre = 1,
+        limiteCredit = 10000.0,
+        tauxInteret = 19.99
+    )
+    
+    CalculateurPaiement(
+        carte = carteCredit,
+        onCalculerPlan = {}
+    )
 }

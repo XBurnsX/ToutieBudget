@@ -21,6 +21,7 @@ import com.xburnsx.toutiebudget.ui.comptes.COULEURS_COMPTES
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun ModifierCarteCreditDialog(
@@ -95,17 +96,26 @@ fun ModifierCarteCreditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedTextField(
-                        value = formulaire.limiteCredit,
-                        onValueChange = onLimiteChange,
-                        label = { Text("Limite de crédit") },
-                        placeholder = { Text("5000") },
-                        leadingIcon = {
-                            Icon(Icons.Default.CreditScore, contentDescription = null)
+                    // Champ limite de crédit avec ChampUniversel
+                    ChampUniversel(
+                        valeur = (formulaire.limiteCredit.toDoubleOrNull()?.times(100) ?: 0.0).toLong(),
+                        onValeurChange = { nouveauMontant ->
+                            onLimiteChange((nouveauMontant / 100.0).toString())
                         },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        isError = formulaire.erreurLimite != null,
-                        supportingText = formulaire.erreurLimite?.let { { Text(it) } },
+                        libelle = "Limite de crédit",
+                        utiliserClavier = false,
+                        isMoney = true,
+                        icone = Icons.Default.CreditScore,
+                        estObligatoire = true,
+                        couleurValeur = MaterialTheme.colorScheme.onSurface,
+                        onClicPersonnalise = {
+                            montantClavierInitial = (formulaire.limiteCredit.toDoubleOrNull()?.times(100) ?: 0.0).toLong()
+                            nomDialogClavier = "Limite de crédit"
+                            onMontantChangeCallback = { nouveauMontant ->
+                                onLimiteChange((nouveauMontant / 100.0).toString())
+                            }
+                            showKeyboard = true
+                        },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -117,7 +127,7 @@ fun ModifierCarteCreditDialog(
                         },
                         libelle = "Taux d'intérêt (%)",
                         utiliserClavier = false,
-                        isMoney = false, // FALSE pour les taux d'intérêt !
+                        isMoney = false,
                         icone = Icons.Default.Percent,
                         estObligatoire = false,
                         couleurValeur = MaterialTheme.colorScheme.onSurface,
@@ -224,4 +234,27 @@ fun ModifierCarteCreditDialog(
             }
         }
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+fun ModifierCarteCreditDialogPreview() {
+    val formulaire = FormulaireCarteCredit(
+        nom = "Carte Visa",
+        limiteCredit = "10000.0",
+        tauxInteret = "19.99",
+        soldeActuel = "2500.0",
+        couleur = "#2196F3"
+    )
+    
+    ModifierCarteCreditDialog(
+        formulaire = formulaire,
+        onNomChange = {},
+        onLimiteChange = {},
+        onTauxChange = {},
+        onSoldeChange = {},
+        onCouleurChange = {},
+        onSauvegarder = {},
+        onDismiss = {}
+    )
 }

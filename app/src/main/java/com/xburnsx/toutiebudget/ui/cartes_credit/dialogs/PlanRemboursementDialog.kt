@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
@@ -279,4 +280,45 @@ private fun PaiementItem(
             )
         }
     }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+fun PlanRemboursementDialogPreview() {
+    val carteCredit = CompteCredit(
+        id = "1",
+        nom = "Carte Visa",
+        soldeUtilise = -2500.0,
+        couleur = "#2196F3",
+        estArchive = false,
+        ordre = 1,
+        limiteCredit = 10000.0,
+        tauxInteret = 19.99
+    )
+    
+    val planRemboursement = listOf(
+        PaiementPlanifie(
+            mois = 1,
+            date = java.util.Date(),
+            paiementTotal = 541.65,
+            montantCapital = 500.0,
+            montantInterets = 41.65,
+            soldeRestant = 2000.0
+        ),
+        PaiementPlanifie(
+            mois = 2,
+            date = java.util.Date(),
+            paiementTotal = 541.65,
+            montantCapital = 500.0,
+            montantInterets = 41.65,
+            soldeRestant = 1500.0
+        )
+    )
+    
+    PlanRemboursementDialog(
+        carte = carteCredit,
+        planRemboursement = planRemboursement,
+        paiementMensuel = 541.65,
+        onDismiss = {}
+    )
 }

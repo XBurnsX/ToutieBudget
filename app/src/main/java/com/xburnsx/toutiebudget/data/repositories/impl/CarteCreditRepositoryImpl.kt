@@ -146,4 +146,34 @@ class CarteCreditRepositoryImpl(
             Result.failure(e)
         }
     }
+
+    override fun calculerProchaineEcheance(carteCredit: CompteCredit): java.util.Date {
+        // TODO: Implémenter quand nécessaire
+        return Date()
+    }
+
+    override fun calculerProchaineFacturation(carteCredit: CompteCredit): java.util.Date {
+        // TODO: Implémenter quand nécessaire
+        return Date()
+    }
+
+    override fun estEnRetard(carteCredit: CompteCredit): Boolean {
+        // TODO: Implémenter quand nécessaire
+        return false
+    }
+
+    override fun calculerRecompenses(carteCredit: CompteCredit, montantDepense: Double): Double {
+        // TODO: Implémenter quand nécessaire
+        return 0.0
+    }
+
+    override suspend fun recupererHistoriqueTransactions(carteCreditId: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        try {
+            // TODO: Implémenter la récupération des transactions liées à cette carte
+            // Cela nécessite d'ajouter un champ carteCreditId dans le modèle Transaction
+            Result.success(emptyList())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

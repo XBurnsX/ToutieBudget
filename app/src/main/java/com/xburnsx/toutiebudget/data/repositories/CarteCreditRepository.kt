@@ -1,6 +1,7 @@
 package com.xburnsx.toutiebudget.data.repositories
 
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.Transaction
 import java.util.Date
 
 /**
@@ -91,6 +92,42 @@ interface CarteCreditRepository {
      * @return Result indiquant le succès ou l'échec
      */
     suspend fun appliquerInteretsMensuels(carteCreditId: String): Result<Unit>
+
+    /**
+     * Calcule la prochaine date d'échéance pour une carte de crédit.
+     * @param carteCredit La carte de crédit
+     * @return Date de la prochaine échéance
+     */
+    fun calculerProchaineEcheance(carteCredit: CompteCredit): java.util.Date
+
+    /**
+     * Calcule la prochaine date de facturation pour une carte de crédit.
+     * @param carteCredit La carte de crédit
+     * @return Date de la prochaine facturation
+     */
+    fun calculerProchaineFacturation(carteCredit: CompteCredit): java.util.Date
+
+    /**
+     * Vérifie si une carte de crédit a des paiements en retard.
+     * @param carteCredit La carte de crédit
+     * @return true si en retard, false sinon
+     */
+    fun estEnRetard(carteCredit: CompteCredit): Boolean
+
+    /**
+     * Calcule les récompenses/cashback pour une carte de crédit.
+     * @param carteCredit La carte de crédit
+     * @param montantDepense Montant des dépenses
+     * @return Montant des récompenses
+     */
+    fun calculerRecompenses(carteCredit: CompteCredit, montantDepense: Double): Double
+
+    /**
+     * Récupère l'historique des transactions pour une carte de crédit.
+     * @param carteCreditId ID de la carte de crédit
+     * @return Liste des transactions liées à cette carte
+     */
+    suspend fun recupererHistoriqueTransactions(carteCreditId: String): Result<List<Transaction>>
 }
 
 /**

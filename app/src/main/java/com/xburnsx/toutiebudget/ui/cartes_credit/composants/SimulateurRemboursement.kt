@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.ui.cartes_credit.StatistiquesCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -331,4 +332,34 @@ private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, 
     val dette = abs(carte.solde)
     val totalPaiements = paiementMensuel * dureeMois
     return maxOf(0.0, totalPaiements - dette)
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+fun SimulateurRemboursementPreview() {
+    val carteCredit = CompteCredit(
+        id = "1",
+        utilisateurId = "user1",
+        nom = "Carte Visa",
+        soldeUtilise = -2500.0,
+        couleur = "#2196F3",
+        estArchive = false,
+        ordre = 1,
+        limiteCredit = 10000.0,
+        tauxInteret = 19.99
+    )
+    
+    val statistiques = StatistiquesCarteCredit(
+        creditDisponible = 7500.0,
+        tauxUtilisation = 0.25,
+        interetsMensuels = 41.65,
+        paiementMinimum = 541.65,
+        tempsRemboursementMinimum = 5,
+        totalInteretsAnnuels = 499.8
+    )
+    
+    SimulateurRemboursement(
+        carte = carteCredit,
+        statistiques = statistiques
+    )
 }

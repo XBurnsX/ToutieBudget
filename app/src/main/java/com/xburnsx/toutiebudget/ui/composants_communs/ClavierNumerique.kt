@@ -183,15 +183,16 @@ fun ClavierNumerique(
                 0L
             }
         } else {
-            // Pour les valeurs non-monétaires (comme les taux d'intérêt), on doit gérer les décimales
+            // Pour les valeurs non-monétaires (comme les taux d'intérêt), on garde la valeur telle quelle
             val texteNettoye = texteActuel.replace(suffix, "")
             try {
-                // Convertir en double puis multiplier par 100 pour avoir des centièmes
+                // NE PAS multiplier par 100 pour les taux d'intérêt !
+                // 19.9% reste 19.9, pas 1990 !
                 val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
                 val bigDecimal = BigDecimal.valueOf(valeurDouble)
-                    .multiply(BigDecimal.valueOf(100))
-                    .setScale(0, RoundingMode.HALF_UP)
-                bigDecimal.toLong()
+                    .setScale(2, RoundingMode.HALF_UP)
+                // Pour les non-monétaires, on garde la valeur exacte * 100 seulement pour la précision interne
+                (bigDecimal.toDouble() * 100).toLong()
             } catch (e: NumberFormatException) {
                 0L
             }
@@ -260,15 +261,16 @@ fun ClavierNumerique(
                     0L
                 }
             } else {
-                // Pour les valeurs non-monétaires (comme les taux d'intérêt), on doit gérer les décimales
+                // Pour les valeurs non-monétaires (comme les taux d'intérêt), on garde la valeur telle quelle
                 val texteNettoye = texteActuel.replace(suffix, "")
                 try {
-                    // Convertir en double puis multiplier par 100 pour avoir des centièmes
+                    // NE PAS multiplier par 100 pour les taux d'intérêt !
+                    // 19.9% reste 19.9, pas 1990 !
                     val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
                     val bigDecimal = BigDecimal.valueOf(valeurDouble)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(0, RoundingMode.HALF_UP)
-                    bigDecimal.toLong()
+                        .setScale(2, RoundingMode.HALF_UP)
+                    // Pour les non-monétaires, on garde la valeur exacte * 100 seulement pour la précision interne
+                    (bigDecimal.toDouble() * 100).toLong()
                 } catch (e: NumberFormatException) {
                     0L
                 }
