@@ -111,6 +111,17 @@ class HistoriqueCompteViewModel(
     }
 
     /**
+     * Recharge les transactions (méthode publique pour être appelée après modification).
+     */
+    fun rechargerTransactions() {
+        val compteId: String? = savedStateHandle["compteId"]
+        val collectionCompte: String? = savedStateHandle["collectionCompte"]
+        if (compteId != null && collectionCompte != null) {
+            chargerTransactions(compteId, collectionCompte)
+        }
+    }
+
+    /**
      * Charge les transactions pour un compte spécifique.
      */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {

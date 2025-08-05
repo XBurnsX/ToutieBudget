@@ -20,6 +20,7 @@ import com.xburnsx.toutiebudget.domain.usecases.ModifierTransactionUseCase
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueNavigationEvent
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.*
@@ -43,12 +44,19 @@ fun ModifierTransactionScreen(
         viewModel.chargerTransaction(transactionId)
     }
 
-    // Détecter le succès de la modification
-    LaunchedEffect(uiState.transactionModifiee) {
-        if (uiState.transactionModifiee) {
-            onTransactionModified()
-            // Réinitialiser immédiatement pour éviter les déclenchements multiples
-            viewModel.reinitialiserTransactionModifiee()
+    // Observer les événements de navigation pour déclencher les actions appropriées
+    val navigationEvents by viewModel.navigationEvents.collectAsState()
+    LaunchedEffect(navigationEvents) {
+        navigationEvents?.let { event ->
+            when (event) {
+                is HistoriqueNavigationEvent.TransactionModifiee -> {
+                    onTransactionModified()
+                    viewModel.effacerNavigationEvent()
+                }
+                else -> {
+                    // Ignorer les autres événements
+                }
+            }
         }
     }
 
@@ -288,8 +296,7 @@ fun ModifierTransactionScreen(
                         Button(
                             onClick = {
                                 viewModel.modifierTransaction()
-                                // Retourner immédiatement après avoir lancé la modification
-                                onTransactionModified()
+                                // L'événement de navigation se chargera du retour automatiquement
                             },
                             enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
                             modifier = Modifier.weight(1f),
@@ -424,4 +431,4 @@ private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
         "Paiement" -> Color(0xFFEF4444) // Rouge pour paiement
         else -> Color(0xFF10B981) // Vert par défaut
     }
-} 
+}

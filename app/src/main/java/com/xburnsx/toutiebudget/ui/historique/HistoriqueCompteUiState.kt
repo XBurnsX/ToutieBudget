@@ -21,4 +21,5 @@ data class HistoriqueCompteUiState(
  */
 sealed class HistoriqueNavigationEvent {
     data class ModifierTransaction(val transactionId: String) : HistoriqueNavigationEvent()
+    object TransactionModifiee : HistoriqueNavigationEvent()
 }

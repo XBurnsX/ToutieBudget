@@ -44,6 +44,11 @@ fun HistoriqueCompteScreen(
                     onModifierTransaction(event.transactionId)
                     viewModel.effacerNavigationEvent()
                 }
+                is HistoriqueNavigationEvent.TransactionModifiee -> {
+                    // Recharger les transactions quand une transaction est modifiée
+                    viewModel.rechargerTransactions()
+                    viewModel.effacerNavigationEvent()
+                }
             }
         }
     }
@@ -51,6 +56,12 @@ fun HistoriqueCompteScreen(
     // Sauvegarder la position de scroll quand elle change
     LaunchedEffect(listState.firstVisibleItemIndex) {
         viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
+    }
+
+    // Recharger les transactions quand l'écran devient visible (après modification)
+    LaunchedEffect(Unit) {
+        // Recharger une fois au début pour s'assurer que les données sont à jour
+        viewModel.rechargerTransactions()
     }
 
     Scaffold(

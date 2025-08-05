@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueNavigationEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,10 @@ class ModifierTransactionViewModel(
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
     val uiState: StateFlow<AjoutTransactionUiState> = _uiState.asStateFlow()
+
+    // Événements de navigation
+    private val _navigationEvents = MutableStateFlow<HistoriqueNavigationEvent?>(null)
+    val navigationEvents: StateFlow<HistoriqueNavigationEvent?> = _navigationEvents.asStateFlow()
 
     // Cache des données
     private var allComptes: List<Compte> = emptyList()
@@ -271,42 +276,11 @@ class ModifierTransactionViewModel(
                 val maintenant = java.time.LocalDateTime.now()
                 val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                 
-                // ÉTAPE 1: Rembourser les anciennes allocations si c'est une transaction fractionnée
-                if (transactionAModifier!!.estFractionnee && transactionAModifier!!.sousItems != null) {
-                    // Rembourser les allocations des fractions existantes
-                    try {
-                        val gson = com.google.gson.Gson()
-                        val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
-                        val anciensSousItems = gson.fromJson<List<Map<String, Any>>>(
-                            transactionAModifier!!.sousItems,
-                            type
-                        )
-                        
-                        // Rembourser les effets des anciennes allocations
-                        for (ancienSousItem in anciensSousItems) {
-                            val ancienneAllocationId = ancienSousItem["allocation_mensuelle_id"] as? String
-                            val ancienMontantEnDollars = (ancienSousItem["montant"] as? Double) ?: 0.0
-                            
-                            if (ancienneAllocationId != null) {
-                                // Récupérer l'allocation
-                                val ancienneAllocation = allocationMensuelleRepository.getAllocationById(ancienneAllocationId)
-                                if (ancienneAllocation != null) {
-                                    // Rembourser en soustrayant le montant (déjà en dollars dans le JSON)
-                                    val allocationRemboursee = ancienneAllocation.copy(
-                                        depense = ancienneAllocation.depense - ancienMontantEnDollars,
-                                        solde = ancienneAllocation.solde + ancienMontantEnDollars
-                                    )
-                                    allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        // Ignorer l'erreur de parsing, continuer
-                    }
-                }
-                
-                // ÉTAPE 2: Supprimer l'ancienne transaction
-                val resultSuppression = transactionRepository.supprimerTransaction(transactionAModifier!!.id)
+                // ÉTAPE 1: Le remboursement est maintenant géré par le SupprimerTransactionUseCase
+                // Plus besoin de rembourser manuellement les allocations
+
+                // ÉTAPE 2: Supprimer l'ancienne transaction avec remboursement correct
+                val resultSuppression = supprimerTransactionUseCase.executer(transactionAModifier!!.id)
                 if (resultSuppression.isFailure) {
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
                 }
@@ -396,6 +370,9 @@ class ModifierTransactionViewModel(
                                 transactionModifiee = true
                             )
                         }
+                        
+                        // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
+                        _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
                     } else {
                         _uiState.update { 
                             it.copy(
@@ -437,6 +414,9 @@ class ModifierTransactionViewModel(
                                 transactionModifiee = true
                             )
                         }
+                        
+                        // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
+                        _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
                     } else {
                         _uiState.update { 
                             it.copy(
@@ -462,6 +442,13 @@ class ModifierTransactionViewModel(
      */
     fun reinitialiserTransactionModifiee() {
         _uiState.update { it.copy(transactionModifiee = false) }
+    }
+
+    /**
+     * Efface les événements de navigation.
+     */
+    fun effacerNavigationEvent() {
+        _navigationEvents.value = null
     }
 
     /**
@@ -625,4 +612,4 @@ class ModifierTransactionViewModel(
             ).calculerValidite() // Recalculer la validité pour activer le bouton Modifier
         }
     }
-} 
+}
