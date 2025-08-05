@@ -191,8 +191,8 @@ fun ClavierNumerique(
                 val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
                 val bigDecimal = BigDecimal.valueOf(valeurDouble)
                     .setScale(2, RoundingMode.HALF_UP)
-                // Pour les non-monétaires, on garde la valeur exacte * 100 seulement pour la précision interne
-                (bigDecimal.toDouble() * 100).toLong()
+                // Pour les non-monétaires, on garde la valeur exacte SANS multiplier par 100
+                bigDecimal.toLong()
             } catch (e: NumberFormatException) {
                 0L
             }

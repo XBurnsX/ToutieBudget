@@ -105,6 +105,7 @@ fun ModifierCarteCreditDialog(
                         libelle = "Limite de crédit",
                         utiliserClavier = false,
                         isMoney = true,
+                        suffix = "", // ENLEVÉ le suffixe "$"
                         icone = Icons.Default.CreditScore,
                         estObligatoire = true,
                         couleurValeur = MaterialTheme.colorScheme.onSurface,
@@ -121,21 +122,22 @@ fun ModifierCarteCreditDialog(
 
                     // Champ taux d'intérêt avec ChampUniversel
                     ChampUniversel(
-                        valeur = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull()?.times(100) ?: 0.0).toLong(),
+                        valeur = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull() ?: 0.0).toLong(),
                         onValeurChange = { nouveauTaux ->
-                            onTauxChange((nouveauTaux / 100.0).toString())
+                            onTauxChange(nouveauTaux.toString())
                         },
                         libelle = "Taux d'intérêt (%)",
                         utiliserClavier = false,
                         isMoney = false,
+                        suffix = "", // ENLEVÉ le suffixe "%"
                         icone = Icons.Default.Percent,
                         estObligatoire = false,
                         couleurValeur = MaterialTheme.colorScheme.onSurface,
                         onClicPersonnalise = {
-                            montantClavierInitial = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull()?.times(100) ?: 0.0).toLong()
+                            montantClavierInitial = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull() ?: 0.0).toLong()
                             nomDialogClavier = "Taux d'intérêt"
                             onMontantChangeCallback = { nouveauTaux ->
-                                onTauxChange((nouveauTaux / 100.0).toString())
+                                onTauxChange(nouveauTaux.toString())
                             }
                             showKeyboard = true
                         },
@@ -154,6 +156,7 @@ fun ModifierCarteCreditDialog(
                     libelle = "Dette actuelle",
                     utiliserClavier = false,
                     isMoney = true,
+                    suffix = "", // ENLEVÉ le suffixe "$"
                     icone = Icons.Default.AttachMoney,
                     estObligatoire = true,
                     couleurValeur = MaterialTheme.colorScheme.onSurface,
@@ -221,7 +224,11 @@ fun ModifierCarteCreditDialog(
                     ClavierNumerique(
                         montantInitial = montantClavierInitial,
                         isMoney = nomDialogClavier != "Taux d'intérêt", // false pour taux d'intérêt, true pour le reste
-                        suffix = "",
+                        suffix = when (nomDialogClavier) {
+                            "Limite de crédit" -> "$"
+                            "Dette actuelle" -> "$"
+                            else -> ""
+                        },
                         onMontantChange = { nouveauMontant ->
                             onMontantChangeCallback?.invoke(nouveauMontant)
                         },

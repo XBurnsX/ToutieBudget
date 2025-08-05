@@ -71,8 +71,8 @@ fun ChampUniversel(
             val bigDecimal = BigDecimal.valueOf(valeur)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
             
-            // Forcer le formatage avec exactement 2 décimales
-            val resultat = String.format("%.2f $", bigDecimal.toDouble())
+            // Forcer le formatage avec exactement 2 décimales SANS le "$"
+            val resultat = String.format("%.2f", bigDecimal.toDouble())
             resultat
         } else {
             "$valeur$suffix"
