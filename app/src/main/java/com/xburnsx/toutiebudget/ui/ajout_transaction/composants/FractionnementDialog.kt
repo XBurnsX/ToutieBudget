@@ -65,7 +65,7 @@ fun FractionnementDialog(
                 listOf(
                     FractionTransaction(
                         id = UUID.randomUUID().toString(),
-                        montant = 0.0, // En cents
+                        montant = 0.0, // En centimes
                         enveloppeId = ""
                     )
                 )
@@ -75,8 +75,8 @@ fun FractionnementDialog(
 
     // Calcul des montants
     val montantTotalEnCents = (montantTotal * 100).toInt().toDouble()
-    val montantAlloueEnDollars = fractions.sumOf { it.montant } // Déjà en dollars
-    montantRestant = montantTotal - montantAlloueEnDollars // Calculer le restant en dollars
+    val montantAlloueEnCents = fractions.sumOf { it.montant } // Déjà en centimes
+    montantRestant = montantTotal - (montantAlloueEnCents / 100.0) // Calculer le restant en dollars
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -119,7 +119,7 @@ fun FractionnementDialog(
                     // === BARRE DE PROGRESSION MODERNE ===
                     BarreProgressionModerne(
                         montantTotal = montantTotal,
-                        montantAlloue = montantAlloueEnDollars, // Convertir en dollars pour l'affichage
+                        montantAlloue = montantAlloueEnCents / 100.0, // Convertir en dollars pour l'affichage
                         montantRestant = montantRestant
                     )
 
@@ -156,8 +156,8 @@ fun FractionnementDialog(
                                         }
                                     },
                                     onMontantFocus = { fractionActive ->
-                                        onOpenKeyboard(fractionActive.montant.toLong()) { nouveauMontant ->
-                                            val nouvelleFraction = fractionActive.copy(montant = nouveauMontant.toDouble())
+                                        onOpenKeyboard(fractionActive.montant.toLong()) { nouveauMontantCents ->
+                                            val nouvelleFraction = fractionActive.copy(montant = nouveauMontantCents.toDouble())
                                             fractions = fractions.map {
                                                 if (it.id == fractionActive.id) nouvelleFraction else it
                                             }
@@ -172,7 +172,7 @@ fun FractionnementDialog(
                     BoutonAjouterFraction {
                         val nouvelleFraction = FractionTransaction(
                             id = UUID.randomUUID().toString(),
-                            montant = 0.0, // En cents
+                            montant = 0.0, // En centimes
                             enveloppeId = ""
                         )
                         fractions = fractions + nouvelleFraction
@@ -494,9 +494,9 @@ private fun CardeFraction(
 
             // Champ de montant
             ChampUniversel(
-                valeur = (fraction.montant * 100).toLong(), // Convertir dollars en centimes
+                valeur = fraction.montant.toLong(), // Déjà en centimes
                 onValeurChange = { nouveauMontant ->
-                    onFractionChanged(fraction.copy(montant = nouveauMontant / 100.0)) // Convertir centimes en dollars
+                    onFractionChanged(fraction.copy(montant = nouveauMontant.toDouble())) // Déjà en centimes
                 },
                 libelle = "Montant ($)",
                 utiliserClavier = false, // On utilise notre propre clavier

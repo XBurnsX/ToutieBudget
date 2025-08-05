@@ -442,7 +442,7 @@ class AjoutTransactionViewModel(
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
 
             try {
-                val montant = state.montant.toDoubleOrNull()?.div(100.0)
+                val montant = state.montant.toDoubleOrNull()
                     ?: throw Exception(VirementErrorMessages.General.MONTANT_INVALIDE)
 
                 val compte = state.compteSelectionne
@@ -469,8 +469,8 @@ class AjoutTransactionViewModel(
                             mois = dateTransaction // Mois de la transaction
                         )
                         
-                        // Le montant est déjà en dollars
-                        val montantEnDollars = fraction.montant
+                                                 // Le montant est en centimes, on le convertit en dollars pour le JSON
+                         val montantEnDollars = fraction.montant / 100.0
                         
                         // Déterminer la collection du compte
                         val collectionCompte = when (compte) {
@@ -509,7 +509,7 @@ class AjoutTransactionViewModel(
                     // Créer la transaction principale avec estFractionnee = true
                     val transactionPrincipale = enregistrerTransactionUseCase.executer(
                         typeTransaction = typeTransaction,
-                        montant = montant,
+                        montant = montant / 100.0, // Convertir centimes en dollars pour le use case
                         compteId = compte.id,
                         collectionCompte = when (compte) {
                             is CompteCheque -> "comptes_cheques"
@@ -530,18 +530,18 @@ class AjoutTransactionViewModel(
                         // Mettre à jour les allocations mensuelles en utilisant les données du JSON
                         for (sousItem in sousItems) {
                             val allocationId = sousItem["allocation_mensuelle_id"] as String
-                            val montantEnDollars = sousItem["montant"] as Double
+                                                         val montantEnDollars = sousItem["montant"] as Double
                             
                             // Récupérer l'allocation par son ID
                             val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
                             
                             if (resultAllocation.isSuccess) {
                                 val allocationActuelle = resultAllocation.getOrThrow()
-                                // Mettre à jour l'allocation avec le montant du JSON
-                                val nouvelleAllocation = allocationActuelle.copy(
-                                    depense = allocationActuelle.depense + montantEnDollars,
-                                    solde = allocationActuelle.solde - montantEnDollars
-                                )
+                                                                 // Mettre à jour l'allocation avec le montant en dollars (déjà en dollars dans le JSON)
+                                 val nouvelleAllocation = allocationActuelle.copy(
+                                     depense = allocationActuelle.depense + montantEnDollars,
+                                     solde = allocationActuelle.solde - montantEnDollars
+                                 )
                                 
                                 allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
                             }
@@ -588,7 +588,7 @@ class AjoutTransactionViewModel(
                     // Enregistrer la transaction
                     val result = enregistrerTransactionUseCase.executer(
                         typeTransaction = typeTransaction,
-                        montant = montant,
+                        montant = montant / 100.0, // Convertir centimes en dollars pour le use case
                         compteId = compte.id,
                         collectionCompte = when (compte) {
                             is CompteCheque -> "comptes_cheques"

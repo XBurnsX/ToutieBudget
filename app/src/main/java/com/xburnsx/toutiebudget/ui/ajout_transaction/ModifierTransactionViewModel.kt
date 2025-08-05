@@ -283,17 +283,19 @@ class ModifierTransactionViewModel(
                         
                         // Rembourser les effets des anciennes allocations
                         for (ancienSousItem in anciensSousItems) {
-                            val ancienneAllocationId = ancienSousItem["allocation_mensuelle_id"] as String
-                            val ancienMontant = (ancienSousItem["montant"] as Double)
+                            val ancienneAllocationId = ancienSousItem["allocation_mensuelle_id"] as? String
+                            val ancienMontantEnCentimes = (ancienSousItem["montant"] as? Double) ?: 0.0
                             
-                            val ancienneAllocation = allocationMensuelleRepository.getAllocationById(ancienneAllocationId)
-                            if (ancienneAllocation != null) {
-                                // Rembourser en soustrayant le montant (inverse de l'ajout)
-                                val allocationRemboursee = ancienneAllocation.copy(
-                                    depense = ancienneAllocation.depense - ancienMontant,
-                                    solde = ancienneAllocation.solde + ancienMontant
-                                )
-                                allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                            if (ancienneAllocationId != null) {
+                                val ancienneAllocation = allocationMensuelleRepository.getAllocationById(ancienneAllocationId)
+                                if (ancienneAllocation != null) {
+                                    // Rembourser en soustrayant le montant (convertir centimes en dollars)
+                                    val allocationRemboursee = ancienneAllocation.copy(
+                                        depense = ancienneAllocation.depense - (ancienMontantEnCentimes / 100.0),
+                                        solde = ancienneAllocation.solde + (ancienMontantEnCentimes / 100.0)
+                                    )
+                                    allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
+                                }
                             }
                         }
                     } catch (e: Exception) {
@@ -313,7 +315,10 @@ class ModifierTransactionViewModel(
                 }
                 
                 // Supprimer l'ancienne transaction AVANT de créer la nouvelle
-                supprimerTransactionUseCase.executer(transactionAModifier!!.id)
+                val resultSuppression = supprimerTransactionUseCase.executer(transactionAModifier!!.id)
+                if (resultSuppression.isFailure) {
+                    throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
+                }
                 
                 // ÉTAPE 2: Créer une nouvelle transaction avec les nouveaux détails
                 if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
@@ -328,8 +333,8 @@ class ModifierTransactionViewModel(
                             mois = dateTransaction
                         )
                         
-                        // Le montant est déjà en dollars
-                        val montantEnDollars = fraction.montant
+                        // Le montant est en centimes, on le convertit en dollars pour le JSON
+                        val montantEnDollars = fraction.montant / 100.0
                         
                         // Mettre à jour l'allocation avec le compte source si pas déjà défini
                         if (allocationActuelle.compteSourceId == null) {
@@ -343,14 +348,14 @@ class ModifierTransactionViewModel(
                         // Récupérer le nom de l'enveloppe pour la description
                         val nomEnveloppe = allEnveloppes.find { it.id == fraction.enveloppeId }?.nom ?: "Enveloppe"
                         
-                        mapOf(
-                            "id" to "temp_${index + 1}",
-                            "description" to nomEnveloppe,
-                            "enveloppeId" to fraction.enveloppeId,
-                            "montant" to montantEnDollars,
-                            "allocation_mensuelle_id" to allocationActuelle.id,
-                            "transactionParenteId" to null
-                        )
+                                                 mapOf(
+                             "id" to "temp_${index + 1}",
+                             "description" to nomEnveloppe,
+                             "enveloppeId" to fraction.enveloppeId,
+                             "montant" to montantEnDollars,
+                             "allocation_mensuelle_id" to allocationActuelle.id,
+                             "transactionParenteId" to null
+                         )
                     }
                     
                     val gson = com.google.gson.Gson()
@@ -358,35 +363,38 @@ class ModifierTransactionViewModel(
 
                     // Créer une nouvelle transaction avec estFractionnee = true
                     val result = enregistrerTransactionUseCase.executer(
-                        typeTransaction = state.typeTransaction,
-                        montant = montantEnDollars,
-                        compteId = state.compteSelectionne!!.id,
-                        collectionCompte = collectionCompte,
-                        enveloppeId = null, // Pas d'enveloppe pour la transaction principale
-                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
-                        note = state.note.takeIf { it.isNotBlank() },
-                        date = dateTransaction,
-                        estFractionnee = true,
-                        sousItems = sousItemsJson
-                    )
+                         typeTransaction = state.typeTransaction,
+                         montant = montantEnDollars, // Utiliser montantEnDollars, pas montantEnCentimes
+                         compteId = state.compteSelectionne!!.id,
+                         collectionCompte = collectionCompte,
+                         enveloppeId = null, // Pas d'enveloppe pour la transaction principale
+                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                         note = state.note.takeIf { it.isNotBlank() },
+                         date = dateTransaction,
+                         estFractionnee = true,
+                         sousItems = sousItemsJson
+                     )
 
                     if (result.isSuccess) {
                         // Mettre à jour les allocations mensuelles en utilisant les données du JSON
                         for (sousItem in sousItems) {
-                            val allocationId = sousItem["allocation_mensuelle_id"] as String
-                            val montantEnDollars = sousItem["montant"] as Double
+                            val allocationId = sousItem["allocation_mensuelle_id"] as? String
+                                                         val montantEnDollars = (sousItem["montant"] as? Double) ?: 0.0
                             
-                            // Récupérer l'allocation par son ID (frais depuis la base de données)
-                            val allocationActuelle = allocationMensuelleRepository.getAllocationById(allocationId)
+                            if (allocationId != null) {
+                                // Récupérer l'allocation par son ID (frais depuis la base de données)
+                                val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
                             
-                            if (allocationActuelle != null) {
-                                // Mettre à jour l'allocation avec le montant du JSON
-                                val nouvelleAllocation = allocationActuelle.copy(
-                                    depense = allocationActuelle.depense + montantEnDollars,
-                                    solde = allocationActuelle.solde - montantEnDollars
-                                )
-                                
-                                allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+                                if (resultAllocation.isSuccess) {
+                                    val allocationActuelle = resultAllocation.getOrThrow()
+                                    // Mettre à jour l'allocation avec le montant en centimes (convertir en dollars)
+                                                                         val nouvelleAllocation = allocationActuelle.copy(
+                                         depense = allocationActuelle.depense + montantEnDollars,
+                                         solde = allocationActuelle.solde - montantEnDollars
+                                     )
+                                    
+                                    allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+                                }
                             }
                         }
                         
