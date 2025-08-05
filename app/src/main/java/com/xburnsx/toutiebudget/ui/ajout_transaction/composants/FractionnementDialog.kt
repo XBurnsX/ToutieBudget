@@ -30,6 +30,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.composants.toColor
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import java.util.UUID
 import kotlin.math.abs
 
@@ -42,8 +44,10 @@ import kotlin.math.abs
 fun FractionnementDialog(
     montantTotal: Double,
     enveloppesDisponibles: List<EnveloppeUi>,
+    fractionsInitiales: List<FractionTransaction> = emptyList(),
     onFractionnementConfirme: (List<FractionTransaction>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
 ) {
     var fractions by remember { mutableStateOf(listOf<FractionTransaction>()) }
     var montantRestant by remember { mutableStateOf(montantTotal) }
@@ -55,19 +59,25 @@ fun FractionnementDialog(
     LaunchedEffect(Unit) {
         visible = true
         if (fractions.isEmpty()) {
-            fractions = listOf(
-                FractionTransaction(
-                    id = UUID.randomUUID().toString(),
-                    montant = 0.0,
-                    enveloppeId = ""
+            fractions = if (fractionsInitiales.isNotEmpty()) {
+                fractionsInitiales
+            } else {
+                listOf(
+                    FractionTransaction(
+                        id = UUID.randomUUID().toString(),
+                        montant = 0.0, // En cents
+                        enveloppeId = ""
+                    )
                 )
-            )
+            }
         }
     }
 
     // Calcul des montants
-    val montantAlloue = fractions.sumOf { it.montant }
-    montantRestant = montantTotal - montantAlloue
+    val montantTotalEnCents = (montantTotal * 100).toInt().toDouble()
+    val montantAlloueEnCents = fractions.sumOf { it.montant } // Déjà en cents
+    val montantAlloueEnDollars = montantAlloueEnCents / 100.0 // Convertir en dollars pour l'affichage
+    montantRestant = montantTotal - montantAlloueEnDollars // Calculer le restant en dollars
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -110,15 +120,15 @@ fun FractionnementDialog(
                     // === BARRE DE PROGRESSION MODERNE ===
                     BarreProgressionModerne(
                         montantTotal = montantTotal,
-                        montantAlloue = montantAlloue,
+                        montantAlloue = montantAlloueEnDollars, // Convertir en dollars pour l'affichage
                         montantRestant = montantRestant
                     )
 
-                                         // === LISTE DES FRACTIONS ===
-                     LazyColumn(
-                         modifier = Modifier.heightIn(max = 500.dp),
-                         verticalArrangement = Arrangement.spacedBy(12.dp)
-                     ) {
+                    // === LISTE DES FRACTIONS ===
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         itemsIndexed(
                             items = fractions,
                             key = { _, fraction -> fraction.id }
@@ -145,6 +155,14 @@ fun FractionnementDialog(
                                         if (fractions.size > 1) {
                                             fractions = fractions.filter { it.id != fraction.id }
                                         }
+                                    },
+                                    onMontantFocus = { fractionActive ->
+                                        onOpenKeyboard(fractionActive.montant.toLong()) { nouveauMontant ->
+                                            val nouvelleFraction = fractionActive.copy(montant = nouveauMontant.toDouble())
+                                            fractions = fractions.map {
+                                                if (it.id == fractionActive.id) nouvelleFraction else it
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -155,7 +173,7 @@ fun FractionnementDialog(
                     BoutonAjouterFraction {
                         val nouvelleFraction = FractionTransaction(
                             id = UUID.randomUUID().toString(),
-                            montant = 0.0,
+                            montant = 0.0, // En cents
                             enveloppeId = ""
                         )
                         fractions = fractions + nouvelleFraction
@@ -372,7 +390,7 @@ private fun IndicateurMontant(
         )
 
         Text(
-            text = MoneyFormatter.formatAmountFromCents(montantAffiche.toLong()),
+            text = String.format("$%.2f", montantAffiche),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = couleur
@@ -391,7 +409,8 @@ private fun CardeFraction(
     enveloppesDisponibles: List<EnveloppeUi>,
     peutSupprimer: Boolean,
     onFractionChanged: (FractionTransaction) -> Unit,
-    onSupprimer: () -> Unit
+    onSupprimer: () -> Unit,
+    onMontantFocus: (FractionTransaction) -> Unit
 ) {
     var expandedEnveloppe by remember { mutableStateOf(false) }
     val enveloppeSelectionnee = enveloppesDisponibles.find { it.id == fraction.enveloppeId }
@@ -543,37 +562,17 @@ private fun CardeFraction(
             }
 
             // Champ de montant
-            OutlinedTextField(
-                value = if (fraction.montant > 0) String.format("%.2f", fraction.montant / 100.0) else "",
-                onValueChange = { value ->
-                    val montantEnDollars = value.toDoubleOrNull() ?: 0.0
-                    val montantEnCentimes = montantEnDollars * 100
-                    onFractionChanged(fraction.copy(montant = montantEnCentimes))
+            ChampUniversel(
+                valeur = fraction.montant.toLong(),
+                onValeurChange = { nouveauMontant ->
+                    onFractionChanged(fraction.copy(montant = nouveauMontant.toDouble()))
                 },
-                label = {
-                    Text(
-                        "Montant ($)",
-                        color = Color(0xFF9CA3AF)
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.AttachMoney,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color(0xFF4B5563),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                ),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                libelle = "Montant ($)",
+                utiliserClavier = false, // On utilise notre propre clavier
+                isMoney = true,
+                icone = Icons.Default.AttachMoney,
+                onClicPersonnalise = { onMontantFocus(fraction) },
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

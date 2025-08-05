@@ -114,6 +114,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
              tiersRepository = tiersRepository,
+             allocationMensuelleRepository = allocationMensuelleRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              realtimeSyncService = realtimeSyncService
          )

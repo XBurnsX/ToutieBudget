@@ -19,6 +19,8 @@ data class Transaction(
     val compteId: String = "",
     val collectionCompte: String = "",
     val allocationMensuelleId: String? = null,
+    val estFractionnee: Boolean = false, // Si la transaction est fractionnée
+    val sousItems: String? = null, // JSON des sous-items pour les transactions fractionnées
     val tiersId: String? = null, // ID du tiers associé à cette transaction
     val tiers: String? = null, // Nom du tiers (peut être utilisé sans tiersId pour les virements)
     val created: Date? = null,

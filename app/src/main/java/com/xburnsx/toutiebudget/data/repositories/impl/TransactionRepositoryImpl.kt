@@ -57,7 +57,7 @@ class TransactionRepositoryImpl : TransactionRepository {
 
             // Préparer les données pour PocketBase
             val dateEnUTC = dateFormatter.format(transaction.date)
-            val donneesTransaction = mapOf(
+            val donneesTransaction = mutableMapOf(
                 "utilisateur_id" to utilisateurId,
                 "type" to transaction.type.valeurPocketBase,
                 "montant" to transaction.montant,
@@ -68,6 +68,14 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
                 "tiers_id" to (transaction.tiers ?: "")
             )
+            
+            // Ajouter les nouveaux champs seulement s'ils ont des valeurs
+            if (transaction.estFractionnee) {
+                donneesTransaction["est_fractionnee"] = true
+            }
+            if (!transaction.sousItems.isNullOrBlank()) {
+                donneesTransaction["sous_items"] = transaction.sousItems
+            }
 
             val corpsRequete = gson.toJson(donneesTransaction)
             val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records"
@@ -305,7 +313,7 @@ class TransactionRepositoryImpl : TransactionRepository {
 
             // Préparer les données pour PocketBase
             val dateEnUTC = dateFormatter.format(transaction.date)
-            val donneesTransaction = mapOf(
+            val donneesTransaction = mutableMapOf(
                 "type" to transaction.type.valeurPocketBase,
                 "montant" to transaction.montant,
                 "date" to dateEnUTC,
@@ -315,6 +323,14 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
                 "tiers_id" to (transaction.tiers ?: "")
             )
+            
+            // Ajouter les nouveaux champs seulement s'ils ont des valeurs
+            if (transaction.estFractionnee) {
+                donneesTransaction["est_fractionnee"] = true
+            }
+            if (!transaction.sousItems.isNullOrBlank()) {
+                donneesTransaction["sous_items"] = transaction.sousItems
+            }
 
             val corpsRequete = gson.toJson(donneesTransaction)
             val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records/${transaction.id}"
@@ -371,8 +387,27 @@ class TransactionRepositoryImpl : TransactionRepository {
      */
     private fun deserialiserTransaction(json: String): Transaction? {
         return try {
-            gson.fromJson(json, Transaction::class.java)
+            val jsonObject = gson.fromJson(json, com.google.gson.JsonObject::class.java)
+            
+            // Créer une copie du JSON sans le champ sous_items pour éviter l'erreur
+            val jsonSansSousItems = jsonObject.deepCopy()
+            jsonSansSousItems.remove("sous_items")
+            
+            // Créer une transaction de base sans sous_items
+            val transactionBase = gson.fromJson(jsonSansSousItems.toString(), Transaction::class.java)
+            
+            // Gérer le champ sous_items manuellement
+            val sousItemsElement = jsonObject.get("sous_items")
+            val sousItemsString = when {
+                sousItemsElement == null || sousItemsElement.isJsonNull -> null
+                sousItemsElement.isJsonArray -> sousItemsElement.toString()
+                else -> sousItemsElement.asString
+            }
+            
+            transactionBase.copy(sousItems = sousItemsString)
         } catch (e: Exception) {
+            println("Erreur de désérialisation: ${e.message}")
+            println("JSON reçu: $json")
             null
         }
     }

@@ -35,6 +35,7 @@ class AjoutTransactionViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
     private val tiersRepository: TiersRepository,
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
@@ -447,15 +448,6 @@ class AjoutTransactionViewModel(
                 val compte = state.compteSelectionne
                     ?: throw Exception(VirementErrorMessages.ClavierBudget.COMPTE_NON_SELECTIONNE)
 
-                // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
-                val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
-                    val enveloppeSelectionnee = state.enveloppeSelectionnee
-                    enveloppeSelectionnee?.id
-                        ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
-                } else {
-                    null
-                }
-                
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
                 
@@ -464,46 +456,176 @@ class AjoutTransactionViewModel(
                 val maintenant = java.time.LocalDateTime.now()
                 val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
                 
-                // Enregistrer la transaction
-                val result = enregistrerTransactionUseCase.executer(
-                    typeTransaction = typeTransaction,
-                    montant = montant,
-                    compteId = compte.id,
-                    collectionCompte = when (compte) {
-                        is CompteCheque -> "comptes_cheques"
-                        is CompteCredit -> "comptes_credits"
-                        is CompteDette -> "comptes_dettes"
-                        is CompteInvestissement -> "comptes_investissements"
-                        else -> "comptes_cheques"
-                    },
-                    enveloppeId = enveloppeId,
-                    tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
-                    note = state.note.takeIf { it.isNotBlank() },
-                    date = dateTransaction
-                )
-                
-                if (result.isSuccess) {
-                    _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
-
-                    // Émettre l'événement global de rafraîchissement du budget
-                    BudgetEvents.refreshBudget.tryEmit(Unit)
-
-                    // Déclencher la mise à jour des comptes dans les autres écrans
-                    realtimeSyncService.declencherMiseAJourBudget()
-
-                    // Réinitialiser le formulaire après succès
-                    _uiState.update { 
-                        AjoutTransactionUiState(
-                            isLoading = false,
-                            comptesDisponibles = state.comptesDisponibles,
-                            enveloppesDisponibles = state.enveloppesDisponibles
-                        ).calculerValidite()
+                // Vérifier si c'est une transaction fractionnée
+                if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
+                    // Transaction fractionnée
+                    val fractions = state.fractionsSauvegardees
+                    
+                    // Convertir les fractions en JSON pour sousItems
+                    val sousItems = fractions.mapIndexed { index, fraction ->
+                        // Récupérer ou créer l'allocation mensuelle pour cette enveloppe
+                        val allocationActuelle = allocationMensuelleRepository.recupererOuCreerAllocation(
+                            enveloppeId = fraction.enveloppeId,
+                            mois = dateTransaction // Mois de la transaction
+                        )
+                        
+                        // Convertir le montant de centimes en dollars pour le JSON
+                        val montantEnDollars = fraction.montant / 100.0
+                        
+                        // Déterminer la collection du compte
+                        val collectionCompte = when (compte) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        }
+                        
+                        // Mettre à jour l'allocation avec le compte source si pas déjà défini
+                        if (allocationActuelle.compteSourceId == null) {
+                            val allocationMiseAJour = allocationActuelle.copy(
+                                compteSourceId = compte.id,
+                                collectionCompteSource = collectionCompte
+                            )
+                            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                        }
+                        
+                        // Récupérer le nom de l'enveloppe pour la description
+                        val nomEnveloppe = allEnveloppes.find { it.id == fraction.enveloppeId }?.nom ?: "Enveloppe"
+                        
+                        mapOf(
+                            "id" to "temp_${index + 1}",
+                            "description" to nomEnveloppe, // TOUJOURS utiliser le nom de l'enveloppe
+                            "enveloppeId" to fraction.enveloppeId,
+                            "montant" to montantEnDollars, // Montant en dollars pour le JSON
+                            "allocation_mensuelle_id" to allocationActuelle.id, // Lier à l'allocation
+                            "transactionParenteId" to null
+                        )
                     }
                     
-                    // Recharger les données pour mettre à jour les soldes
-                    chargerDonneesInitiales()
+                    val gson = com.google.gson.Gson()
+                    val sousItemsJson = gson.toJson(sousItems)
+
+                    // Créer la transaction principale avec estFractionnee = true
+                    val transactionPrincipale = enregistrerTransactionUseCase.executer(
+                        typeTransaction = typeTransaction,
+                        montant = montant,
+                        compteId = compte.id,
+                        collectionCompte = when (compte) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        },
+                        enveloppeId = null, // Pas d'enveloppe pour la transaction principale
+                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                        note = state.note.takeIf { it.isNotBlank() },
+                        date = dateTransaction,
+                        estFractionnee = true,
+                        sousItems = sousItemsJson
+                    )
+
+                    if (transactionPrincipale.isSuccess) {
+                        // Mettre à jour les allocations mensuelles en utilisant les données du JSON
+                        for (sousItem in sousItems) {
+                            val allocationId = sousItem["allocation_mensuelle_id"] as String
+                            val montantEnDollars = sousItem["montant"] as Double
+                            
+                            // Récupérer l'allocation par son ID
+                            val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
+                            
+                            if (resultAllocation.isSuccess) {
+                                val allocationActuelle = resultAllocation.getOrThrow()
+                                // Mettre à jour l'allocation avec le montant du JSON
+                                val nouvelleAllocation = allocationActuelle.copy(
+                                    depense = allocationActuelle.depense + montantEnDollars,
+                                    solde = allocationActuelle.solde - montantEnDollars
+                                )
+                                
+                                allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+                            }
+                        }
+                        
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+
+                        // Émettre l'événement global de rafraîchissement du budget
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+
+                        // Déclencher la mise à jour des comptes dans les autres écrans
+                        realtimeSyncService.declencherMiseAJourBudget()
+
+                        // Réinitialiser le formulaire après succès
+                        _uiState.update { 
+                            AjoutTransactionUiState(
+                                isLoading = false,
+                                comptesDisponibles = state.comptesDisponibles,
+                                enveloppesDisponibles = state.enveloppesDisponibles
+                            ).calculerValidite()
+                        }
+                        
+                        // Recharger les données pour mettre à jour les soldes
+                        chargerDonneesInitiales()
+                    } else {
+                        _uiState.update { 
+                            it.copy(
+                                estEnTrainDeSauvegarder = false,
+                                messageErreur = transactionPrincipale.exceptionOrNull()?.message
+                            )
+                        }
+                    }
                 } else {
-                    _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
+                    // Transaction normale (non fractionnée)
+                    // Pour les dépenses, vérifier qu'une enveloppe est sélectionnée
+                    val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
+                        val enveloppeSelectionnee = state.enveloppeSelectionnee
+                        enveloppeSelectionnee?.id
+                            ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
+                    } else {
+                        null
+                    }
+                    
+                    // Enregistrer la transaction
+                    val result = enregistrerTransactionUseCase.executer(
+                        typeTransaction = typeTransaction,
+                        montant = montant,
+                        compteId = compte.id,
+                        collectionCompte = when (compte) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        },
+                        enveloppeId = enveloppeId,
+                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
+                        note = state.note.takeIf { it.isNotBlank() },
+                        date = dateTransaction
+                    )
+                    
+                    if (result.isSuccess) {
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+
+                        // Émettre l'événement global de rafraîchissement du budget
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+
+                        // Déclencher la mise à jour des comptes dans les autres écrans
+                        realtimeSyncService.declencherMiseAJourBudget()
+
+                        // Réinitialiser le formulaire après succès
+                        _uiState.update { 
+                            AjoutTransactionUiState(
+                                isLoading = false,
+                                comptesDisponibles = state.comptesDisponibles,
+                                enveloppesDisponibles = state.enveloppesDisponibles
+                            ).calculerValidite()
+                        }
+                        
+                        // Recharger les données pour mettre à jour les soldes
+                        chargerDonneesInitiales()
+                    } else {
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -535,71 +657,13 @@ class AjoutTransactionViewModel(
      * Confirme le fractionnement de la transaction.
      */
     fun confirmerFractionnement(fractions: List<FractionTransaction>) {
-        viewModelScope.launch {
-            try {
-                _uiState.update { it.copy(estEnTrainDeSauvegarder = true, estEnModeFractionnement = false) }
-                
-                val state = _uiState.value
-                val montant = state.montant.toDoubleOrNull() ?: 0.0
-                val compte = state.compteSelectionne
-                
-                if (compte == null) {
-                    throw Exception("Aucun compte sélectionné")
-                }
-
-                // Créer la transaction principale
-                val transactionPrincipale = enregistrerTransactionUseCase.executer(
-                    typeTransaction = state.typeTransaction,
-                    montant = montant,
-                    compteId = compte.id,
-                    collectionCompte = when (compte) {
-                        is CompteCheque -> "comptes_cheques"
-                        is CompteCredit -> "comptes_credits"
-                        is CompteDette -> "comptes_dettes"
-                        is CompteInvestissement -> "comptes_investissements"
-                        else -> "comptes_cheques"
-                    },
-                    enveloppeId = null, // Pas d'enveloppe pour la transaction principale
-                    tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
-                    note = state.note.takeIf { it.isNotBlank() },
-                    date = Date()
-                )
-
-                if (transactionPrincipale.isSuccess) {
-                    // TODO: Créer les transactions fractionnées
-                    // Pour l'instant, on ferme juste le dialog
-                    _uiState.update { 
-                        it.copy(
-                            estEnTrainDeSauvegarder = false, 
-                            transactionReussie = true,
-                            estEnModeFractionnement = false
-                        )
-                    }
-                    
-                    // Émettre l'événement global de rafraîchissement du budget
-                    BudgetEvents.refreshBudget.tryEmit(Unit)
-                    
-                    // Déclencher la mise à jour des comptes dans les autres écrans
-                    realtimeSyncService.declencherMiseAJourBudget()
-                } else {
-                    _uiState.update { 
-                        it.copy(
-                            estEnTrainDeSauvegarder = false,
-                            messageErreur = transactionPrincipale.exceptionOrNull()?.message,
-                            estEnModeFractionnement = false
-                        )
-                    }
-                }
-                
-            } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(
-                        estEnTrainDeSauvegarder = false,
-                        messageErreur = e.message ?: "Erreur lors du fractionnement",
-                        estEnModeFractionnement = false
-                    )
-                }
-            }
+        // Les montants sont déjà en cents dans le dialog, pas besoin de conversion
+        _uiState.update { 
+            it.copy(
+                estEnModeFractionnement = false,
+                fractionnementEffectue = true, // Marquer que le fractionnement a été effectué
+                fractionsSauvegardees = fractions // Sauvegarder les fractions pour les réutiliser
+            ).calculerValidite() // Recalculer la validité pour activer le bouton Enregistrer
         }
     }
 

@@ -34,6 +34,8 @@ class EnregistrerTransactionUseCase(
      * @param tiersNom Nom du tiers associé à la transaction
      * @param note Note facultative
      * @param date Date de la transaction (par défaut: maintenant)
+     * @param estFractionnee Si la transaction est fractionnée
+     * @param sousItems JSON des sous-items pour les transactions fractionnées
      * 
      * @return Result indiquant le succès ou l'échec avec l'exception
      */
@@ -45,7 +47,9 @@ class EnregistrerTransactionUseCase(
         enveloppeId: String? = null,
         tiersNom: String? = null,
         note: String? = null,
-        date: Date = Date()
+        date: Date = Date(),
+        estFractionnee: Boolean = false,
+        sousItems: String? = null
     ): Result<Unit> {
         
         if (montant <= 0) {
@@ -89,7 +93,9 @@ class EnregistrerTransactionUseCase(
                     compteId = compteId,
                     collectionCompte = collectionCompte,
                     allocationMensuelleId = allocationMensuelleId, // Basé sur le mois actuel
-                    tiers = tiersNom
+                    tiers = tiersNom,
+                    estFractionnee = estFractionnee,
+                    sousItems = sousItems
                 )
 
                 val resultTransaction = transactionRepository.creerTransaction(transaction)

@@ -10,5 +10,8 @@ data class TransactionUi(
     val date: Date,
     val tiers: String,
     val nomEnveloppe: String?,
-    val note: String?
+    val note: String?,
+    val estFractionnee: Boolean = false,
+    val sousItems: String? = null,
+    val nomsEnveloppesFractions: List<String> = emptyList()
 ) 

@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.modeles.Tiers
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
 import java.time.LocalDate
 
 /**
@@ -58,7 +59,8 @@ data class AjoutTransactionUiState(
     
     // --- Fractionnement ---
     val estEnModeFractionnement: Boolean = false,
-    val fractionnementEffectue: Boolean = false
+    val fractionnementEffectue: Boolean = false,
+    val fractionsSauvegardees: List<FractionTransaction> = emptyList()
 ) {
     
     /**
@@ -75,10 +77,10 @@ data class AjoutTransactionUiState(
                              tiersEstRempli &&
                              !estEnTrainDeSauvegarder
         
-        // Validation pour le bouton "Enregistrer" : montant + compte + tiers + enveloppe
+        // Validation pour le bouton "Enregistrer" : montant + compte + tiers + enveloppe OU fractionnement effectué
         val enveloppeEstValideOuPasRequise = when (modeOperation) {
             "Standard" -> when (typeTransaction) {
-                TypeTransaction.Depense -> enveloppeSelectionnee != null
+                TypeTransaction.Depense -> enveloppeSelectionnee != null || fractionnementEffectue
                 TypeTransaction.Revenu -> true
                 else -> true
             }

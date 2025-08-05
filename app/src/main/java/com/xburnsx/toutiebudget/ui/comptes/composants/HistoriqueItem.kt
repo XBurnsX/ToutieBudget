@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.google.gson.Gson
+import com.google.gson.JsonParser
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,6 +67,47 @@ fun HistoriqueItem(
         }
     }
     val titreComplet = "${transaction.tiers}" //  Avec Date et heure  val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
+
+    // Parser les fractions si c'est une transaction fractionnée
+    val fractions = remember(transaction.sousItems) {
+        if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+            try {
+                val gson = Gson()
+                val jsonArray = JsonParser.parseString(transaction.sousItems).asJsonArray
+                jsonArray.mapNotNull { element ->
+                    val obj = element.asJsonObject
+                    val description = obj.get("description")?.asString ?: ""
+                    val montant = obj.get("montant")?.asDouble ?: 0.0
+                    val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
+                    Triple(description, montant, enveloppeId)
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    // Récupérer les noms des enveloppes pour les fractions
+    val fractionsAvecNoms = remember(fractions, transaction.nomsEnveloppesFractions) {
+        if (transaction.nomsEnveloppesFractions.isNotEmpty()) {
+            // Utiliser les vrais noms des enveloppes passés depuis le ViewModel
+            fractions.zip(transaction.nomsEnveloppesFractions) { (_, montant, _), nomEnveloppe ->
+                Pair(nomEnveloppe, montant)
+            }
+        } else {
+            // Fallback : utiliser la description ou l'enveloppeId
+            fractions.map { (description, montant, enveloppeId) ->
+                val nomEnveloppe = if (description.contains("Fraction")) {
+                    "Enveloppe $enveloppeId"
+                } else {
+                    description
+                }
+                Pair(nomEnveloppe, montant)
+            }
+        }
+    }
 
     Box {
         Card(
@@ -153,8 +196,8 @@ fun HistoriqueItem(
                     }
                 }
                 
-                // 🏷️ ENVELOPPE sur ligne séparée avec icône
-                if (transaction.nomEnveloppe != null) {
+                // 🏷️ ENVELOPPE sur ligne séparée avec icône (pour transactions normales)
+                if (transaction.nomEnveloppe != null && !transaction.estFractionnee) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -172,6 +215,34 @@ fun HistoriqueItem(
                             color = Color.LightGray,
                             fontWeight = FontWeight.Normal
                         )
+                    }
+                }
+                
+                // 🎯 FRACTIONS pour transactions fractionnées
+                if (transaction.estFractionnee && fractions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Column {
+                        fractionsAvecNoms.forEach { (nomEnveloppe, montant) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalOffer,
+                                    contentDescription = "Enveloppe",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "$nomEnveloppe - ${MoneyFormatter.formatAmount(montant)}",
+                                    fontSize = 12.sp,
+                                    color = Color.LightGray,
+                                    fontWeight = FontWeight.Normal,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -277,7 +348,10 @@ fun HistoriqueItemPreview() {
             date = Date(),
             tiers = "Arbec",
             nomEnveloppe = "Alimentation",
-            note = "Courses hebdomadaires"
+            note = "Courses hebdomadaires",
+            estFractionnee = false,
+            sousItems = null,
+            nomsEnveloppesFractions = emptyList()
         )
     )
 }
@@ -294,7 +368,10 @@ fun HistoriqueItemRevenuPreview() {
             date = Date(),
             tiers = "Entreprise ABC",
             nomEnveloppe = "Salaire",
-            note = "Paie mensuelle"
+            note = "Paie mensuelle",
+            estFractionnee = false,
+            sousItems = null,
+            nomsEnveloppesFractions = emptyList()
         )
     )
 }

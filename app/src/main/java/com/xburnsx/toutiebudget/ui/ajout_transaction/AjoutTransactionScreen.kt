@@ -27,6 +27,9 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.DiagnosticConnexionButton
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionnementDialog
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 /**
  * Écran principal pour ajouter une nouvelle transaction.
@@ -37,6 +40,11 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionnementDi
 fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSuccess: () -> Unit = {}) {
 
     val uiState by viewModel.uiState.collectAsState()
+    
+    // État du clavier global
+    var afficherClavier by remember { mutableStateOf(false) }
+    var montantClavier by remember { mutableStateOf(0L) }
+    var onMontantChangeClavier by remember { mutableStateOf<(Long) -> Unit>({}) }
 
     // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
     LaunchedEffect(Unit) {
@@ -51,18 +59,28 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
         }
     }
 
+    // Fonction pour ouvrir le clavier
+    val ouvrirClavier = { montantInitial: Long, onMontantChange: (Long) -> Unit ->
+        montantClavier = montantInitial
+        onMontantChangeClavier = onMontantChange
+        afficherClavier = true
+    }
+
     // Afficher le dialog de fractionnement si nécessaire
     if (uiState.estEnModeFractionnement) {
-        val montantTotal = uiState.montant.toDoubleOrNull() ?: 0.0
+        val montantTotalEnCents = uiState.montant.toLongOrNull() ?: 0L
+        val montantTotal = montantTotalEnCents / 100.0 // Convertir en dollars
         FractionnementDialog(
             montantTotal = montantTotal,
             enveloppesDisponibles = uiState.enveloppesDisponibles,
+            fractionsInitiales = uiState.fractionsSauvegardees, // Passer les fractions sauvegardées
             onFractionnementConfirme = { fractions ->
                 viewModel.confirmerFractionnement(fractions)
             },
             onDismiss = {
                 viewModel.fermerFractionnement()
-            }
+            },
+            onOpenKeyboard = ouvrirClavier
         )
     }
 
@@ -345,6 +363,37 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // Clavier numérique global
+    if (afficherClavier) {
+        Dialog(
+            onDismissRequest = {
+                afficherClavier = false
+                onMontantChangeClavier = {}
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            // Le Dialog garantit que le clavier sera au-dessus de tout
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // Le clavier lui-même
+                ClavierNumerique(
+                    montantInitial = montantClavier,
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = { nouveauMontant ->
+                        onMontantChangeClavier(nouveauMontant)
+                    },
+                    onFermer = {
+                        afficherClavier = false
+                        onMontantChangeClavier = {}
+                    }
+                )
             }
         }
     }

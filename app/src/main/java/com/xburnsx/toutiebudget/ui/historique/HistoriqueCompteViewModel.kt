@@ -136,22 +136,55 @@ class HistoriqueCompteViewModel(
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
-                    // Si la transaction a une allocation mensuelle, trouver l'enveloppe correspondante
-                    val nomEnveloppe = if (!transaction.allocationMensuelleId.isNullOrEmpty()) {
-                        // Essayer de récupérer l'allocation directement par son ID
-                        val resultAllocation = enveloppeRepository.recupererAllocationParId(transaction.allocationMensuelleId)
+                    // Utiliser directement le champ tiersId de la transaction (qui contient le nom)
+                    val nomTiers = transaction.tiersId ?: "Transaction"
+
+                    // Créer TransactionUi avec les données récupérées
+                    val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
+                        // Récupérer le nom de l'enveloppe depuis l'allocation
+                        val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
                         if (resultAllocation.isSuccess) {
-                            val allocation = resultAllocation.getOrNull()
-                            enveloppes.find { it.id == allocation?.enveloppeId }?.nom
+                            val allocation = resultAllocation.getOrThrow()
+                            // Récupérer l'enveloppe depuis l'allocation
+                            val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                            if (resultEnveloppes.isSuccess) {
+                                val enveloppe = resultEnveloppes.getOrThrow().find { it.id == allocation.enveloppeId }
+                                enveloppe?.nom
+                            } else {
+                                null
+                            }
                         } else {
                             null
                         }
-                    } else {
-                        null
                     }
 
-                    // Utiliser directement le champ tiersId de la transaction (qui contient le nom)
-                    val nomTiers = transaction.tiersId ?: "Transaction"
+                    // Pour les transactions fractionnées, récupérer les noms des enveloppes depuis le JSON
+                    val nomsEnveloppesFractions = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+                        try {
+                            val gson = com.google.gson.Gson()
+                            val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
+                            val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                            if (resultEnveloppes.isSuccess) {
+                                val enveloppes = resultEnveloppes.getOrThrow()
+                                jsonArray.mapNotNull { element ->
+                                    val obj = element.asJsonObject
+                                    val enveloppeId = obj.get("enveloppeId")?.asString
+                                    if (enveloppeId != null) {
+                                        val enveloppe = enveloppes.find { it.id == enveloppeId }
+                                        enveloppe?.nom ?: "Enveloppe inconnue"
+                                    } else {
+                                        null
+                                    }
+                                }
+                            } else {
+                                emptyList()
+                            }
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
 
                     TransactionUi(
                         id = transaction.id,
@@ -160,7 +193,10 @@ class HistoriqueCompteViewModel(
                         date = transaction.date ?: Date(), // Valeur par défaut si date est null
                         tiers = nomTiers, // Utiliser directement le champ tiers de la transaction
                         nomEnveloppe = nomEnveloppe,
-                        note = transaction.note // Garder la note complète
+                        note = transaction.note, // Garder la note complète
+                        estFractionnee = transaction.estFractionnee,
+                        sousItems = transaction.sousItems,
+                        nomsEnveloppesFractions = nomsEnveloppesFractions
                     )
                 }.sortedByDescending { it.date }
 
