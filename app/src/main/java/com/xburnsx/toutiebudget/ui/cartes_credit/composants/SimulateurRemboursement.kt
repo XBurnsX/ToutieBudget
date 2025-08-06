@@ -224,7 +224,7 @@ private fun ConseilsRemboursement(scenarios: List<ScenarioRemboursement>) {
     val scenarioRec = scenarios.find { it.type == TypeScenario.RECOMMANDE }
 
     if (scenarioMin != null && scenarioRec != null) {
-        val economie = scenarioMin.interetsTotal - scenarioRec.interetsTotal
+        val economie = scenarioMin.coutTotal - scenarioRec.coutTotal
 
         Card(
             colors = CardDefaults.cardColors(
@@ -249,7 +249,7 @@ private fun ConseilsRemboursement(scenarios: List<ScenarioRemboursement>) {
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "En payant ${MoneyFormatter.formatAmount(scenarioRec.paiementMensuel)} au lieu du minimum, vous économiserez ${MoneyFormatter.formatAmount(economie)} en intérêts !",
+                        text = "En payant ${MoneyFormatter.formatAmount(scenarioRec.paiementMensuel)} au lieu du minimum, vous économiserez ${MoneyFormatter.formatAmount(economie)} en coûts totaux !",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -265,7 +265,8 @@ private data class ScenarioRemboursement(
     val paiementMensuel: Double,
     val dureeMois: Int,
     val interetsTotal: Double,
-    val coutTotal: Double
+    val coutTotal: Double,
+    val fraisTotal: Double
 )
 
 private enum class TypeScenario {
@@ -283,6 +284,7 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
     val dureeMin = calculerDureeRemboursement(carte, paiementMin)
     if (dureeMin != null && dureeMin <= 600) { // Limite raisonnable
         val interetsMin = calculerInteretsTotal(carte, paiementMin, dureeMin)
+        val fraisTotalMin = carte.calculerFraisTotaux(dureeMin)
         scenarios.add(
             ScenarioRemboursement(
                 nom = "Minimum",
@@ -290,7 +292,8 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
                 paiementMensuel = paiementMin,
                 dureeMois = dureeMin,
                 interetsTotal = interetsMin,
-                coutTotal = dette + interetsMin
+                coutTotal = dette + interetsMin + fraisTotalMin,
+                fraisTotal = fraisTotalMin
             )
         )
     }
@@ -300,6 +303,7 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
     val dureeRec = calculerDureeRemboursement(carte, paiementRec)
     if (dureeRec != null) {
         val interetsRec = calculerInteretsTotal(carte, paiementRec, dureeRec)
+        val fraisTotalRec = carte.calculerFraisTotaux(dureeRec)
         scenarios.add(
             ScenarioRemboursement(
                 nom = "Recommandé",
@@ -307,7 +311,8 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
                 paiementMensuel = paiementRec,
                 dureeMois = dureeRec,
                 interetsTotal = interetsRec,
-                coutTotal = dette + interetsRec
+                coutTotal = dette + interetsRec + fraisTotalRec,
+                fraisTotal = fraisTotalRec
             )
         )
     }
@@ -317,6 +322,7 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
     val dureeAgg = calculerDureeRemboursement(carte, paiementAgg)
     if (dureeAgg != null) {
         val interetsAgg = calculerInteretsTotal(carte, paiementAgg, dureeAgg)
+        val fraisTotalAgg = carte.calculerFraisTotaux(dureeAgg)
         scenarios.add(
             ScenarioRemboursement(
                 nom = "Agressif",
@@ -324,7 +330,8 @@ private fun genererScenarios(carte: CompteCredit, statistiques: StatistiquesCart
                 paiementMensuel = paiementAgg,
                 dureeMois = dureeAgg,
                 interetsTotal = interetsAgg,
-                coutTotal = dette + interetsAgg
+                coutTotal = dette + interetsAgg + fraisTotalAgg,
+                fraisTotal = fraisTotalAgg
             )
         )
     }
@@ -336,15 +343,32 @@ private fun calculerDureeRemboursement(carte: CompteCredit, paiementMensuel: Dou
     val dette = abs(carte.solde)
     val taux = carte.tauxInteret ?: 0.0
     val tauxMensuel = taux / 100.0 / 12.0
+    
+    // Estimation initiale pour calculer les frais moyens
+    val estimationDuree = if (tauxMensuel > 0) {
+        val paiementNetEstime = paiementMensuel - carte.totalFraisMensuels
+        if (paiementNetEstime > 0) kotlin.math.ceil(dette / paiementNetEstime).toInt() else 60
+    } else {
+        60
+    }
+    
+    val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(estimationDuree)
 
     if (dette <= 0) return 0
-    if (paiementMensuel <= dette * tauxMensuel) return null
+    if (paiementMensuel <= dette * tauxMensuel + fraisMensuelsMoyens) return null
 
     if (tauxMensuel == 0.0) {
-        return ceil(dette / paiementMensuel).toInt()
+        // Sans intérêts, mais avec frais fixes
+        val paiementNet = paiementMensuel - fraisMensuelsMoyens
+        if (paiementNet <= 0) return null
+        return ceil(dette / paiementNet).toInt()
     }
 
-    val numerateur = ln(1 + (dette * tauxMensuel) / paiementMensuel)
+    // Formule mathématique pour calculer le nombre de paiements avec frais fixes
+    val paiementNet = paiementMensuel - fraisMensuelsMoyens
+    if (paiementNet <= 0) return null
+    
+    val numerateur = ln(1 + (dette * tauxMensuel) / paiementNet)
     val denominateur = ln(1 + tauxMensuel)
 
     return ceil(numerateur / denominateur).toInt()
@@ -352,8 +376,59 @@ private fun calculerDureeRemboursement(carte: CompteCredit, paiementMensuel: Dou
 
 private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, dureeMois: Int): Double {
     val dette = abs(carte.solde)
-    val totalPaiements = paiementMensuel * dureeMois
-    return maxOf(0.0, totalPaiements - dette)
+    val taux = carte.tauxInteret ?: 0.0
+    val tauxMensuel = taux / 100.0 / 12.0
+    val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeMois)
+    
+    if (tauxMensuel == 0.0) {
+        // Sans intérêts, retourner 0
+        return 0.0
+    }
+    
+    // Calculer les intérêts réels payés mois par mois
+    var soldeRestant = dette
+    var totalInterets = 0.0
+    
+    for (mois in 1..dureeMois) {
+        if (soldeRestant <= 0.01) break
+        
+        val interetsMois = soldeRestant * tauxMensuel
+        val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
+        val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+        
+        totalInterets += interetsMois
+        soldeRestant -= capitalMois
+    }
+    
+    return totalInterets
+}
+
+// Fonction pour calculer uniquement les vrais intérêts (sans frais)
+private fun calculerVraisInterets(carte: CompteCredit, paiementMensuel: Double, dureeMois: Int): Double {
+    val dette = abs(carte.solde)
+    val taux = carte.tauxInteret ?: 0.0
+    val tauxMensuel = taux / 100.0 / 12.0
+    
+    if (tauxMensuel == 0.0) {
+        return 0.0
+    }
+    
+    // Calculer les intérêts réels payés mois par mois
+    var soldeRestant = dette
+    var totalInterets = 0.0
+    
+    for (mois in 1..dureeMois) {
+        if (soldeRestant <= 0.01) break
+        
+        val interetsMois = soldeRestant * tauxMensuel
+        val paiementDisponible = paiementMensuel
+        val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+        
+        totalInterets += interetsMois
+        soldeRestant -= capitalMois
+    }
+    
+    return totalInterets
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
@@ -370,6 +445,10 @@ fun SimulateurRemboursementPreview() {
         limiteCredit = 10000.0,
         tauxInteret = 19.99
     )
+    
+    // Test du calcul des intérêts
+    val testInterets = calculerInteretsTotal(carteCredit, 500.0, 6)
+    println("Test intérêts pour 500€/mois sur 6 mois: $testInterets")
     
     val statistiques = StatistiquesCarteCredit(
         creditDisponible = 7500.0,

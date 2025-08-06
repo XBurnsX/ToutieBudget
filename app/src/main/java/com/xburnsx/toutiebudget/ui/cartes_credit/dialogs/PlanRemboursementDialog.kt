@@ -133,6 +133,23 @@ fun PlanRemboursementDialog(
                             )
                         }
 
+                        // Afficher les frais totaux s'ils existent
+                        if (carte.totalFraisMensuels > 0) {
+                            val totalFrais = carte.totalFraisMensuels * planRemboursement.size
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total frais :", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    MoneyFormatter.formatAmount(totalFrais),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFB74D)
+                                )
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween

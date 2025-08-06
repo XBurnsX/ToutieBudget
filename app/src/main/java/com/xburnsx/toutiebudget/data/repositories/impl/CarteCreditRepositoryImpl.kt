@@ -57,11 +57,12 @@ class CarteCreditRepositoryImpl(
     override fun calculerPaiementMinimum(carteCredit: CompteCredit): Double {
         val dette = abs(carteCredit.solde)
         val interetsMensuels = calculerInteretsMensuels(carteCredit)
+        val fraisMensuels = carteCredit.totalFraisMensuels
 
         // Paiement minimum = 2% du solde ou 25$, le plus élevé des deux
-        // Plus les intérêts du mois
+        // Plus les intérêts du mois et les frais fixes
         val paiementBase = max(dette * 0.02, 25.0)
-        return paiementBase + interetsMensuels
+        return paiementBase + interetsMensuels + fraisMensuels
     }
 
     override fun calculerCreditDisponible(carteCredit: CompteCredit): Double {
@@ -79,16 +80,23 @@ class CarteCreditRepositoryImpl(
         val dette = abs(carteCredit.solde)
         val taux = carteCredit.tauxInteret ?: 0.0 // Changé interet vers tauxInteret
         val tauxMensuel = taux / 100.0 / 12.0
+        val fraisMensuels = carteCredit.totalFraisMensuels
 
         if (dette <= 0) return 0
-        if (paiementMensuel <= calculerInteretsMensuels(carteCredit)) return null // Impossible à rembourser
+        if (paiementMensuel <= calculerInteretsMensuels(carteCredit) + fraisMensuels) return null // Impossible à rembourser
 
         if (tauxMensuel == 0.0) {
-            return ceil(dette / paiementMensuel).toInt()
+            // Sans intérêts, mais avec frais fixes
+            val paiementNet = paiementMensuel - fraisMensuels
+            if (paiementNet <= 0) return null
+            return ceil(dette / paiementNet).toInt()
         }
 
-        // Formule mathématique pour calculer le nombre de paiements
-        val numerateur = ln(1 + (dette * tauxMensuel) / paiementMensuel)
+        // Formule mathématique pour calculer le nombre de paiements avec frais fixes
+        val paiementNet = paiementMensuel - fraisMensuels
+        if (paiementNet <= 0) return null
+        
+        val numerateur = ln(1 + (dette * tauxMensuel) / paiementNet)
         val denominateur = ln(1 + tauxMensuel)
 
         return ceil(numerateur / denominateur).toInt()
@@ -109,9 +117,14 @@ class CarteCreditRepositoryImpl(
         for (mois in 1..nombreMoisMax) {
             if (soldeRestant <= 0.01) break // Dette remboursée
 
+            // Calculer les frais moyens pour cette durée estimée
+            val dureeEstimee = nombreMoisMax - mois + 1
+            val fraisMensuelsMoyens = carteCredit.calculerFraisMensuelsMoyens(dureeEstimee)
+
             val interetsMois = soldeRestant * tauxMensuel
-            val capitalMois = min(paiementMensuel - interetsMois, soldeRestant)
-            val paiementReel = interetsMois + capitalMois
+            val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
+            val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+            val paiementReel = interetsMois + capitalMois + fraisMensuelsMoyens
 
             soldeRestant -= capitalMois
 

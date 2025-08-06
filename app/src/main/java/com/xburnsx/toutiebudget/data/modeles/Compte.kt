@@ -38,8 +38,15 @@ data class CompteCheque(
 data class FraisMensuel(
     val nom: String, // Nom du frais (ex: "Assurance", "AccordD")
     val montant: Double, // Montant du frais
-    val description: String? = null // Description optionnelle
+    val description: String? = null, // Description optionnelle
+    val type: TypeFrais = TypeFrais.MENSUEL // Type de frais
 )
+
+enum class TypeFrais {
+    MENSUEL,    // Payé chaque mois (ex: assurance)
+    ANNUEL,     // Payé une fois par an (ex: frais de carte)
+    PONCTUEL    // Payé seulement si applicable (ex: frais de retard)
+}
 
 data class CompteCredit(
     override val id: String = "",
@@ -93,6 +100,23 @@ data class CompteCredit(
     
     // Propriété calculée pour obtenir le total des frais mensuels
     val totalFraisMensuels: Double get() = fraisMensuels.sumOf { it.montant }
+    
+    // Calculer les frais totaux pour une durée donnée
+    fun calculerFraisTotaux(dureeMois: Int): Double {
+        return fraisMensuels.sumOf { frais ->
+            when (frais.type ?: TypeFrais.MENSUEL) { // Valeur par défaut pour les données existantes
+                TypeFrais.MENSUEL -> frais.montant * dureeMois
+                TypeFrais.ANNUEL -> frais.montant * kotlin.math.ceil(dureeMois / 12.0).toInt()
+                TypeFrais.PONCTUEL -> 0.0 // On ne prévoit pas les frais ponctuels
+            }
+        }
+    }
+    
+    // Calculer les frais mensuels moyens pour une durée donnée
+    fun calculerFraisMensuelsMoyens(dureeMois: Int): Double {
+        if (dureeMois <= 0) return 0.0
+        return calculerFraisTotaux(dureeMois) / dureeMois
+    }
 }
 
 data class CompteDette(

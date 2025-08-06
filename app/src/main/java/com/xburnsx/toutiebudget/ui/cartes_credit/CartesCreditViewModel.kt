@@ -7,17 +7,28 @@ import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
 import com.xburnsx.toutiebudget.data.repositories.impl.CarteCreditRepositoryImpl
 import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
-import com.xburnsx.toutiebudget.data.services.CarteCreditNotificationService
+import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditUiState
+import com.xburnsx.toutiebudget.ui.cartes_credit.FormulaireCarteCredit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.min
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+
+/**
+ * Classe pour stocker les calculs du calculateur.
+ */
+data class CalculsCalculateur(
+    val tempsRemboursement: Int?,
+    val interetsTotal: Double?
+)
 
 class CartesCreditViewModel : ViewModel() {
 
     private val carteCreditRepository: CarteCreditRepository = CarteCreditRepositoryImpl(CompteRepositoryImpl())
-    private val notificationService: CarteCreditNotificationService = CarteCreditNotificationService(carteCreditRepository)
 
     private val _uiState = MutableStateFlow(CartesCreditUiState())
     val uiState: StateFlow<CartesCreditUiState> = _uiState.asStateFlow()
@@ -25,9 +36,12 @@ class CartesCreditViewModel : ViewModel() {
     private val _formulaire = MutableStateFlow(FormulaireCarteCredit())
     val formulaire: StateFlow<FormulaireCarteCredit> = _formulaire.asStateFlow()
 
+    // Calculs du calculateur
+    private val _calculsCalculateur = mutableStateOf<CalculsCalculateur?>(null)
+    val calculsCalculateur: CalculsCalculateur? by _calculsCalculateur
+
     init {
         chargerCartesCredit()
-        chargerAlertes()
     }
 
     /**
@@ -59,20 +73,6 @@ class CartesCreditViewModel : ViewModel() {
                         messageErreur = "Erreur lors du chargement: ${erreur.message}"
                     )
                 }
-        }
-    }
-
-    /**
-     * Charge les alertes pour toutes les cartes de crédit.
-     */
-    fun chargerAlertes() {
-        viewModelScope.launch {
-            try {
-                val alertes = notificationService.verifierAlertes()
-                _uiState.value = _uiState.value.copy(alertes = alertes)
-            } catch (e: Exception) {
-                // Gérer l'erreur silencieusement pour les alertes
-            }
         }
     }
 
@@ -292,11 +292,114 @@ class CartesCreditViewModel : ViewModel() {
      * Génère et affiche un plan de remboursement.
      */
     fun genererPlanRemboursement(carte: CompteCredit, paiementMensuel: Double) {
-        val plan = carteCreditRepository.genererPlanRemboursement(carte, paiementMensuel)
+        // Utiliser EXACTEMENT la même méthode de calcul que le calculateur
+        val dureeRemboursement = calculerTempsRemboursement(carte, paiementMensuel)
+        
+        // Utiliser la durée calculée ou une valeur par défaut si impossible
+        val nombreMoisMax = dureeRemboursement ?: 60
+        
+        val plan = carteCreditRepository.genererPlanRemboursement(carte, paiementMensuel, nombreMoisMax)
         _uiState.value = _uiState.value.copy(
             planRemboursement = plan,
             paiementMensuelSimulation = paiementMensuel,
             afficherPlanRemboursement = true
+        )
+    }
+
+    /**
+     * Calcule le temps de remboursement en utilisant la même logique que le calculateur.
+     */
+    private fun calculerTempsRemboursement(carte: CompteCredit, paiementMensuel: Double): Int? {
+        val dette = abs(carte.solde)
+        val taux = carte.tauxInteret ?: 0.0
+        val tauxMensuel = taux / 100.0 / 12.0
+
+        if (dette <= 0) return 0
+
+        // Simulation mois par mois pour un calcul précis
+        var soldeRestant = dette
+        var mois = 0
+        val maxMois = 600 // 50 ans maximum pour éviter les boucles infinies
+
+        while (soldeRestant > 0.01 && mois < maxMois) {
+            mois++
+            
+            // Calculer les frais moyens pour cette durée estimée
+            val dureeEstimee = maxMois - mois + 1
+            val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeEstimee)
+            
+            // Calculer les intérêts du mois
+            val interetsMois = soldeRestant * tauxMensuel
+            
+            // Vérifier si le paiement est suffisant
+            if (paiementMensuel <= interetsMois + fraisMensuelsMoyens) {
+                return null // Impossible à rembourser
+            }
+            
+            // Calculer le capital remboursé ce mois
+            val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
+            val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+            
+            // Mettre à jour le solde
+            soldeRestant -= capitalMois
+        }
+
+        return if (mois >= maxMois) null else mois
+    }
+
+    /**
+     * Calcule les intérêts totaux en utilisant la même logique que le calculateur.
+     */
+    private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, tempsMois: Int?): Double? {
+        if (tempsMois == null) return null
+
+        val dette = abs(carte.solde)
+        val taux = carte.tauxInteret ?: 0.0
+        val tauxMensuel = taux / 100.0 / 12.0
+
+        if (tauxMensuel == 0.0) {
+            return 0.0
+        }
+
+        // Simulation mois par mois pour calculer les intérêts réels payés
+        var soldeRestant = dette
+        var totalInterets = 0.0
+        var mois = 0
+
+        while (soldeRestant > 0.01 && mois < tempsMois) {
+            mois++
+            
+            // Calculer les frais moyens pour cette durée estimée
+            val dureeEstimee = tempsMois - mois + 1
+            val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeEstimee)
+            
+            // Calculer les intérêts du mois
+            val interetsMois = soldeRestant * tauxMensuel
+            
+            // Calculer le capital remboursé ce mois
+            val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
+            val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+            
+            // Accumuler les intérêts payés
+            totalInterets += interetsMois
+            
+            // Mettre à jour le solde
+            soldeRestant -= capitalMois
+        }
+
+        return totalInterets
+    }
+
+    /**
+     * Calcule les résultats du calculateur pour un paiement donné.
+     */
+    fun calculerResultatsCalculateur(carte: CompteCredit, paiementMensuel: Double) {
+        val tempsRemboursement = calculerTempsRemboursement(carte, paiementMensuel)
+        val interetsTotal = calculerInteretsTotal(carte, paiementMensuel, tempsRemboursement)
+        
+        _calculsCalculateur.value = CalculsCalculateur(
+            tempsRemboursement = tempsRemboursement,
+            interetsTotal = interetsTotal
         )
     }
 
@@ -508,6 +611,71 @@ class CartesCreditViewModel : ViewModel() {
                         messageErreur = "Erreur lors de la modification des frais: ${erreur.message}"
                     )
                 }
+        }
+    }
+
+    /**
+     * Supprime un frais mensuel d'une carte de crédit.
+     */
+    fun supprimerFraisMensuel(carte: CompteCredit, frais: FraisMensuel) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(estEnChargement = true)
+
+            try {
+                // Créer une nouvelle liste sans le frais à supprimer (comparer par nom et montant)
+                val nouveauxFrais = carte.fraisMensuels.filter { 
+                    it.nom != frais.nom || it.montant != frais.montant 
+                }
+                
+                // Convertir en JsonElement pour la sauvegarde
+                val fraisJson = if (nouveauxFrais.isNotEmpty()) {
+                    val gson = com.google.gson.Gson()
+                    val jsonString = gson.toJson(nouveauxFrais.toTypedArray())
+                    gson.fromJson(jsonString, com.google.gson.JsonElement::class.java)
+                } else {
+                    null
+                }
+                
+                // Mettre à jour la carte avec les nouveaux frais en s'assurant que la collection est définie
+                val carteModifiee = carte.copy(
+                    fraisMensuelsJson = fraisJson,
+                    collection = "comptes_credits"  // Valeur explicite
+                )
+                
+                // Sauvegarder la modification
+                carteCreditRepository.mettreAJourCarteCredit(carteModifiee)
+                    .onSuccess {
+                        // Mettre à jour directement l'état local pour un rafraîchissement immédiat
+                        val cartesMisesAJour = _uiState.value.cartesCredit.map { carteExistante ->
+                            if (carteExistante.id == carte.id) {
+                                carteModifiee
+                            } else {
+                                carteExistante
+                            }
+                        }
+                        
+                        _uiState.value = _uiState.value.copy(
+                            cartesCredit = cartesMisesAJour,
+                            carteSelectionnee = if (_uiState.value.carteSelectionnee?.id == carte.id) {
+                                carteModifiee
+                            } else {
+                                _uiState.value.carteSelectionnee
+                            },
+                            estEnChargement = false
+                        )
+                    }
+                    .onFailure { erreur ->
+                        _uiState.value = _uiState.value.copy(
+                            estEnChargement = false,
+                            messageErreur = "Erreur lors de la suppression: ${erreur.message}"
+                        )
+                    }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    estEnChargement = false,
+                    messageErreur = "Erreur lors de la suppression: ${e.message}"
+                )
+            }
         }
     }
 }

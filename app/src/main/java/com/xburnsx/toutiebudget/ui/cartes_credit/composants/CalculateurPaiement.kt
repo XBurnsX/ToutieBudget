@@ -18,15 +18,27 @@ import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import kotlin.math.abs
+import kotlin.math.min
 
 @Composable
 fun CalculateurPaiement(
     carte: CompteCredit,
     onCalculerPlan: (Double) -> Unit,
+    onMontantChange: (Double) -> Unit = {},
+    tempsRemboursement: Int? = null,
+    interetsTotal: Double? = null,
     modifier: Modifier = Modifier
 ) {
     var paiementMensuelCentimes by remember { mutableStateOf(0L) }
     var erreurPaiement by remember { mutableStateOf<String?>(null) }
+
+    // Effet pour déclencher les calculs quand le montant change
+    LaunchedEffect(paiementMensuelCentimes) {
+        val montant = paiementMensuelCentimes / 100.0
+        if (montant > 0 && erreurPaiement == null) {
+            onMontantChange(montant)
+        }
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -61,23 +73,49 @@ fun CalculateurPaiement(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
                 )
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(12.dp)
                 ) {
-                    Text(
-                        text = "Dette à rembourser :",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(abs(carte.solde)),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Dette à rembourser :",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = MoneyFormatter.formatAmount(abs(carte.solde)),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    
+                    // Afficher les frais mensuels s'ils existent
+                    if (carte.totalFraisMensuels > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Frais mensuels :",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                text = MoneyFormatter.formatAmount(carte.totalFraisMensuels),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
                 }
             }
 
@@ -135,7 +173,7 @@ fun CalculateurPaiement(
                             paiementMensuelCentimes = (paiementMinimum * 100).toLong()
                             erreurPaiement = null
                         },
-                        label = { Text("Minimum", fontSize = 12.sp) }, // Ajouté .sp
+                        label = { Text("Minimum", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -144,7 +182,7 @@ fun CalculateurPaiement(
                             paiementMensuelCentimes = (paiement5pourcent * 100).toLong()
                             erreurPaiement = null
                         },
-                        label = { Text("5% dette", fontSize = 12.sp) }, // Ajouté .sp
+                        label = { Text("5% dette", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -153,7 +191,7 @@ fun CalculateurPaiement(
                             paiementMensuelCentimes = (paiement10pourcent * 100).toLong()
                             erreurPaiement = null
                         },
-                        label = { Text("10% dette", fontSize = 12.sp) }, // Ajouté .sp
+                        label = { Text("10% dette", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -190,9 +228,6 @@ fun CalculateurPaiement(
                     Column(
                         modifier = Modifier.padding(12.dp)
                     ) {
-                        val tempsEstime = calculerTempsRemboursement(carte, montantSaisi)
-                        val interetsTotal = calculerInteretsTotal(carte, montantSaisi, tempsEstime)
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -203,7 +238,7 @@ fun CalculateurPaiement(
                                 color = Color.White
                             )
                             Text(
-                                text = if (tempsEstime != null) "$tempsEstime mois" else "Impossible",
+                                text = if (tempsRemboursement != null) "$tempsRemboursement mois" else "Impossible",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -225,6 +260,27 @@ fun CalculateurPaiement(
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFFF6B6B)
+                                )
+                            }
+                        }
+                        
+                        // Afficher les frais totaux s'ils existent
+                        if (carte.totalFraisMensuels > 0 && tempsRemboursement != null) {
+                            val fraisTotaux = carte.calculerFraisTotaux(tempsRemboursement)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Frais totaux :",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = MoneyFormatter.formatAmount(fraisTotaux),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFB74D)
                                 )
                             }
                         }
@@ -252,38 +308,67 @@ private fun calculerPaiementMinimum(carte: CompteCredit): Double {
     val taux = carte.tauxInteret ?: 0.0 // Changé interet vers tauxInteret
     val tauxMensuel = taux / 100.0 / 12.0
     val interetsMensuels = dette * tauxMensuel
+    
+    // Estimation de durée pour calculer les frais moyens
+    val dureeEstimee = if (tauxMensuel > 0) {
+        val paiementBaseEstime = maxOf(dette * 0.02, 25.0)
+        val paiementNetEstime = paiementBaseEstime + interetsMensuels
+        kotlin.math.ceil(dette / paiementNetEstime).toInt()
+    } else {
+        60
+    }
+    val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeEstimee)
 
-    // Paiement minimum = 2% du solde ou 25€, le plus élevé des deux, plus les intérêts
+    // Paiement minimum = 2% du solde ou 25€, le plus élevé des deux, plus les intérêts et frais
     val paiementBase = maxOf(dette * 0.02, 25.0)
-    return paiementBase + interetsMensuels
+    return paiementBase + interetsMensuels + fraisMensuelsMoyens
 }
 
 private fun calculerTempsRemboursement(carte: CompteCredit, paiementMensuel: Double): Int? {
-    val dette = abs(carte.solde)
-    val taux = carte.tauxInteret ?: 0.0 // Changé interet vers tauxInteret
-    val tauxMensuel = taux / 100.0 / 12.0
-
-    if (dette <= 0) return 0
-    if (paiementMensuel <= dette * tauxMensuel) return null // Impossible à rembourser
-
-    if (tauxMensuel == 0.0) {
-        return kotlin.math.ceil(dette / paiementMensuel).toInt()
-    }
-
-    // Formule mathématique pour calculer le nombre de paiements
-    val numerateur = kotlin.math.ln(1 + (dette * tauxMensuel) / paiementMensuel)
-    val denominateur = kotlin.math.ln(1 + tauxMensuel)
-
-    return kotlin.math.ceil(numerateur / denominateur).toInt()
+    // Cette méthode sera remplacée par l'appel au ViewModel
+    // pour éviter la duplication de logique
+    return null
 }
 
 private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, tempsMois: Int?): Double? {
     if (tempsMois == null) return null
 
     val dette = abs(carte.solde)
-    val totalPaiements = paiementMensuel * tempsMois
+    val taux = carte.tauxInteret ?: 0.0
+    val tauxMensuel = taux / 100.0 / 12.0
 
-    return maxOf(0.0, totalPaiements - dette)
+    if (tauxMensuel == 0.0) {
+        // Sans intérêts, retourner 0
+        return 0.0
+    }
+
+    // Simulation mois par mois pour calculer les intérêts réels payés
+    var soldeRestant = dette
+    var totalInterets = 0.0
+    var mois = 0
+
+    while (soldeRestant > 0.01 && mois < tempsMois) {
+        mois++
+        
+        // Calculer les frais moyens pour cette durée estimée
+        val dureeEstimee = tempsMois - mois + 1
+        val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeEstimee)
+        
+        // Calculer les intérêts du mois
+        val interetsMois = soldeRestant * tauxMensuel
+        
+        // Calculer le capital remboursé ce mois
+        val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
+        val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+        
+        // Accumuler les intérêts payés
+        totalInterets += interetsMois
+        
+        // Mettre à jour le solde
+        soldeRestant -= capitalMois
+    }
+
+    return totalInterets
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)

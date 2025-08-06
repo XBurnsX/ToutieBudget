@@ -14,14 +14,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 
 @Composable
 fun FraisMensuelsCard(
     carte: CompteCredit,
-    onModifierFrais: () -> Unit = {}
+    onModifierFrais: () -> Unit = {},
+    onSupprimerFrais: (FraisMensuel) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var showMenu by remember { mutableStateOf<FraisMensuel?>(null) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -73,109 +84,112 @@ fun FraisMensuelsCard(
                 // Affichage des frais existants
                 Column {
                     carte.fraisMensuels.forEach { frais ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = frais.nom,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFFB0B0B0)
-                                )
-                                Text(
-                                    text = MoneyFormatter.formatAmount(frais.montant),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pointerInput(frais) {
+                                        detectTapGestures(
+                                            onLongPress = {
+                                                showMenu = frais
+                                            }
+                                        )
+                                    }
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = frais.nom,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = MoneyFormatter.formatAmount(frais.montant),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
                             }
                             
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(24.dp)
-                            )
+                            // Menu contextuel
+                            DropdownMenu(
+                                expanded = showMenu == frais,
+                                onDismissRequest = { showMenu = null },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Supprimer") },
+                                    onClick = {
+                                        onSupprimerFrais(frais)
+                                        showMenu = null
+                                        Toast.makeText(context, "Frais supprimé", Toast.LENGTH_SHORT).show()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                )
+                            }
                         }
                         
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Informations supplémentaires
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = "Prochain prélèvement",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFB0B0B0)
-                        )
-                        Text(
-                            text = "Prochain cycle",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White
-                        )
-                    }
-                    
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = "Impact sur le solde",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFB0B0B0)
-                        )
-                        Text(
-                            text = "+${MoneyFormatter.formatAmount(carte.totalFraisMensuels)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFFF6B6B)
-                        )
+                        if (frais != carte.fraisMensuels.last()) {
+                            Divider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             } else {
-                // Aucun frais configuré
-                Column(
+                // Message quand aucun frais
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = null,
-                        tint = Color(0xFFB0B0B0),
-                        modifier = Modifier.size(48.dp)
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(16.dp)
                     )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Aucun frais mensuel configuré",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFB0B0B0),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Ajoutez des frais comme l'assurance, AccordD, etc.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF808080),
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bouton pour ajouter des frais
+            Button(
+                onClick = onModifierFrais,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ajouter des frais")
+            }
         }
     }
-} 
+}
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable
@@ -198,7 +212,8 @@ fun FraisMensuelsCardPreview() {
     
     FraisMensuelsCard(
         carte = carteCredit,
-        onModifierFrais = {}
+        onModifierFrais = {},
+        onSupprimerFrais = {}
     )
 }
 
@@ -219,6 +234,7 @@ fun FraisMensuelsCardEmptyPreview() {
     
     FraisMensuelsCard(
         carte = carteCredit,
-        onModifierFrais = {}
+        onModifierFrais = {},
+        onSupprimerFrais = {}
     )
 } 

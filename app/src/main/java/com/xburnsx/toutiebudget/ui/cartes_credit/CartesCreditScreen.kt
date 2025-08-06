@@ -153,6 +153,9 @@ fun GestionCarteCreditScreen(
                         carte = carteCredit,
                         onModifierFrais = {
                             viewModel.afficherDialogModificationFrais(carteCredit)
+                        },
+                        onSupprimerFrais = { frais ->
+                            viewModel.supprimerFraisMensuel(carteCredit, frais)
                         }
                     )
                 }
@@ -163,7 +166,12 @@ fun GestionCarteCreditScreen(
                         carte = carteCredit,
                         onCalculerPlan = { paiement ->
                             viewModel.genererPlanRemboursement(carteCredit, paiement)
-                        }
+                        },
+                        onMontantChange = { montant ->
+                            viewModel.calculerResultatsCalculateur(carteCredit, montant)
+                        },
+                        tempsRemboursement = viewModel.calculsCalculateur?.tempsRemboursement,
+                        interetsTotal = viewModel.calculsCalculateur?.interetsTotal
                     )
                 }
 
