@@ -525,11 +525,12 @@ class CartesCreditViewModel : ViewModel() {
      * Affiche le dialog de modification des frais mensuels fixes.
      */
     fun afficherDialogModificationFrais(carte: CompteCredit) {
-        // Pour l'instant, on utilise le premier frais ou des valeurs vides
-        val premierFrais = carte.fraisMensuels.firstOrNull()
+        // ✅ CORRECTION : Ouvrir le dialogue avec des champs vides pour ajouter un nouveau frais
         _formulaire.value = _formulaire.value.copy(
-            fraisMensuelsFixes = premierFrais?.montant?.toString() ?: "",
-            nomFraisMensuels = premierFrais?.nom ?: ""
+            fraisMensuelsFixes = "", // Champ vide pour nouveau frais
+            nomFraisMensuels = "",   // Champ vide pour nouveau frais
+            erreurFrais = null,      // Réinitialiser les erreurs
+            erreurNomFrais = null    // Réinitialiser les erreurs
         )
         _uiState.value = _uiState.value.copy(
             carteSelectionnee = carte,
@@ -576,17 +577,18 @@ class CartesCreditViewModel : ViewModel() {
             val frais = _formulaire.value.fraisMensuelsFixes.toDoubleOrNull()
             val nomFrais = _formulaire.value.nomFraisMensuels.takeIf { it.isNotBlank() }
             
-            // Créer un nouveau frais mensuel
-            val nouveauFrais = if (frais != null && nomFrais != null) {
-                listOf(FraisMensuel(nom = nomFrais, montant = frais))
+            // ✅ CORRECTION : Ajouter le nouveau frais à la liste existante au lieu de remplacer
+            val nouveauxFrais = if (frais != null && nomFrais != null) {
+                // Récupérer les frais existants et ajouter le nouveau
+                carteOriginale.fraisMensuels + FraisMensuel(nom = nomFrais, montant = frais)
             } else {
-                emptyList<FraisMensuel>()
+                carteOriginale.fraisMensuels // Garder les frais existants si pas de nouveau frais
             }
             
             // Convertir en JsonElement
-            val fraisJson = if (nouveauFrais.isNotEmpty()) {
+            val fraisJson = if (nouveauxFrais.isNotEmpty()) {
                 val gson = com.google.gson.Gson()
-                val jsonString = gson.toJson(nouveauFrais.toTypedArray())
+                val jsonString = gson.toJson(nouveauxFrais.toTypedArray())
                 gson.fromJson(jsonString, com.google.gson.JsonElement::class.java)
             } else {
                 null
@@ -622,9 +624,9 @@ class CartesCreditViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(estEnChargement = true)
 
             try {
-                // Créer une nouvelle liste sans le frais à supprimer (comparer par nom et montant)
+                // ✅ CORRECTION : Supprimer exactement le frais spécifique en utilisant l'ID unique
                 val nouveauxFrais = carte.fraisMensuels.filter { 
-                    it.nom != frais.nom || it.montant != frais.montant 
+                    it.id != frais.id // Utiliser l'ID unique pour une suppression précise
                 }
                 
                 // Convertir en JsonElement pour la sauvegarde
