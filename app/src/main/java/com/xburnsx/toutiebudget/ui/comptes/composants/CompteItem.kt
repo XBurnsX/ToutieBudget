@@ -242,7 +242,9 @@ private fun CompteItemPreview() {
         estArchive = false,
         ordre = 4,
         montantInitial = 25000.0,
-        interet = 5.5
+        tauxInteret = 5.5,
+        paiementMinimum = 500.0,
+        dureeMoisPret = 60
     )
     
     val compteInvestissement = CompteInvestissement(

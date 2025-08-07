@@ -129,12 +129,19 @@ data class CompteDette(
     override val nom: String,
     @SerializedName("solde_dette")
     val soldeDette: Double,
-    @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
+    @SerializedName("archive")
     override val estArchive: Boolean,
     override val ordre: Int,
     @SerializedName("montant_initial")
     val montantInitial: Double,
-    val interet: Double? = null,
+    @SerializedName("taux_interet")
+    val tauxInteret: Double? = null,
+    @SerializedName("paiement_minimum")
+    val paiementMinimum: Double? = null,
+    @SerializedName("duree_mois_pret")
+    val dureeMoisPret: Int? = null,
+    @SerializedName("paiement_effectue")
+    val paiementEffectue: Int = 0,
     override val collection: String = "comptes_dettes"
 ) : Compte {
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.

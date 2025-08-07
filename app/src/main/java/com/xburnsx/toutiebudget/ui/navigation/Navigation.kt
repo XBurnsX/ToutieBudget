@@ -198,6 +198,26 @@ fun AppNavigation() {
                 )
             }
             
+            // Route pour l'écran de gestion des dettes
+            composable(
+                route = "gestion_dette/{detteId}",
+                arguments = listOf(
+                    navArgument("detteId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val detteId = backStackEntry.arguments?.getString("detteId") ?: ""
+                val viewModel = AppModule.provideDetteViewModel()
+                com.xburnsx.toutiebudget.ui.dette.DetteScreen(
+                    detteId = detteId,
+                    viewModel = viewModel,
+                    onRetour = { navController.popBackStack() },
+                    onSauvegarder = { dette ->
+                        // Retour à l'écran précédent après sauvegarde
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
             // Route pour l'ajout de transaction avec présélection (paiement carte de crédit)
             composable(
                 route = "nouvelle_transaction_paiement/{carteCreditId}",
@@ -290,6 +310,9 @@ fun MainAppScaffold(
                     },
                     onCarteCreditLongClick = { carteCreditId ->
                         mainNavController.navigate("gestion_carte_credit/$carteCreditId")
+                    },
+                    onDetteLongClick = { detteId ->
+                        mainNavController.navigate("gestion_dette/$detteId")
                     }
                 )
             }

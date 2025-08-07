@@ -178,7 +178,7 @@ class ComptesViewModel(
                              estArchive = true, // ← FORCER à true
                              ordre = compte.ordre,
                              montantInitial = compte.montantInitial,
-                             interet = compte.interet,
+                             tauxInteret = compte.tauxInteret,
                              collection = "comptes_dettes"
                          )
                      }
@@ -375,7 +375,7 @@ class ComptesViewModel(
                             estArchive = compteOriginal.estArchive,
                             ordre = compteOriginal.ordre,
                             montantInitial = compteOriginal.montantInitial,
-                            interet = compteOriginal.interet,
+                            tauxInteret = compteOriginal.tauxInteret,
                             collection = "comptes_dettes"
                         )
                     }

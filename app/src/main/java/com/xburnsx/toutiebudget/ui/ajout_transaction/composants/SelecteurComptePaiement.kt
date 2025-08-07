@@ -309,7 +309,9 @@ private fun PreviewSelecteurComptePaiement() {
             estArchive = false,
             ordre = 2,
             montantInitial = 10000.0,
-            interet = 5.0
+            tauxInteret = 5.0,
+            paiementMinimum = 200.0,
+            dureeMoisPret = 48
         )
     )
     

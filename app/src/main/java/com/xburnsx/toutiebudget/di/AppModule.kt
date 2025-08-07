@@ -23,10 +23,11 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
  import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
  import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
  import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditViewModel
- import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
- import com.xburnsx.toutiebudget.ui.login.LoginViewModel
- import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
- import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
+import com.xburnsx.toutiebudget.ui.dette.DetteViewModel
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
+import com.xburnsx.toutiebudget.ui.login.LoginViewModel
+import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
+import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
  import androidx.lifecycle.SavedStateHandle
  import android.content.Context
 
@@ -160,6 +161,10 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
              validationProvenanceService = validationProvenanceService
          )
      }
+     
+     private val detteViewModel: DetteViewModel by lazy {
+         DetteViewModel(compteRepository = compteRepository)
+     }
  
      // ===== FONCTIONS PUBLIQUES =====
      
@@ -207,6 +212,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      fun provideModifierTransactionViewModel(): ModifierTransactionViewModel = modifierTransactionViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
+     fun provideDetteViewModel(): DetteViewModel = detteViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,

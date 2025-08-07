@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material3.*
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -45,7 +46,8 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 fun ComptesScreen(
     viewModel: ComptesViewModel,
     onCompteClick: (String, String, String) -> Unit,
-    onCarteCreditLongClick: (String) -> Unit = {} // Nouveau paramètre pour la navigation vers l'écran de gestion
+    onCarteCreditLongClick: (String) -> Unit = {}, // Nouveau paramètre pour la navigation vers l'écran de gestion
+    onDetteLongClick: (String) -> Unit = {} // Nouveau paramètre pour la navigation vers l'écran de gestion des dettes
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -333,8 +335,35 @@ fun ComptesScreen(
                                 )
                             }
                         }
+                    } else if (uiState.compteSelectionne is com.xburnsx.toutiebudget.data.modeles.CompteDette) {
+                        // 💰 GÉRER LA DETTE (uniquement pour les dettes)
+                        TextButton(
+                            onClick = {
+                                viewModel.onDismissMenu()
+                                onDetteLongClick(uiState.compteSelectionne!!.id)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.RequestQuote,
+                                    contentDescription = "Gérer la dette",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Gérer la dette",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
                     } else {
-                        // Pour les autres comptes (chèque, dette, investissement) : options normales
+                        // Pour les autres comptes (chèque, investissement) : options normales
 
                         // 📝 MODIFIER
                         TextButton(
