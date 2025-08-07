@@ -37,7 +37,12 @@ import androidx.compose.ui.window.DialogProperties
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSuccess: () -> Unit = {}) {
+fun AjoutTransactionScreen(
+    viewModel: AjoutTransactionViewModel, 
+    onTransactionSuccess: () -> Unit = {},
+    modePreselectionne: String? = null,
+    carteCreditPreselectionnee: com.xburnsx.toutiebudget.data.modeles.CompteCredit? = null
+) {
 
     val uiState by viewModel.uiState.collectAsState()
     
@@ -49,6 +54,14 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
     // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
     LaunchedEffect(Unit) {
         viewModel.rechargerDonnees()
+    }
+
+    // Présélectionner le mode et la carte de crédit si fournis
+    LaunchedEffect(modePreselectionne, carteCreditPreselectionnee) {
+        if (modePreselectionne == "Paiement" && carteCreditPreselectionnee != null) {
+            viewModel.onModeOperationChanged("Paiement")
+            viewModel.onComptePaiementChanged(carteCreditPreselectionnee)
+        }
     }
 
     // Détecter le succès de la transaction

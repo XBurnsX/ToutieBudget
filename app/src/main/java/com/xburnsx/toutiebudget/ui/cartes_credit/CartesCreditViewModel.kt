@@ -701,4 +701,14 @@ class CartesCreditViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Navigue vers l'écran d'ajout de transaction en mode paiement avec la carte de crédit présélectionnée.
+     */
+    fun naviguerVersPaiement(carteCredit: CompteCredit) {
+        // Cette méthode sera appelée par la navigation
+        // La logique de navigation sera gérée par le composant parent
+        // Pour l'instant, on peut juste noter que cette méthode a été appelée
+        // La navigation réelle sera implémentée dans le composant parent
+    }
 }

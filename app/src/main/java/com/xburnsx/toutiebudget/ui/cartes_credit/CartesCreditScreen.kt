@@ -37,7 +37,8 @@ import com.xburnsx.toutiebudget.utils.MoneyFormatter
 fun GestionCarteCreditScreen(
     carteCreditId: String,
     viewModel: CartesCreditViewModel = viewModel(),
-    onRetour: () -> Unit = {}
+    onRetour: () -> Unit = {},
+    onNaviguerVersPaiement: (CompteCredit) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -187,8 +188,11 @@ fun GestionCarteCreditScreen(
                 item {
                     ActionsRapides(
                         carte = carteCredit,
-                        onPayerMinimum = { viewModel.effectuerPaiementMinimum(carteCredit) },
-                        onPayerComplet = { viewModel.effectuerPaiementComplet(carteCredit) }
+                        onEffectuerPaiement = { 
+                            // Navigation vers l'écran d'ajout de transaction en mode paiement
+                            // avec la carte de crédit présélectionnée
+                            onNaviguerVersPaiement(carteCredit)
+                        }
                     )
                 }
             }
@@ -287,8 +291,7 @@ fun GestionCarteCreditScreen(
 @Composable
 private fun ActionsRapides(
     carte: CompteCredit,
-    onPayerMinimum: () -> Unit,
-    onPayerComplet: () -> Unit
+    onEffectuerPaiement: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -308,32 +311,19 @@ private fun ActionsRapides(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
+            Button(
+                onClick = onEffectuerPaiement,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) {
-                Button(
-                    onClick = onPayerMinimum,
-                    modifier = Modifier.weight(1f)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.Payment, contentDescription = null)
-                        Text("Payer minimum", fontSize = 12.sp)
-                    }
-                }
-
-                Button(
-                    onClick = onPayerComplet,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null)
-                        Text("Payer complet", fontSize = 12.sp)
-                    }
+                    Icon(Icons.Default.Payment, contentDescription = null)
+                    Text("Effectuer un paiement", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }

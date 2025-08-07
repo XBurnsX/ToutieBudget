@@ -189,7 +189,35 @@ fun AppNavigation() {
                 com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen(
                     carteCreditId = carteCreditId,
                     viewModel = viewModel,
-                    onRetour = { navController.popBackStack() }
+                    onRetour = { navController.popBackStack() },
+                    onNaviguerVersPaiement = { carteCredit ->
+                        // Navigation vers l'écran d'ajout de transaction en mode paiement
+                        // avec la carte de crédit présélectionnée
+                        navController.navigate("nouvelle_transaction_paiement/${carteCredit.id}")
+                    }
+                )
+            }
+            
+            // Route pour l'ajout de transaction avec présélection (paiement carte de crédit)
+            composable(
+                route = "nouvelle_transaction_paiement/{carteCreditId}",
+                arguments = listOf(
+                    navArgument("carteCreditId") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val carteCreditId = backStackEntry.arguments?.getString("carteCreditId") ?: ""
+                val budgetViewModel = AppModule.provideBudgetViewModel()
+                val viewModel = AppModule.provideAjoutTransactionViewModel()
+                
+                // Récupérer la carte de crédit pour la présélection
+                val cartesCreditViewModel = AppModule.provideCartesCreditViewModel()
+                val carteCredit = cartesCreditViewModel.uiState.value.cartesCredit.find { it.id == carteCreditId }
+                
+                AjoutTransactionScreen(
+                    viewModel = viewModel,
+                    onTransactionSuccess = { budgetViewModel.rafraichirDonnees() },
+                    modePreselectionne = "Paiement",
+                    carteCreditPreselectionnee = carteCredit
                 )
             }
         }
