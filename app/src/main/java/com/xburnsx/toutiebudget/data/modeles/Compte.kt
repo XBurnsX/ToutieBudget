@@ -127,7 +127,8 @@ data class CompteDette(
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
-    override val solde: Double,
+    @SerializedName("solde_dette")
+    val soldeDette: Double,
     @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
@@ -138,6 +139,9 @@ data class CompteDette(
 ) : Compte {
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.
     override val couleur: String = "#FF0000"
+    
+    // Pour compatibilité avec l'interface Compte, on map soldeDette vers solde
+    override val solde: Double get() = soldeDette
 }
 
 data class CompteInvestissement(

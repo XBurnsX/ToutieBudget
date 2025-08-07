@@ -117,7 +117,7 @@ class ComptesViewModel(
                         // Pour les autres types de comptes, juste changer le solde
                         val compteReconcilie = when (compte) {
                             is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde, collection = "comptes_credits") // Changé solde vers soldeUtilise
-                            is CompteDette -> compte.copy(solde = nouveauSolde)
+                                                         is CompteDette -> compte.copy(soldeDette = nouveauSolde)
                             is CompteInvestissement -> compte.copy(solde = nouveauSolde)
                             else -> return@launch
                         }
@@ -169,19 +169,19 @@ class ComptesViewModel(
                             collection = "comptes_credits"
                         )
                     }
-                    is CompteDette -> {
-                        CompteDette(
-                            id = compte.id,
-                            utilisateurId = compte.utilisateurId,
-                            nom = compte.nom,
-                            solde = compte.solde,
-                            estArchive = true, // ← FORCER à true
-                            ordre = compte.ordre,
-                            montantInitial = compte.montantInitial,
-                            interet = compte.interet,
-                            collection = "comptes_dettes"
-                        )
-                    }
+                                         is CompteDette -> {
+                         CompteDette(
+                             id = compte.id,
+                             utilisateurId = compte.utilisateurId,
+                             nom = compte.nom,
+                             soldeDette = compte.soldeDette,
+                             estArchive = true, // ← FORCER à true
+                             ordre = compte.ordre,
+                             montantInitial = compte.montantInitial,
+                             interet = compte.interet,
+                             collection = "comptes_dettes"
+                         )
+                     }
                     is CompteInvestissement -> {
                         CompteInvestissement(
                             id = compte.id,
@@ -310,7 +310,7 @@ class ComptesViewModel(
                     ordre = 0,
                     limiteCredit = soldeInitial // Le montant saisi devient la limite de crédit
                 )
-                "Dette" -> CompteDette(nom = formState.nom, solde = soldeInitial, estArchive = false, ordre = 0, montantInitial = 0.0)
+                "Dette" -> CompteDette(nom = formState.nom, soldeDette = soldeInitial, estArchive = false, ordre = 0, montantInitial = soldeInitial)
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
@@ -371,7 +371,7 @@ class ComptesViewModel(
                             id = compteOriginal.id,
                             utilisateurId = compteOriginal.utilisateurId,
                             nom = form.nom,
-                            solde = soldeDouble,
+                            soldeDette = soldeDouble,
                             estArchive = compteOriginal.estArchive,
                             ordre = compteOriginal.ordre,
                             montantInitial = compteOriginal.montantInitial,

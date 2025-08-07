@@ -37,6 +37,13 @@ fun CompteItem(
 ) {
     val haptics = LocalHapticFeedback.current
     val couleurCompte = compte.couleur.toColor()
+    
+    // Forcer la couleur rouge pour les comptes dette
+    val couleurFinale = if (compte is CompteDette) {
+        Color.Red
+    } else {
+        couleurCompte
+    }
 
     Card(
         modifier = Modifier
@@ -62,7 +69,7 @@ fun CompteItem(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(60.dp)
-                    .background(couleurCompte),
+                    .background(couleurFinale),
                 contentAlignment = Alignment.Center
             ) {
                 IconePourCompte(compte = compte, tint = Color.White)
@@ -164,7 +171,13 @@ private fun InfoSecondaireCompte(compte: Compte) {
             }
         }
         is CompteDette -> {
-            val progression = ((compte.montantInitial - compte.solde) / compte.montantInitial).toFloat().coerceIn(0f, 1f)
+            val progression = if (compte.montantInitial > 0) {
+                // Pourcentage remboursé = (montant remboursé) / (montant initial)
+                // Montant remboursé = montant initial - solde restant
+                ((compte.montantInitial - compte.soldeDette) / compte.montantInitial).toFloat().coerceIn(0f, 1f)
+            } else {
+                0f // Valeur par défaut si montantInitial est 0 ou négatif
+            }
             Column {
                 LinearProgressIndicator(
                     progress = { progression },
@@ -225,7 +238,7 @@ private fun CompteItemPreview() {
         id = "4",
         utilisateurId = "user",
         nom = "Prêt Auto",
-        solde = 15200.0,
+        soldeDette = 15200.0,
         estArchive = false,
         ordre = 4,
         montantInitial = 25000.0,

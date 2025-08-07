@@ -42,10 +42,8 @@ fun SelecteurComptePaiement(
 ) {
     var dialogOuvert by remember { mutableStateOf(false) }
     
-    // Filtrer seulement les cartes de crédit et comptes de dette
-    val comptesPaiement = comptes.filter { compte ->
-        compte is CompteCredit || compte is CompteDette
-    }
+    // Utiliser tous les comptes disponibles
+    val comptesPaiement = comptes
     
     Column(
         modifier = modifier,
@@ -177,11 +175,13 @@ private fun DialogSelectionCompte(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
-                // Grouper les comptes par catégorie (seulement cartes de crédit et dettes)
+                // Grouper les comptes par catégorie
                 val comptesGroupes = comptes.groupBy { compte ->
                     when (compte) {
+                        is CompteCheque -> "Comptes chèques"
                         is CompteCredit -> "Cartes de crédit"
                         is CompteDette -> "Dettes"
+                        is CompteInvestissement -> "Investissements"
                         else -> "Autres"
                     }
                 }
@@ -305,7 +305,7 @@ private fun PreviewSelecteurComptePaiement() {
             id = "2",
             utilisateurId = "",
             nom = "Prêt étudiant",
-            solde = -5000.0,
+            soldeDette = -5000.0,
             estArchive = false,
             ordre = 2,
             montantInitial = 10000.0,

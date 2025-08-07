@@ -95,6 +95,7 @@ fun AjoutCompteDialog(
                     },
                     libelle = when (formState.type) {
                         "Carte de crédit" -> "Limite de crédit"
+                        "Dette" -> "Montant du prêt"
                         else -> "Solde initial"
                     },
                     utiliserClavier = false, // Désactiver le clavier intégré
