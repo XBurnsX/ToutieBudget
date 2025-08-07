@@ -177,17 +177,34 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                         tailleValeur = 30.sp
                     )
 
-                    // 3. Sélecteur de tiers (avant le compte)
-                    SelecteurTiers(
-                        tiersDisponibles = uiState.tiersDisponibles,
-                        tiersSelectionne = uiState.tiersSelectionne,
-                        texteSaisi = uiState.texteTiersSaisi,
-                        onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
-                        onTiersSelectionne = viewModel::onTiersSelectionne,
-                        onCreerNouveauTiers = viewModel::onCreerNouveauTiers,
-                        isLoading = uiState.isLoadingTiers,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // 3. Sélecteur selon le mode
+                    when (uiState.modeOperation) {
+                        "Paiement" -> {
+                            // Pour le mode Paiement, utiliser SelecteurComptePaiement au lieu du tiers
+                            SelecteurComptePaiement(
+                                comptes = uiState.comptesDisponibles.filter { compte ->
+                                    compte is com.xburnsx.toutiebudget.data.modeles.CompteCredit || 
+                                    compte is com.xburnsx.toutiebudget.data.modeles.CompteDette
+                                },
+                                compteSelectionne = uiState.compteSelectionne,
+                                onCompteChange = viewModel::onCompteChanged,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        else -> {
+                            // Pour les autres modes, utiliser le sélecteur de tiers normal
+                            SelecteurTiers(
+                                tiersDisponibles = uiState.tiersDisponibles,
+                                tiersSelectionne = uiState.tiersSelectionne,
+                                texteSaisi = uiState.texteTiersSaisi,
+                                onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
+                                onTiersSelectionne = viewModel::onTiersSelectionne,
+                                onCreerNouveauTiers = viewModel::onCreerNouveauTiers,
+                                isLoading = uiState.isLoadingTiers,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
 
                     // 4. Sélecteur de compte
                     SelecteurCompte(
