@@ -54,6 +54,9 @@ class SupprimerTransactionUseCase(
                     } else if (transaction.allocationMensuelleId != null && transaction.type == TypeTransaction.Depense) {
                         // Transaction normale : rembourser l'allocation normale
                         enveloppeRepository.annulerDepenseAllocation(transaction.allocationMensuelleId, transaction.montant)
+                    } else if (transaction.type == TypeTransaction.Pret || transaction.type == TypeTransaction.Emprunt) {
+                        // Paiement de carte de crédit : pas d'allocation à gérer, juste les soldes des comptes
+                        Result.success(Unit)
                     } else {
                         Result.success(Unit)
                     }

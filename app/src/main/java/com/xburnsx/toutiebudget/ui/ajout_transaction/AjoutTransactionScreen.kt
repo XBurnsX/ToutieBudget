@@ -264,59 +264,12 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                 }
 
                 // Boutons de sauvegarde et fractionnement fixés en bas
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                                         // Bouton Fractionner (à gauche)
-                     Card(
-                         modifier = Modifier.weight(1f),
-                         colors = CardDefaults.cardColors(
-                             containerColor = if (uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder) {
-                                 MaterialTheme.colorScheme.secondary // Couleur secondaire du thème
-                             } else {
-                                 Color(0xFF404040)
-                             }
-                         ),
-                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                     ) {
-                         Button(
-                             onClick = {
-                                 viewModel.ouvrirFractionnement()
-                             },
-                             enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = Color.White,
-                                disabledContainerColor = Color.Transparent,
-                                disabledContentColor = Color.White.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                                            Icon(
-                                imageVector = Icons.Default.CallSplit,
-                                contentDescription = null
-                            )
-                                Text(
-                                    text = "Fractionner",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Bouton Enregistrer (à droite)
+                if (uiState.modeOperation == "Paiement") {
+                    // Mode Paiement : un seul bouton "Effectuer le paiement"
                     Card(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
                                 MaterialTheme.colorScheme.primary
@@ -352,7 +305,7 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                                         strokeWidth = 2.dp
                                     )
                                     Text(
-                                        text = "Sauvegarde...",
+                                        text = "Paiement en cours...",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -367,14 +320,128 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                                         contentDescription = null
                                     )
                                     Text(
-                                        text = if (uiState.typeTransaction == TypeTransaction.Depense) {
-                                            "Enregistrer la dépense"
-                                        } else {
-                                            "Enregistrer le revenu"
-                                        },
+                                        text = "Effectuer le paiement",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium
                                     )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Mode Standard : deux boutons (Fractionner + Enregistrer)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Bouton Fractionner (à gauche)
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder) {
+                                    MaterialTheme.colorScheme.secondary // Couleur secondaire du thème
+                                } else {
+                                    Color(0xFF404040)
+                                }
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.ouvrirFractionnement()
+                                },
+                                enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Transparent,
+                                    contentColor = Color.White,
+                                    disabledContainerColor = Color.Transparent,
+                                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CallSplit,
+                                        contentDescription = null
+                                    )
+                                    Text(
+                                        text = "Fractionner",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Bouton Enregistrer (à droite)
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color(0xFF404040)
+                                }
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.sauvegarderTransaction()
+                                },
+                                enabled = uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Transparent,
+                                    contentColor = Color.White,
+                                    disabledContainerColor = Color.Transparent,
+                                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                if (uiState.estEnTrainDeSauvegarder) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                        Text(
+                                            text = "Sauvegarde...",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Save,
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            text = if (uiState.typeTransaction == TypeTransaction.Depense) {
+                                                "Enregistrer la dépense"
+                                            } else {
+                                                "Enregistrer le revenu"
+                                            },
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }
