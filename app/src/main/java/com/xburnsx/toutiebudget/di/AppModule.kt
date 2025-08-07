@@ -121,6 +121,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
              categorieRepository = categorieRepository,
              tiersRepository = tiersRepository,
              allocationMensuelleRepository = allocationMensuelleRepository,
+             argentService = argentService,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              realtimeSyncService = realtimeSyncService
          )
@@ -149,15 +150,15 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
      }
 
      private val virerArgentViewModel: VirerArgentViewModel by lazy {
-                 VirerArgentViewModel(
-            compteRepository = provideCompteRepository(),
-            enveloppeRepository = provideEnveloppeRepository(),
-            allocationMensuelleRepository = provideAllocationMensuelleRepository(), // ← AJOUT
-            categorieRepository = provideCategorieRepository(),
-            argentService = provideArgentService(),
-            realtimeSyncService = provideRealtimeSyncService(),
-            validationProvenanceService = provideValidationProvenanceService()
-        )
+         VirerArgentViewModel(
+             compteRepository = compteRepository,
+             enveloppeRepository = enveloppeRepository,
+             allocationMensuelleRepository = allocationMensuelleRepository,
+             categorieRepository = categorieRepository,
+             argentService = argentService,
+             realtimeSyncService = realtimeSyncService,
+             validationProvenanceService = validationProvenanceService
+         )
      }
  
      // ===== FONCTIONS PUBLIQUES =====

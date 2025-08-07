@@ -205,8 +205,23 @@ class CompteRepositoryImpl : CompteRepository {
 
             // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
             val soldeArrondi = MoneyFormatter.roundAmount(nouveauSolde)
-            val donneesUpdate = mapOf("solde" to soldeArrondi)
+            
+            // 🔧 DÉTECTER LE TYPE DE COMPTE POUR UTILISER LE BON CHAMP
+            val nomChamp = when (collection) {
+                Collections.CREDIT -> "solde_utilise" // Pour les cartes de crédit
+                else -> "solde" // Pour tous les autres types de comptes
+            }
+            
+            val donneesUpdate = mapOf(nomChamp to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
+
+            println("🔍 DEBUG MISE À JOUR SOLDE:")
+            println("  URL: $urlBase/api/collections/$collection/records/$compteId")
+            println("  Collection: $collection")
+            println("  ID Compte: $compteId")
+            println("  Champ mis à jour: $nomChamp")
+            println("  Nouvelle valeur: $soldeArrondi")
+            println("  Corps de la requête (JSON): $corpsRequete")
 
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records/$compteId")
@@ -216,8 +231,11 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             httpClient.newCall(requete).execute().use { reponse ->
+                println("  Code de réponse: ${reponse.code}")
                 if (!reponse.isSuccessful) {
-                    throw Exception("Erreur lors de la mise à jour: ${reponse.code}")
+                    val erreurBody = reponse.body?.string()
+                    println("  Corps de l'erreur: $erreurBody")
+                    throw Exception("Erreur lors de la mise à jour: ${reponse.code} - $erreurBody")
                 }
             }
 
@@ -260,8 +278,21 @@ class CompteRepositoryImpl : CompteRepository {
             val soldeArrondi = MoneyFormatter.roundAmount(nouveauSolde)
 
             // 3. Préparer les données de mise à jour (seulement le solde pour cette méthode)
-            val donneesUpdate = mapOf("solde" to soldeArrondi)
+            // 🔧 DÉTECTER LE TYPE DE COMPTE POUR UTILISER LE BON CHAMP
+            val nomChamp = when (collectionCompte) {
+                Collections.CREDIT -> "solde_utilise" // Pour les cartes de crédit
+                else -> "solde" // Pour tous les autres types de comptes
+            }
+            val donneesUpdate = mapOf(nomChamp to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
+
+            println("🔍 DEBUG MISE À JOUR SOLDE AVEC VARIATION:")
+            println("  URL: $urlBase/api/collections/$collectionCompte/records/$compteId")
+            println("  Collection: $collectionCompte")
+            println("  ID Compte: $compteId")
+            println("  Champ mis à jour: $nomChamp")
+            println("  Nouvelle valeur: $soldeArrondi")
+            println("  Corps de la requête (JSON): $corpsRequete")
 
             val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
 
@@ -273,8 +304,11 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
+            println("  Code de réponse: ${reponse.code}")
             if (!reponse.isSuccessful) {
-                throw Exception("Erreur lors de la mise à jour du solde: ${reponse.code} ${reponse.body?.string()}")
+                val erreurBody = reponse.body?.string()
+                println("  Corps de l'erreur: $erreurBody")
+                throw Exception("Erreur lors de la mise à jour du solde: ${reponse.code} - $erreurBody")
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT

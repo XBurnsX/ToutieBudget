@@ -37,6 +37,7 @@ class AjoutTransactionViewModel(
     private val tiersRepository: TiersRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
+    private val argentService: com.xburnsx.toutiebudget.domain.services.ArgentService,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
@@ -308,6 +309,15 @@ class AjoutTransactionViewModel(
     }
 
     /**
+     * Met à jour le compte de paiement sélectionné (pour le mode Paiement).
+     */
+    fun onComptePaiementChanged(nouveauCompte: Compte?) {
+        _uiState.update { state ->
+            state.copy(comptePaiementSelectionne = nouveauCompte).calculerValidite()
+        }
+    }
+
+    /**
      * Met à jour la note saisie.
      */
     fun onNoteChanged(nouvelleNote: String) {
@@ -450,6 +460,63 @@ class AjoutTransactionViewModel(
 
                 // Utiliser directement l'enum TypeTransaction
                 val typeTransaction = state.typeTransaction
+                
+                // Gestion spéciale pour le mode Paiement
+                if (state.modeOperation == "Paiement") {
+                    val comptePaiement = state.comptePaiementSelectionne
+                        ?: throw Exception("Aucune carte de crédit ou dette sélectionnée pour le paiement")
+                    
+                    // Effectuer le paiement de carte/dette
+                    println("DEBUG: Début paiement carte/dette - Compte: ${compte.nom}, Carte: ${comptePaiement.nom}, Montant: ${montant / 100.0}")
+                    
+                    val result = argentService.effectuerPaiementCarteOuDette(
+                        compteQuiPaieId = compte.id,
+                        collectionCompteQuiPaie = when (compte) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        },
+                        carteOuDetteId = comptePaiement.id,
+                        collectionCarteOuDette = when (comptePaiement) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        },
+                        montant = montant / 100.0, // Convertir centimes en dollars
+                        note = state.note.takeIf { it.isNotBlank() }
+                    )
+                    
+                    println("DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}")
+                    
+                    if (result.isSuccess) {
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+
+                        // Émettre l'événement global de rafraîchissement du budget
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+
+                        // Déclencher la mise à jour des comptes dans les autres écrans
+                        realtimeSyncService.declencherMiseAJourBudget()
+
+                        // Réinitialiser le formulaire après succès
+                        _uiState.update { 
+                            AjoutTransactionUiState(
+                                isLoading = false,
+                                comptesDisponibles = state.comptesDisponibles,
+                                enveloppesDisponibles = state.enveloppesDisponibles
+                            ).calculerValidite()
+                        }
+                        
+                        // Recharger les données pour mettre à jour les soldes
+                        chargerDonneesInitiales()
+                    } else {
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
+                    }
+                    return@launch
+                }
                 
                 // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
                 // pour utiliser l'heure réelle de création de la transaction

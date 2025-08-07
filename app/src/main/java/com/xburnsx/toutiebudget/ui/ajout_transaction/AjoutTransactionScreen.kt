@@ -186,8 +186,8 @@ fun AjoutTransactionScreen(viewModel: AjoutTransactionViewModel, onTransactionSu
                                     compte is com.xburnsx.toutiebudget.data.modeles.CompteCredit || 
                                     compte is com.xburnsx.toutiebudget.data.modeles.CompteDette
                                 },
-                                compteSelectionne = uiState.compteSelectionne,
-                                onCompteChange = viewModel::onCompteChanged,
+                                compteSelectionne = uiState.comptePaiementSelectionne,
+                                onCompteChange = viewModel::onComptePaiementChanged,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

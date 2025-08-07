@@ -136,4 +136,24 @@ interface ArgentService {
         nomCompteSource: String,
         nomCompteDest: String
     ): Result<Unit>
+
+    /**
+     * Effectue un paiement de carte de crédit ou de dette.
+     * Crée deux transactions : une sortie du compte qui paie et une entrée sur la carte/dette.
+     * @param compteQuiPaieId ID du compte qui effectue le paiement.
+     * @param collectionCompteQuiPaie Collection du compte qui paie.
+     * @param carteOuDetteId ID de la carte de crédit ou dette à payer.
+     * @param collectionCarteOuDette Collection de la carte/dette.
+     * @param montant Montant du paiement.
+     * @param note Note optionnelle pour les transactions.
+     * @return Result<Unit> indiquant le succès ou l'échec.
+     */
+    suspend fun effectuerPaiementCarteOuDette(
+        compteQuiPaieId: String,
+        collectionCompteQuiPaie: String,
+        carteOuDetteId: String,
+        collectionCarteOuDette: String,
+        montant: Double,
+        note: String? = null
+    ): Result<Unit>
 }

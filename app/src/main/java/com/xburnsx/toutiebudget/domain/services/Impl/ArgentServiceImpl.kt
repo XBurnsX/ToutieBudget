@@ -641,4 +641,78 @@ class ArgentServiceImpl @Inject constructor(
             throw Exception("Erreur création transaction entrante: ${e.message}")
         }
     }
+
+    /**
+     * Effectue un paiement de carte de crédit ou de dette.
+     * Crée deux transactions : une sortie du compte qui paie et une entrée sur la carte/dette.
+     */
+    override suspend fun effectuerPaiementCarteOuDette(
+        compteQuiPaieId: String,
+        collectionCompteQuiPaie: String,
+        carteOuDetteId: String,
+        collectionCarteOuDette: String,
+        montant: Double,
+        note: String?
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif.")
+        
+        // 1. Récupérer les comptes
+        val compteQuiPaie = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie)
+            ?: throw IllegalArgumentException("Compte qui paie non trouvé: $compteQuiPaieId")
+            
+        val carteOuDette = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette)
+            ?: throw IllegalArgumentException("Carte/Dette non trouvée: $carteOuDetteId")
+        
+        // 2. Vérifier que le compte qui paie a suffisamment de fonds
+        if (compteQuiPaie.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
+        }
+        
+        // 3. Mettre à jour les soldes
+        val nouveauSoldeCompteQuiPaie = compteQuiPaie.solde - montant
+        val nouveauSoldeCarteOuDette = carteOuDette.solde + montant // Réduire la dette (solde négatif + montant positif)
+        
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LES NOUVEAUX SOLDES
+        val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(nouveauSoldeCompteQuiPaie)
+        val nouveauSoldeCarteOuDetteArrondi = MoneyFormatter.roundAmount(nouveauSoldeCarteOuDette)
+        
+        compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
+        compteRepository.mettreAJourSolde(carteOuDetteId, collectionCarteOuDette, nouveauSoldeCarteOuDetteArrondi)
+        
+        // 4. Créer la transaction de sortie (compte qui paie)
+        val transactionSortante = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = compteQuiPaie.utilisateurId,
+            type = TypeTransaction.Pret, // Utiliser Pret au lieu de Paiement (accepté par le backend)
+            montant = montant,
+            date = Date(),
+            compteId = compteQuiPaieId,
+            collectionCompte = collectionCompteQuiPaie,
+            allocationMensuelleId = null,
+            tiers = note ?: "Paiement ${carteOuDette.nom}",
+            note = null
+        )
+        
+        println("DEBUG: Création transaction sortante: ${transactionSortante.id}")
+        val resultSortante = transactionRepository.creerTransaction(transactionSortante)
+        println("DEBUG: Résultat création transaction sortante: ${if (resultSortante.isSuccess) "SUCCÈS" else "ÉCHEC: ${resultSortante.exceptionOrNull()?.message}"}")
+        
+        // 5. Créer la transaction d'entrée (carte/dette)
+        val transactionEntrante = Transaction(
+            id = UUID.randomUUID().toString(),
+            utilisateurId = carteOuDette.utilisateurId,
+            type = TypeTransaction.Emprunt, // Utiliser Emprunt au lieu de RemboursementRecu (accepté par le backend)
+            montant = montant,
+            date = Date(),
+            compteId = carteOuDetteId,
+            collectionCompte = collectionCarteOuDette,
+            allocationMensuelleId = null,
+            tiers = note ?: "Paiement reçu de ${compteQuiPaie.nom}",
+            note = null
+        )
+        
+        println("DEBUG: Création transaction entrante: ${transactionEntrante.id}")
+        val resultEntrante = transactionRepository.creerTransaction(transactionEntrante)
+        println("DEBUG: Résultat création transaction entrante: ${if (resultEntrante.isSuccess) "SUCCÈS" else "ÉCHEC: ${resultEntrante.exceptionOrNull()?.message}"}")
+    }
 }

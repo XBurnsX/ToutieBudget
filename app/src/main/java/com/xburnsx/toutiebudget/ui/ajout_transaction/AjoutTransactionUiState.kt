@@ -35,6 +35,7 @@ data class AjoutTransactionUiState(
     
     // --- Sélections ---
     val compteSelectionne: Compte? = null,
+    val comptePaiementSelectionne: Compte? = null, // Compte sélectionné dans SelecteurComptePaiement
     val enveloppeSelectionnee: EnveloppeUi? = null,
     
     // --- Champs de saisie ---
@@ -72,10 +73,17 @@ data class AjoutTransactionUiState(
         val compteEstSelectionne = compteSelectionne != null
         val tiersEstRempli = texteTiersSaisi.isNotBlank()
         
+        // Validation spéciale pour le mode Paiement
+        val validationPaiement = if (modeOperation == "Paiement") {
+            comptePaiementSelectionne != null
+        } else {
+            tiersEstRempli
+        }
+        
         // Validation pour le bouton "Fractionner" : montant + compte + tiers (pas besoin d'enveloppe)
         val peutFractionner = montantEstValide && 
                              compteEstSelectionne && 
-                             tiersEstRempli &&
+                             validationPaiement &&
                              !estEnTrainDeSauvegarder
         
         // Validation pour le bouton "Enregistrer" : montant + compte + tiers + enveloppe OU fractionnement effectué
@@ -85,12 +93,13 @@ data class AjoutTransactionUiState(
                 TypeTransaction.Revenu -> true
                 else -> true
             }
+            "Paiement" -> true // Pas d'enveloppe requise pour le mode Paiement
             else -> true // Pas d'enveloppe requise pour les autres modes
         }
         
         val peutSauvegarde = montantEstValide && 
                             compteEstSelectionne && 
-                            tiersEstRempli &&
+                            validationPaiement &&
                             enveloppeEstValideOuPasRequise &&
                             !estEnTrainDeSauvegarder
 
