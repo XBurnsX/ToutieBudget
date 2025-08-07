@@ -30,6 +30,7 @@ fun ModifierCarteCreditDialog(
     onLimiteChange: (String) -> Unit,
     onTauxChange: (String) -> Unit,
     onSoldeChange: (String) -> Unit,
+    onPaiementMinimumChange: (String) -> Unit,
     onCouleurChange: (String) -> Unit,
     onSauvegarder: () -> Unit,
     onDismiss: () -> Unit
@@ -120,24 +121,24 @@ fun ModifierCarteCreditDialog(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Champ taux d'intérêt avec ChampUniversel
+                    // Champ taux d'intérêt avec ChampUniversel pour permettre les décimales
                     ChampUniversel(
-                        valeur = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull() ?: 0.0).toLong(),
+                        valeur = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull()?.times(100) ?: 0.0).toLong(),
                         onValeurChange = { nouveauTaux ->
-                            onTauxChange(nouveauTaux.toString())
+                            onTauxChange((nouveauTaux / 100.0).toString())
                         },
                         libelle = "Taux d'intérêt (%)",
                         utiliserClavier = false,
                         isMoney = false,
-                        suffix = "", // ENLEVÉ le suffixe "%"
+                        suffix = "%",
                         icone = Icons.Default.Percent,
                         estObligatoire = false,
                         couleurValeur = MaterialTheme.colorScheme.onSurface,
                         onClicPersonnalise = {
-                            montantClavierInitial = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull() ?: 0.0).toLong()
+                            montantClavierInitial = if (formulaire.tauxInteret.isEmpty()) 0L else (formulaire.tauxInteret.toDoubleOrNull()?.times(100) ?: 0.0).toLong()
                             nomDialogClavier = "Taux d'intérêt"
                             onMontantChangeCallback = { nouveauTaux ->
-                                onTauxChange(nouveauTaux.toString())
+                                onTauxChange((nouveauTaux / 100.0).toString())
                             }
                             showKeyboard = true
                         },
@@ -165,6 +166,32 @@ fun ModifierCarteCreditDialog(
                         nomDialogClavier = "Dette actuelle"
                         onMontantChangeCallback = { nouveauMontant ->
                             onSoldeChange((nouveauMontant / 100.0).toString())
+                        }
+                        showKeyboard = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Champ paiement minimum avec ChampUniversel
+                ChampUniversel(
+                    valeur = (formulaire.paiementMinimum.toDoubleOrNull()?.times(100) ?: 0.0).toLong(),
+                    onValeurChange = { nouveauMontant ->
+                        onPaiementMinimumChange((nouveauMontant / 100.0).toString())
+                    },
+                    libelle = "Paiement minimum",
+                    utiliserClavier = false,
+                    isMoney = true,
+                    suffix = "",
+                    icone = Icons.Default.Payment,
+                    estObligatoire = false,
+                    couleurValeur = MaterialTheme.colorScheme.onSurface,
+                    onClicPersonnalise = {
+                        montantClavierInitial = (formulaire.paiementMinimum.toDoubleOrNull()?.times(100) ?: 0.0).toLong()
+                        nomDialogClavier = "Paiement minimum"
+                        onMontantChangeCallback = { nouveauMontant ->
+                            onPaiementMinimumChange((nouveauMontant / 100.0).toString())
                         }
                         showKeyboard = true
                     },
@@ -227,6 +254,7 @@ fun ModifierCarteCreditDialog(
                         suffix = when (nomDialogClavier) {
                             "Limite de crédit" -> "$"
                             "Dette actuelle" -> "$"
+                            "Paiement minimum" -> "$"
                             else -> ""
                         },
                         onMontantChange = { nouveauMontant ->
@@ -251,6 +279,7 @@ fun ModifierCarteCreditDialogPreview() {
         limiteCredit = "10000.0",
         tauxInteret = "19.99",
         soldeActuel = "2500.0",
+        paiementMinimum = "500.0",
         couleur = "#2196F3"
     )
     
@@ -260,6 +289,7 @@ fun ModifierCarteCreditDialogPreview() {
         onLimiteChange = {},
         onTauxChange = {},
         onSoldeChange = {},
+        onPaiementMinimumChange = {},
         onCouleurChange = {},
         onSauvegarder = {},
         onDismiss = {}

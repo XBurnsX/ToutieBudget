@@ -141,6 +141,7 @@ class CartesCreditViewModel : ViewModel() {
             limiteCredit = carte.limiteCredit.toString(),
             tauxInteret = carte.tauxInteret?.toString() ?: "", // Changé interet vers tauxInteret
             soldeActuel = (-carte.solde).toString(), // Affiche la dette comme positive
+            paiementMinimum = carte.paiementMinimum?.toString() ?: "",
             couleur = carte.couleur
         )
         _uiState.value = _uiState.value.copy(
@@ -213,6 +214,24 @@ class CartesCreditViewModel : ViewModel() {
     }
 
     /**
+     * Met à jour le paiement minimum dans le formulaire.
+     */
+    fun mettreAJourPaiementMinimum(paiementMinimum: String) {
+        val erreur = try {
+            val valeur = paiementMinimum.toDoubleOrNull()
+            when {
+                paiementMinimum.isBlank() -> null // Optionnel
+                valeur == null -> "Montant invalide"
+                valeur < 0 -> "Le paiement minimum ne peut pas être négatif"
+                else -> null
+            }
+        } catch (e: Exception) {
+            "Montant invalide"
+        }
+        _formulaire.value = _formulaire.value.copy(paiementMinimum = paiementMinimum, erreurPaiementMinimum = erreur)
+    }
+
+    /**
      * Met à jour la couleur dans le formulaire.
      */
     fun mettreAJourCouleur(couleur: String) {
@@ -234,6 +253,7 @@ class CartesCreditViewModel : ViewModel() {
                 soldeUtilise = -(formulaire.soldeActuel.toDoubleOrNull() ?: 0.0), // Changé solde vers soldeUtilise
                 limiteCredit = formulaire.limiteCredit.toDoubleOrNull() ?: 0.0,
                 tauxInteret = formulaire.tauxInteret.toDoubleOrNull(), // Changé interet vers tauxInteret
+                paiementMinimum = formulaire.paiementMinimum.toDoubleOrNull(),
                 couleur = formulaire.couleur,
                 estArchive = false,
                 ordre = _uiState.value.cartesCredit.size + 1
@@ -269,6 +289,7 @@ class CartesCreditViewModel : ViewModel() {
                 soldeUtilise = -(formulaire.soldeActuel.toDoubleOrNull() ?: 0.0),
                 limiteCredit = formulaire.limiteCredit.toDoubleOrNull() ?: 0.0,
                 tauxInteret = formulaire.tauxInteret.toDoubleOrNull(),
+                paiementMinimum = formulaire.paiementMinimum.toDoubleOrNull(),
                 couleur = formulaire.couleur,
                 collection = "comptes_credits"
             )

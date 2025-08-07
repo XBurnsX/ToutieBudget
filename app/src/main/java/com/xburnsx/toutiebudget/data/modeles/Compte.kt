@@ -64,6 +64,8 @@ data class CompteCredit(
     val limiteCredit: Double,
     @SerializedName("taux_interet")
     val tauxInteret: Double? = null,
+    @SerializedName("paiement_minimum")
+    val paiementMinimum: Double? = null,
     @SerializedName("frais_mensuels_json")
     val fraisMensuelsJson: com.google.gson.JsonElement? = null, // Peut être String ou Array
     override val collection: String = "comptes_credits"

@@ -35,7 +35,7 @@ import java.math.RoundingMode
  * @param onValeurChange Callback appelé quand la valeur change
  * @param libelle Le texte d'étiquette à afficher
  * @param utiliserClavier Si true, ouvre le clavier numérique personnalisé au clic
- * @param isMoney Si true, traite comme de l'argent (1234 = 12.34$), sinon comme valeur normale
+ * @param isMoney Si true, traite comme de l'argent (1234 = 12.34$), sinon comme valeur normale avec décimales
  * @param suffix Suffixe à ajouter après la valeur (ex: "%", " mois", etc.) - ignoré si isMoney=true
  * @param icone L'icône à afficher
  * @param estObligatoire Si true, affiche un indicateur visuel d'obligation
@@ -75,7 +75,11 @@ fun ChampUniversel(
             val resultat = String.format("%.2f", bigDecimal.toDouble())
             resultat
         } else {
-            "$valeur$suffix"
+            // Mode non-monétaire : toujours avec décimales (ex: 1290 -> 12.9)
+            val bigDecimal = BigDecimal.valueOf(valeur)
+                .divide(BigDecimal.valueOf(100), 1, RoundingMode.HALF_UP)
+            val resultat = String.format("%.1f", bigDecimal.toDouble())
+            resultat
         }
     }
 

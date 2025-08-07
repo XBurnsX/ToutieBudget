@@ -59,7 +59,12 @@ fun ClavierNumerique(
                     MoneyFormatter.formatAmountFromCents(montantInitial)
                 }
             } else {
-                montantInitial.toString()
+                // Mode non-monétaire : toujours avec décimales (ex: 1290 -> 12.9)
+                if (montantInitial == 0L) "0.0$suffix"
+                else {
+                    val decimal = montantInitial / 100.0
+                    String.format("%.1f$suffix", decimal)
+                }
             }
         )
     }
@@ -92,7 +97,26 @@ fun ClavierNumerique(
                     "0.0$touche $"
                 }
             } else {
-                texteActuel = touche
+                // === LOGIQUE MODE DÉCIMAL (ex: taux d'intérêt) ===
+                when (touche) {
+                    "." -> {
+                        if (!texteActuel.contains(".")) {
+                            texteActuel = if (texteActuel.isEmpty() || texteActuel == "0.0$suffix") {
+                                "0.$suffix"
+                            } else {
+                                texteActuel.replace(suffix, "") + ".$suffix"
+                            }
+                        }
+                    }
+                    else -> {
+                        val texteSansSuffix = texteActuel.replace(suffix, "")
+                        texteActuel = if (texteSansSuffix == "0" || texteSansSuffix == "0.") {
+                            touche + suffix
+                        } else {
+                            texteSansSuffix + touche + suffix
+                        }
+                    }
+                }
             }
         } else {
             // === LOGIQUE NORMALE ===
@@ -183,15 +207,13 @@ fun ClavierNumerique(
                 0L
             }
         } else {
-            // Pour les valeurs non-monétaires (comme les taux d'intérêt), on garde la valeur telle quelle
+            // Mode décimal : convertir en centimes (ex: 12.9 -> 1290)
             val texteNettoye = texteActuel.replace(suffix, "")
             try {
-                // NE PAS multiplier par 100 pour les taux d'intérêt !
-                // 19.9% reste 19.9, pas 1990 !
                 val valeurDouble = texteNettoye.toDoubleOrNull() ?: 0.0
                 val bigDecimal = BigDecimal.valueOf(valeurDouble)
-                    .setScale(2, RoundingMode.HALF_UP)
-                // Pour les non-monétaires, on garde la valeur exacte SANS multiplier par 100
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(0, RoundingMode.HALF_UP)
                 bigDecimal.toLong()
             } catch (e: NumberFormatException) {
                 0L
@@ -280,11 +302,7 @@ fun ClavierNumerique(
         }
 
         // Affichage du texte EXACT comme Flutter
-        val montantAffiche = if (isMoney) {
-            texteActuel
-        } else {
-            "$texteActuel$suffix"
-        }
+        val montantAffiche = texteActuel
 
         // 🎨 DESIGN VISUEL AVEC COULEURS DU THÈME
         Box(

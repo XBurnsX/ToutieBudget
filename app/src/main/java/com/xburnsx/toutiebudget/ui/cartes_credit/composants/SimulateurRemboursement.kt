@@ -225,6 +225,44 @@ private fun ConseilsRemboursement(scenarios: List<ScenarioRemboursement>) {
 
     if (scenarioMin != null && scenarioRec != null) {
         val economie = scenarioMin.coutTotal - scenarioRec.coutTotal
+        
+        // Liste de conseils utiles qui apparaissent aléatoirement
+        val conseils = listOf(
+            ConseilsUtile(
+                titre = "💡 Conseil d'urgence",
+                message = "Payer plus que le minimum réduit drastiquement les intérêts !",
+                condition = { true }
+            ),
+            ConseilsUtile(
+                titre = "💡 Conseil de durée",
+                message = "Avec le paiement minimum, vous paierez pendant ${scenarioMin.dureeMois} mois. Augmentez vos paiements pour accélérer !",
+                condition = { scenarioMin.dureeMois > 12 }
+            ),
+            ConseilsUtile(
+                titre = "💡 Conseil d'intérêts",
+                message = "Vous payez ${MoneyFormatter.formatAmount(scenarioMin.interetsTotal)} en intérêts avec le minimum. Réduisez ce montant !",
+                condition = { scenarioMin.interetsTotal > 100 }
+            ),
+            ConseilsUtile(
+                titre = "💡 Conseil d'économie",
+                message = "En payant ${MoneyFormatter.formatAmount(scenarioRec.paiementMensuel)} au lieu du minimum, vous économiserez ${MoneyFormatter.formatAmount(economie)} !",
+                condition = { economie > 50 }
+            ),
+            ConseilsUtile(
+                titre = "💡 Conseil de frais",
+                message = "Vos frais mensuels totalisent ${MoneyFormatter.formatAmount(scenarioMin.fraisTotal / scenarioMin.dureeMois)}/mois. Considérez une carte sans frais !",
+                condition = { scenarioMin.fraisTotal > 0 }
+            ),
+            ConseilsUtile(
+                titre = "💡 Conseil de stratégie",
+                message = "Priorisez le remboursement de cette carte si son taux d'intérêt est plus élevé que vos autres dettes.",
+                condition = { true }
+            )
+        )
+        
+        // Sélectionner un conseil aléatoire qui respecte sa condition
+        val conseilsApplicables = conseils.filter { it.condition() }
+        val conseilAleatoire = conseilsApplicables.randomOrNull() ?: conseils.first()
 
         Card(
             colors = CardDefaults.cardColors(
@@ -243,13 +281,13 @@ private fun ConseilsRemboursement(scenarios: List<ScenarioRemboursement>) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
-                        text = "💡 Conseil",
+                        text = conseilAleatoire.titre,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "En payant ${MoneyFormatter.formatAmount(scenarioRec.paiementMensuel)} au lieu du minimum, vous économiserez ${MoneyFormatter.formatAmount(economie)} en coûts totaux !",
+                        text = conseilAleatoire.message,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -344,34 +382,36 @@ private fun calculerDureeRemboursement(carte: CompteCredit, paiementMensuel: Dou
     val taux = carte.tauxInteret ?: 0.0
     val tauxMensuel = taux / 100.0 / 12.0
     
-    // Estimation initiale pour calculer les frais moyens
-    val estimationDuree = if (tauxMensuel > 0) {
-        val paiementNetEstime = paiementMensuel - carte.totalFraisMensuels
-        if (paiementNetEstime > 0) kotlin.math.ceil(dette / paiementNetEstime).toInt() else 60
-    } else {
-        60
-    }
-    
-    val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(estimationDuree)
-
     if (dette <= 0) return 0
-    if (paiementMensuel <= dette * tauxMensuel + fraisMensuelsMoyens) return null
-
-    if (tauxMensuel == 0.0) {
-        // Sans intérêts, mais avec frais fixes
-        val paiementNet = paiementMensuel - fraisMensuelsMoyens
-        if (paiementNet <= 0) return null
-        return ceil(dette / paiementNet).toInt()
-    }
-
-    // Formule mathématique pour calculer le nombre de paiements avec frais fixes
-    val paiementNet = paiementMensuel - fraisMensuelsMoyens
-    if (paiementNet <= 0) return null
     
-    val numerateur = ln(1 + (dette * tauxMensuel) / paiementNet)
-    val denominateur = ln(1 + tauxMensuel)
-
-    return ceil(numerateur / denominateur).toInt()
+    // Calcul mois par mois pour obtenir la vraie durée
+    var soldeRestant = dette
+    var mois = 0
+    val maxMois = 600 // Limite de 50 ans pour éviter les boucles infinies
+    
+    while (soldeRestant > 0.01 && mois < maxMois) {
+        mois++
+        
+        // Calculer les intérêts du mois
+        val interetsMois = soldeRestant * tauxMensuel
+        
+        // Calculer les frais du mois (peuvent varier selon la durée)
+        val fraisMois = carte.calculerFraisMensuelsMoyens(mois)
+        
+        // Montant disponible pour le capital
+        val paiementDisponible = paiementMensuel - fraisMois
+        val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
+        
+        // Vérifier si le paiement est suffisant
+        if (paiementDisponible <= interetsMois) {
+            return null // Le paiement ne couvre même pas les intérêts
+        }
+        
+        // Mettre à jour le solde
+        soldeRestant -= capitalMois
+    }
+    
+    return if (mois >= maxMois) null else mois
 }
 
 private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, dureeMois: Int): Double {
@@ -430,6 +470,12 @@ private fun calculerVraisInterets(carte: CompteCredit, paiementMensuel: Double, 
     
     return totalInterets
 }
+
+private data class ConseilsUtile(
+    val titre: String,
+    val message: String,
+    val condition: () -> Boolean
+)
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable

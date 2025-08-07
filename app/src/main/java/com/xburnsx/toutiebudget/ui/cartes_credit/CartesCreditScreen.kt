@@ -188,8 +188,7 @@ fun GestionCarteCreditScreen(
                     ActionsRapides(
                         carte = carteCredit,
                         onPayerMinimum = { viewModel.effectuerPaiementMinimum(carteCredit) },
-                        onPayerComplet = { viewModel.effectuerPaiementComplet(carteCredit) },
-                        onAjouterDepense = { viewModel.ajouterDepenseCarte(carteCredit) }
+                        onPayerComplet = { viewModel.effectuerPaiementComplet(carteCredit) }
                     )
                 }
             }
@@ -204,6 +203,7 @@ fun GestionCarteCreditScreen(
             onLimiteChange = viewModel::mettreAJourLimiteCredit,
             onTauxChange = viewModel::mettreAJourTauxInteret,
             onSoldeChange = viewModel::mettreAJourSoldeActuel,
+            onPaiementMinimumChange = viewModel::mettreAJourPaiementMinimum,
             onCouleurChange = viewModel::mettreAJourCouleur,
             onSauvegarder = viewModel::sauvegarderModificationsCarteCredit,
             onDismiss = viewModel::fermerDialogs
@@ -288,8 +288,7 @@ fun GestionCarteCreditScreen(
 private fun ActionsRapides(
     carte: CompteCredit,
     onPayerMinimum: () -> Unit,
-    onPayerComplet: () -> Unit,
-    onAjouterDepense: () -> Unit
+    onPayerComplet: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -334,18 +333,6 @@ private fun ActionsRapides(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null)
                         Text("Payer complet", fontSize = 12.sp)
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = onAjouterDepense,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("Ajouter dépense", fontSize = 12.sp)
                     }
                 }
             }

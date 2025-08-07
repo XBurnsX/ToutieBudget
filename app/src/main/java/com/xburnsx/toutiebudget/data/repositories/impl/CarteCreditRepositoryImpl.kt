@@ -55,6 +55,12 @@ class CarteCreditRepositoryImpl(
     }
 
     override fun calculerPaiementMinimum(carteCredit: CompteCredit): Double {
+        // Si un paiement minimum personnalisé est défini, l'utiliser
+        if (carteCredit.paiementMinimum != null && carteCredit.paiementMinimum!! > 0) {
+            return carteCredit.paiementMinimum!!
+        }
+        
+        // Sinon, calculer le paiement minimum standard
         val dette = abs(carteCredit.solde)
         val interetsMensuels = calculerInteretsMensuels(carteCredit)
         val fraisMensuels = carteCredit.totalFraisMensuels

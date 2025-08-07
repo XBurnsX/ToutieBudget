@@ -35,6 +35,7 @@ data class FormulaireCarteCredit(
     val limiteCredit: String = "",
     val tauxInteret: String = "",
     val soldeActuel: String = "",
+    val paiementMinimum: String = "",
     val couleur: String = "#2196F3",
     val fraisMensuelsFixes: String = "",
     val nomFraisMensuels: String = "",
@@ -42,6 +43,7 @@ data class FormulaireCarteCredit(
     val erreurLimite: String? = null,
     val erreurTaux: String? = null,
     val erreurSolde: String? = null,
+    val erreurPaiementMinimum: String? = null,
     val erreurFrais: String? = null,
     val erreurNomFrais: String? = null
 ) {
@@ -51,6 +53,7 @@ data class FormulaireCarteCredit(
                 erreurLimite == null &&
                 erreurTaux == null &&
                 erreurSolde == null &&
+                erreurPaiementMinimum == null &&
                 erreurFrais == null &&
                 erreurNomFrais == null
 }
