@@ -162,7 +162,7 @@ private fun DialogSelectionCompte(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 400.dp),
+                .heightIn(max = 800.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -177,12 +177,35 @@ private fun DialogSelectionCompte(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
+                // Grouper les comptes par catégorie (seulement cartes de crédit et dettes)
+                val comptesGroupes = comptes.groupBy { compte ->
+                    when (compte) {
+                        is CompteCredit -> "Cartes de crédit"
+                        is CompteDette -> "Dettes"
+                        else -> "Autres"
+                    }
+                }
+                
                 LazyColumn {
-                    items(comptes) { compte ->
-                        ItemCompte(
-                            compte = compte,
-                            onClick = { onCompteSelectionne(compte) }
-                        )
+                    comptesGroupes.forEach { (categorie, comptesCategorie) ->
+                        // En-tête de catégorie
+                        item {
+                            Text(
+                                text = categorie,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                            )
+                        }
+                        
+                        // Items de la catégorie
+                        items(comptesCategorie.sortedBy { it.ordre }) { compte ->
+                            ItemCompte(
+                                compte = compte,
+                                onClick = { onCompteSelectionne(compte) }
+                            )
+                        }
                     }
                 }
             }
