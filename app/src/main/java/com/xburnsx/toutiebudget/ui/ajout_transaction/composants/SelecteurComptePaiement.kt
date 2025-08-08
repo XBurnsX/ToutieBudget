@@ -42,8 +42,8 @@ fun SelecteurComptePaiement(
 ) {
     var dialogOuvert by remember { mutableStateOf(false) }
     
-    // Utiliser tous les comptes disponibles
-    val comptesPaiement = comptes
+    // Utiliser uniquement Cartes de crédit et Dettes
+    val comptesPaiement = comptes.filter { it is CompteCredit || it is CompteDette }
     
     Column(
         modifier = modifier,
@@ -175,18 +175,27 @@ private fun DialogSelectionCompte(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
-                // Grouper les comptes par catégorie
-                val comptesGroupes = comptes.groupBy { compte ->
-                    when (compte) {
-                        is CompteCheque -> "Comptes chèques"
-                        is CompteCredit -> "Cartes de crédit"
-                        is CompteDette -> "Dettes"
-                        is CompteInvestissement -> "Investissements"
-                        else -> "Autres"
+                // Grouper (Cartes de crédit / Dettes uniquement)
+                val comptesGroupes = comptes
+                    .filter { it is CompteCredit || it is CompteDette }
+                    .groupBy { compte ->
+                        when (compte) {
+                            is CompteCredit -> "Cartes de crédit"
+                            is CompteDette -> "Dettes"
+                            else -> "Autres"
+                        }
                     }
-                }
                 
                 LazyColumn {
+                    if (comptes.isEmpty()) {
+                        item {
+                            Text(
+                                text = "Aucun compte disponible",
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
                     comptesGroupes.forEach { (categorie, comptesCategorie) ->
                         // En-tête de catégorie
                         item {

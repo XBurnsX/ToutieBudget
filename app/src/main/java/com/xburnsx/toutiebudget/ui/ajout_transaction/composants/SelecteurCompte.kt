@@ -134,7 +134,7 @@ fun SelecteurCompte(
     // Dialog de sélection
     if (dialogOuvert) {
         DialogSelectionCompte(
-            comptes = comptes,
+            comptes = comptes.filter { it is CompteCheque || it is CompteCredit },
             onCompteSelectionne = { compte ->
                 onCompteChange(compte)
                 dialogOuvert = false
@@ -172,18 +172,27 @@ private fun DialogSelectionCompte(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
-                // Grouper les comptes par catégorie
-                val comptesGroupes = comptes.groupBy { compte ->
-                    when (compte) {
-                        is CompteCheque -> "Comptes chèque"
-                        is CompteCredit -> "Cartes de crédit"
-                        is CompteDette -> "Dettes"
-                        is CompteInvestissement -> "Investissements"
-                        else -> "Autres"
+                // Filtrer et grouper uniquement Chèque / Crédit
+                val comptesGroupes = comptes
+                    .filter { it is CompteCheque || it is CompteCredit }
+                    .groupBy { compte ->
+                        when (compte) {
+                            is CompteCheque -> "Comptes chèque"
+                            is CompteCredit -> "Cartes de crédit"
+                            else -> "Autres"
+                        }
                     }
-                }
                 
                 LazyColumn {
+                    if (comptes.isEmpty()) {
+                        item {
+                            Text(
+                                text = "Aucun compte disponible",
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
                     comptesGroupes.forEach { (categorie, comptesCategorie) ->
                         // En-tête de catégorie
                         item {
