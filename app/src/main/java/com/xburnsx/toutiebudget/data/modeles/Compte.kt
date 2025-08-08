@@ -142,6 +142,8 @@ data class CompteDette(
     val dureeMoisPret: Int? = null,
     @SerializedName("paiement_effectue")
     val paiementEffectue: Int = 0,
+    @SerializedName("prix_total")
+    val prixTotal: Double? = null,
     override val collection: String = "comptes_dettes"
 ) : Compte {
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.

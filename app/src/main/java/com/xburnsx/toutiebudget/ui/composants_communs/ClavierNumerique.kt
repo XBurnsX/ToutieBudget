@@ -60,10 +60,15 @@ fun ClavierNumerique(
                 }
             } else {
                 // Mode non-monétaire : toujours avec décimales (ex: 1290 -> 12.9)
-                if (montantInitial == 0L) "0.0$suffix"
+                if (montantInitial == 0L) if (suffix.isEmpty()) "0.0" else "0.0$suffix"
                 else {
                     val decimal = montantInitial / 100.0
-                    String.format("%.1f$suffix", decimal)
+                    val valeurFormatee = String.format("%.1f", decimal)
+                    if (suffix.isEmpty()) {
+                        valeurFormatee
+                    } else {
+                        valeurFormatee + suffix
+                    }
                 }
             }
         )
@@ -102,9 +107,10 @@ fun ClavierNumerique(
                     "." -> {
                         if (!texteActuel.contains(".")) {
                             texteActuel = if (texteActuel.isEmpty() || texteActuel == "0.0$suffix") {
-                                "0.$suffix"
+                                if (suffix.isEmpty()) "0." else "0.$suffix"
                             } else {
-                                texteActuel.replace(suffix, "") + ".$suffix"
+                                val texteSansSuffix = texteActuel.replace(suffix, "")
+                                if (suffix.isEmpty()) texteSansSuffix + "." else texteSansSuffix + ".$suffix"
                             }
                         }
                     }

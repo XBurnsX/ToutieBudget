@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.pow
 
 class DetteViewModel @Inject constructor(
     private val compteRepository: CompteRepository
@@ -47,11 +48,32 @@ class DetteViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isSaving = true)
+
+                val montantInitial = dette.montantInitial
+                val tauxAnnuel = (dette.tauxInteret ?: 0.0) / 100.0
+                val dureeMois = (dette.dureeMoisPret ?: 0)
+                val tauxMensuel = if (tauxAnnuel > 0) tauxAnnuel / 12.0 else 0.0
+
+                // Paiement mensuel (amortissement classique)
+                val paiementMensuel = if (tauxMensuel > 0 && dureeMois > 0) {
+                    montantInitial * (tauxMensuel * (1 + tauxMensuel).pow(dureeMois)) /
+                        ((1 + tauxMensuel).pow(dureeMois) - 1)
+                } else if (dureeMois > 0) {
+                    montantInitial / dureeMois
+                } else 0.0
+
+                // Prix total et solde mis à jour = prix total (demande utilisateur)
+                val prixTotal = if (dureeMois > 0) paiementMensuel * dureeMois else montantInitial
+
+                val aSauver = dette.copy(
+                    soldeDette = prixTotal,
+                    prixTotal = prixTotal
+                )
                 
-                compteRepository.mettreAJourCompte(dette)
+                compteRepository.mettreAJourCompte(aSauver)
                 
                 _uiState.value = _uiState.value.copy(
-                    dette = dette,
+                    dette = aSauver,
                     isSaving = false,
                     isSaved = true
                 )

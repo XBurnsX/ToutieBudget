@@ -25,6 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Composable
@@ -38,7 +39,8 @@ fun SelecteurDate(
     Card(
         modifier = modifier
             .clickable { showCalendar = true }
-            .size(80.dp),
+            .height(80.dp)
+            .width(120.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
@@ -61,9 +63,9 @@ fun SelecteurDate(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = dateSelectionnee.dayOfMonth.toString(),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                text = dateSelectionnee.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
@@ -134,13 +136,13 @@ private fun CalendrierDialog(
                     )
                 }
                 
-                                 Text(
-                     text = "${currentMonth.month.getDisplayName(TextStyle.FULL, Locale.FRENCH)} ${currentMonth.year}",
-                     fontSize = 18.sp,
-                     fontWeight = FontWeight.Bold,
-                     color = Color.White,
-                     textAlign = TextAlign.Center
-                 )
+                Text(
+                    text = "${currentMonth.month.getDisplayName(TextStyle.FULL, Locale.FRENCH)} ${currentMonth.year}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
                 
                 IconButton(
                     onClick = {
@@ -163,14 +165,14 @@ private fun CalendrierDialog(
             ) {
                 val joursSemaine = listOf("L", "M", "M", "J", "V", "S", "D")
                 joursSemaine.forEach { jour ->
-                                         Text(
-                         text = jour,
-                         fontSize = 14.sp,
-                         fontWeight = FontWeight.Medium,
-                         color = Color.White,
-                         modifier = Modifier.weight(1f),
-                         textAlign = TextAlign.Center
-                     )
+                    Text(
+                        text = jour,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
             
@@ -216,16 +218,16 @@ private fun CalendrierDialog(
                                     .clickable { onDateChange(date) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                                                 Text(
-                                     text = jour.toString(),
-                                     fontSize = 14.sp,
-                                     fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                                     color = when {
-                                         isSelected -> Color.White
-                                         isToday -> Color.White
-                                         else -> Color.White
-                                     }
-                                 )
+                                Text(
+                                    text = jour.toString(),
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                                    color = when {
+                                        isSelected -> Color.White
+                                        isToday -> Color.White
+                                        else -> Color.White
+                                    }
+                                )
                             }
                         } else {
                             // Case vide
@@ -247,27 +249,27 @@ private fun CalendrierDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                                 TextButton(
-                     onClick = onDismiss,
-                     colors = ButtonDefaults.textButtonColors(
-                         contentColor = Color.White
-                     )
-                 ) {
-                     Text("Annuler")
-                 }
+                TextButton(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Annuler")
+                }
                 
-                                 Button(
-                     onClick = {
-                         onDateChange(LocalDate.now())
-                         onDismiss()
-                     },
-                     colors = ButtonDefaults.buttonColors(
-                         containerColor = MaterialTheme.colorScheme.primary,
-                         contentColor = Color.White
-                     )
-                 ) {
-                     Text("Aujourd'hui")
-                 }
+                Button(
+                    onClick = {
+                        onDateChange(LocalDate.now())
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Aujourd'hui")
+                }
             }
         }
     }

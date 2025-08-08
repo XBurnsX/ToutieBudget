@@ -171,13 +171,10 @@ private fun InfoSecondaireCompte(compte: Compte) {
             }
         }
         is CompteDette -> {
-            val progression = if (compte.montantInitial > 0) {
-                // Pourcentage remboursé = (montant remboursé) / (montant initial)
-                // Montant remboursé = montant initial - solde restant
-                ((compte.montantInitial - compte.soldeDette) / compte.montantInitial).toFloat().coerceIn(0f, 1f)
-            } else {
-                0f // Valeur par défaut si montantInitial est 0 ou négatif
-            }
+            val base = (compte.prixTotal ?: compte.montantInitial).coerceAtLeast(0.0)
+            val progression = if (base > 0) {
+                ((base - compte.soldeDette) / base).toFloat().coerceIn(0f, 1f)
+            } else 0f
             Column {
                 LinearProgressIndicator(
                     progress = { progression },
@@ -187,7 +184,7 @@ private fun InfoSecondaireCompte(compte: Compte) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Remboursé à ${(progression * 100).toInt()}% sur ${MoneyFormatter.formatAmount(compte.montantInitial)}",
+                    text = "Remboursé à ${(progression * 100).toInt()}% sur ${MoneyFormatter.formatAmount(base)}",
                     fontSize = 12.sp, color = Color.Gray
                 )
             }

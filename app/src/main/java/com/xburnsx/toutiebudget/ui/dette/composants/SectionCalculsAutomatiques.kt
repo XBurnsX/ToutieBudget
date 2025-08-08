@@ -54,17 +54,18 @@ fun SectionCalculsAutomatiques(dette: CompteDette) {
                 label = "Paiement mensuel (calculé) :",
                 value = "${calculs.paiementMensuel} $"
             )
-            
+            ChampCalcul(
+                label = "Prix total (calculé) :",
+                value = "${calculs.prixTotal} $"
+            )
             ChampCalcul(
                 label = "Coût total :",
                 value = "${calculs.coutTotal} $"
             )
-            
             ChampCalcul(
                 label = "Solde restant :",
                 value = "${calculs.soldeRestant} $"
             )
-            
             ChampCalcul(
                 label = "Intérêts payés :",
                 value = "${calculs.interetsPayes} $"
@@ -100,6 +101,7 @@ private fun ChampCalcul(
 
 data class CalculsDette(
     val paiementMensuel: String,
+    val prixTotal: String,
     val coutTotal: String,
     val soldeRestant: String,
     val interetsPayes: String
@@ -109,6 +111,7 @@ private fun calculerDette(dette: CompteDette): CalculsDette {
     val montantInitial = dette.montantInitial
     val tauxInteretAnnuel = dette.tauxInteret ?: 25.0
     val dureeMois = dette.dureeMoisPret ?: 12
+    val paiementsEffectues = dette.paiementEffectue.coerceAtLeast(0)
     
     // Conversion du taux annuel en mensuel
     val tauxInteretMensuel = tauxInteretAnnuel / 100 / 12
@@ -118,23 +121,26 @@ private fun calculerDette(dette: CompteDette): CalculsDette {
         montantInitial * (tauxInteretMensuel * (1 + tauxInteretMensuel).pow(dureeMois)) / 
         ((1 + tauxInteretMensuel).pow(dureeMois) - 1)
     } else {
-        montantInitial / dureeMois
+        if (dureeMois > 0) montantInitial / dureeMois else 0.0
     }
     
-    // Calcul du coût total
+    // Prix total
+    val prixTotal = paiementMensuel * dureeMois
+    
+    // Coût total
     val coutTotal = paiementMensuel * dureeMois
     
-    // Calcul des intérêts payés (approximation basée sur 2 paiements effectués)
-    val paiementsEffectues = 2
-    val interetsPayes = (coutTotal - montantInitial) * paiementsEffectues / dureeMois
+    // Intérêts payés
+    val interetsPayes = (prixTotal - montantInitial) * (paiementsEffectues.toDouble() / dureeMois.coerceAtLeast(1))
     
-    // Calcul du solde restant
-    val soldeRestant = montantInitial - (paiementMensuel * paiementsEffectues)
+    // Solde restant (indicatif)
+    val soldeRestant = prixTotal - paiementMensuel * paiementsEffectues
     
     return CalculsDette(
         paiementMensuel = String.format("%.2f", paiementMensuel),
+        prixTotal = String.format("%.2f", prixTotal),
         coutTotal = String.format("%.2f", coutTotal),
-        soldeRestant = String.format("%.2f", soldeRestant),
-        interetsPayes = String.format("%.2f", interetsPayes)
+        soldeRestant = String.format("%.2f", soldeRestant.coerceAtLeast(0.0)),
+        interetsPayes = String.format("%.2f", interetsPayes.coerceAtLeast(0.0))
     )
 } 
