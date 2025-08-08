@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -74,24 +77,33 @@ fun HistoriqueCompteScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121212),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = Color(0xFF121212)
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator()
             } else if (uiState.erreur != null) {
-                Text(uiState.erreur!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                Text(
+                    uiState.erreur!!,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
             } else if (uiState.transactionsGroupees.isEmpty()) {
-                Text("Aucune transaction pour ce compte.", color = Color.Gray)
+                Text(
+                    "Aucune transaction pour ce compte.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 LazyColumn(
                     state = listState,
@@ -103,16 +115,28 @@ fun HistoriqueCompteScreen(
                     datesList.forEach { (dateString, transactionsPourDate) ->
                         // Séparateur de date
                         stickyHeader(key = "header_$dateString") {
-                            Text(
-                                text = dateString,
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color(0xFF1E1E1E))
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            )
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+                                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    tonalElevation = 6.dp,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = dateString,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
                         }
 
                         // Transactions pour cette date
@@ -131,6 +155,7 @@ fun HistoriqueCompteScreen(
                                     viewModel.supprimerTransaction(transaction.id)
                                 }
                             )
+                            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
                     }
                 }

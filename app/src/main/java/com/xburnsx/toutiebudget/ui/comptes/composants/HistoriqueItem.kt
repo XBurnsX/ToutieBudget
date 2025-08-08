@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.StickyNote2
@@ -129,49 +130,54 @@ fun HistoriqueItem(
                         }
                     )
                 },
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            shape = RoundedCornerShape(14.dp)
         ) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(12.dp)
+                    .height(IntrinsicSize.Min)
             ) {
-                // Ligne principale avec tiers+date et montant
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Barre d'accent verticale selon le type
+                val accentColor = when (transaction.type) {
+                    TypeTransaction.Depense, TypeTransaction.Pret -> MaterialTheme.colorScheme.error
+                    TypeTransaction.Revenu, TypeTransaction.Emprunt -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(IntrinsicSize.Max)
+                        .background(accentColor, RoundedCornerShape(2.dp))
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
-                    // 👤 TIERS + DATE avec icône
+                    // Ligne 1: 👤 TIERS avec icône (sans montant)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Tiers",
-                            tint = Color(0xFF6366F1),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = titreComplet,
                             fontSize = 16.sp,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    // Montant
-                    Text(
-                        text = MoneyFormatter.formatAmount(transaction.montant),
-                        fontSize = 16.sp,
-                        color = couleurMontant,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
 
                 // 📝 NOTE sur ligne séparée avec icône
                 if (!transaction.note.isNullOrBlank()) {
@@ -182,14 +188,14 @@ fun HistoriqueItem(
                         Icon(
                             imageVector = Icons.Default.StickyNote2,
                             contentDescription = "Note",
-                            tint = Color(0xFFFB7185),
+                                tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = transaction.note,
                             fontSize = 14.sp,
-                            color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -205,14 +211,14 @@ fun HistoriqueItem(
                         Icon(
                             imageVector = Icons.Default.LocalOffer,
                             contentDescription = "Enveloppe",
-                            tint = Color(0xFF10B981),
+                                tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = transaction.nomEnveloppe,
                             fontSize = 14.sp,
-                            color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Normal
                         )
                     }
@@ -230,20 +236,38 @@ fun HistoriqueItem(
                                 Icon(
                                     imageVector = Icons.Default.LocalOffer,
                                     contentDescription = "Enveloppe",
-                                    tint = Color(0xFF10B981),
+                                        tint = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "$nomEnveloppe - ${MoneyFormatter.formatAmount(montant)}",
                                     fontSize = 12.sp,
-                                    color = Color.LightGray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Normal,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                         }
                     }
+                }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Montant, centré verticalement et aligné à droite
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .wrapContentWidth(Alignment.End),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = MoneyFormatter.formatAmount(transaction.montant),
+                        fontSize = 16.sp,
+                        color = couleurMontant,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -287,9 +311,9 @@ fun HistoriqueItem(
             Card(
                 modifier = Modifier
                     .width(160.dp)
-                    .background(Color(0xFF2C2C2E))
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(4.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column {
@@ -306,10 +330,10 @@ fun HistoriqueItem(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = null,
-                            tint = Color(0xFF6366F1),
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
-                        Text("Modifier", color = Color.White)
+                        Text("Modifier", color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Row(
@@ -325,10 +349,10 @@ fun HistoriqueItem(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(16.dp)
                         )
-                        Text("Supprimer", color = Color.White)
+                        Text("Supprimer", color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
