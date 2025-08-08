@@ -310,7 +310,14 @@ class ComptesViewModel(
                     ordre = 0,
                     limiteCredit = soldeInitial // Le montant saisi devient la limite de crédit
                 )
-                "Dette" -> CompteDette(nom = formState.nom, soldeDette = soldeInitial, estArchive = false, ordre = 0, montantInitial = soldeInitial, prixTotal = soldeInitial)
+                "Dette" -> CompteDette(
+                    nom = formState.nom,
+                    soldeDette = -soldeInitial, // dette négative à la création
+                    estArchive = false,
+                    ordre = 0,
+                    montantInitial = soldeInitial,
+                    prixTotal = soldeInitial
+                )
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }

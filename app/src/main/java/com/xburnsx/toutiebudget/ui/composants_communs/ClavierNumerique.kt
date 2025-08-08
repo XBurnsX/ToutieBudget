@@ -59,17 +59,8 @@ fun ClavierNumerique(
                     MoneyFormatter.formatAmountFromCents(montantInitial)
                 }
             } else {
-                // Mode non-monétaire : toujours avec décimales (ex: 1290 -> 12.9)
-                if (montantInitial == 0L) if (suffix.isEmpty()) "0.0" else "0.0$suffix"
-                else {
-                    val decimal = montantInitial / 100.0
-                    val valeurFormatee = String.format("%.1f", decimal)
-                    if (suffix.isEmpty()) {
-                        valeurFormatee
-                    } else {
-                        valeurFormatee + suffix
-                    }
-                }
+                // Mode non-monétaire : on démarre VIDE pour éviter les artefacts (ex: 0.0)
+                ""
             }
         )
     }
@@ -106,17 +97,17 @@ fun ClavierNumerique(
                 when (touche) {
                     "." -> {
                         if (!texteActuel.contains(".")) {
-                            texteActuel = if (texteActuel.isEmpty() || texteActuel == "0.0$suffix") {
+                            texteActuel = if (texteActuel.isEmpty()) {
                                 if (suffix.isEmpty()) "0." else "0.$suffix"
                             } else {
                                 val texteSansSuffix = texteActuel.replace(suffix, "")
-                                if (suffix.isEmpty()) texteSansSuffix + "." else texteSansSuffix + ".$suffix"
+                                if (suffix.isEmpty()) "$texteSansSuffix." else "$texteSansSuffix.$suffix"
                             }
                         }
                     }
                     else -> {
                         val texteSansSuffix = texteActuel.replace(suffix, "")
-                        texteActuel = if (texteSansSuffix == "0" || texteSansSuffix == "0.") {
+                        texteActuel = if (texteSansSuffix.isEmpty() || texteSansSuffix == "0" || texteSansSuffix == "0.") {
                             touche + suffix
                         } else {
                             texteSansSuffix + touche + suffix

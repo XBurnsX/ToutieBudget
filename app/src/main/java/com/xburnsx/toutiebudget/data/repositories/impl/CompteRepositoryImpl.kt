@@ -209,6 +209,7 @@ class CompteRepositoryImpl : CompteRepository {
             // 🔧 DÉTECTER LE TYPE DE COMPTE POUR UTILISER LE BON CHAMP
             val nomChamp = when (collection) {
                 Collections.CREDIT -> "solde_utilise" // Pour les cartes de crédit
+                Collections.DETTE -> "solde_dette"   // Pour les dettes
                 else -> "solde" // Pour tous les autres types de comptes
             }
             
@@ -281,6 +282,7 @@ class CompteRepositoryImpl : CompteRepository {
             // 🔧 DÉTECTER LE TYPE DE COMPTE POUR UTILISER LE BON CHAMP
             val nomChamp = when (collectionCompte) {
                 Collections.CREDIT -> "solde_utilise" // Pour les cartes de crédit
+                Collections.DETTE -> "solde_dette"   // Pour les dettes
                 else -> "solde" // Pour tous les autres types de comptes
             }
             val donneesUpdate = mapOf(nomChamp to soldeArrondi)

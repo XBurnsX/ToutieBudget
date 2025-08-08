@@ -10,6 +10,9 @@ import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.*
 import javax.inject.Inject
+import com.xburnsx.toutiebudget.data.modeles.CompteCheque
+import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
 
 /**
  * Implémentation du service ArgentService qui gère les opérations financières.
@@ -670,14 +673,36 @@ class ArgentServiceImpl @Inject constructor(
         
         // 3. Mettre à jour les soldes
         val nouveauSoldeCompteQuiPaie = compteQuiPaie.solde - montant
-        val nouveauSoldeCarteOuDette = carteOuDette.solde + montant // Réduire la dette (solde négatif + montant positif)
+        val nouveauSoldeCarteOuDette = carteOuDette.solde + montant // dettes négatives -> +montant les rapproche de 0
         
         // 🎯 ARRONDIR AUTOMATIQUEMENT LES NOUVEAUX SOLDES
         val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(nouveauSoldeCompteQuiPaie)
         val nouveauSoldeCarteOuDetteArrondi = MoneyFormatter.roundAmount(nouveauSoldeCarteOuDette)
         
-        compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
+        // Met à jour le solde du compte payeur ; si c'est un chèque, on met aussi à jour pret_a_placer
+        if (collectionCompteQuiPaie == "comptes_cheques" && compteQuiPaie is CompteCheque) {
+            // variationSolde = -montant, MAJ pret_a_placer = true
+            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                compteId = compteQuiPaieId,
+                collectionCompte = collectionCompteQuiPaie,
+                variationSolde = -montant,
+                mettreAJourPretAPlacer = true
+            )
+        } else {
+            compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
+        }
+
+        // Mettre à jour le solde de la carte/dette
         compteRepository.mettreAJourSolde(carteOuDetteId, collectionCarteOuDette, nouveauSoldeCarteOuDetteArrondi)
+
+        // 🔼 Incrémenter paiement_effectue si cible est une dette
+        if (collectionCarteOuDette == "comptes_dettes") {
+            val detteActuelle = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette) as? CompteDette
+            if (detteActuelle != null) {
+                val detteMiseAJour = detteActuelle.copy(paiementEffectue = (detteActuelle.paiementEffectue + 1))
+                compteRepository.mettreAJourCompte(detteMiseAJour)
+            }
+        }
         
         // 4. Créer la transaction de sortie (compte qui paie)
         val transactionSortante = Transaction(

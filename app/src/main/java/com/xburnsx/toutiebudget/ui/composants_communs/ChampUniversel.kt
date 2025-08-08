@@ -148,6 +148,17 @@ fun ChampUniversel(
                     ),
                     modifier = Modifier.weight(1f)
                 )
+                if (!isMoney && suffix.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = suffix,
+                        style = LocalTextStyle.current.copy(
+                            fontSize = tailleValeur ?: 16.sp,
+                            color = couleurValeur ?: MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
         }
     }
@@ -172,7 +183,7 @@ fun ChampUniversel(
             ClavierNumerique(
                 montantInitial = valeur,
                 isMoney = isMoney,
-                suffix = suffix,
+                suffix = if (isMoney) suffix else "",
                 onMontantChange = { nouveauMontant ->
                     onValeurChange(nouveauMontant)
                 },

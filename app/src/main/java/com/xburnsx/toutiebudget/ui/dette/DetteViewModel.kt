@@ -64,10 +64,21 @@ class DetteViewModel @Inject constructor(
 
                 // Prix total et solde mis à jour = prix total (demande utilisateur)
                 val prixTotal = if (dureeMois > 0) paiementMensuel * dureeMois else montantInitial
+ 
+                // Solde restant basé sur paiements effectués, borné à >= 0
+                val paiementsEffectues = dette.paiementEffectue.coerceAtLeast(0)
+                val soldeRestant = if (dureeMois > 0) {
+                    (prixTotal - paiementMensuel * paiementsEffectues).coerceAtLeast(0.0)
+                } else {
+                    // Si pas de durée définie, on conserve le solde existant en valeur absolue
+                    kotlin.math.abs(dette.soldeDette)
+                }
+                val nouveauSoldeDette = -soldeRestant
 
                 val aSauver = dette.copy(
-                    soldeDette = prixTotal,
-                    prixTotal = prixTotal
+                    prixTotal = prixTotal,
+                    paiementMinimum = kotlin.math.round(paiementMensuel * 100) / 100.0, // enregistrer paiement mensuel calculé
+                    soldeDette = nouveauSoldeDette
                 )
                 
                 compteRepository.mettreAJourCompte(aSauver)

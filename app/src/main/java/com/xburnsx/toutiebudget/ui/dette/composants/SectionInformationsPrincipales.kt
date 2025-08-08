@@ -44,7 +44,7 @@ fun SectionInformationsPrincipales(
             
             // Taux d'intérêt annuel
             ChampUniversel(
-                valeur = (((dette.tauxInteret ?: 25.0) * 100.0).roundToLong()), // 22.5 -> 2250 centièmes de %
+                valeur = (((dette.tauxInteret ?: 0.0) * 100.0).roundToLong()), // 22.5 -> 2250 centièmes de %
                 onValeurChange = { valeur ->
                     onDetteChange(dette.copy(tauxInteret = valeur.toDouble() / 100))
                 },

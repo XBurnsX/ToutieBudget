@@ -194,10 +194,18 @@ class AjoutTransactionViewModel(
      */
     fun onModeOperationChanged(nouveauMode: String) {
         _uiState.update { state ->
-            state.copy(
+            val newState = state.copy(
                 modeOperation = nouveauMode,
-                enveloppeSelectionnee = null // Reset de l'enveloppe si on change de mode
-            ).calculerValidite()
+                enveloppeSelectionnee = null
+            )
+            // Si on entre en mode Paiement et qu'une dette est déjà sélectionnée, préremplir
+            val dette = newState.comptePaiementSelectionne as? CompteDette
+            if (nouveauMode == "Paiement" && dette?.paiementMinimum != null && dette.paiementMinimum > 0) {
+                val cents = kotlin.math.round(dette.paiementMinimum * 100).toLong().toString()
+                newState.copy(montant = cents).calculerValidite()
+            } else {
+                newState.calculerValidite()
+            }
         }
     }
 
@@ -313,7 +321,14 @@ class AjoutTransactionViewModel(
      */
     fun onComptePaiementChanged(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            state.copy(comptePaiementSelectionne = nouveauCompte).calculerValidite()
+            val updated = state.copy(comptePaiementSelectionne = nouveauCompte)
+            val montantAuto = (nouveauCompte as? CompteDette)?.paiementMinimum
+            if (state.modeOperation == "Paiement" && montantAuto != null && montantAuto > 0) {
+                val cents = kotlin.math.round(montantAuto * 100).toLong().toString()
+                updated.copy(montant = cents).calculerValidite()
+            } else {
+                updated.calculerValidite()
+            }
         }
     }
 

@@ -59,10 +59,6 @@ fun SectionCalculsAutomatiques(dette: CompteDette) {
                 value = "${calculs.prixTotal} $"
             )
             ChampCalcul(
-                label = "Coût total :",
-                value = "${calculs.coutTotal} $"
-            )
-            ChampCalcul(
                 label = "Solde restant :",
                 value = "${calculs.soldeRestant} $"
             )
@@ -102,7 +98,6 @@ private fun ChampCalcul(
 data class CalculsDette(
     val paiementMensuel: String,
     val prixTotal: String,
-    val coutTotal: String,
     val soldeRestant: String,
     val interetsPayes: String
 )
@@ -127,9 +122,6 @@ private fun calculerDette(dette: CompteDette): CalculsDette {
     // Prix total
     val prixTotal = paiementMensuel * dureeMois
     
-    // Coût total
-    val coutTotal = paiementMensuel * dureeMois
-    
     // Intérêts payés
     val interetsPayes = (prixTotal - montantInitial) * (paiementsEffectues.toDouble() / dureeMois.coerceAtLeast(1))
     
@@ -139,7 +131,6 @@ private fun calculerDette(dette: CompteDette): CalculsDette {
     return CalculsDette(
         paiementMensuel = String.format("%.2f", paiementMensuel),
         prixTotal = String.format("%.2f", prixTotal),
-        coutTotal = String.format("%.2f", coutTotal),
         soldeRestant = String.format("%.2f", soldeRestant.coerceAtLeast(0.0)),
         interetsPayes = String.format("%.2f", interetsPayes.coerceAtLeast(0.0))
     )

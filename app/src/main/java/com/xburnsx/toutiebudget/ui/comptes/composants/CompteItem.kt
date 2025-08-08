@@ -172,8 +172,9 @@ private fun InfoSecondaireCompte(compte: Compte) {
         }
         is CompteDette -> {
             val base = (compte.prixTotal ?: compte.montantInitial).coerceAtLeast(0.0)
+            val remaining = if (compte.soldeDette < 0) kotlin.math.abs(compte.soldeDette) else compte.soldeDette
             val progression = if (base > 0) {
-                ((base - compte.soldeDette) / base).toFloat().coerceIn(0f, 1f)
+                ((base - remaining) / base).toFloat().coerceIn(0f, 1f)
             } else 0f
             Column {
                 LinearProgressIndicator(
