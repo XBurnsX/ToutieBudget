@@ -1,24 +1,42 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit.composants
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlin.math.abs
-import kotlin.math.min
 
 @Composable
 fun CalculateurPaiement(
@@ -27,7 +45,7 @@ fun CalculateurPaiement(
     onMontantChange: (Double) -> Unit = {},
     tempsRemboursement: Int? = null,
     interetsTotal: Double? = null,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     var paiementMensuelCentimes by remember { mutableStateOf(0L) }
     var erreurPaiement by remember { mutableStateOf<String?>(null) }
@@ -203,7 +221,7 @@ fun CalculateurPaiement(
             Button(
                 onClick = {
                     val montant = paiementMensuelCentimes / 100.0
-                    if (montant != null && erreurPaiement == null) {
+                    if (erreurPaiement == null) {
                         onCalculerPlan(montant)
                     }
                 },
@@ -216,8 +234,7 @@ fun CalculateurPaiement(
             }
 
             // Informations supplémentaires si un montant valide est saisi
-            val montantSaisi = paiementMensuelCentimes / 100.0
-            if (montantSaisi != null && erreurPaiement == null) {
+            if (erreurPaiement == null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Card(
@@ -322,53 +339,6 @@ private fun calculerPaiementMinimum(carte: CompteCredit): Double {
     // Paiement minimum = 2% du solde ou 25€, le plus élevé des deux, plus les intérêts et frais
     val paiementBase = maxOf(dette * 0.02, 25.0)
     return paiementBase + interetsMensuels + fraisMensuelsMoyens
-}
-
-private fun calculerTempsRemboursement(carte: CompteCredit, paiementMensuel: Double): Int? {
-    // Cette méthode sera remplacée par l'appel au ViewModel
-    // pour éviter la duplication de logique
-    return null
-}
-
-private fun calculerInteretsTotal(carte: CompteCredit, paiementMensuel: Double, tempsMois: Int?): Double? {
-    if (tempsMois == null) return null
-
-    val dette = abs(carte.solde)
-    val taux = carte.tauxInteret ?: 0.0
-    val tauxMensuel = taux / 100.0 / 12.0
-
-    if (tauxMensuel == 0.0) {
-        // Sans intérêts, retourner 0
-        return 0.0
-    }
-
-    // Simulation mois par mois pour calculer les intérêts réels payés
-    var soldeRestant = dette
-    var totalInterets = 0.0
-    var mois = 0
-
-    while (soldeRestant > 0.01 && mois < tempsMois) {
-        mois++
-        
-        // Calculer les frais moyens pour cette durée estimée
-        val dureeEstimee = tempsMois - mois + 1
-        val fraisMensuelsMoyens = carte.calculerFraisMensuelsMoyens(dureeEstimee)
-        
-        // Calculer les intérêts du mois
-        val interetsMois = soldeRestant * tauxMensuel
-        
-        // Calculer le capital remboursé ce mois
-        val paiementDisponible = paiementMensuel - fraisMensuelsMoyens
-        val capitalMois = min(paiementDisponible - interetsMois, soldeRestant)
-        
-        // Accumuler les intérêts payés
-        totalInterets += interetsMois
-        
-        // Mettre à jour le solde
-        soldeRestant -= capitalMois
-    }
-
-    return totalInterets
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)

@@ -2,6 +2,7 @@ package com.xburnsx.toutiebudget.ui.cartes_credit.composants
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -80,7 +81,7 @@ private fun AlerteItem(
     val icone = when (alerte.type) {
         TypeAlerte.ECHEANCE_PROCHE -> Icons.Default.Schedule
         TypeAlerte.PAIEMENT_EN_RETARD -> Icons.Default.Error
-        TypeAlerte.UTILISATION_ELEVEE -> Icons.Default.TrendingUp
+        TypeAlerte.UTILISATION_ELEVEE -> Icons.AutoMirrored.Filled.TrendingUp
         TypeAlerte.LIMITE_ATTEINTE -> Icons.Default.Warning
         TypeAlerte.INTERETS_APPLIQUES -> Icons.Default.AttachMoney
     }

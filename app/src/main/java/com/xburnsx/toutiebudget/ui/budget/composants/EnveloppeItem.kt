@@ -4,8 +4,6 @@ package com.xburnsx.toutiebudget.ui.budget.composants
 // Importations des bibliothèques nécessaires pour créer des interfaces utilisateur avec Jetpack Compose.
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -25,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,14 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Date
-import java.util.Calendar
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import androidx.core.graphics.toColorInt
 
 /**
  * Fonction d'extension pour la classe String.
@@ -55,8 +49,8 @@ fun String?.toColor(): Color {
             return Color.Gray
         }
         // Tente de parser la chaîne en une couleur Android native, puis la convertit en couleur Compose.
-        Color(android.graphics.Color.parseColor(this))
-    } catch (e: Exception) {
+        Color(this.toColorInt())
+    } catch (_: Exception) {
         // Si le format est invalide (ex: "bleu" au lieu de "#0000FF"), retourne une couleur grise par défaut.
         Color.Gray
     }
@@ -222,26 +216,27 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                          
                                          val dateFin = when {
                                              dateString.contains("T") -> {
-                                                 val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                 val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
                                                  isoFormat.parse(dateString)
                                              }
                                              dateString.contains(" ") -> {
                                                  // Essayer d'abord le format avec Z
                                                  try {
-                                                     val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                                                     val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
                                                      spaceFormat.parse(dateString)
-                                                 } catch (e: Exception) {
+                                                 } catch (_: Exception) {
                                                      // Si ça échoue, essayer le format sans Z
                                                      try {
-                                                         val spaceFormatSansZ = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                                                         val spaceFormatSansZ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                                                          spaceFormatSansZ.parse(dateString)
-                                                     } catch (e2: Exception) {
+                                                     } catch (_: Exception) {
                                                          null
                                                      }
                                                  }
                                              }
                                              dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
-                                                 val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                                 val simpleFormat =
+                                                     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                                                  simpleFormat.parse(dateString)
                                              }
                                              else -> null
@@ -249,17 +244,15 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
                                                                                   if (dateFin != null) {
                                               // Utiliser directement la date de fin (pas besoin d'ajouter 1 an)
-                                              val dateFormatee = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(dateFin)
+                                              val dateFormatee = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(dateFin)
                                               dateFormatee.toDateFormatee()
                                           } else null
-                                     } catch (e: Exception) {
+                                     } catch (_: Exception) {
                                          null
                                      }
                                  }
 
-                                val dateTexte = dateFinAnnuel?.toStringCourt() ?: "fin d'année"
-
-                                                                 if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
                                      "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
                                  } else {
                                      "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
@@ -567,7 +560,6 @@ data class DateFormatee(
     val jourTexte: String // ex: "15", "1er", "2e", etc.
 ) {
     fun toStringCourt(): String = "$jourTexte $mois"
-    fun toStringComplet(): String = "$jourTexte $mois $annee"
     fun toStringCourtAvecAnnee(): String = "$jourTexte $mois $annee"
 }
 
@@ -590,12 +582,12 @@ fun String?.toDateFormatee(): DateFormatee? {
                  try {
                      val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
                      spaceFormat.parse(this)
-                 } catch (e: Exception) {
+                 } catch (_: Exception) {
                      // Si ça échoue, essayer le format sans Z
                      try {
                          val spaceFormatSansZ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                          spaceFormatSansZ.parse(this)
-                     } catch (e2: Exception) {
+                     } catch (_: Exception) {
                          null
                      }
                  }
@@ -635,7 +627,7 @@ fun String?.toDateFormatee(): DateFormatee? {
             annee = annee,
             jourTexte = jourTexte
         )
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 }

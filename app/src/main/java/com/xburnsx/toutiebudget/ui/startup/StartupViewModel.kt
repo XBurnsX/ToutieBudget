@@ -53,7 +53,7 @@ class StartupViewModel : ViewModel() {
                     _state.value = StartupState.UserNotAuthenticated
                 }
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _state.value = StartupState.ServerError
             }
         }

@@ -1,6 +1,7 @@
 // chemin/simule: /ui/categories/composants/EnveloppeConfigItem.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun EnveloppeConfigItem(
     enveloppe: Enveloppe,

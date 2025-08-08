@@ -6,7 +6,6 @@
  package com.xburnsx.toutiebudget.data.repositories.impl
 
  import com.google.gson.JsonParser
- import com.google.gson.reflect.TypeToken
  import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
  import com.xburnsx.toutiebudget.data.modeles.Enveloppe
  import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
@@ -71,12 +70,12 @@ import java.util.*
             // Essayer d'abord le format ISO complet
             val resultISO = formateurDateISO.parse(dateString)
             resultISO
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             try {
                 // Essayer le format simple
                 val resultSimple = formateurDate.parse(dateString)
                 resultSimple
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Si c'est juste un nombre (jour), créer une date avec ce jour
                 if (dateString.matches(Regex("\\d+"))) {
                     val jour = dateString.toInt()
@@ -152,14 +151,14 @@ import java.util.*
                         utilisateurId = itemObject.get("utilisateur_id")?.asString ?: "",
                         nom = itemObject.get("nom")?.asString ?: "",
                         categorieId = itemObject.get("categorie_id")?.asString ?: "",
-                        estArchive = itemObject.get("est_archive")?.asBoolean ?: false,
+                        estArchive = itemObject.get("est_archive")?.asBoolean == true,
                         ordre = (itemObject.get("ordre")?.asDouble)?.toInt() ?: 0,
                         typeObjectif = pocketBaseVersTypeObjectif(itemObject.get("frequence_objectif")?.asString),
                         objectifMontant = itemObject.get("montant_objectif")?.asDouble ?: 0.0,
                         dateObjectif = parseDateFromPocketBase(dateObjectifRaw),
                         dateDebutObjectif = parseDateFromPocketBase(dateDebutObjectifRaw),
                         objectifJour = (itemObject.get("objectif_jour")?.asDouble)?.toInt(),
-                        resetApresEcheance = itemObject.get("reset_apres_echeance")?.asBoolean ?: false
+                        resetApresEcheance = itemObject.get("reset_apres_echeance")?.asBoolean == true
                     )
                     
                     enveloppe
@@ -250,7 +249,7 @@ import java.util.*
              // Grouper par enveloppeId et fusionner les doublons
              val allocationsUniques = toutesLesAllocations
                  .groupBy { it.enveloppeId }
-                 .map { (enveloppeId, allocationsGroupe) ->
+                 .map { (_, allocationsGroupe) ->
                      if (allocationsGroupe.size == 1) {
                          // Une seule allocation pour cette enveloppe -> OK
                          allocationsGroupe.first()
@@ -316,7 +315,7 @@ import java.util.*
              }
  
              // Notification système d'événements après mise à jour
-             BudgetEvents.onAllocationUpdated(allocation.id)
+             BudgetEvents.onAllocationUpdated()
 
              Result.success(Unit)
          } catch (e: Exception) {
@@ -475,12 +474,12 @@ import java.util.*
              val nouveauSoldeBrut = allocation.solde - montantDepense  // Soustraction du solde
              // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
              val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
-             val nouvelleDépense = allocation.depense + montantDepense  // Addition aux dépenses existantes
+             val nouvelleDepense = allocation.depense + montantDepense  // Addition aux dépenses existantes
              
              // 3. Préparer les données de mise à jour
              val donneesUpdate = mapOf(
                  "solde" to nouveauSolde,
-                 "depense" to nouvelleDépense
+                 "depense" to nouvelleDepense
              )
              val corpsRequete = gson.toJson(donneesUpdate)
              
@@ -498,11 +497,11 @@ import java.util.*
                  val erreur = "Erreur lors de la mise à jour de l'allocation: ${reponse.code} ${reponse.body?.string()}"
                  throw Exception(erreur)
              }
- 
-             val corpsReponse = reponse.body?.string() ?: ""
+
+             reponse.body?.string() ?: ""
 
              // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
-             BudgetEvents.onAllocationUpdated(allocationMensuelleId)
+             BudgetEvents.onAllocationUpdated()
              Result.success(Unit)
          } catch (e: Exception) {
 
@@ -526,12 +525,12 @@ import java.util.*
              val nouveauSoldeBrut = allocation.solde + montantDepense  // Addition au solde
              // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
              val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
-             val nouvelleDépense = allocation.depense - montantDepense  // Soustraction des dépenses existantes
+             val nouvelleDepense = allocation.depense - montantDepense  // Soustraction des dépenses existantes
              
              // 3. Préparer les données de mise à jour
              val donneesUpdate = mapOf(
                  "solde" to nouveauSolde,
-                 "depense" to nouvelleDépense
+                 "depense" to nouvelleDepense
              )
              val corpsRequete = gson.toJson(donneesUpdate)
              
@@ -550,10 +549,10 @@ import java.util.*
                  throw Exception(erreur)
              }
 
-             val corpsReponse = reponse.body?.string() ?: ""
+             reponse.body?.string() ?: ""
 
              // 🔄 DÉCLENCHER L'ÉVÉNEMENT DE RAFRAÎCHISSEMENT
-             BudgetEvents.onAllocationUpdated(allocationMensuelleId)
+             BudgetEvents.onAllocationUpdated()
              Result.success(Unit)
          } catch (e: Exception) {
              Result.failure(e)
@@ -726,7 +725,7 @@ import java.util.*
      private fun deserialiserEnveloppe(json: String): Enveloppe? {
          return try {
              gson.fromJson(json, Enveloppe::class.java)
-         } catch (e: Exception) {
+         } catch (_: Exception) {
 
              null
          }

@@ -155,7 +155,7 @@ class CompteRepositoryImpl : CompteRepository {
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
-            BudgetEvents.onCompteUpdated(compte.id)
+            BudgetEvents.onCompteUpdated()
 
             // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
             val realtimeService = AppModule.provideRealtimeSyncService()
@@ -193,7 +193,7 @@ class CompteRepositoryImpl : CompteRepository {
         try {
             val result = recupererCompteParId(compteId, collection)
             result.getOrNull()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -241,7 +241,7 @@ class CompteRepositoryImpl : CompteRepository {
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
-            BudgetEvents.onCompteUpdated(compteId)
+            BudgetEvents.onCompteUpdated()
 
             // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
             val realtimeService = AppModule.provideRealtimeSyncService()
@@ -314,7 +314,7 @@ class CompteRepositoryImpl : CompteRepository {
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
-            BudgetEvents.onCompteUpdated(compteId)
+            BudgetEvents.onCompteUpdated()
 
             // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
             val realtimeService = AppModule.provideRealtimeSyncService()
@@ -409,7 +409,7 @@ class CompteRepositoryImpl : CompteRepository {
                     is CompteInvestissement -> it.copy(collection = collection)
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -485,7 +485,7 @@ class CompteRepositoryImpl : CompteRepository {
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
-            BudgetEvents.onCompteUpdated(compteId)
+            BudgetEvents.onCompteUpdated()
 
             // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
             val realtimeService = AppModule.provideRealtimeSyncService()
@@ -549,7 +549,7 @@ class CompteRepositoryImpl : CompteRepository {
             }
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
-            BudgetEvents.onCompteUpdated(compteId)
+            BudgetEvents.onCompteUpdated()
 
             // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT DE LA PAGE DES COMPTES
             val realtimeService = AppModule.provideRealtimeSyncService()

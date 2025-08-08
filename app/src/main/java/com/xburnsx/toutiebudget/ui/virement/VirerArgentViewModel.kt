@@ -232,97 +232,6 @@ class VirerArgentViewModel(
     }
 
     /**
-     * Charge toutes les sources et destinations possibles pour les virements.
-     */
-    private fun chargerSourcesEtDestinations() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            try {
-                // Charger toutes les données
-                allComptes = compteRepository.recupererTousLesComptes()
-                    .getOrThrow()
-                    .filter { !it.estArchive }
-                
-                allEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
-                    .getOrThrow()
-                    .filter { !it.estArchive }
-                
-                allAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
-                    .getOrThrow()
-                
-                allCategories = categorieRepository.recupererToutesLesCategories()
-                    .getOrThrow()
-
-                // Créer les items de comptes (seulement les comptes chèque avec prêt à placer disponible)
-                val itemsComptes = allComptes
-                    .filterIsInstance<CompteCheque>()
-                    .filter { it.pretAPlacer > 0 } // Ne garder que les comptes avec un montant prêt à placer disponible
-                    .map { ItemVirement.CompteItem(it) }
-
-                // Créer les enveloppes UI avec le même système que AjoutTransactionViewModel
-                val enveloppesUi = construireEnveloppesUi()
-
-                // Utiliser OrganisationEnveloppesUtils pour maintenir l'ordre correct des catégories
-                val enveloppesOrganisees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
-
-                // Grouper les sources (comptes + enveloppes avec argent) dans le bon ordre
-                val sourcesEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
-                enveloppesOrganisees.forEach { (nomCategorie, enveloppesCategorie) ->
-                    val enveloppesAvecArgent = enveloppesCategorie
-                        .mapNotNull { enveloppe ->
-                            enveloppesUi.find { it.id == enveloppe.id }
-                        }
-                        .filter { it.solde > 0 }  // Seulement les enveloppes avec de l'argent
-                        .map { ItemVirement.EnveloppeItem(it) }
-
-                    if (enveloppesAvecArgent.isNotEmpty()) {
-                        sourcesEnveloppes[nomCategorie] = enveloppesAvecArgent
-                    }
-                }
-
-                val sources = LinkedHashMap<String, List<ItemVirement>>().apply {
-                    put("Prêt à placer", itemsComptes)
-                    putAll(sourcesEnveloppes)
-                }
-
-                // Grouper les destinations (comptes + toutes les enveloppes) dans le bon ordre
-                val destinationsEnveloppes = LinkedHashMap<String, List<ItemVirement>>()
-                enveloppesOrganisees.forEach { (nomCategorie, enveloppesCategorie) ->
-                    val enveloppesCategorie = enveloppesCategorie
-                        .mapNotNull { enveloppe ->
-                            enveloppesUi.find { it.id == enveloppe.id }
-                        }
-                        .map { ItemVirement.EnveloppeItem(it) }
-
-                    if (enveloppesCategorie.isNotEmpty()) {
-                        destinationsEnveloppes[nomCategorie] = enveloppesCategorie
-                    }
-                }
-
-                val destinations = LinkedHashMap<String, List<ItemVirement>>().apply {
-                    put("Prêt à placer", itemsComptes)
-                    putAll(destinationsEnveloppes)
-                }
-
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        sourcesDisponibles = sources,
-                        destinationsDisponibles = destinations
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false, 
-                        erreur = "Erreur de chargement: ${e.message}"
-                    ) 
-                }
-            }
-        }
-    }
-
-    /**
      * Construit la liste des enveloppes UI avec leurs allocations.
      * Même logique que dans AjoutTransactionViewModel.
      */
@@ -362,14 +271,7 @@ class VirerArgentViewModel(
     fun ouvrirSelecteur(type: SelecteurOuvert) { 
         _uiState.update { it.copy(selecteurOuvert = type) } 
     }
-    
-    /**
-     * Ferme le sélecteur ouvert.
-     */
-    fun fermerSelecteur() { 
-        _uiState.update { it.copy(selecteurOuvert = SelecteurOuvert.AUCUN) } 
-    }
-    
+
     /**
      * Sélectionne un item (source ou destination) selon le sélecteur ouvert.
      */
@@ -458,7 +360,7 @@ class VirerArgentViewModel(
      */
     private fun updateVirementButtonState() {
         val state = _uiState.value
-        val montantValide = state.montant.toLongOrNull() ?: 0L > 0
+        val montantValide = (state.montant.toLongOrNull() ?: 0L) > 0
         val isEnabled = state.sourceSelectionnee != null &&
                         state.destinationSelectionnee != null &&
                         montantValide
@@ -559,7 +461,7 @@ class VirerArgentViewModel(
                             val moisActuel = Date()
                             try {
                                 allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 // Erreur silencieuse
                             }
                             result
@@ -581,7 +483,7 @@ class VirerArgentViewModel(
                             val moisActuel = Date()
                             try {
                                 allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 // Erreur silencieuse
                             }
                             result
@@ -606,7 +508,7 @@ class VirerArgentViewModel(
                                 
                                 val compteModifie = compteSource.copy(
                                     pretAPlacerRaw = nouveauPretAPlacer,
-                                    collection = compteSource.collection ?: "comptes_cheque" // Assurer qu'on a une collection
+                                    collection = compteSource.collection // Assurer qu'on a une collection
                                 )
                                 
                                 val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
@@ -667,7 +569,7 @@ class VirerArgentViewModel(
                                 val moisActuel = Date()
                                                         try {
                             allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // Erreur silencieuse
                         }
                                 result
@@ -695,8 +597,7 @@ class VirerArgentViewModel(
                                             Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
                                         } else {
                                             // 2. ✅ S'assurer qu'une allocation de base existe pour la source
-                                            val allocationSourceExistante = allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                                            
+
                                             // ✅ FUSIONNER : Mettre à jour l'allocation SOURCE (diminue solde + alloué)
                                             val allocationSourceMiseAJour = allocationSource.copy(
                                                 solde = allocationSource.solde - montantEnDollars,        // ← RETIRE du solde
@@ -852,39 +753,6 @@ class VirerArgentViewModel(
     // ===== UTILITAIRES =====
 
     /**
-     * Formate un message d'erreur en remplaçant les IDs de comptes par leurs noms
-     */
-    private suspend fun formaterMessageErreur(messageOriginal: String): String {
-        var messageFormate = messageOriginal
-
-        // Rechercher les patterns d'ID de compte dans le message
-        val regexId = Regex("""[a-zA-Z0-9]{15}""") // Pattern typique d'un ID PocketBase
-        val idsFound = regexId.findAll(messageOriginal).map { it.value }.toSet()
-
-        // Remplacer chaque ID trouvé par le nom du compte correspondant
-        for (id in idsFound) {
-            val nomCompte = obtenirNomCompteParId(id)
-            if (nomCompte != "Compte inconnu") {
-                messageFormate = messageFormate.replace(id, nomCompte)
-            }
-        }
-
-        return messageFormate
-    }
-
-    /**
-     * Récupère le nom d'un compte par son ID
-     */
-    private suspend fun obtenirNomCompteParId(compteId: String): String {
-        return try {
-            // Chercher dans tous les comptes chargés en cache
-            allComptes.find { it.id == compteId }?.nom ?: "Compte inconnu"
-        } catch (e: Exception) {
-            "Compte inconnu"
-        }
-    }
-
-    /**
      * Obtient le solde actuel d'un ItemVirement.
      * Pour les prêts à placer (EnveloppeUi virtuelles), extrait le montant du compte source.
      */
@@ -944,13 +812,6 @@ class VirerArgentViewModel(
     }
 
     /**
-     * Reset le flag de virement réussi pour éviter la navigation en boucle.
-     */
-    fun resetVirementReussi() {
-        _uiState.update { it.copy(virementReussi = false) }
-    }
-
-    /**
      * Efface l'erreur actuelle.
      */
     fun effacerErreur() {
@@ -977,333 +838,4 @@ class VirerArgentViewModel(
 
     // ===== VALIDATION =====
 
-    /**
-     * Valide les données de virement avant exécution.
-     */
-    fun validerVirement(): Boolean {
-        val state = _uiState.value
-
-        // Vérifications communes
-        if (state.sourceSelectionnee == null) {
-            _uiState.update { it.copy(erreur = VirementErrorMessages.General.SOURCE_NULL) }
-            return false
-        }
-        if (state.destinationSelectionnee == null) {
-            _uiState.update { it.copy(erreur = VirementErrorMessages.General.DESTINATION_NULL) }
-            return false
-        }
-        if (state.montant.isBlank() || state.montant.toDoubleOrNull() ?: 0.0 <= 0) {
-            _uiState.update { it.copy(erreur = VirementErrorMessages.General.MONTANT_INVALIDE) }
-            return false
-        }
-
-        // Validations spécifiques au mode
-        return when (state.mode) {
-            VirementMode.ENVELOPPES -> validerPourModeEnveloppes(state)
-            VirementMode.COMPTES -> validerPourModeComptes(state)
-        }
-    }
-
-    /**
-     * Valide les données pour le mode ENVELOPPES.
-     */
-    private fun validerPourModeEnveloppes(state: VirerArgentUiState): Boolean {
-        // Exemple: Vérifier que la source est une enveloppe avec un solde suffisant
-        val source = state.sourceSelectionnee as? ItemVirement.EnveloppeItem
-        val montant = state.montant.toDoubleOrNull() ?: 0.0
-
-        if (source != null && source.enveloppe.solde < montant) {
-            _uiState.update { it.copy(erreur = "Solde insuffisant sur l'enveloppe source.") }
-            return false
-        }
-
-        return true
-    }
-
-    /**
-     * Valide les données pour le mode COMPTES.
-     */
-    private fun validerPourModeComptes(state: VirerArgentUiState): Boolean {
-        // Exemple: Vérifier que les comptes source et destination sont différents
-        val source = state.sourceSelectionnee as? ItemVirement.CompteItem
-        val destination = state.destinationSelectionnee as? ItemVirement.CompteItem
-
-        if (source != null && destination != null && source.compte.id == destination.compte.id) {
-            _uiState.update { it.copy(erreur = "La source et la destination ne peuvent pas être identiques.") }
-            return false
-        }
-
-        return true
-    }
-
-    /**
-     * Valide la logique de provenance pour le virement.
-     * Appelle la fonction de validation appropriée selon le mode de virement actuel.
-     */
-    private suspend fun validerProvenance(source: ItemVirement, destination: ItemVirement): Result<Unit> {
-        val mois = Date()
-        return when (_uiState.value.mode) {
-            VirementMode.ENVELOPPES -> validerProvenanceEnveloppes(source, destination, mois)
-            VirementMode.COMPTES -> validerProvenanceComptes(source, destination)
-        }
-    }
-
-    /**
-     * Valide la logique de provenance pour le mode ENVELOPPES.
-     */
-    private suspend fun validerProvenanceEnveloppes(source: ItemVirement, destination: ItemVirement, mois: Date): Result<Unit> {
-        return when {
-            // Cas 1: Prêt à placer (Compte) -> Enveloppe
-            source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
-                validationProvenanceService.validerAjoutArgentEnveloppe(
-                    enveloppeId = destination.enveloppe.id,
-                    compteSourceId = source.compte.id,
-                    mois = mois
-                )
-            }
-            // Cas 2: Enveloppe -> Enveloppe
-            source is ItemVirement.EnveloppeItem && destination is ItemVirement.EnveloppeItem -> {
-                validationProvenanceService.validerTransfertEntreEnveloppes(
-                    enveloppeSourceId = source.enveloppe.id,
-                    enveloppeCibleId = destination.enveloppe.id,
-                    mois = mois
-                )
-            }
-            // Cas 3: Enveloppe -> Prêt à placer (Compte)
-            source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
-                validationProvenanceService.validerTransfertEnveloppeVersCompte(
-                    enveloppeSourceId = source.enveloppe.id,
-                    compteCibleId = destination.compte.id,
-                    mois = mois
-                )
-            }
-            // Autres cas (ne devrait pas arriver dans ce mode)
-            else -> Result.failure(IllegalArgumentException("Type de virement non supporté pour les enveloppes."))
-        }
-    }
-
-    /**
-     * Valide la logique de provenance pour le mode COMPTES.
-     */
-    private fun validerProvenanceComptes(source: ItemVirement, destination: ItemVirement): Result<Unit> {
-        return when {
-            source is ItemVirement.CompteItem && destination is ItemVirement.CompteItem -> {
-                if (source.compte.id == destination.compte.id) {
-                    Result.failure(IllegalArgumentException("La source et la destination ne peuvent pas être identiques."))
-                } else {
-                    Result.success(Unit)
-                }
-            }
-            // Autres cas invalides pour ce mode
-            else -> Result.failure(IllegalArgumentException("Seuls les virements de compte à compte sont autorisés dans ce mode."))
-        }
-    }
-
-    /**
-     * Exécute le virement d'argent entre source et destination.
-     */
-    private fun executerVirement() {
-        val state = _uiState.value
-        val source = state.sourceSelectionnee
-        val destination = state.destinationSelectionnee
-        val montantEnCentimes = state.montant.toLongOrNull() ?: 0L
-        val montantEnDollars = montantEnCentimes / 100.0
-
-        // Validation que source et destination ne sont pas null
-        if (source == null || destination == null) {
-            _uiState.update {
-                it.copy(erreur = "Source et destination doivent être sélectionnées.")
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            // Gérer les erreurs de manière globale
-            runCatching {
-                when (_uiState.value.mode) {
-                    VirementMode.ENVELOPPES -> executerVirementEnveloppes(source, destination, montantEnDollars)
-                    VirementMode.COMPTES -> executerVirementComptes(source, destination, montantEnDollars)
-                }
-            }.onSuccess {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        virementReussi = true,
-                        erreur = null
-                    )
-                }
-                // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (non-bloquant)
-                launch {
-                    chargerDonneesInitiales().join()
-                    
-                    realtimeSyncService.declencherMiseAJourBudget()
-                }
-            }.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        virementReussi = false,
-                        erreur = "Erreur lors du virement: ${e.message}"
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * Exécute la logique de virement pour le mode ENVELOPPES.
-     */
-    private suspend fun executerVirementEnveloppes(source: ItemVirement, destination: ItemVirement, montant: Double): Result<Unit> {
-        return when {
-            // Prêt à placer (Compte) -> Enveloppe
-            source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
-                argentService.allouerArgentEnveloppe(
-                    enveloppeId = destination.enveloppe.id,
-                    compteSourceId = source.compte.id,
-                    collectionCompteSource = source.compte.collection,
-                    montant = montant,
-                    mois = Date()
-                )
-            }
-
-            // Enveloppe -> Enveloppe - Utiliser les objets complets des enveloppes
-            source is ItemVirement.EnveloppeItem && destination is ItemVirement.EnveloppeItem -> {
-                if (estPretAPlacer(source.enveloppe)) {
-                    // Source est un prêt à placer virtuel → C'est en fait un virement Compte vers Enveloppe
-                    val compteSourceId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
-                    val compteSource = allComptes.find { it.id == compteSourceId }
-                    
-                    if (compteSource == null) {
-                        return Result.failure(Exception("Compte source introuvable pour le prêt à placer"))
-                    }
-                    
-                    // 🎯 UTILISER LA MÊME LOGIQUE QUI FONCTIONNE DANS LE BUDGET
-                    
-                    // 1. Mettre à jour le compte source (retirer de "prêt à placer")
-                    val nouveauPretAPlacer = (compteSource as CompteCheque).pretAPlacer - montant
-                    val compteModifie = compteSource.copy(
-                        pretAPlacerRaw = nouveauPretAPlacer
-                    )
-                    
-                    val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
-                    if (resultCompte.isFailure) {
-                        return Result.failure(Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}"))
-                    }
-                    
-                    // 2. ✅ CRÉER une allocation additive (évite les doublons)
-                    val calendrier = Calendar.getInstance().apply {
-                        time = Date()
-                        set(Calendar.DAY_OF_MONTH, 1)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    val premierJourMois = calendrier.time
-                    
-                    // 🔥 UTILISER LA MÊME LOGIQUE DE FUSION QUE LES AUTRES VIREMENTS !
-                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
-                    
-                    // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
-                    val allocationMiseAJour = allocationExistante.copy(
-                        solde = allocationExistante.solde + montant,
-                        alloue = allocationExistante.alloue + montant,
-                        // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
-                        compteSourceId = if (allocationExistante.solde <= 0.01) compteSource.id else allocationExistante.compteSourceId,
-                        collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
-                    )
-                    
-                    try {
-                        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
-                        // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
-                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
-                    } catch (e: Exception) {
-                        return Result.failure(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
-                    }
-                    
-                    Result.success(Unit)
-                } else {
-                    // Les deux sont de vraies enveloppes - cas normal
-                    val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
-                    val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
-
-                    if (enveloppeSource != null && enveloppeDestination != null) {
-                        val result = argentService.effectuerVirementEnveloppeVersEnveloppe(
-                            enveloppeSource = enveloppeSource,
-                            enveloppeDestination = enveloppeDestination,
-                            montant = montant
-                        )
-                        // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                        val moisActuel = Date()
-                        try {
-                            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
-                            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, moisActuel)
-                        } catch (e: Exception) {
-                            // Erreur silencieuse
-                        }
-                        result
-                    } else {
-                        Result.failure(Exception("Enveloppe source ou destination introuvable"))
-                    }
-                }
-            }
-
-            // Enveloppe -> Prêt à placer (dans le mode enveloppes, c'est le seul cas "vers compte")
-            source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
-                if (estPretAPlacer(source.enveloppe)) {
-                    // ERREUR DANS LE COMMENTAIRE - Ce n'est PAS "prêt à placer vers prêt à placer"
-                    // C'est "prêt à placer vers COMPTE" ce qui ne devrait pas arriver dans le mode Enveloppes !
-                    Result.failure(Exception("Configuration invalide: Prêt à placer vers compte détecté"))
-                } else {
-                    // Enveloppe normale vers Prêt à placer
-                    val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
-
-                    if (enveloppeSource != null) {
-                        // Extraire l'ID du compte depuis l'ID "pret_a_placer_"
-                        val compteId = extraireCompteIdDepuisPretAPlacer(destination.compte.id)
-                        val compteDestination = allComptes.find { it.id == compteId }
-
-                        if (compteDestination == null) {
-                            return Result.failure(Exception("Compte destination introuvable pour le prêt à placer"))
-                        }
-
-                        // UTILISER LA MÉTHODE SPÉCIFIQUE POUR VIRER VERS PRÊT À PLACER
-                        val result = argentService.effectuerVirementEnveloppeVersPretAPlacer(
-                            enveloppeId = source.enveloppe.id,
-                            compteId = compteDestination.id,
-                            montant = montant
-                        )
-                        // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                        val moisActuel = Date()
-                                                        try {
-                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                                } catch (e: Exception) {
-                                    // Erreur silencieuse
-                                }
-                        result
-                    } else {
-                        Result.failure(Exception("Enveloppe source introuvable"))
-                    }
-                }
-            }
-
-            else -> Result.failure(Exception("Type de virement non supporté."))
-        }
-    }
-
-    /**
-     * Exécute la logique de virement pour le mode COMPTES.
-     */
-    private suspend fun executerVirementComptes(source: ItemVirement, destination: ItemVirement, montant: Double): Result<Unit> {
-        if (source is ItemVirement.CompteItem && destination is ItemVirement.CompteItem) {
-            return argentService.effectuerVirementEntreComptes(
-                compteSourceId = source.compte.id,
-                compteDestId = destination.compte.id,
-                montant = montant,
-                nomCompteSource = source.compte.nom,
-                nomCompteDest = destination.compte.nom
-            )
-        }
-        return Result.failure(IllegalArgumentException("Source ou destination invalide pour un virement entre comptes."))
-    }
 }

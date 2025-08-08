@@ -7,9 +7,6 @@ import com.xburnsx.toutiebudget.utils.DetecteurEmulateur
 import com.xburnsx.toutiebudget.utils.TypeEnvironnement
 import kotlinx.coroutines.*
 import okhttp3.*
-import java.io.IOException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -28,8 +25,8 @@ object UrlResolver {
         .readTimeout(1, TimeUnit.SECONDS)
         .writeTimeout(500, TimeUnit.MILLISECONDS)
         .retryOnConnectionFailure(false)
-        .connectionPool(okhttp3.ConnectionPool(3, 1, TimeUnit.MINUTES)) // Pool dédié pour les tests
-        .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1))
+        .connectionPool(ConnectionPool(3, 1, TimeUnit.MINUTES)) // Pool dédié pour les tests
+        .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .addHeader("Accept-Encoding", "gzip, deflate")
@@ -64,7 +61,7 @@ object UrlResolver {
         // Tester toutes les URLs en parallèle
         val resultats = urlsATester.map { (url, description) ->
             async {
-                val estConnecte = testerConnexion(url, description)
+                val estConnecte = testerConnexion(url)
                 Triple(url, description, estConnecte)
             }
         }.awaitAll()
@@ -85,19 +82,13 @@ object UrlResolver {
         return@withContext urlFallback
     }
 
-    private suspend fun testerConnexion(url: String, description: String): Boolean {
+    private fun testerConnexion(url: String): Boolean {
         return try {
             val requete = Request.Builder().url("${url.trimEnd('/')}/api/health").get().build()
             val reponse = clientVerification.newCall(requete).execute()
             val estValide = reponse.isSuccessful
             return estValide
-        } catch (e: Exception) {
-            val messageErreur = when (e) {
-                is SocketTimeoutException -> "Timeout"
-                is UnknownHostException -> "Hôte introuvable"
-                is IOException -> "Erreur réseau"
-                else -> "Erreur inconnue"
-            }
+        } catch (_: Exception) {
             return false
         }
     }

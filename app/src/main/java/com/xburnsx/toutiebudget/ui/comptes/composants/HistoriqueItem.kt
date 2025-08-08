@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.comptes.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,7 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.StickyNote2
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
@@ -33,13 +34,10 @@ import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
-import com.google.gson.Gson
 import com.google.gson.JsonParser
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
+@SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun HistoriqueItem(
     transaction: TransactionUi,
@@ -62,18 +60,13 @@ fun HistoriqueItem(
     }
 
     // ✅ Formater la date et l'heure complète
-    val formateurDate = remember { 
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
-            timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local
-        }
-    }
-    val titreComplet = "${transaction.tiers}" //  Avec Date et heure  val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
+    val titreComplet =
+        transaction.tiers //  Avec Date et heure  val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
 
     // Parser les fractions si c'est une transaction fractionnée
     val fractions = remember(transaction.sousItems) {
         if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
             try {
-                val gson = Gson()
                 val jsonArray = JsonParser.parseString(transaction.sousItems).asJsonArray
                 jsonArray.mapNotNull { element ->
                     val obj = element.asJsonObject
@@ -82,7 +75,7 @@ fun HistoriqueItem(
                     val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
                     Triple(description, montant, enveloppeId)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 emptyList()
             }
         } else {
@@ -186,7 +179,7 @@ fun HistoriqueItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.StickyNote2,
+                            imageVector = Icons.AutoMirrored.Filled.StickyNote2,
                             contentDescription = "Note",
                                 tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(14.dp)

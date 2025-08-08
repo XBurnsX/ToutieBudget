@@ -69,40 +69,4 @@ object OrganisationEnveloppesUtils {
         }
     }
 
-    /**
-     * Retourne les catégories triées par ordre
-     */
-    fun trierCategories(categories: List<Categorie>): List<Categorie> {
-        return categories.sortedBy { it.ordre }
-    }
-
-    /**
-     * Retourne les enveloppes triées par ordre dans une catégorie donnée
-     */
-    fun trierEnveloppesParCategorie(
-        enveloppes: List<Enveloppe>,
-        categorieId: String
-    ): List<Enveloppe> {
-        return enveloppes
-            .filter { it.categorieId == categorieId }
-            .sortedBy { it.ordre }
-    }
-
-    /**
-     * Retourne toutes les enveloppes organisées par catégorie sous forme de liste plate
-     * en respectant l'ordre des catégories et l'ordre des enveloppes
-     */
-    fun obtenirEnveloppesOrdonnees(
-        categories: List<Categorie>,
-        enveloppes: List<Enveloppe>
-    ): List<Enveloppe> {
-        val enveloppesGroupees = organiserEnveloppesParCategorie(categories, enveloppes)
-        val result = mutableListOf<Enveloppe>()
-
-        enveloppesGroupees.forEach { (_, enveloppesCategorie) ->
-            result.addAll(enveloppesCategorie)
-        }
-
-        return result
-    }
 }

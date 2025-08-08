@@ -63,7 +63,7 @@ object DiagnosticConnexion {
         rapport.toString()
     }
 
-    private suspend fun testerUrl(url: String, description: String): String {
+    private fun testerUrl(url: String, description: String): String {
         return try {
             val requete = Request.Builder()
                 .url(url)
@@ -88,20 +88,4 @@ object DiagnosticConnexion {
         }
     }
 
-    /**
-     * Teste rapidement une URL spécifique
-     */
-    suspend fun testerUrlRapide(url: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val requete = Request.Builder()
-                .url(url)
-                .get()
-                .build()
-
-            val reponse = clientTest.newCall(requete).execute()
-            reponse.isSuccessful
-        } catch (e: Exception) {
-            false
-        }
-    }
-} 
+}

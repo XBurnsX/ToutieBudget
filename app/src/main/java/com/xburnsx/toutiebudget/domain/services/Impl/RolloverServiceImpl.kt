@@ -3,10 +3,9 @@
 
 package com.xburnsx.toutiebudget.domain.services.Impl
 
-import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
+import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.domain.services.RolloverService
-import java.util.Calendar
 import java.util.Date
 
 class RolloverServiceImpl(
@@ -48,7 +47,7 @@ class RolloverServiceImpl(
                         } else {
                             continue // Passer à l'allocation suivante
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         continue // Passer à l'allocation suivante au lieu de planter
                     }
                 }

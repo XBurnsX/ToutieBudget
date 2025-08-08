@@ -173,32 +173,6 @@ class LoginViewModel : ViewModel() {
     }
 
     /**
-     * Traite la connexion Google OAuth2 (version legacy)
-     * @param codeAutorisation Le code d'autorisation obtenu de Google Sign-In
-     */
-    fun gererConnexionGoogle(codeAutorisation: String?, context: Context) {
-        if (codeAutorisation == null) {
-            _etatUi.update {
-                it.copy(
-                    erreur = "L'authentification Google a été annulée ou a échoué. Vérifiez votre connexion internet et réessayez.",
-                    estEnChargement = false
-                )
-            }
-            return
-        }
-
-        // Utiliser la nouvelle méthode avec fallback
-        gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", codeAutorisation, null, context)
-    }
-
-    /**
-     * Réinitialise l'état d'erreur
-     */
-    fun effacerErreur() {
-        _etatUi.update { it.copy(erreur = null) }
-    }
-
-    /**
      * Vérifie si l'utilisateur est déjà connecté
      */
     fun verifierConnexionExistante(context: Context) {
@@ -216,17 +190,4 @@ class LoginViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Efface tous les logs de debug
-     */
-    fun effacerLogsDebug() {
-        _etatUi.update { it.copy(logsDebug = emptyList()) }
-    }
-
-    /**
-     * Active/désactive le mode debug
-     */
-    fun basculerModeDebug() {
-        _etatUi.update { it.copy(modeDebug = !it.modeDebug) }
-    }
 }

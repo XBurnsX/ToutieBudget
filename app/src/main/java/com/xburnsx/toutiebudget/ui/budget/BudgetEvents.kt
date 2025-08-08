@@ -12,21 +12,14 @@ object BudgetEvents {
     /**
      * Déclenche un rafraîchissement du budget après une modification d'allocation
      */
-    fun onAllocationUpdated(allocationId: String) {
+    fun onAllocationUpdated() {
         refreshBudget.tryEmit(Unit)
     }
 
     /**
      * Déclenche un rafraîchissement du budget après une modification de compte
      */
-    fun onCompteUpdated(compteId: String) {
-        refreshBudget.tryEmit(Unit)
-    }
-
-    /**
-     * Déclenche un rafraîchissement du budget après une modification d'enveloppe
-     */
-    fun onEnveloppeUpdated(enveloppeId: String) {
+    fun onCompteUpdated() {
         refreshBudget.tryEmit(Unit)
     }
 

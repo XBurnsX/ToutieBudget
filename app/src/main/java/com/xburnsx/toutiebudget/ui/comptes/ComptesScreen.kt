@@ -16,7 +16,6 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material3.*
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -135,8 +134,6 @@ fun ComptesScreen(
                                 isModeReorganisation = true,
                                 isEnDeplacement = uiState.compteEnDeplacement == compte.id,
                                 onDeplacerCompte = viewModel::onDeplacerCompte,
-                                onDebuterDeplacement = viewModel::onDebuterDeplacementCompte,
-                                onTerminerDeplacement = viewModel::onTerminerDeplacementCompte,
                                 modifier = Modifier
                             )
                         } else {

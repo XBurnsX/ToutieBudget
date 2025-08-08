@@ -10,14 +10,13 @@ import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import java.util.UUID
 
 class ComptesViewModel(
     private val compteRepository: CompteRepository,
@@ -222,14 +221,6 @@ class ComptesViewModel(
         _uiState.update { it.copy(isAjoutDialogVisible = true, formState = CompteFormState()) }
     }
 
-    fun onOuvrirClavierNumerique() {
-        _uiState.update { it.copy(isClavierNumeriqueVisible = true) }
-    }
-
-    fun onFermerClavierNumerique() {
-        _uiState.update { it.copy(isClavierNumeriqueVisible = false) }
-    }
-
     fun onOuvrirModificationDialog() {
         val compte = _uiState.value.compteSelectionne ?: return
         _uiState.update {
@@ -280,7 +271,6 @@ class ComptesViewModel(
     }
 
     fun onSauvegarderCompte() {
-        val form = _uiState.value.formState
         if (_uiState.value.formState.id != null) {
             sauvegarderModification()
         } else {
@@ -426,24 +416,6 @@ class ComptesViewModel(
                 isModeReorganisation = !it.isModeReorganisation,
                 compteEnDeplacement = null
             )
-        }
-    }
-
-    /**
-     * Démarre le déplacement d'un compte.
-     */
-    fun onDebuterDeplacementCompte(compteId: String) {
-        _uiState.update {
-            it.copy(compteEnDeplacement = compteId)
-        }
-    }
-
-    /**
-     * Termine le déplacement d'un compte.
-     */
-    fun onTerminerDeplacementCompte() {
-        _uiState.update {
-            it.copy(compteEnDeplacement = null)
         }
     }
 

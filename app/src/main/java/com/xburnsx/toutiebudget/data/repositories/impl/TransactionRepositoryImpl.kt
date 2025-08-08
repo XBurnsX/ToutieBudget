@@ -3,10 +3,7 @@
 
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.Transaction
-import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.SafeDateAdapter
@@ -419,12 +416,12 @@ class TransactionRepositoryImpl : TransactionRepository {
         return try {
             val jsonObject = gson.fromJson(json, com.google.gson.JsonObject::class.java)
             val itemsArray = jsonObject.getAsJsonArray("items")
-            
-            itemsArray.map { item ->
+
+            itemsArray.mapNotNull { item ->
                 val transactionJson = item.toString()
                 deserialiserTransaction(transactionJson)
-            }.filterNotNull()
-        } catch (e: Exception) {
+            }
+        } catch (_: Exception) {
             emptyList()
         }
     }

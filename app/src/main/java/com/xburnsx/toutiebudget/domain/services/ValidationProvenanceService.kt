@@ -1,6 +1,5 @@
 package com.xburnsx.toutiebudget.domain.services
 
-import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
@@ -11,7 +10,6 @@ import javax.inject.Inject
  * Service de validation pour empêcher le mélange d'argent de différentes provenances
  */
 class ValidationProvenanceService @Inject constructor(
-    private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val compteRepository: CompteRepository
 ) {
@@ -26,7 +24,7 @@ class ValidationProvenanceService @Inject constructor(
                 .getOrNull()
                 ?.find { it.id == compteId }
                 ?.nom ?: "Compte inconnu"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Compte inconnu"
         }
     }
@@ -51,9 +49,7 @@ class ValidationProvenanceService @Inject constructor(
         val allocationsPourEnveloppe = toutesAllocations.filter { it.enveloppeId == enveloppeId }
         
         val soldeTotalReel = allocationsPourEnveloppe.sumOf { it.solde }
-        val alloueTotalReel = allocationsPourEnveloppe.sumOf { it.alloue }
-        val depenseTotaleReel = allocationsPourEnveloppe.sumOf { it.depense }
-        
+
         // Déterminer la provenance dominante (celle avec le plus gros solde positif)
         val allocationsDominantes = allocationsPourEnveloppe.filter { it.solde > 0 }
         val compteProvenanceDominant = allocationsDominantes
@@ -199,16 +195,4 @@ class ValidationProvenanceService @Inject constructor(
         }
     }
 
-    /**
-     * Récupère le compte de provenance d'une enveloppe pour un mois donné
-     * @param enveloppeId ID de l'enveloppe
-     * @param mois Mois concerné
-     * @return ID du compte de provenance ou null si pas d'argent
-     */
-    suspend fun obtenirCompteProvenance(enveloppeId: String, mois: Date): String? {
-        return enveloppeRepository.recupererAllocationMensuelle(enveloppeId, mois)
-            .getOrNull()
-            ?.takeIf { it.solde > 0 }
-            ?.compteSourceId
-    }
 }

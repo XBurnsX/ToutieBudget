@@ -5,20 +5,20 @@ package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
-import com.xburnsx.toutiebudget.data.modeles.Categorie
-import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.di.PocketBaseClient
-import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.*
+import java.util.Calendar
+import java.util.Date
 
 
 /**
@@ -843,52 +843,6 @@ class CategoriesEnveloppesViewModel(
     }
 
     /**
-     * Échange la position de deux catégories adjacentes.
-     */
-    fun onEchangerCategoriesAdjacentes(nomCategorie1: String, nomCategorie2: String) {
-        viewModelScope.launch {
-            try {
-                val categorie1 = categoriesMap.values.find { it.nom == nomCategorie1 }
-                    ?: throw Exception("Catégorie '$nomCategorie1' introuvable")
-                val categorie2 = categoriesMap.values.find { it.nom == nomCategorie2 }
-                    ?: throw Exception("Catégorie '$nomCategorie2' introuvable")
-
-                // Échanger les ordres
-                val categorieModifiee1 = categorie1.copy(ordre = categorie2.ordre)
-                val categorieModifiee2 = categorie2.copy(ordre = categorie1.ordre)
-
-                // Mise à jour optimiste de l'interface
-                val nouvellesCategories = categoriesMap.values.map { categorie ->
-                    when (categorie.id) {
-                        categorie1.id -> categorieModifiee1
-                        categorie2.id -> categorieModifiee2
-                        else -> categorie
-                    }
-                }
-
-                val nouveauxGroupes = reorganiserGroupesParOrdre(nouvellesCategories)
-                _uiState.update { currentState ->
-                    currentState.copy(enveloppesGroupees = nouveauxGroupes)
-                }
-
-                // Mettre à jour le cache
-                categoriesMap = nouvellesCategories.associateBy { it.id }
-
-                // Synchroniser avec PocketBase
-                categorieRepository.mettreAJourCategorie(categorieModifiee1)
-                categorieRepository.mettreAJourCategorie(categorieModifiee2)
-
-                // 🔥 SYNCHRONISATION TEMPS RÉEL
-                realtimeSyncService.declencherMiseAJourBudget()
-
-            } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur échange: ${e.message}") }
-                chargerDonnees()
-            }
-        }
-    }
-
-    /**
      * Calcule les nouveaux ordres après déplacement d'une catégorie.
      */
     private fun calculerNouveauxOrdres(
@@ -912,19 +866,6 @@ class CategoriesEnveloppesViewModel(
         return listeModifiable.mapIndexed { index, categorie ->
             categorie.copy(ordre = index)
         }
-    }
-
-    /**
-     * Réorganise les groupes d'enveloppes selon le nouvel ordre des catégories.
-     */
-    private fun reorganiserGroupesParOrdre(nouvellesCategories: List<Categorie>): Map<String, List<Enveloppe>> {
-        val enveloppesGroupees = _uiState.value.enveloppesGroupees
-
-        return nouvellesCategories
-            .sortedBy { it.ordre }
-            .associate { categorie ->
-                categorie.nom to (enveloppesGroupees[categorie.nom] ?: emptyList())
-            }
     }
 
     // ===== GESTION DU DÉPLACEMENT DES ENVELOPPES =====
@@ -1022,37 +963,9 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
-    /**
-     * Démarre le déplacement d'une enveloppe.
-     */
-    fun onDebuterDeplacementEnveloppe(enveloppeId: String) {
-        _uiState.update {
-            it.copy(enveloppeEnDeplacement = enveloppeId)
-        }
-    }
-
-    /**
-     * Termine le déplacement d'une enveloppe.
-     */
-    fun onTerminerDeplacementEnveloppe() {
-        _uiState.update {
-            it.copy(enveloppeEnDeplacement = null)
-        }
-    }
-
     // ===== UTILITAIRES =====
 
     fun onEffacerErreur() {
         _uiState.update { it.copy(erreur = null) }
-    }
-
-    private fun organiserGroupes(groupes: Map<String, List<Enveloppe>>): Map<String, List<Enveloppe>> {
-        val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }.map { it.nom }
-        return groupes.toSortedMap(compareBy { nomCategorie ->
-            val indexExistant = categoriesOrdonnees.indexOf(nomCategorie)
-            // Si la catégorie existe déjà dans l'ordre, utiliser son index
-            // Sinon, la placer à la fin (index très grand)
-            if (indexExistant != -1) indexExistant else Int.MAX_VALUE
-        })
     }
 }

@@ -8,17 +8,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
-import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
-import com.xburnsx.toutiebudget.domain.services.ArgentService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -30,7 +27,6 @@ import java.util.TimeZone
 class HistoriqueCompteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val tiersRepository: TiersRepository,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -67,14 +63,6 @@ class HistoriqueCompteViewModel(
      */
     fun sauvegarderPositionScroll(position: Int) {
         _uiState.update { it.copy(scrollPosition = position) }
-    }
-
-    /**
-     * Restaure la position de scroll après modification.
-     */
-    fun restaurerPositionScroll() {
-        // La position est déjà sauvegardée dans l'état
-        // Cette méthode peut être utilisée pour déclencher la restauration
     }
 
     /**
@@ -132,7 +120,6 @@ class HistoriqueCompteViewModel(
                 // D'abord, récupérer TOUTES les transactions de l'utilisateur pour voir la structure
                 val resultToutesTransactions = transactionRepository.recupererToutesLesTransactions()
                 if (resultToutesTransactions.isSuccess) {
-                    val toutesTransactions = resultToutesTransactions.getOrNull() ?: emptyList()
                 }
 
                 // Ensuite, récupérer les transactions du compte spécifique
@@ -144,7 +131,6 @@ class HistoriqueCompteViewModel(
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
 
                 // Récupérer les enveloppes pour les noms
-                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull() ?: emptyList()
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
@@ -173,7 +159,6 @@ class HistoriqueCompteViewModel(
                     // Pour les transactions fractionnées, récupérer les noms des enveloppes depuis le JSON
                     val nomsEnveloppesFractions = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
                         try {
-                            val gson = com.google.gson.Gson()
                             val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
                             val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                             if (resultEnveloppes.isSuccess) {
@@ -191,7 +176,7 @@ class HistoriqueCompteViewModel(
                             } else {
                                 emptyList()
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             emptyList()
                         }
                     } else {
@@ -202,7 +187,7 @@ class HistoriqueCompteViewModel(
                         id = transaction.id,
                         type = transaction.type,
                         montant = transaction.montant,
-                        date = transaction.date ?: Date(), // Valeur par défaut si date est null
+                        date = transaction.date, // Valeur par défaut si date est null
                         tiers = nomTiers, // Utiliser directement le champ tiers de la transaction
                         nomEnveloppe = nomEnveloppe,
                         note = transaction.note, // Garder la note complète
@@ -223,7 +208,7 @@ class HistoriqueCompteViewModel(
                     .map { (dateString, transactionsDeLaDate) ->
                         val dateParsee = try {
                             formateurDate.parse(dateString) ?: Date(0)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             Date(0)
                         }
                         Triple(dateString, dateParsee, transactionsDeLaDate.sortedByDescending { it.date })

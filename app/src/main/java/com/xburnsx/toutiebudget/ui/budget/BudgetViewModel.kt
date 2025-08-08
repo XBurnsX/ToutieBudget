@@ -5,35 +5,33 @@ package com.xburnsx.toutiebudget.ui.budget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
+import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
-import com.xburnsx.toutiebudget.data.modeles.Categorie
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
-import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
-import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
-import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
+import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 class BudgetViewModel(
     private val compteRepository: CompteRepository,
@@ -101,7 +99,7 @@ class BudgetViewModel(
                 BudgetEvents.refreshBudget.collectLatest {
                     chargerDonneesBudget(moisSelectionne)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // BudgetEvents peut ne pas exister, on ignore cette erreur
             }
         }
@@ -161,11 +159,8 @@ class BudgetViewModel(
                 // 4. Charger les allocations EXACTES pour le mois spécifique UNIQUEMENT
                 _uiState.update { it.copy(messageChargement = "Chargement des allocations mensuelles...") }
                 val premierJourDuMois = obtenirPremierJourDuMois(moisCible)
-                val dateFormatee = formatDatePourDebug(premierJourDuMois)
-                val moisActuel = obtenirPremierJourDuMois(Date())
 
                 // 🔍 DEBUG : Vérifier si on regarde un mois différent du mois actuel
-                val regardeMoisDifferent = premierJourDuMois.time != moisActuel.time
 
                 val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(premierJourDuMois)
                 val allocations = resultAllocations.getOrElse {
@@ -174,10 +169,10 @@ class BudgetViewModel(
 
                 // 4b. Charger TOUTES les allocations passées pour les objectifs intelligents
                 _uiState.update { it.copy(messageChargement = "Chargement de l'historique des allocations...") }
-                val toutesAllocationsPassées = mutableListOf<AllocationMensuelle>()
+                val toutesAllocationsPassees = mutableListOf<AllocationMensuelle>()
                 enveloppes.forEach { enveloppe ->
                     val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrElse { emptyList() }
-                    toutesAllocationsPassées.addAll(allocationsEnveloppe)
+                    toutesAllocationsPassees.addAll(allocationsEnveloppe)
                 }
                 
 
@@ -188,7 +183,7 @@ class BudgetViewModel(
                 val bandeauxPretAPlacer = creerBandeauxPretAPlacer(comptes)
 
                 // 6. Créer les enveloppes UI avec les allocations DU MOIS SPÉCIFIQUE
-                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassées, moisCible)
+                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassees, moisCible)
                 
                 // Debug des enveloppes UI créées
                 enveloppesUi.forEachIndexed { index, env ->
@@ -244,7 +239,7 @@ class BudgetViewModel(
         enveloppes: List<Enveloppe>,
         allocations: List<AllocationMensuelle>,
         comptes: List<Compte>,
-        toutesAllocationsPassées: List<AllocationMensuelle>,
+        toutesAllocationsPassees: List<AllocationMensuelle>,
         moisCible: Date
     ): List<EnveloppeUi> {
         
@@ -267,7 +262,7 @@ class BudgetViewModel(
             // ✨ NOUVEAU : Calculer l'alloué cumulatif depuis le début de l'objectif (même logique qu'ObjectifCalculator)
             val alloueCumulatif = calculerAllocationCumulativeDepuisDebutObjectif(
                 enveloppe, 
-                toutesAllocationsPassées.filter { it.enveloppeId == enveloppe.id },
+                toutesAllocationsPassees.filter { it.enveloppeId == enveloppe.id },
                 moisCible
             )
 
@@ -293,7 +288,7 @@ class BudgetViewModel(
                 enveloppe, 
                 progresActuel,
                 moisCible,  // ← CORRECTION : utiliser moisCible au lieu de moisSelectionne
-                toutesAllocationsPassées.filter { it.enveloppeId == enveloppe.id }
+                toutesAllocationsPassees.filter { it.enveloppeId == enveloppe.id }
             )
 
             // Calculer le statut de l'objectif
@@ -304,10 +299,7 @@ class BudgetViewModel(
             }
             
             // Formater la date d'objectif si elle existe
-            val dateObjectifFormatee = enveloppe.dateObjectif?.let { dateString ->
-                // dateObjectif est maintenant une String, donc pas besoin de formatter
-                dateString
-            }
+            val dateObjectifFormatee = enveloppe.dateObjectif
 
             // Pour les objectifs bihebdomadaires, calculer la date limite dynamique
             val dateObjectifDynamique = if (enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire) {
@@ -331,7 +323,7 @@ class BudgetViewModel(
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
                 dateObjectif = dateObjectifDynamique?.let { date ->
-                    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(date)
+                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
                 }, // Utiliser la date dynamique formatée en String
                 versementRecommande = versementRecommande,
                 typeObjectif = enveloppe.typeObjectif // Utiliser le nouveau nom de propriété
@@ -421,16 +413,6 @@ class BudgetViewModel(
     }
 
     /**
-     * Formate une date pour le debug.
-     */
-    private fun formatDatePourDebug(date: Date): String {
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
-            timeZone = TimeZone.getDefault() // Utiliser le fuseau horaire local
-        }
-        return format.format(date)
-    }
-
-    /**
      * Méthode publique pour rafraîchir les données depuis d'autres ViewModels.
      * Utilisée quand une transaction est créée pour mettre à jour l'affichage.
      */
@@ -511,7 +493,7 @@ class BudgetViewModel(
                 val nouveauPretAPlacer = MoneyFormatter.roundAmount(nouveauPretAPlacerBrut)
                 val compteModifie = compteSource.copy(
                     pretAPlacerRaw = nouveauPretAPlacer,
-                    collection = compteSource.collection ?: "comptes_cheque" // Assurer qu'on a une collection
+                    collection = compteSource.collection // Assurer qu'on a une collection
                 )
 
                 val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
@@ -531,7 +513,7 @@ class BudgetViewModel(
                     alloue = allocationFusionnee.alloue + montantDollars,
                     // ✅ PROVENANCE : Changer seulement si solde était à 0
                     compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSourceId else allocationFusionnee.compteSourceId,
-                    collectionCompteSource = if (allocationFusionnee.solde <= 0.01) (compteSource.collection ?: "comptes_cheque") else allocationFusionnee.collectionCompteSource
+                    collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
                 )
                 
                 // ✅ MISE À JOUR : Sauvegarder l'allocation unique

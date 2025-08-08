@@ -3,23 +3,38 @@
 
 package com.xburnsx.toutiebudget.ui.cartes_credit.dialogs
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-import com.xburnsx.toutiebudget.data.modeles.CompteCredit
-import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditUiState
+import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.cartes_credit.FormulaireCarteCredit
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 /**
  * Dialog pour modifier les frais mensuels fixes d'une carte de crédit.
@@ -29,7 +44,6 @@ import com.xburnsx.toutiebudget.utils.MoneyFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModifierFraisDialog(
-    carte: CompteCredit,
     formulaire: FormulaireCarteCredit,
     onNomFraisChange: (String) -> Unit,
     onFraisChange: (String) -> Unit,
@@ -97,7 +111,7 @@ fun ModifierFraisDialog(
                         supportingText = {
                             if (formulaire.erreurNomFrais != null) {
                                 Text(
-                                    text = formulaire.erreurNomFrais!!,
+                                    text = formulaire.erreurNomFrais,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             } else {
@@ -136,7 +150,7 @@ fun ModifierFraisDialog(
                         } else {
                             try {
                                 (formulaire.fraisMensuelsFixes.toDouble() * 100).toLong()
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 0L
                             }
                         }
@@ -174,7 +188,7 @@ fun ModifierFraisDialog(
                     // Message d'aide sous le champ
                     Text(
                         text = if (formulaire.erreurFrais != null) {
-                            formulaire.erreurFrais!!
+                            formulaire.erreurFrais
                         } else {
                             "Laissez vide pour supprimer les frais"
                         },
@@ -234,21 +248,6 @@ fun ModifierFraisDialog(
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
 @Composable
 fun ModifierFraisDialogPreview() {
-    val gson = com.google.gson.Gson()
-    val fraisJson = gson.fromJson("[{\"nom\":\"Assurance\",\"montant\":15.50}]", com.google.gson.JsonElement::class.java)
-    
-    val carteCredit = CompteCredit(
-        id = "1",
-        utilisateurId = "user1",
-        nom = "Carte Visa",
-        soldeUtilise = -2500.0,
-        couleur = "#2196F3",
-        estArchive = false,
-        ordre = 1,
-        limiteCredit = 10000.0,
-        tauxInteret = 19.99,
-        fraisMensuelsJson = fraisJson
-    )
 
     val formulaire = FormulaireCarteCredit(
         fraisMensuelsFixes = "15.50",
@@ -257,7 +256,6 @@ fun ModifierFraisDialogPreview() {
 
     MaterialTheme {
         ModifierFraisDialog(
-            carte = carteCredit,
             formulaire = formulaire,
             onNomFraisChange = {},
             onFraisChange = {},

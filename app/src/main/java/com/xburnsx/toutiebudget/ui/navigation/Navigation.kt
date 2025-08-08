@@ -1,6 +1,7 @@
 // chemin/simule: /ui/navigation/Navigation.kt
 package com.xburnsx.toutiebudget.ui.navigation
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -32,13 +33,14 @@ import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesScreen
 import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
-import com.xburnsx.toutiebudget.ui.server.ServerStatusDialog
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
 import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 import com.xburnsx.toutiebudget.utils.ThemePreferences
+import com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen
+import com.xburnsx.toutiebudget.ui.dette.DetteScreen
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -62,6 +64,7 @@ sealed class Screen(
 }
 
 // --- Graphe de Navigation Principal ---
+@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -160,9 +163,6 @@ fun AppNavigation() {
                 )
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
-                val compteId = backStackEntry.arguments?.getString("compteId") ?: ""
-                val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
-                val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
                 val viewModel = AppModule.provideModifierTransactionViewModel()
                 ModifierTransactionScreen(
                     transactionId = transactionId,
@@ -186,7 +186,7 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val carteCreditId = backStackEntry.arguments?.getString("carteCreditId") ?: ""
                 val viewModel = AppModule.provideCartesCreditViewModel()
-                com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen(
+                GestionCarteCreditScreen(
                     carteCreditId = carteCreditId,
                     viewModel = viewModel,
                     onRetour = { navController.popBackStack() },
@@ -207,7 +207,7 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val detteId = backStackEntry.arguments?.getString("detteId") ?: ""
                 val viewModel = AppModule.provideDetteViewModel()
-                com.xburnsx.toutiebudget.ui.dette.DetteScreen(
+                DetteScreen(
                     detteId = detteId,
                     viewModel = viewModel,
                     onRetour = { navController.popBackStack() },
@@ -274,12 +274,6 @@ fun MainAppScaffold(
                     },
                     onSettingsClick = {
                         bottomBarNavController.navigate(Screen.Settings.route)
-                    },
-                    onLogout = {
-                        // Redirige immédiatement vers l'écran de login
-                        mainNavController.navigate("login_flow") {
-                            popUpTo(0) { inclusive = true }
-                        }
                     }
                 )
             }
@@ -336,7 +330,6 @@ fun MainAppScaffold(
             }
             composable(Screen.VirerArgent.route) {
                 val viewModel = AppModule.provideVirerArgentViewModel()
-                val budgetViewModel = AppModule.provideBudgetViewModel()
                 VirerArgentScreen(
                     viewModel = viewModel,
                     onNavigateBack = {

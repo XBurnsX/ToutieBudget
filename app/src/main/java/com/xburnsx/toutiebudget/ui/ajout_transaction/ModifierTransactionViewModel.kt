@@ -2,29 +2,39 @@ package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xburnsx.toutiebudget.data.modeles.*
-import com.xburnsx.toutiebudget.data.repositories.*
-import com.xburnsx.toutiebudget.domain.usecases.ModifierTransactionUseCase
+import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
+import com.xburnsx.toutiebudget.data.modeles.Categorie
+import com.xburnsx.toutiebudget.data.modeles.Compte
+import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.data.modeles.Tiers
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.TiersRepository
+import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.usecases.EnregistrerTransactionUseCase
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
-import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
-import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
+import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueNavigationEvent
+import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.*
+import java.util.Date
 
 /**
  * ViewModel pour l'écran de modification de transaction.
  * Gère la logique de modification d'une transaction existante.
  */
+@Suppress("REDUNDANT_ELSE_IN_WHEN")
 class ModifierTransactionViewModel(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
@@ -32,7 +42,6 @@ class ModifierTransactionViewModel(
     private val tiersRepository: TiersRepository,
     private val transactionRepository: TransactionRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val modifierTransactionUseCase: ModifierTransactionUseCase,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase
 ) : ViewModel() {
@@ -159,7 +168,6 @@ class ModifierTransactionViewModel(
         // Parser les fractions si c'est une transaction fractionnée
         val fractionsInitiales = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
             try {
-                val gson = com.google.gson.Gson()
                 val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
                 jsonArray.mapNotNull { element ->
                     val obj = element.asJsonObject
@@ -176,7 +184,7 @@ class ModifierTransactionViewModel(
                         note = note.ifBlank { description }
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 emptyList()
             }
         } else {
@@ -304,7 +312,7 @@ class ModifierTransactionViewModel(
                         // Mettre à jour l'allocation avec le compte source si pas déjà défini
                         if (allocationActuelle.compteSourceId == null) {
                             val allocationMiseAJour = allocationActuelle.copy(
-                                compteSourceId = state.compteSelectionne!!.id,
+                                compteSourceId = state.compteSelectionne.id,
                                 collectionCompteSource = collectionCompte
                             )
                             allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
@@ -330,7 +338,7 @@ class ModifierTransactionViewModel(
                     val result = enregistrerTransactionUseCase.executer(
                          typeTransaction = state.typeTransaction,
                          montant = montantEnDollars, // Utiliser montantEnDollars, pas montantEnCentimes
-                         compteId = state.compteSelectionne!!.id,
+                         compteId = state.compteSelectionne.id,
                          collectionCompte = collectionCompte,
                          enveloppeId = null, // Pas d'enveloppe pour la transaction principale
                          tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
@@ -396,7 +404,7 @@ class ModifierTransactionViewModel(
                     val result = enregistrerTransactionUseCase.executer(
                         typeTransaction = state.typeTransaction,
                         montant = montantEnDollars,
-                        compteId = state.compteSelectionne!!.id,
+                        compteId = state.compteSelectionne.id,
                         collectionCompte = collectionCompte,
                         enveloppeId = enveloppeId,
                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
@@ -438,13 +446,6 @@ class ModifierTransactionViewModel(
     }
 
     /**
-     * Réinitialise le flag transactionModifiee.
-     */
-    fun reinitialiserTransactionModifiee() {
-        _uiState.update { it.copy(transactionModifiee = false) }
-    }
-
-    /**
      * Efface les événements de navigation.
      */
     fun effacerNavigationEvent() {
@@ -454,9 +455,8 @@ class ModifierTransactionViewModel(
     /**
      * Construit les enveloppes UI avec les allocations.
      */
-    private suspend fun construireEnveloppesUi(): List<EnveloppeUi> {
+    private fun construireEnveloppesUi(): List<EnveloppeUi> {
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
-            val categorie = allCategories.find { it.id == enveloppe.categorieId }
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
             // Récupérer la couleur du compte source depuis l'allocation
@@ -524,10 +524,6 @@ class ModifierTransactionViewModel(
         }
     }
 
-    fun effacerMessageErreur() {
-        _uiState.update { it.copy(messageErreur = null) }
-    }
-    
     /**
      * Charge une enveloppe manquante si elle n'a pas été trouvée dans les allocations initiales.
      */
@@ -554,7 +550,7 @@ class ModifierTransactionViewModel(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Ignorer l'erreur, l'enveloppe restera vide
             }
         }
@@ -584,7 +580,7 @@ class ModifierTransactionViewModel(
                             state.copy(enveloppesDisponibles = enveloppesUi)
                         }
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // Ignorer l'erreur, on continuera sans enveloppes
                 }
             }

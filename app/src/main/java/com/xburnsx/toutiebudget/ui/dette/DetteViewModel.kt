@@ -100,10 +100,7 @@ class DetteViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
-    
-    fun clearSaved() {
-        _uiState.value = _uiState.value.copy(isSaved = false)
-    }
+
 }
 
 data class DetteUiState(

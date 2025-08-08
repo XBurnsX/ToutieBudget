@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.server
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,7 +21,7 @@ data class ServerStatusUiState(
 
 class ServerStatusViewModel(
     private val serverStatusService: ServerStatusService,
-    private val context: Context
+    @SuppressLint("StaticFieldLeak") private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerStatusUiState())
@@ -37,7 +38,7 @@ class ServerStatusViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isChecking = true, showDialog = false)
 
-            val (isAvailable, errorMessage) = serverStatusService.verifierConnectiviteDetaillée()
+            val (isAvailable, errorMessage) = serverStatusService.verifierConnectiviteDetaillee()
 
             if (!isAvailable) {
                 // Déconnecter l'utilisateur si le serveur n'est pas disponible
@@ -54,19 +55,7 @@ class ServerStatusViewModel(
         }
     }
 
-    /**
-     * Ferme le dialog d'erreur
-     */
-    fun fermerDialog() {
-        _uiState.value = _uiState.value.copy(showDialog = false)
-    }
-
-    /**
-     * Réessaye la connexion au serveur
-     */
-    fun reessayerConnexion() {
-        verifierServeur()
-    }
+    // La logique de vérification détaillée est implémentée dans le service
 
     /**
      * Déconnecte l'utilisateur en cas de problème serveur
@@ -74,7 +63,7 @@ class ServerStatusViewModel(
     private fun deconnecterUtilisateur() {
         try {
             PocketBaseClient.deconnecter(context)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Log silencieux
         }
     }

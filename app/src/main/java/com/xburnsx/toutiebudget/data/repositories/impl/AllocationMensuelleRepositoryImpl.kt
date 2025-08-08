@@ -11,15 +11,16 @@
  import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
  import com.xburnsx.toutiebudget.di.PocketBaseClient
  import com.xburnsx.toutiebudget.di.UrlResolver
- import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+// import supprimé: BudgetEvents non utilisé
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.withContext
  import okhttp3.MediaType.Companion.toMediaType
  import okhttp3.OkHttpClient
  import okhttp3.Request
  import okhttp3.RequestBody.Companion.toRequestBody
- import java.text.SimpleDateFormat
- import java.util.*
+import java.text.SimpleDateFormat
+import java.util.*
+import java.net.URLEncoder
  
  /**
   * Implémentation du repository d'allocations mensuelles.
@@ -58,19 +59,12 @@
                 .get()
                 .build()
                 
-            val reponse = httpClient.newCall(requete).execute()
-            
-            if (!reponse.isSuccessful) {
-                return@withContext null
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) return@withContext null
+                val corpsReponse = reponse.body?.string() ?: return@withContext null
+                deserialiserAllocation(corpsReponse)
             }
-            
-            val corpsReponse = reponse.body?.string()
-            if (corpsReponse == null) {
-                return@withContext null
-            }
-            
-            deserialiserAllocation(corpsReponse)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -128,14 +122,12 @@
                 .patch(bodyJson.toRequestBody("application/json".toMediaType())) // ← PATCH au lieu de PUT
                 .build()
                 
-            val reponse = httpClient.newCall(requete).execute()
-            
-            if (!reponse.isSuccessful) {
-                val erreur = "Erreur HTTP ${reponse.code}: ${reponse.body?.string()}"
-                throw Exception(erreur)
+            httpClient.newCall(requete).execute().use { reponse ->
+                if (!reponse.isSuccessful) {
+                    val erreur = "Erreur HTTP ${reponse.code}: ${reponse.body?.string()}"
+                    throw Exception(erreur)
+                }
             }
-            
-            reponse.close()
         } catch (e: Exception) {
             throw e // ← IMPORTANT : Remonter l'erreur !
         }
@@ -222,10 +214,10 @@
              val urlBase = UrlResolver.obtenirUrlActive()
  
                          // 🔥 SIMPLE ! JUSTE LE MOIS TABARNACK !
-            val moisString = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(mois)
+            val moisString = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(mois)
             
             // ✅ FILTRE SIMPLE COMME TU VEUX !
-            val filtre = java.net.URLEncoder.encode(
+            val filtre = URLEncoder.encode(
                 "utilisateur_id = '$utilisateurId' && enveloppe_id='$enveloppeId' && mois ~ '$moisString'",
                 "UTF-8"
             )
@@ -246,18 +238,26 @@
             
             try {
                 // 🔥 PARSING SIMPLE COMME ENVELOPEREPO !
-                val jsonObject = com.google.gson.JsonParser.parseString(data).asJsonObject
+                 val jsonObject = JsonParser.parseString(data).asJsonObject
                 val itemsArray = jsonObject.getAsJsonArray("items")
                 
                 val allocations = mutableListOf<AllocationMensuelle>()
                 for (i in 0 until itemsArray.size()) {
                     val item = itemsArray[i].asJsonObject
                     
+                    val moisString = item.get("mois")?.asString
+                    val moisParsed: Date = try {
+                        DATE_FORMAT.parse(moisString?.replace(Regex("\\.[0-9]+Z$"), "")?.replace(" ", "T") + ".000Z")
+                            ?: Date()
+                    } catch (_: Exception) {
+                        Date()
+                    }
+
                     val allocation = AllocationMensuelle(
                         id = item.get("id")?.asString ?: "",
                         utilisateurId = item.get("utilisateur_id")?.asString ?: "",
                         enveloppeId = item.get("enveloppe_id")?.asString ?: "",
-                        mois = DATE_FORMAT.parse(item.get("mois")?.asString?.replace(Regex("\\.[0-9]+Z$"), "")?.replace(" ", "T") + ".000Z"),
+                        mois = moisParsed,
                         solde = item.get("solde")?.asDouble ?: 0.0,
                         alloue = item.get("alloue")?.asDouble ?: 0.0,
                         depense = item.get("depense")?.asDouble ?: 0.0,
@@ -268,10 +268,10 @@
                 }
 
                 allocations
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 emptyList()
             }
-         } catch (e: Exception) {
+         } catch (_: Exception) {
              emptyList()
          }
      }
@@ -348,13 +348,8 @@
                  .delete()
                  .build()
  
-             val reponse = httpClient.newCall(requete).execute()
-             if (reponse.isSuccessful) {
-
-             } else {
-
-             }
-         } catch (e: Exception) {
+              httpClient.newCall(requete).execute().use { _ -> }
+          } catch (_: Exception) {
 
          }
      }
@@ -362,25 +357,7 @@
      /**
       * Crée une nouvelle allocation mensuelle.
       */
-     private suspend fun creerNouvelleAllocation(
-         enveloppeId: String,
-         premierJourMois: Date
-     ): AllocationMensuelle = withContext(Dispatchers.IO) {
-         
-         val nouvelleAllocation = AllocationMensuelle(
-             id = "",
-             utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: "",
-             enveloppeId = enveloppeId,
-             mois = premierJourMois,
-             solde = 0.0,
-             alloue = 0.0,
-             depense = 0.0,
-             compteSourceId = null,
-             collectionCompteSource = null
-         )
- 
-         creerAllocationMensuelleInterne(nouvelleAllocation)
-     }
+      // Supprimé: fonction interne non utilisée
  
      /**
       * Crée une allocation mensuelle (version interne pour éviter les conflits de noms).
@@ -497,16 +474,14 @@
      /**
       * Récupère toutes les allocations mensuelles pour une enveloppe donnée.
       */
-     override suspend fun recupererAllocationsEnveloppe(enveloppeId: String): List<AllocationMensuelle> = withContext(Dispatchers.IO) {
+      override suspend fun recupererAllocationsEnveloppe(enveloppeId: String): List<AllocationMensuelle> = withContext(Dispatchers.IO) {
          try {
-             val utilisateurId = client.obtenirUtilisateurConnecte()?.id 
-                 ?: throw Exception("Utilisateur non connecté")
-             val token = client.obtenirToken() 
+              val token = client.obtenirToken() 
                  ?: throw Exception("Token manquant")
              val urlBase = UrlResolver.obtenirUrlActive()
 
              // Filtre pour cette enveloppe
-             val filtre = java.net.URLEncoder.encode("enveloppe_id='$enveloppeId'", "UTF-8")
+              val filtre = URLEncoder.encode("enveloppe_id='$enveloppeId'", "UTF-8")
              val url = "$urlBase/api/collections/$COLLECTION/records?filter=$filtre&perPage=500&sort=-mois"
              
              val requete = Request.Builder()
@@ -515,17 +490,17 @@
                  .get()
                  .build()
 
-             val reponse = httpClient.newCall(requete).execute()
-             if (!reponse.isSuccessful) {
-                 throw Exception("Erreur lors de la recherche: ${reponse.code}")
+             val data = httpClient.newCall(requete).execute().use { resp ->
+                 if (!resp.isSuccessful) {
+                     throw Exception("Erreur lors de la recherche: ${resp.code}")
+                 }
+                 resp.body!!.string()
              }
-
-             val data = reponse.body!!.string()
              val listType = com.google.gson.reflect.TypeToken.getParameterized(java.util.List::class.java, AllocationMensuelle::class.java).type
              val allocations: List<AllocationMensuelle> = gson.fromJson(data, listType)
 
              allocations
-         } catch (e: Exception) {
+         } catch (_: Exception) {
              emptyList()
          }
      }

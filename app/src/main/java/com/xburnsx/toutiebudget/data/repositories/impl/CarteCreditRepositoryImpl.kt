@@ -1,24 +1,11 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
 import com.xburnsx.toutiebudget.data.repositories.PaiementPlanifie
-import com.xburnsx.toutiebudget.di.AppModule
-import com.xburnsx.toutiebudget.di.PocketBaseClient
-import com.xburnsx.toutiebudget.di.UrlResolver
-import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.net.URLEncoder
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.*
 import kotlin.math.*
 
@@ -56,19 +43,18 @@ class CarteCreditRepositoryImpl(
 
     override fun calculerPaiementMinimum(carteCredit: CompteCredit): Double {
         // Si un paiement minimum personnalisé est défini, l'utiliser
-        if (carteCredit.paiementMinimum != null && carteCredit.paiementMinimum!! > 0) {
-            return carteCredit.paiementMinimum!!
-        }
-        
-        // Sinon, calculer le paiement minimum standard
-        val dette = abs(carteCredit.solde)
-        val interetsMensuels = calculerInteretsMensuels(carteCredit)
-        val fraisMensuels = carteCredit.totalFraisMensuels
+        if (carteCredit.paiementMinimum == null || carteCredit.paiementMinimum <= 0) {
+            // Sinon, calculer le paiement minimum standard
+            val dette = abs(carteCredit.solde)
+            val interetsMensuels = calculerInteretsMensuels(carteCredit)
+            val fraisMensuels = carteCredit.totalFraisMensuels
 
-        // Paiement minimum = 2% du solde ou 25$, le plus élevé des deux
-        // Plus les intérêts du mois et les frais fixes
-        val paiementBase = max(dette * 0.02, 25.0)
-        return paiementBase + interetsMensuels + fraisMensuels
+            // Paiement minimum = 2% du solde ou 25$, le plus élevé des deux
+            // Plus les intérêts du mois et les frais fixes
+            val paiementBase = max(dette * 0.02, 25.0)
+            return paiementBase + interetsMensuels + fraisMensuels
+        }
+        return carteCredit.paiementMinimum
     }
 
     override fun calculerCreditDisponible(carteCredit: CompteCredit): Double {
@@ -166,12 +152,12 @@ class CarteCreditRepositoryImpl(
         }
     }
 
-    override fun calculerProchaineEcheance(carteCredit: CompteCredit): java.util.Date {
+    override fun calculerProchaineEcheance(carteCredit: CompteCredit): Date {
         // TODO: Implémenter quand nécessaire
         return Date()
     }
 
-    override fun calculerProchaineFacturation(carteCredit: CompteCredit): java.util.Date {
+    override fun calculerProchaineFacturation(carteCredit: CompteCredit): Date {
         // TODO: Implémenter quand nécessaire
         return Date()
     }

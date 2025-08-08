@@ -18,10 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.core.graphics.toColorInt
 
 /**
  * Sélecteur d'enveloppe dédié à la page de virement.
@@ -188,7 +190,7 @@ private fun DialogSelectionEnveloppeVirement(
                                         alloueCumulatif = 0.0, // ← NOUVEAU : Pas d'allocation cumulative non plus
                                         objectif = 0.0,
                                         couleurProvenance = compte.couleur,
-                                        statutObjectif = com.xburnsx.toutiebudget.ui.budget.StatutObjectif.VERT
+                                        statutObjectif = StatutObjectif.VERT
                                     )
                                     onEnveloppeSelectionnee(enveloppeCompte)
                                 }
@@ -254,7 +256,7 @@ private fun ItemEnveloppeVirement(
                 Box(
                     modifier = Modifier
                         .background(
-                            color = Color(android.graphics.Color.parseColor(enveloppe.couleurProvenance)),
+                            color = Color(enveloppe.couleurProvenance.toColorInt()),
                             shape = RoundedCornerShape(12.dp)  // ← BULLE BIEN RONDE
                         )
                         .padding(horizontal = 8.dp, vertical = 4.dp)  // ← Padding normal pour bulle
@@ -290,8 +292,9 @@ private fun ItemComptePretAPlacerVirement(
 ) {
     // Convertir la couleur hexadécimale du compte en Color
     val couleurCompte = try {
-        Color(android.graphics.Color.parseColor(compte.couleur))
-    } catch (e: Exception) {
+        Color(compte.couleur.toColorInt())
+    } catch (
+        _: Exception) {
         Color(0xFF10B981) // Couleur par défaut si la conversion échoue
     }
 

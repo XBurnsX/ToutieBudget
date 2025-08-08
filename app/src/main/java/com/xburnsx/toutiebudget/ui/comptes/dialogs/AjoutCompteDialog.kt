@@ -6,6 +6,7 @@ package com.xburnsx.toutiebudget.ui.comptes.dialogs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +37,7 @@ fun AjoutCompteDialog(
         } else {
             try {
                 (formState.solde.toDouble() * 100).toLong()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 0L
             }
         }
@@ -104,7 +105,7 @@ fun AjoutCompteDialog(
                         "Carte de crédit" -> Icons.Default.CreditCard
                         "Compte chèque" -> Icons.Default.AccountBalance
                         "Dette" -> Icons.Default.MoneyOff
-                        "Investissement" -> Icons.Default.TrendingUp
+                        "Investissement" -> Icons.AutoMirrored.Filled.TrendingUp
                         else -> Icons.Default.AttachMoney
                     },
                     estObligatoire = false,

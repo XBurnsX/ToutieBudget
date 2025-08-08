@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.di.AppModule
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -29,6 +30,7 @@ class VirementUseCase @Inject constructor(
      * Effectue un virement de "prêt à placer" vers une enveloppe.
      * Diminue le pret_a_placer du compte et augmente le solde de l'enveloppe.
      */
+    @OptIn(DelicateCoroutinesApi::class)
     suspend fun effectuerVirementPretAPlacerVersEnveloppe(
         compteId: String,
         enveloppeId: String,
@@ -121,7 +123,7 @@ class VirementUseCase @Inject constructor(
                 kotlinx.coroutines.GlobalScope.launch {
                     realtimeService.triggerBudgetUpdate()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Erreur silencieuse
             }
 
@@ -167,7 +169,6 @@ class VirementUseCase @Inject constructor(
             val premierJourMois = calendrier.time
 
             // 3. ✅ UTILISER recupererOuCreerAllocation pour obtenir/créer l'allocation
-            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
             // 4. Vérifier le solde actuel de l'enveloppe
             val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
@@ -235,18 +236,4 @@ class VirementUseCase @Inject constructor(
         }
     }
 
-    /**
-     * Vérifie si une chaîne de caractères représente un ID de "prêt à placer".
-     */
-    private fun estPretAPlacer(id: String): Boolean {
-        return id.startsWith("pret_a_placer_")
-    }
-
-    /**
-     * Extrait l'ID du compte depuis un ID de "prêt à placer".
-     * Format attendu: "pret_a_placer_[COMPTE_ID]"
-     */
-    private fun extraireCompteIdDepuisPretAPlacer(pretAPlacerId: String): String {
-        return pretAPlacerId.removePrefix("pret_a_placer_")
-    }
 }

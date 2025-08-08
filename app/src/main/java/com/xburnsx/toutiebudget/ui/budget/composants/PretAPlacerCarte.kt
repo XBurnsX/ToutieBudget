@@ -3,7 +3,15 @@ package com.xburnsx.toutiebudget.ui.budget.composants
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -19,8 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
-import java.text.NumberFormat
-import java.util.Locale
+import androidx.core.graphics.toColorInt
 
 /**
  * Une version plus compacte du design "Cadre Coloré",
@@ -38,8 +45,8 @@ fun PretAPlacerCarte(
 ) {
     // --- Couleurs ---
     val couleurCadre = try {
-        Color(android.graphics.Color.parseColor(couleurCompte))
-    } catch (e: Exception) {
+        Color(couleurCompte.toColorInt())
+    } catch (_: Exception) {
         Color(0xFF007BFF) // Couleur par défaut
     }
     val couleurFond = Color(0xFF1C1C1E) // Fond gris foncé neutre

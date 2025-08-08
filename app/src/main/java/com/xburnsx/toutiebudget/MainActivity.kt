@@ -11,7 +11,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.xburnsx.toutiebudget.ui.navigation.AppNavigation
-import com.xburnsx.toutiebudget.di.AppModule
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,8 +19,7 @@ class MainActivity : ComponentActivity() {
         
         super.onCreate(savedInstanceState)
 
-        // Initialiser les services de cache avec priorité aux modifications
-        AppModule.initializeCacheServices(this)
+        // Initialisation cache supprimée
 
         setContent {
             // Le thème est maintenant géré dynamiquement dans AppNavigation

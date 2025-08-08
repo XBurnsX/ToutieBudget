@@ -3,12 +3,12 @@
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,20 +18,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
-import com.xburnsx.toutiebudget.ui.budget.composants.toColor
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
-import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import java.util.UUID
 import kotlin.math.abs
 
@@ -74,7 +69,6 @@ fun FractionnementDialog(
     }
 
     // Calcul des montants
-    val montantTotalEnCents = (montantTotal * 100).toInt().toDouble()
     val montantAlloueEnCents = fractions.sumOf { it.montant } // Déjà en centimes
     montantRestant = montantTotal - (montantAlloueEnCents / 100.0) // Calculer le restant en dollars
 
@@ -365,6 +359,7 @@ private fun BarreProgressionModerne(
 /**
  * Indicateur de montant avec animation.
  */
+@SuppressLint("DefaultLocale")
 @Composable
 private fun IndicateurMontant(
     label: String,

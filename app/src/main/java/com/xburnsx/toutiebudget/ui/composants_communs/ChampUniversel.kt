@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.composants_communs
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,6 +45,7 @@ import java.math.RoundingMode
  * @param onClicPersonnalise Callback personnalisé au clic (si utiliserClavier=false)
  * @param modifier Modificateur Compose standard
  */
+@SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChampUniversel(
@@ -193,32 +195,3 @@ fun ChampUniversel(
     }
 }
 
-/**
- * 🎯 VERSION SIMPLIFIÉE POUR AFFICHAGE SEUL
- *
- * Variante du ChampUniversel qui ne fait qu'afficher une valeur sans interaction.
- */
-@Composable
-fun ChampAffichage(
-    valeur: Long,
-    libelle: String,
-    isMoney: Boolean = true,
-    suffix: String = "",
-    icone: ImageVector = Icons.Default.AttachMoney,
-    couleurValeur: Color? = null,
-    tailleValeur: TextUnit? = null,
-    modifier: Modifier = Modifier
-) {
-    ChampUniversel(
-        valeur = valeur,
-        onValeurChange = { /* Pas de changement possible */ },
-        libelle = libelle,
-        utiliserClavier = false, // Désactive le clavier
-        isMoney = isMoney,
-        suffix = suffix,
-        icone = icone,
-        couleurValeur = couleurValeur,
-        tailleValeur = tailleValeur,
-        modifier = modifier
-    )
-}

@@ -1,6 +1,7 @@
 // chemin/simule: /ui/categories/composants/CategorieReorganisable.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -42,20 +43,13 @@ fun LazyItemScope.CategorieReorganisable(
     totalCategories: Int,
     isModeReorganisation: Boolean,
     isEnDeplacement: Boolean = false,
-    onAjouterEnveloppeClick: () -> Unit,
-    onObjectifClick: (Enveloppe) -> Unit,
-    onSupprimerEnveloppe: (Enveloppe) -> Unit = {},
-    onSupprimerObjectifEnveloppe: (Enveloppe) -> Unit = {},
-    onSupprimerCategorie: (String) -> Unit = {},
     onDeplacerCategorie: (String, Int) -> Unit = { _, _ -> }, // ✅ Correction : fonction avec 2 paramètres
     onDebuterDeplacement: (String) -> Unit = {},
     onTerminerDeplacement: () -> Unit = {},
     // 🆕 PARAMÈTRES POUR LE DÉPLACEMENT D'ENVELOPPES
     onDeplacerEnveloppe: (String, Int) -> Unit = { _, _ -> },
-    onDebuterDeplacementEnveloppe: (String) -> Unit = {},
-    onTerminerDeplacementEnveloppe: () -> Unit = {},
-    enveloppeEnDeplacement: String? = null,
-    modifier: Modifier = Modifier
+
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
 
     val hapticFeedback = LocalHapticFeedback.current

@@ -96,7 +96,7 @@ data class CompteCredit(
                     else -> emptyList()
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -107,7 +107,7 @@ data class CompteCredit(
     // Calculer les frais totaux pour une durée donnée
     fun calculerFraisTotaux(dureeMois: Int): Double {
         return fraisMensuels.sumOf { frais ->
-            when (frais.type ?: TypeFrais.MENSUEL) { // Valeur par défaut pour les données existantes
+            when (frais.type) { // Valeur par défaut pour les données existantes
                 TypeFrais.MENSUEL -> frais.montant * dureeMois
                 TypeFrais.ANNUEL -> frais.montant * kotlin.math.ceil(dureeMois / 12.0).toInt()
                 TypeFrais.PONCTUEL -> 0.0 // On ne prévoit pas les frais ponctuels

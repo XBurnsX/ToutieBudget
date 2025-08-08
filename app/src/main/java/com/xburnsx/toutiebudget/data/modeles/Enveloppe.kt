@@ -3,16 +3,6 @@ package com.xburnsx.toutiebudget.data.modeles
 
 import com.google.gson.annotations.SerializedName
 import java.util.Date
-import com.xburnsx.toutiebudget.data.modeles.TypeObjectif // Importer l'énumération centralisée
-
-// Supprimé l'énumération locale en doublon, utilisez l'énumération centralisée dans TypeObjectif.kt
-// enum class TypeObjectif {
-//     Aucun,
-//     Mensuel,
-//     Bihebdomadaire,
-//     Echeance,
-//     Annuel
-// }
 
 data class Enveloppe(
     val id: String,

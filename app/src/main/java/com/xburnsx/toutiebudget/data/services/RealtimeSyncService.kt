@@ -2,7 +2,6 @@ package com.xburnsx.toutiebudget.data.services
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
-import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.di.UrlResolver
@@ -15,7 +14,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.WebSocket
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
@@ -46,7 +44,6 @@ class RealtimeSyncService @Inject constructor() {
         .build()
     private val gson = Gson()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var webSocket: WebSocket? = null
     private var isConnected = false
 
     // Events pour notifier les ViewModels
@@ -57,10 +54,8 @@ class RealtimeSyncService @Inject constructor() {
     val comptesUpdated: SharedFlow<Unit> = _comptesUpdated.asSharedFlow()
 
     private val _categoriesUpdated = MutableSharedFlow<Unit>()
-    val categoriesUpdated: SharedFlow<Unit> = _categoriesUpdated.asSharedFlow()
 
     private val _transactionsUpdated = MutableSharedFlow<Unit>()
-    val transactionsUpdated: SharedFlow<Unit> = _transactionsUpdated.asSharedFlow()
 
     /**
      * Démarre la synchronisation temps réel.
@@ -74,21 +69,12 @@ class RealtimeSyncService @Inject constructor() {
         serviceScope.launch {
             try {
                 connectWebSocket()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
                 startRealtimeSync()
             }
         }
-    }
-
-    /**
-     * Arrête la synchronisation temps réel.
-     */
-    fun stopRealtimeSync() {
-        webSocket?.close(1000, "App fermée")
-        webSocket = null
-        isConnected = false
     }
 
     fun triggerBudgetUpdate() {
@@ -136,7 +122,7 @@ class RealtimeSyncService @Inject constructor() {
      * Démarre une connexion Server-Sent Events (SSE) pour le VRAI temps réel.
      * C'est l'API officielle de PocketBase pour le temps réel.
      */
-    private suspend fun startServerSentEvents(token: String) {
+    private fun startServerSentEvents(token: String) {
         serviceScope.launch {
             try {
                 val urlBase = UrlResolver.obtenirUrlActive()
@@ -181,7 +167,7 @@ class RealtimeSyncService @Inject constructor() {
                                         handleRealtimeEvent(data)
                                     }
                                 }
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 break
                             }
                         }
@@ -192,7 +178,7 @@ class RealtimeSyncService @Inject constructor() {
                     startRealtimeSync()
                 }
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isConnected = false
                 // Retry après 5 secondes
                 kotlinx.coroutines.delay(5000)
@@ -207,7 +193,7 @@ class RealtimeSyncService @Inject constructor() {
     private suspend fun handleRealtimeEvent(data: String) {
         try {
             val jsonEvent = gson.fromJson(data, JsonObject::class.java)
-            val action = jsonEvent.get("action")?.asString
+            jsonEvent.get("action")?.asString
             val record = jsonEvent.get("record")?.asJsonObject
             val collection = record?.get("collectionName")?.asString
 
@@ -237,18 +223,9 @@ class RealtimeSyncService @Inject constructor() {
                 }
             }
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Ignorer les erreurs de parsing silencieusement
         }
-    }
-
-
-    /**
-     * Force une reconnexion (utile après login/logout).
-     */
-    fun reconnect() {
-        stopRealtimeSync()
-        startRealtimeSync()
     }
 
     /**
@@ -292,7 +269,7 @@ class RealtimeSyncService @Inject constructor() {
 
         for (nomCollection in nomsCollectionsPossibles) {
             try {
-                val response = client.effectuerRequeteGet("/api/collections/$nomCollection/records", mapOf("perPage" to "1"))
+                client.effectuerRequeteGet("/api/collections/$nomCollection/records", mapOf("perPage" to "1"))
                 // Si on arrive ici sans erreur 404, la collection existe !
                 collectionsExistantes.add(nomCollection)
             } catch (e: Exception) {
@@ -320,7 +297,7 @@ class RealtimeSyncService @Inject constructor() {
                         try {
                             val obj = item.asJsonObject
                             val id = obj.get("id").asString
-                            val nom = obj.get("nom")?.asString
+                            obj.get("nom")?.asString
                                 ?: obj.get("name")?.asString
                                 ?: obj.get("titre")?.asString
                                 ?: "Élément"
@@ -331,18 +308,18 @@ class RealtimeSyncService @Inject constructor() {
                                 try {
                                     client.effectuerRequeteDelete("/api/collections/$collection/records/$id")
                                     totalSupprime++
-                                } catch (deleteE: Exception) {
+                                } catch (_: Exception) {
                                     // Erreur suppression $nom: ${deleteE.message}
                                 }
                             }
 
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // Erreur traitement élément: ${e.message}
                         }
                     }
                 }
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Erreur pour collection $collection: ${e.message}
             }
         }

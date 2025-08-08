@@ -8,9 +8,6 @@
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
- import com.xburnsx.toutiebudget.data.services.CacheService
- import com.xburnsx.toutiebudget.data.services.CacheValidationService
- import com.xburnsx.toutiebudget.data.services.CacheSyncService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
@@ -29,7 +26,7 @@ import com.xburnsx.toutiebudget.ui.login.LoginViewModel
 import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
  import androidx.lifecycle.SavedStateHandle
- import android.content.Context
+// import android.content.Context (supprimé)
 
  /**
   * Module d'injection de dépendances pour l'application Toutie Budget.
@@ -38,10 +35,7 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
   */
  object AppModule {
      
-     // ===== SERVICES DE CACHE =====
-     private var cacheValidationService: CacheValidationService? = null
-     private var cacheService: CacheService? = null
-     private var cacheSyncService: CacheSyncService? = null
+    // ===== SERVICES DE CACHE (supprimés) =====
      
      // ===== REPOSITORIES =====
      private val compteRepository: CompteRepository by lazy { CompteRepositoryImpl() }
@@ -51,11 +45,10 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
      private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
-     private val carteCreditRepository: CarteCreditRepository by lazy { CarteCreditRepositoryImpl(compteRepository) }
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
-         ValidationProvenanceService(allocationMensuelleRepository, enveloppeRepository, compteRepository)
+         ValidationProvenanceService(enveloppeRepository, compteRepository)
      }
      private val virementUseCase: VirementUseCase by lazy {
          VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
@@ -65,20 +58,11 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
      
-     // ===== SERVICES D'OPTIMISATION =====
-     private val networkOptimizationService: com.xburnsx.toutiebudget.data.services.NetworkOptimizationService by lazy { 
-         com.xburnsx.toutiebudget.data.services.NetworkOptimizationService(android.content.Context::class.java.cast(null)) 
-     }
+    // ===== SERVICES D'OPTIMISATION (non utilisés) =====
 
      // ===== CALCULATEUR D'OBJECTIFS =====
      private val objectifCalculator: ObjectifCalculator by lazy { ObjectifCalculator() }
 
-     // ===== USE CASES =====
-     private val enregistrerDepenseUseCase: EnregistrerDepenseUseCase by lazy { EnregistrerDepenseUseCaseImpl(argentService) }
-     private val enregistrerRevenuUseCase: EnregistrerRevenuUseCase by lazy { EnregistrerRevenuUseCaseImpl(argentService) }
-     private val enregistrerPretAccordeUseCase: EnregistrerPretAccordeUseCase by lazy { EnregistrerPretAccordeUseCaseImpl(argentService) }
-     private val enregistrerDetteContracteeUseCase: EnregistrerDetteContracteeUseCase by lazy { EnregistrerDetteContracteeUseCaseImpl(argentService) }
-     private val enregistrerPaiementDetteUseCase: EnregistrerPaiementDetteUseCase by lazy { EnregistrerPaiementDetteUseCaseImpl(argentService) }
      private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
          EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
@@ -87,7 +71,7 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
          SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
      }
      private val modifierTransactionUseCase: ModifierTransactionUseCase by lazy {
-         ModifierTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
+         ModifierTransactionUseCase()
      }
  
      // ===== VIEWMODELS =====
@@ -136,7 +120,6 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
              tiersRepository = tiersRepository,
              transactionRepository = transactionRepository,
              allocationMensuelleRepository = allocationMensuelleRepository,
-             modifierTransactionUseCase = modifierTransactionUseCase,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              supprimerTransactionUseCase = supprimerTransactionUseCase
          )
@@ -168,41 +151,9 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
  
      // ===== FONCTIONS PUBLIQUES =====
      
-     /**
-      * Initialise les services de cache avec le contexte de l'application
-      * SÉCURITÉ FINANCIÈRE CRITIQUE : Validation complexe pour éviter les faux soldes
-      * PRIORITÉ AUX MODIFICATIONS : Cette fonction doit être appelée au démarrage
-      */
-     fun initializeCacheServices(context: Context) {
-         cacheValidationService = CacheValidationService()
-         cacheService = CacheService(context, cacheValidationService)
-         cacheSyncService = CacheSyncService(cacheService!!)
-     }
-     
-     fun provideCompteRepository(): CompteRepository = compteRepository
-     fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
-     fun provideCategorieRepository(): CategorieRepository = categorieRepository
-     fun provideTransactionRepository(): TransactionRepository = transactionRepository
-     fun providePreferenceRepository(): PreferenceRepository = preferenceRepository
-     fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
-     fun provideTiersRepository(): TiersRepository = tiersRepository
-     fun provideArgentService(): ArgentService = argentService
-     fun provideRolloverService(): RolloverService = rolloverService
+    // Initialisation de cache supprimée
+
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
-     fun provideValidationProvenanceService(): ValidationProvenanceService = validationProvenanceService
-     fun provideServerStatusService(): com.xburnsx.toutiebudget.data.services.ServerStatusService = serverStatusService
-     fun provideCacheService(): CacheService? = cacheService
-     fun provideCacheValidationService(): CacheValidationService? = cacheValidationService
-     fun provideCacheSyncService(): CacheSyncService? = cacheSyncService
-     fun provideNetworkOptimizationService(): com.xburnsx.toutiebudget.data.services.NetworkOptimizationService = networkOptimizationService
-     fun provideEnregistrerDepenseUseCase(): EnregistrerDepenseUseCase = enregistrerDepenseUseCase
-     fun provideEnregistrerRevenuUseCase(): EnregistrerRevenuUseCase = enregistrerRevenuUseCase
-     fun provideEnregistrerPretAccordeUseCase(): EnregistrerPretAccordeUseCase = enregistrerPretAccordeUseCase
-     fun provideEnregistrerDetteContracteeUseCase(): EnregistrerDetteContracteeUseCase = enregistrerDetteContracteeUseCase
-     fun provideEnregistrerPaiementDetteUseCase(): EnregistrerPaiementDetteUseCase = enregistrerPaiementDetteUseCase
-     fun provideVerifierEtExecuterRolloverUseCase(): VerifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase
-     fun provideEnregistrerTransactionUseCase(): EnregistrerTransactionUseCase = enregistrerTransactionUseCase
-     fun provideSupprimerTransactionUseCase(): SupprimerTransactionUseCase = supprimerTransactionUseCase
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
@@ -217,7 +168,6 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
-             tiersRepository = tiersRepository,
              supprimerTransactionUseCase = supprimerTransactionUseCase,
              savedStateHandle = savedStateHandle
          )
@@ -227,8 +177,5 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
              serverStatusService = serverStatusService,
              context = context
          )
-     }
-     fun nettoyerSingletons() {
-         // Pas besoin de nettoyer car on utilise lazy
      }
  }

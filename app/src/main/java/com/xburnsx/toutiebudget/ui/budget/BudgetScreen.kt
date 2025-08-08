@@ -6,41 +6,55 @@ package com.xburnsx.toutiebudget.ui.budget
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import com.xburnsx.toutiebudget.R
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.R
+import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
+import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
-import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
-import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
-
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
-import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,12 +62,10 @@ import java.util.Date
 fun BudgetScreen(
     viewModel: BudgetViewModel,
     onCategoriesClick: (() -> Unit)? = null,
-    onLogout: (() -> Unit)? = null,
     onVirementClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
     var moisSelectionne by remember { mutableStateOf(Date()) }
 
     // 🆕 ÉTATS POUR LE CLAVIER ENVELOPPE
@@ -274,22 +286,8 @@ fun BudgetScreen(
 @Composable
 fun BudgetScreenPreview() {
     // Preview simplifié sans ViewModel
-    val bandeauxExemple = listOf(
-        PretAPlacerUi(
-            compteId = "compte1",
-            nomCompte = "Compte Courant",
-            montant = 1250.75,
-            couleurCompte = "#4CAF50"
-        ),
-        PretAPlacerUi(
-            compteId = "compte2",
-            nomCompte = "Livret A",
-            montant = 850.00,
-            couleurCompte = "#2196F3"
-        )
-    )
 
-    val enveloppesExemple = listOf(
+    listOf(
         EnveloppeUi(
             id = "env1",
             nom = "Courses",
@@ -311,29 +309,6 @@ fun BudgetScreenPreview() {
             objectif = 200.0,
             couleurProvenance = "#2196F3",
             statutObjectif = StatutObjectif.VERT
-        )
-    )
-
-    val categoriesExemple = listOf(
-        CategorieEnveloppesUi(
-            nomCategorie = "Nécessités",
-            enveloppes = enveloppesExemple
-        ),
-        CategorieEnveloppesUi(
-            nomCategorie = "Loisirs",
-            enveloppes = listOf(
-                EnveloppeUi(
-                    id = "env3",
-                    nom = "Cinéma",
-                    solde = 0.0,
-                    depense = 0.0,
-                    alloue = 0.0, // Exemple d'allocation ce mois
-                    alloueCumulatif = 0.0, // ← NOUVEAU : Total alloué depuis le début
-                    objectif = 50.0,
-                    couleurProvenance = null,
-                    statutObjectif = StatutObjectif.GRIS
-                )
-            )
         )
     )
 

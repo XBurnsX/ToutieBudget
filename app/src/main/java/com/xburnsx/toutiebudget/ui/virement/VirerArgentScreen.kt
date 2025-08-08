@@ -3,7 +3,6 @@
 
 package com.xburnsx.toutiebudget.ui.virement
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurCompteVirement
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
+import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -242,7 +242,8 @@ private fun ContenuModeEnveloppesOriginal(
     ) {
         // Sélecteur de source - LOGIQUE ORIGINALE
         val sourcesEnveloppes = uiState.sourcesDisponibles
-            .flatMap { (categorie, items) ->
+            .flatMap { (
+                           _, items) ->
                 items.filterIsInstance<ItemVirement.EnveloppeItem>()
                     .map { it.enveloppe }
             }
@@ -267,10 +268,10 @@ private fun ContenuModeEnveloppesOriginal(
         val comptesPretAPlacer = uiState.sourcesDisponibles["Prêt à placer"]
             ?.filterIsInstance<ItemVirement.CompteItem>()
             ?.map { it.compte }
-            ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+            ?.filterIsInstance<CompteCheque>()
             ?: emptyList()
 
-        com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement(
+        SelecteurEnveloppeVirement(
             enveloppes = sourcesEnveloppes,
             enveloppeSelectionnee = (uiState.sourceSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe,
             onEnveloppeChange = { enveloppeUi ->
@@ -295,7 +296,7 @@ private fun ContenuModeEnveloppesOriginal(
 
         // Sélecteur de destination - LOGIQUE ORIGINALE
         val destinationsEnveloppes = uiState.destinationsDisponibles
-            .flatMap { (categorie, items) ->
+            .flatMap { (_, items) ->
                 items.filterIsInstance<ItemVirement.EnveloppeItem>()
                     .map { it.enveloppe }
             }
@@ -320,10 +321,10 @@ private fun ContenuModeEnveloppesOriginal(
         val comptesPretAPlacerDestination = uiState.destinationsDisponibles["Prêt à placer"]
             ?.filterIsInstance<ItemVirement.CompteItem>()
             ?.map { it.compte }
-            ?.filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteCheque>()
+            ?.filterIsInstance<CompteCheque>()
             ?: emptyList()
 
-        com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement(
+        SelecteurEnveloppeVirement(
             enveloppes = destinationsEnveloppes,
             enveloppeSelectionnee = (uiState.destinationSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe,
             onEnveloppeChange = { enveloppeUi ->
@@ -378,40 +379,3 @@ private fun ContenuModeComptes(
     }
 }
 
-/**
- * Composant pour les champs de sélection source/destination
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChampSelecteur(
-    label: String,
-    valeur: String,
-    icone: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
-) {
-    OutlinedTextField(
-        value = valeur,
-        onValueChange = {},
-        readOnly = true,
-        label = { Text(label) },
-        leadingIcon = {
-            Icon(
-                imageVector = icone,
-                contentDescription = label,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailingIcon = {
-            ExposedDropdownMenuDefaults.TrailingIcon(expanded = false)
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-            focusedContainerColor = Color.White.copy(alpha = 0.05f)
-        )
-    )
-}

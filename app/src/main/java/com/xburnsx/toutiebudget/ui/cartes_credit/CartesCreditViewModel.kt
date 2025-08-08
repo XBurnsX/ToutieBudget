@@ -1,5 +1,7 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
@@ -7,16 +9,12 @@ import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
 import com.xburnsx.toutiebudget.data.repositories.impl.CarteCreditRepositoryImpl
 import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
-import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditUiState
-import com.xburnsx.toutiebudget.ui.cartes_credit.FormulaireCarteCredit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
 
 /**
  * Classe pour stocker les calculs du calculateur.
@@ -125,14 +123,6 @@ class CartesCreditViewModel : ViewModel() {
     }
 
     /**
-     * Affiche le dialog d'ajout d'une nouvelle carte.
-     */
-    fun afficherDialogAjout() {
-        _formulaire.value = FormulaireCarteCredit()
-        _uiState.value = _uiState.value.copy(afficherDialogAjout = true)
-    }
-
-    /**
      * Affiche le dialog de modification d'une carte existante.
      */
     fun afficherDialogModification(carte: CompteCredit) {
@@ -170,7 +160,7 @@ class CartesCreditViewModel : ViewModel() {
                 valeur <= 0 -> "La limite doit être positive"
                 else -> null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Montant invalide"
         }
         _formulaire.value = _formulaire.value.copy(limiteCredit = limite, erreurLimite = erreur)
@@ -189,7 +179,7 @@ class CartesCreditViewModel : ViewModel() {
                 valeur > 100 -> "Taux trop élevé"
                 else -> null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Taux invalide"
         }
         _formulaire.value = _formulaire.value.copy(tauxInteret = taux, erreurTaux = erreur)
@@ -207,7 +197,7 @@ class CartesCreditViewModel : ViewModel() {
                 valeur < 0 -> "Le solde ne peut pas être négatif"
                 else -> null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Montant invalide"
         }
         _formulaire.value = _formulaire.value.copy(soldeActuel = solde, erreurSolde = erreur)
@@ -225,52 +215,10 @@ class CartesCreditViewModel : ViewModel() {
                 valeur < 0 -> "Le paiement minimum ne peut pas être négatif"
                 else -> null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Montant invalide"
         }
         _formulaire.value = _formulaire.value.copy(paiementMinimum = paiementMinimum, erreurPaiementMinimum = erreur)
-    }
-
-    /**
-     * Met à jour la couleur dans le formulaire.
-     */
-    fun mettreAJourCouleur(couleur: String) {
-        _formulaire.value = _formulaire.value.copy(couleur = couleur)
-    }
-
-    /**
-     * Sauvegarde une nouvelle carte de crédit.
-     */
-    fun sauvegarderNouvelleCarteCredit() {
-        if (!_formulaire.value.estValide) return
-
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(estEnChargement = true)
-
-            val formulaire = _formulaire.value
-            val nouvelleCarteCredit = CompteCredit(
-                nom = formulaire.nom,
-                soldeUtilise = -(formulaire.soldeActuel.toDoubleOrNull() ?: 0.0), // Changé solde vers soldeUtilise
-                limiteCredit = formulaire.limiteCredit.toDoubleOrNull() ?: 0.0,
-                tauxInteret = formulaire.tauxInteret.toDoubleOrNull(), // Changé interet vers tauxInteret
-                paiementMinimum = formulaire.paiementMinimum.toDoubleOrNull(),
-                couleur = formulaire.couleur,
-                estArchive = false,
-                ordre = _uiState.value.cartesCredit.size + 1
-            )
-
-            carteCreditRepository.creerCarteCredit(nouvelleCarteCredit)
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(afficherDialogAjout = false)
-                    chargerCartesCredit()
-                }
-                .onFailure { erreur ->
-                    _uiState.value = _uiState.value.copy(
-                        estEnChargement = false,
-                        messageErreur = "Erreur lors de la création: ${erreur.message}"
-                    )
-                }
-        }
     }
 
     /**
@@ -445,104 +393,6 @@ class CartesCreditViewModel : ViewModel() {
     }
 
     /**
-     * Effectue un paiement minimum sur une carte de crédit.
-     */
-    fun effectuerPaiementMinimum(carte: CompteCredit) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(estEnChargement = true)
-            
-            try {
-                val paiementMinimum = carteCreditRepository.calculerPaiementMinimum(carte)
-                
-                // TODO: Intégrer avec le service de transactions
-                // argentService.effectuerPaiementCarteCredit(
-                //     carteId = carte.id,
-                //     montant = paiementMinimum,
-                //     type = "Paiement minimum"
-                // )
-                
-                _uiState.value = _uiState.value.copy(
-                    estEnChargement = false,
-                    messageErreur = "Fonctionnalité à implémenter"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    estEnChargement = false,
-                    messageErreur = "Erreur lors du paiement: ${e.message}"
-                )
-            }
-        }
-    }
-
-    /**
-     * Effectue un paiement complet sur une carte de crédit.
-     */
-    fun effectuerPaiementComplet(carte: CompteCredit) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(estEnChargement = true)
-            
-            try {
-                val montantComplet = abs(carte.solde)
-                
-                // TODO: Intégrer avec le service de transactions
-                // argentService.effectuerPaiementCarteCredit(
-                //     carteId = carte.id,
-                //     montant = montantComplet,
-                //     type = "Paiement complet"
-                // )
-                
-                _uiState.value = _uiState.value.copy(
-                    estEnChargement = false,
-                    messageErreur = "Fonctionnalité à implémenter"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    estEnChargement = false,
-                    messageErreur = "Erreur lors du paiement: ${e.message}"
-                )
-            }
-        }
-    }
-
-    /**
-     * Applique les intérêts mensuels sur toutes les cartes de crédit.
-     */
-    fun appliquerInteretsMensuels() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(estEnChargement = true)
-            
-            try {
-                val cartes = carteCreditRepository.recupererCartesCredit().getOrThrow()
-                
-                cartes.forEach { carte ->
-                    if (carte.tauxInteret != null && carte.tauxInteret!! > 0) {
-                        carteCreditRepository.appliquerInteretsMensuels(carte.id)
-                    }
-                }
-                
-                chargerCartesCredit() // Recharger les données
-                _uiState.value = _uiState.value.copy(estEnChargement = false)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    estEnChargement = false,
-                    messageErreur = "Erreur lors de l'application des intérêts: ${e.message}"
-                )
-            }
-        }
-    }
-
-    /**
-     * Navigue vers l'écran d'ajout de transaction pour cette carte.
-     */
-    fun ajouterDepenseCarte(carte: CompteCredit) {
-        // TODO: Implémenter la navigation vers l'écran d'ajout de transaction
-        // avec la carte pré-sélectionnée
-        _uiState.value = _uiState.value.copy(
-            messageErreur = "Navigation vers ajout de transaction à implémenter"
-        )
-    }
-
-    /**
      * Affiche le dialog de modification des frais mensuels fixes.
      */
     fun afficherDialogModificationFrais(carte: CompteCredit) {
@@ -571,7 +421,9 @@ class CartesCreditViewModel : ViewModel() {
                 valeur < 0 -> "Les frais ne peuvent pas être négatifs"
                 else -> null
             }
-        } catch (e: Exception) {
+        } catch (
+
+            _: Exception) {
             "Montant invalide"
         }
         _formulaire.value = _formulaire.value.copy(fraisMensuelsFixes = frais, erreurFrais = erreur)
@@ -702,13 +554,4 @@ class CartesCreditViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Navigue vers l'écran d'ajout de transaction en mode paiement avec la carte de crédit présélectionnée.
-     */
-    fun naviguerVersPaiement(carteCredit: CompteCredit) {
-        // Cette méthode sera appelée par la navigation
-        // La logique de navigation sera gérée par le composant parent
-        // Pour l'instant, on peut juste noter que cette méthode a été appelée
-        // La navigation réelle sera implémentée dans le composant parent
-    }
 }

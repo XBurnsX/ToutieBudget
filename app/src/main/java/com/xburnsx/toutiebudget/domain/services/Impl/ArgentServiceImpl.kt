@@ -13,7 +13,6 @@ import javax.inject.Inject
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
-import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
 
 /**
  * Implémentation du service ArgentService qui gère les opérations financières.
@@ -112,18 +111,16 @@ class ArgentServiceImpl @Inject constructor(
         var allocationMensuelleId: String? = null
         if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
             // ✅ Récupérer ou créer l'allocation de base pour ce mois
-            val calendrier = java.util.Calendar.getInstance().apply {
+            val calendrier = Calendar.getInstance().apply {
                 time = date
-                set(java.util.Calendar.DAY_OF_MONTH, 1)
-                set(java.util.Calendar.HOUR_OF_DAY, 0)
-                set(java.util.Calendar.MINUTE, 0)
-                set(java.util.Calendar.SECOND, 0)
-                set(java.util.Calendar.MILLISECOND, 0)
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
             val premierJourMois = calendrier.time
-            
-            val allocationBase = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
-            
+
             // ✅ CRÉER une allocation additive pour la dépense
             val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
                 id = "",
@@ -327,7 +324,6 @@ class ArgentServiceImpl @Inject constructor(
         val premierJourMois = calendrier.time
 
         // ✅ Obtenir/créer l'allocation de base
-                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
 
         // ✅ CRÉER une allocation additive pour le virement
         val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
@@ -456,8 +452,6 @@ class ArgentServiceImpl @Inject constructor(
         val premierJourMois = calendrier.time
 
         // ✅ Obtenir/créer allocations pour les deux enveloppes
-                    val allocationSourceExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, premierJourMois)
-            val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, premierJourMois)
 
         // ✅ CRÉER des allocations additionnelles pour les virements (addition automatique)
         val allocationVirementDest = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
@@ -583,7 +577,8 @@ class ArgentServiceImpl @Inject constructor(
 
         // 4. Gérer le "Prêt à placer" pour les comptes chèque
         // Mise à jour du prêt à placer du compte source (diminution)
-        if (compteSource is com.xburnsx.toutiebudget.data.modeles.CompteCheque) {
+        if (compteSource is
+                    CompteCheque) {
             val variationPretAPlacerSource = -montant // Variation négative pour retirer le montant
             try {
                 compteRepository.mettreAJourPretAPlacerSeulement(compteSource.id, variationPretAPlacerSource).getOrThrow()
@@ -593,7 +588,7 @@ class ArgentServiceImpl @Inject constructor(
         }
 
         // Mise à jour du prêt à placer du compte destination (augmentation)
-        if (compteDest is com.xburnsx.toutiebudget.data.modeles.CompteCheque) {
+        if (compteDest is CompteCheque) {
             val variationPretAPlacerDest = montant // Variation positive pour ajouter le montant
             try {
                 val result = compteRepository.mettreAJourPretAPlacerSeulement(compteDest.id, variationPretAPlacerDest)

@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -200,7 +200,7 @@ fun ClavierNumerique(
                     .setScale(0, RoundingMode.HALF_UP)
                 val resultat = bigDecimal.toLong()
                 resultat
-            } catch (e: NumberFormatException) {
+            } catch (_: NumberFormatException) {
                 0L
             }
         } else {
@@ -212,7 +212,7 @@ fun ClavierNumerique(
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(0, RoundingMode.HALF_UP)
                 bigDecimal.toLong()
-            } catch (e: NumberFormatException) {
+            } catch (_: NumberFormatException) {
                 0L
             }
         }
@@ -276,7 +276,7 @@ fun ClavierNumerique(
                         .multiply(BigDecimal.valueOf(100))
                         .setScale(0, RoundingMode.HALF_UP)
                     bigDecimal.toLong()
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     0L
                 }
             } else {
@@ -290,7 +290,7 @@ fun ClavierNumerique(
                         .setScale(2, RoundingMode.HALF_UP)
                     // Pour les non-monétaires, on garde la valeur exacte * 100 seulement pour la précision interne
                     (bigDecimal.toDouble() * 100).toLong()
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     0L
                 }
             }
@@ -354,7 +354,7 @@ fun ClavierNumerique(
                     // Bouton Backspace avec couleurs du thème - MAINTENANT BIEN CENTRÉ
                     ClavierToucheFlutter(
                         texte = "",
-                        icone = Icons.Outlined.Backspace,
+                        icone = Icons.AutoMirrored.Outlined.Backspace,
                         onPressed = gererBackspace,
                         estAction = true // Bouton d'action
                     )

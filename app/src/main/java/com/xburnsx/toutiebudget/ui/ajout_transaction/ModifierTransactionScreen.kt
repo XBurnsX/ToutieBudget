@@ -1,12 +1,41 @@
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,15 +44,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.xburnsx.toutiebudget.data.modeles.*
-import com.xburnsx.toutiebudget.domain.usecases.ModifierTransactionUseCase
-import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.*
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ChampNoteTransaction
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionnementDialog
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.ModesOperationSelector
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurCompte
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurDate
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurEnveloppe
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTypeTransaction
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypeDetteSelector
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypePretSelector
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueNavigationEvent
-import java.time.LocalDate
-import java.time.ZoneId
-import java.util.*
 
 /**
  * Écran pour modifier une transaction existante.
@@ -80,7 +114,7 @@ fun ModifierTransactionScreen(
                     IconButton(onClick = {
                         onNavigateBack()
                     }) {
-                        Icon(Icons.Default.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour")
                     }
                 },
                 actions = {
@@ -280,7 +314,7 @@ fun ModifierTransactionScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CallSplit,
+                                    imageVector = Icons.AutoMirrored.Filled.CallSplit,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp)
                                 )

@@ -1,8 +1,8 @@
 package com.xburnsx.toutiebudget.utils
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
+import androidx.core.content.edit
 
 /**
  * Gestionnaire des préférences de thème
@@ -17,7 +17,7 @@ object ThemePreferences {
      */
     fun sauvegarderCouleurTheme(context: Context, couleurTheme: CouleurTheme) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_COULEUR_THEME, couleurTheme.name).apply()
+        prefs.edit { putString(KEY_COULEUR_THEME, couleurTheme.name) }
     }
 
     /**
@@ -30,7 +30,7 @@ object ThemePreferences {
 
         return try {
             CouleurTheme.valueOf(couleurSauvegardee ?: CouleurTheme.PINK.name)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             // Si la couleur sauvegardée n'est pas valide, retourner PINK par défaut
             CouleurTheme.PINK
         }

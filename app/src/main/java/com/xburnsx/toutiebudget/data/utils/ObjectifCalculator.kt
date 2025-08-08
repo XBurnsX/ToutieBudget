@@ -6,7 +6,6 @@ import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import java.util.Calendar
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -49,36 +48,6 @@ import kotlin.math.roundToInt
 class ObjectifCalculator {
 
     /**
-     * Parse une date depuis un string PocketBase
-     */
-    private fun parseDateFromPocketBase(dateString: String?): Date? {
-        if (dateString == null) return null
-        
-        return try {
-            when {
-                dateString.contains("T") -> {
-                    // Format ISO: "2024-01-15T10:30:00.000Z"
-                    val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                    isoFormat.parse(dateString)
-                }
-                dateString.contains(" ") -> {
-                    // Format avec espace: "2024-01-15 10:30:00.000Z"
-                    val spaceFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-                    spaceFormat.parse(dateString)
-                }
-                dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
-                    // Format simple: "2024-01-15"
-                    val simpleFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                    simpleFormat.parse(dateString)
-                }
-                else -> null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
      * 🎯 FONCTION UTILITAIRE : Arrondit une suggestion avec précision et tolérance
      */
     private fun arrondirSuggestion(suggestion: Double): Double {
@@ -118,7 +87,7 @@ class ObjectifCalculator {
                 // 🆕 UTILISER LES VRAIES DATES DEPUIS POCKETBASE
                 val dateFinObjectif = enveloppe.dateObjectif
                 val dateDebutObjectif = enveloppe.dateDebutObjectif
-                calculerVersementAnnuel(soldeActuel, objectif, dateDebutObjectif, dateFinObjectif, moisSelectionne, allocationsMensuelles)
+                calculerVersementAnnuel(objectif, dateDebutObjectif, dateFinObjectif, moisSelectionne, allocationsMensuelles)
             }
             TypeObjectif.Mensuel -> calculerVersementMensuel(soldeActuel, objectif)
             TypeObjectif.Bihebdomadaire -> calculerVersementBihebdomadaire(soldeActuel, objectif, enveloppe.dateDebutObjectif)
@@ -229,8 +198,7 @@ class ObjectifCalculator {
      * 🎯 LOGIQUE INTELLIGENTE : Objectif mensuel basé sur les jours + rattrapage du retard accumulé.
      */
     private fun calculerVersementAnnuel(
-        soldeActuel: Double, 
-        objectifAnnuel: Double, 
+        objectifAnnuel: Double,
         dateDebutObjectif: Date?,
         dateFinObjectif: Date?,
         moisSelectionne: Date,
@@ -360,57 +328,6 @@ class ObjectifCalculator {
     }
 
     /**
-     * Calcule le total des montants alloués (pas le solde) jusqu'au mois sélectionné (exclusif).
-     */
-    private fun calculerTotalAllocationsAllouees(
-        allocationsMensuelles: List<AllocationMensuelle>,
-        moisSelectionne: Date
-    ): Double {
-        val calendar = Calendar.getInstance()
-        calendar.time = moisSelectionne
-        val anneeSelectionnee = calendar.get(Calendar.YEAR)
-        val moisSelectionneInt = calendar.get(Calendar.MONTH)
-        
-        return allocationsMensuelles
-            .filter { allocation ->
-                val calendarAllocation = Calendar.getInstance()
-                calendarAllocation.time = allocation.mois
-                val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
-                val moisAllocation = calendarAllocation.get(Calendar.MONTH)
-                
-                // Inclure seulement les allocations jusqu'au mois sélectionné (exclusif)
-                (anneeAllocation < anneeSelectionnee) || 
-                (anneeAllocation == anneeSelectionnee && moisAllocation < moisSelectionneInt)
-            }
-            .sumOf { it.alloue } // Utiliser 'alloue' au lieu de 'solde'
-    }
-
-    /**
-     * Calcule le total des montants alloués pour l'année courante jusqu'au mois sélectionné (exclusif).
-     */
-    private fun calculerTotalAllocationsAlloueesAnnee(
-        allocationsMensuelles: List<AllocationMensuelle>,
-        moisSelectionne: Date
-    ): Double {
-        val calendar = Calendar.getInstance()
-        calendar.time = moisSelectionne
-        val anneeSelectionnee = calendar.get(Calendar.YEAR)
-        val moisSelectionneInt = calendar.get(Calendar.MONTH)
-        
-        return allocationsMensuelles
-            .filter { allocation ->
-                val calendarAllocation = Calendar.getInstance()
-                calendarAllocation.time = allocation.mois
-                val anneeAllocation = calendarAllocation.get(Calendar.YEAR)
-                val moisAllocation = calendarAllocation.get(Calendar.MONTH)
-                
-                // Inclure seulement les allocations de l'année courante jusqu'au mois sélectionné (exclusif)
-                anneeAllocation == anneeSelectionnee && moisAllocation < moisSelectionneInt
-            }
-            .sumOf { it.alloue }
-    }
-
-    /**
      * 🎯 FONCTION PRÉCISE : Calcule le total des montants alloués depuis une date de début spécifique 
      * jusqu'au mois sélectionné.
      */
@@ -455,29 +372,4 @@ class ObjectifCalculator {
             .sumOf { it.alloue }
     }
 
-    /**
-     * Calcule combien de mois se sont écoulés depuis le début de l'année jusqu'au mois sélectionné.
-     */
-    private fun calculerMoisEcoulesAnnee(moisSelectionne: Date): Int {
-        val calendar = Calendar.getInstance()
-        calendar.time = moisSelectionne
-        // Janvier = 0, donc ajouter 1 pour avoir le nombre de mois écoulés
-        return calendar.get(Calendar.MONTH)
-    }
-
-    /**
-     * Calcule combien de mois se sont écoulés depuis une date de début jusqu'au mois sélectionné.
-     */
-    private fun calculerMoisEcoulesDepuisDebut(dateDebut: Date, moisSelectionne: Date): Int {
-        val calendarDebut = Calendar.getInstance()
-        calendarDebut.time = dateDebut
-        
-        val calendarSelectionne = Calendar.getInstance()
-        calendarSelectionne.time = moisSelectionne
-        
-        val moisDiff = (calendarSelectionne.get(Calendar.YEAR) - calendarDebut.get(Calendar.YEAR)) * 12 +
-                (calendarSelectionne.get(Calendar.MONTH) - calendarDebut.get(Calendar.MONTH))
-        
-        return max(0, moisDiff)
-    }
 }

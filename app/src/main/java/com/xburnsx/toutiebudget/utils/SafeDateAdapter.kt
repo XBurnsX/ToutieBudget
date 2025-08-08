@@ -51,7 +51,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
                 // Timestamp en millisecondes
                 try {
                     Date(reader.nextLong())
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     null
                 }
             }
@@ -67,7 +67,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
         for (format in dateFormats) {
             try {
                 return format.parse(dateString)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Continuer avec le prochain format
             }
         }
@@ -76,7 +76,7 @@ class SafeDateAdapter : TypeAdapter<Date?>() {
         try {
             val timestamp = dateString.toLong()
             return Date(timestamp)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Dernier recours : retourner null
             return null
         }

@@ -8,17 +8,12 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
-import com.google.gson.GsonBuilder
-import com.google.gson.TypeAdapter
-import com.google.gson.stream.JsonReader
-import com.google.gson.stream.JsonWriter
-import java.util.Date
-import com.google.gson.Gson
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.content.Context
 import com.xburnsx.toutiebudget.utils.SafeDateAdapter
+import androidx.core.content.edit
 
 /**
  * Client PocketBase personnalisé qui gère automatiquement :
@@ -36,8 +31,8 @@ object PocketBaseClient {
         .readTimeout(8, TimeUnit.SECONDS) // Réduit de 15s à 8s
         .writeTimeout(5, TimeUnit.SECONDS) // Réduit de 10s à 5s
         .retryOnConnectionFailure(true)
-        .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de connexions persistantes
-        .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1)) // Support HTTP/2
+        .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de connexions persistantes
+        .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)) // Support HTTP/2
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .addHeader("Accept-Encoding", "gzip, deflate") // Compression
@@ -90,7 +85,7 @@ object PocketBaseClient {
             if (!reponse.isSuccessful) {
                 // Log silencieux pour les erreurs de connectivité
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Log silencieux pour les erreurs de connectivité
         }
     }
@@ -210,17 +205,9 @@ object PocketBaseClient {
             }
 
             reponse.isSuccessful
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
-    }
-
-    /**
-     * Vérifie si l'utilisateur est déjà authentifié
-     * @return true si un token valide existe, false sinon
-     */
-    fun verifierAuthentification(): Boolean {
-        return tokenAuthentification != null && utilisateurConnecte != null
     }
 
     /**
@@ -236,7 +223,7 @@ object PocketBaseClient {
                 tokenAuthentification = token
                 utilisateurConnecte = gson.fromJson(userJson, EnregistrementUtilisateur::class.java)
                 true
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 false
             }
         } else {
@@ -269,7 +256,7 @@ object PocketBaseClient {
         if (userJson != null) {
             try {
                 utilisateurConnecte = gson.fromJson(userJson, EnregistrementUtilisateur::class.java)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Ignorer les erreurs de parsing
             }
         }
@@ -281,7 +268,7 @@ object PocketBaseClient {
     private fun sauvegarderToken(context: Context, token: String) {
         tokenAuthentification = token
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_TOKEN, token).apply()
+        prefs.edit { putString(KEY_TOKEN, token) }
     }
 
     /**
@@ -291,7 +278,7 @@ object PocketBaseClient {
         utilisateurConnecte = utilisateur
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val userJson = gson.toJson(utilisateur)
-        prefs.edit().putString(KEY_USER, userJson).apply()
+        prefs.edit { putString(KEY_USER, userJson) }
     }
 
     /**
@@ -323,29 +310,6 @@ object PocketBaseClient {
     }
 
     /**
-     * Teste la connexion à PocketBase
-     */
-    suspend fun testerConnexion(): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val urlBase = obtenirUrlBaseActive()
-            val requete = Request.Builder()
-                .url("${urlBase.trimEnd('/')}/api/health")
-                .get()
-                .build()
-            
-            val reponse = client.newCall(requete).execute()
-            
-            if (reponse.isSuccessful) {
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Erreur de connexion - Code ${reponse.code}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(Exception("Erreur lors du test de connexion: ${e.message}"))
-        }
-    }
-
-    /**
      * Effectue une requête GET avec paramètres optionnels
      */
     suspend fun effectuerRequeteGet(endpoint: String, parametres: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
@@ -362,42 +326,6 @@ object PocketBaseClient {
             val requeteBuilder = Request.Builder()
                 .url(url)
                 .get()
-
-            tokenAuthentification?.let { token ->
-                requeteBuilder.addHeader("Authorization", "Bearer $token")
-            }
-
-            val requete = requeteBuilder.build()
-            val reponse = client.newCall(requete).execute()
-
-            if (reponse.isSuccessful) {
-                reponse.body?.string() ?: ""
-            } else {
-                throw Exception("Erreur HTTP ${reponse.code}: ${reponse.message}")
-            }
-        } catch (e: IOException) {
-            // En cas d'erreur réseau, invalider le cache et réessayer une fois
-            UrlResolver.invaliderCache()
-            throw e
-        } catch (e: Exception) {
-            throw e
-        }
-    }
-
-    /**
-     * Effectue une requête POST avec données JSON
-     */
-    suspend fun effectuerRequetePost(endpoint: String, donneesJson: String): String = withContext(Dispatchers.IO) {
-        try {
-            val urlBase = obtenirUrlBaseActive()
-            val url = "${urlBase.trimEnd('/')}$endpoint"
-
-            val corpsRequete = donneesJson.toRequestBody("application/json".toMediaType())
-
-            val requeteBuilder = Request.Builder()
-                .url(url)
-                .post(corpsRequete)
-                .addHeader("Content-Type", "application/json")
 
             tokenAuthentification?.let { token ->
                 requeteBuilder.addHeader("Authorization", "Bearer $token")

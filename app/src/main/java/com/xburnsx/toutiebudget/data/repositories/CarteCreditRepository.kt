@@ -98,14 +98,14 @@ interface CarteCreditRepository {
      * @param carteCredit La carte de crédit
      * @return Date de la prochaine échéance
      */
-    fun calculerProchaineEcheance(carteCredit: CompteCredit): java.util.Date
+    fun calculerProchaineEcheance(carteCredit: CompteCredit): Date
 
     /**
      * Calcule la prochaine date de facturation pour une carte de crédit.
      * @param carteCredit La carte de crédit
      * @return Date de la prochaine facturation
      */
-    fun calculerProchaineFacturation(carteCredit: CompteCredit): java.util.Date
+    fun calculerProchaineFacturation(carteCredit: CompteCredit): Date
 
     /**
      * Vérifie si une carte de crédit a des paiements en retard.

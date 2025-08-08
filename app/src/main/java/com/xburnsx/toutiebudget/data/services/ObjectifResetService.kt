@@ -6,9 +6,6 @@ import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import java.util.Calendar
 import java.util.Date
-import java.util.concurrent.TimeUnit
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 /**
  * Service responsable du reset automatique des objectifs bihebdomadaires.

@@ -1,6 +1,7 @@
 // chemin/simule: /ui/categories/composants/CategorieCard.kt
 package com.xburnsx.toutiebudget.ui.categories.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +38,7 @@ fun CategorieCard(
     onSupprimerCategorie: (String) -> Unit = {},
     onStartDragEnveloppe: (String) -> Unit = {},
     draggedEnveloppeId: String? = null,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     var showCategorieMenu by remember { mutableStateOf(false) }
     

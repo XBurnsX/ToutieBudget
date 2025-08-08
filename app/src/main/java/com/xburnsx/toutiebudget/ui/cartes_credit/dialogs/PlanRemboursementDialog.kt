@@ -115,7 +115,7 @@ fun PlanRemboursementDialog(
                             )
                         }
 
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         val totalInterets = planRemboursement.sumOf { it.montantInterets }
                         val totalPaiements = planRemboursement.sumOf { it.paiementTotal }
@@ -316,7 +316,7 @@ fun PlanRemboursementDialogPreview() {
     val planRemboursement = listOf(
         PaiementPlanifie(
             mois = 1,
-            date = java.util.Date(),
+            date = Date(),
             paiementTotal = 541.65,
             montantCapital = 500.0,
             montantInterets = 41.65,
@@ -324,7 +324,7 @@ fun PlanRemboursementDialogPreview() {
         ),
         PaiementPlanifie(
             mois = 2,
-            date = java.util.Date(),
+            date = Date(),
             paiementTotal = 541.65,
             montantCapital = 500.0,
             montantInterets = 41.65,

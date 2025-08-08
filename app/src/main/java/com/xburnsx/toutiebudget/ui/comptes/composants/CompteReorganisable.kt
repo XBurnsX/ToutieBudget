@@ -1,12 +1,21 @@
 package com.xburnsx.toutiebudget.ui.comptes.composants
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +28,7 @@ import com.xburnsx.toutiebudget.data.modeles.Compte
 /**
  * Composant pour afficher un compte en mode réorganisation avec des flèches pour déplacer.
  */
+@SuppressLint("DefaultLocale")
 @Composable
 fun CompteReorganisable(
     compte: Compte,
@@ -27,8 +37,6 @@ fun CompteReorganisable(
     isModeReorganisation: Boolean,
     isEnDeplacement: Boolean,
     onDeplacerCompte: (String, Int) -> Unit,
-    onDebuterDeplacement: (String) -> Unit,
-    onTerminerDeplacement: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(

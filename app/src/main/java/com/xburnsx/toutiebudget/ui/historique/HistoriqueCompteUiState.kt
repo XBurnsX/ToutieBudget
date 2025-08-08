@@ -1,9 +1,6 @@
 // chemin/simule: /ui/historique/HistoriqueCompteUiState.kt
 package com.xburnsx.toutiebudget.ui.historique
 
-import com.xburnsx.toutiebudget.ui.historique.TransactionUi
-import java.util.Date
-
 /**
  * État de l'interface utilisateur pour l'écran d'historique des transactions d'un compte.
  */

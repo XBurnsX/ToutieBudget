@@ -2,8 +2,8 @@ package com.xburnsx.toutiebudget.ui.cartes_credit
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,7 +30,6 @@ import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.PlanRemboursementDialog
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierFraisDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.DialogErreur
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +62,7 @@ fun GestionCarteCreditScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onRetour) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                 },
                 actions = {
@@ -187,8 +186,7 @@ fun GestionCarteCreditScreen(
                 // Actions rapides
                 item {
                     ActionsRapides(
-                        carte = carteCredit,
-                        onEffectuerPaiement = { 
+                        onEffectuerPaiement = {
                             // Navigation vers l'écran d'ajout de transaction en mode paiement
                             // avec la carte de crédit présélectionnée
                             onNaviguerVersPaiement(carteCredit)
@@ -208,7 +206,6 @@ fun GestionCarteCreditScreen(
             onTauxChange = viewModel::mettreAJourTauxInteret,
             onSoldeChange = viewModel::mettreAJourSoldeActuel,
             onPaiementMinimumChange = viewModel::mettreAJourPaiementMinimum,
-            onCouleurChange = viewModel::mettreAJourCouleur,
             onSauvegarder = viewModel::sauvegarderModificationsCarteCredit,
             onDismiss = viewModel::fermerDialogs
         )
@@ -225,7 +222,6 @@ fun GestionCarteCreditScreen(
 
     if (uiState.afficherDialogModificationFrais && carteCredit != null) {
         ModifierFraisDialog(
-            carte = carteCredit,
             formulaire = viewModel.formulaire.collectAsState().value,
             onNomFraisChange = viewModel::mettreAJourNomFraisMensuels,
             onFraisChange = viewModel::mettreAJourFraisMensuelsFixes,
@@ -290,7 +286,6 @@ fun GestionCarteCreditScreen(
 
 @Composable
 private fun ActionsRapides(
-    carte: CompteCredit,
     onEffectuerPaiement: () -> Unit
 ) {
     Card(

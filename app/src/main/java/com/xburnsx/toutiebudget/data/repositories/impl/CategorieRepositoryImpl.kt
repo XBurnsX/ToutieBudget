@@ -3,7 +3,6 @@
 
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.di.PocketBaseClient

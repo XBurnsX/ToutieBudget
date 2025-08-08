@@ -1,6 +1,5 @@
 package com.xburnsx.toutiebudget.ui.dette.composants
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,10 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurDate
-import com.xburnsx.toutiebudget.ui.composants_communs.ChampAffichage
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun SectionParametresAvances(

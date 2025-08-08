@@ -43,6 +43,7 @@ private fun createDarkColorScheme(couleurPrimaire: Color) = darkColorScheme(
     inverseSurface = TextPrimary,           // ✅ AJOUTE ÇA
 )
 
+@Suppress("DEPRECATION")
 @Composable
 fun ToutieBudgetTheme(
     darkTheme: Boolean = true,
@@ -54,10 +55,14 @@ fun ToutieBudgetTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.background.toArgb()  // ✅ Navigation bar fixée
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            // Utiliser WindowInsetsController
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+            // Utiliser les méthodes au lieu des propriétés dépréciées
+            window.setStatusBarColor(colorScheme.background.toArgb())
+            window.setNavigationBarColor(colorScheme.background.toArgb())
         }
     }
 

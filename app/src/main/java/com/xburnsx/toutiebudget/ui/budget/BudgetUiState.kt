@@ -1,7 +1,6 @@
 // chemin/simule: /ui/budget/BudgetUiState.kt
 package com.xburnsx.toutiebudget.ui.budget
 
-import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 
 enum class StatutObjectif { GRIS, JAUNE, VERT }

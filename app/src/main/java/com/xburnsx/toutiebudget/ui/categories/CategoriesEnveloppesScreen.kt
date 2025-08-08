@@ -238,20 +238,11 @@ fun CategoriesEnveloppesScreen(
                                 totalCategories = categoriesOrdonnees.size,
                                 isModeReorganisation = true,
                                 isEnDeplacement = uiState.categorieEnDeplacement == nomCategorie,
-                                onAjouterEnveloppeClick = {
-                                    // Désactivé en mode réorganisation
-                                },
-                                onObjectifClick = {
-                                    // Désactivé en mode réorganisation
-                                },
                                 onDeplacerCategorie = viewModel::onDeplacerCategorie,
                                 onDebuterDeplacement = viewModel::onDebuterDeplacementCategorie,
                                 onTerminerDeplacement = viewModel::onTerminerDeplacementCategorie,
                                 // 🆕 NOUVEAUX PARAMÈTRES POUR LES ENVELOPPES
                                 onDeplacerEnveloppe = viewModel::onDeplacerEnveloppe,
-                                onDebuterDeplacementEnveloppe = viewModel::onDebuterDeplacementEnveloppe,
-                                onTerminerDeplacementEnveloppe = viewModel::onTerminerDeplacementEnveloppe,
-                                enveloppeEnDeplacement = uiState.enveloppeEnDeplacement,
                                 modifier = Modifier
                             )
                         } else {

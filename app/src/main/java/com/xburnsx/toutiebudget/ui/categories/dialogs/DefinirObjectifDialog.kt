@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.categories.dialogs
 
+import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -28,6 +29,7 @@ import java.util.Date
 import java.util.Locale
 
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun DefinirObjectifDialog(
     nomEnveloppe: String,
@@ -48,7 +50,7 @@ fun DefinirObjectifDialog(
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(0, RoundingMode.HALF_UP)
                     .toLong()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 0L
             }
         }
@@ -310,13 +312,6 @@ fun DefinirObjectifDialog(
                             }
                         }
                     }
-                    TypeObjectif.Annuel -> {
-                        Text(
-                            text = "L'objectif sera calculé automatiquement sur une base annuelle.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
                     TypeObjectif.Aucun -> {
                         Text(
                             text = "Veuillez sélectionner un type d'objectif.",
@@ -328,9 +323,13 @@ fun DefinirObjectifDialog(
             }
         },
         confirmButton = {
+            val peutSauvegarder = remember(formState.type, formState.montant) {
+                // formState.type n'est pas nullable (valeur par défaut fournie)
+                formState.montant.toDoubleOrNull()?.let { it > 0 } == true
+            }
             Button(
                 onClick = onSave,
-                enabled = formState.type != null && (formState.montant.toDoubleOrNull()?.let { it > 0 } ?: false)
+                enabled = peutSauvegarder
             ) {
                 Text("Sauvegarder")
             }
