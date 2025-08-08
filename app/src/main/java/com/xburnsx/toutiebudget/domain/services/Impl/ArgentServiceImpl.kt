@@ -12,6 +12,7 @@ import java.util.*
 import javax.inject.Inject
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
 
 /**
@@ -670,16 +671,36 @@ class ArgentServiceImpl @Inject constructor(
         if (compteQuiPaie.solde < montant) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
         }
-        
-        // 3. Mettre à jour les soldes
-        val nouveauSoldeCompteQuiPaie = compteQuiPaie.solde - montant
-        val nouveauSoldeCarteOuDette = carteOuDette.solde + montant // dettes négatives -> +montant les rapproche de 0
-        
-        // 🎯 ARRONDIR AUTOMATIQUEMENT LES NOUVEAUX SOLDES
-        val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(nouveauSoldeCompteQuiPaie)
-        val nouveauSoldeCarteOuDetteArrondi = MoneyFormatter.roundAmount(nouveauSoldeCarteOuDette)
-        
-        // Met à jour le solde du compte payeur ; si c'est un chèque, on met aussi à jour pret_a_placer
+
+        // 3. Si la cible est une carte de crédit, déterminer les remboursements automatiques de dettes via frais mensuels
+        var montantPourDettes = 0.0
+        val remboursementsDettes: MutableList<Pair<CompteDette, Double>> = mutableListOf()
+        if (collectionCarteOuDette == "comptes_credits" && carteOuDette is CompteCredit) {
+            // Récupérer les dettes existantes
+            val tousLesComptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+            val dettes = tousLesComptes.filterIsInstance<CompteDette>()
+
+            // Associer frais -> dette par nom exact
+            val frais = carteOuDette.fraisMensuels
+            var restant = montant
+            frais.forEach { f: com.xburnsx.toutiebudget.data.modeles.FraisMensuel ->
+                if (restant <= 0) return@forEach
+                val detteCible = dettes.firstOrNull { it.nom.equals(f.nom, ignoreCase = true) }
+                if (detteCible != null) {
+                    val aPayer = minOf(restant, f.montant)
+                    if (aPayer > 0) {
+                        remboursementsDettes += detteCible to aPayer
+                        montantPourDettes += aPayer
+                        restant -= aPayer
+                    }
+                }
+            }
+        }
+
+        // Toute la somme va sur la carte; les dettes sont remboursées EN PLUS sans impacter la carte
+        val montantPourCarte = montant
+
+        // 4. Mettre à jour le solde du compte payeur (sort -montant)
         if (collectionCompteQuiPaie == "comptes_cheques" && compteQuiPaie is CompteCheque) {
             // variationSolde = -montant, MAJ pret_a_placer = true
             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
@@ -689,27 +710,35 @@ class ArgentServiceImpl @Inject constructor(
                 mettreAJourPretAPlacer = true
             )
         } else {
+            val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(compteQuiPaie.solde - montant)
             compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
         }
 
-        // Mettre à jour le solde de la carte/dette
-        compteRepository.mettreAJourSolde(carteOuDetteId, collectionCarteOuDette, nouveauSoldeCarteOuDetteArrondi)
+        // 5. Mettre à jour le solde de la carte pour le montant total (toujours)
+        val nouveauSoldeCarte = MoneyFormatter.roundAmount(carteOuDette.solde + montantPourCarte)
+        // Forcer la collection explicite de la carte de crédit
+        compteRepository.mettreAJourSolde(carteOuDetteId, "comptes_credits", nouveauSoldeCarte)
 
-        // 🔼 Incrémenter paiement_effectue si cible est une dette
-        if (collectionCarteOuDette == "comptes_dettes") {
-            val detteActuelle = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette) as? CompteDette
+        // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
+        for ((dette, part) in remboursementsDettes) {
+            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde + part)
+            // Forcer la collection explicite pour éviter tout contexte invalide
+            compteRepository.mettreAJourSolde(dette.id, "comptes_dettes", nouveauSoldeDette)
+
+            val detteActuelle = compteRepository.getCompteById(dette.id, dette.collection) as? CompteDette
             if (detteActuelle != null) {
                 val detteMiseAJour = detteActuelle.copy(paiementEffectue = (detteActuelle.paiementEffectue + 1))
                 compteRepository.mettreAJourCompte(detteMiseAJour)
             }
         }
-        
-        // 4. Créer la transaction de sortie (compte qui paie)
-        val transactionSortante = Transaction(
+
+        // 7. Créer les transactions
+        // 7.1 Une seule transaction sortante depuis le compte payeur pour le montant total
+        val txSortanteCarte = Transaction(
             id = UUID.randomUUID().toString(),
             utilisateurId = compteQuiPaie.utilisateurId,
-            type = TypeTransaction.Pret, // Utiliser Pret au lieu de Paiement (accepté par le backend)
-            montant = montant,
+            type = TypeTransaction.Pret,
+            montant = montantPourCarte,
             date = Date(),
             compteId = compteQuiPaieId,
             collectionCompte = collectionCompteQuiPaie,
@@ -717,27 +746,39 @@ class ArgentServiceImpl @Inject constructor(
             tiers = note ?: "Paiement ${carteOuDette.nom}",
             note = null
         )
-        
-        println("DEBUG: Création transaction sortante: ${transactionSortante.id}")
-        val resultSortante = transactionRepository.creerTransaction(transactionSortante)
-        println("DEBUG: Résultat création transaction sortante: ${if (resultSortante.isSuccess) "SUCCÈS" else "ÉCHEC: ${resultSortante.exceptionOrNull()?.message}"}")
-        
-        // 5. Créer la transaction d'entrée (carte/dette)
-        val transactionEntrante = Transaction(
-            id = UUID.randomUUID().toString(),
-            utilisateurId = carteOuDette.utilisateurId,
-            type = TypeTransaction.Emprunt, // Utiliser Emprunt au lieu de RemboursementRecu (accepté par le backend)
-            montant = montant,
-            date = Date(),
-            compteId = carteOuDetteId,
-            collectionCompte = collectionCarteOuDette,
-            allocationMensuelleId = null,
-            tiers = note ?: "Paiement reçu de ${compteQuiPaie.nom}",
-            note = null
-        )
-        
-        println("DEBUG: Création transaction entrante: ${transactionEntrante.id}")
-        val resultEntrante = transactionRepository.creerTransaction(transactionEntrante)
-        println("DEBUG: Résultat création transaction entrante: ${if (resultEntrante.isSuccess) "SUCCÈS" else "ÉCHEC: ${resultEntrante.exceptionOrNull()?.message}"}")
+        transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
+
+        // 7.2 Transactions entrantes sur la carte et sur les dettes
+        if (montantPourCarte > 0) {
+            val txEntranteCarte = Transaction(
+                id = UUID.randomUUID().toString(),
+                utilisateurId = carteOuDette.utilisateurId,
+                type = TypeTransaction.Emprunt,
+                montant = montantPourCarte,
+                date = Date(),
+                compteId = carteOuDetteId,
+                collectionCompte = collectionCarteOuDette,
+                allocationMensuelleId = null,
+                tiers = note ?: "Paiement reçu de ${compteQuiPaie.nom}",
+                note = null
+            )
+            transactionRepository.creerTransaction(txEntranteCarte).getOrThrow()
+        }
+
+        for ((dette, part) in remboursementsDettes) {
+            val txEntranteDette = Transaction(
+                id = UUID.randomUUID().toString(),
+                utilisateurId = dette.utilisateurId,
+                type = TypeTransaction.Emprunt,
+                montant = part,
+                date = Date(),
+                compteId = dette.id,
+                collectionCompte = "comptes_dettes",
+                allocationMensuelleId = null,
+                tiers = note ?: "Remboursement auto ${dette.nom} via paiement ${carteOuDette.nom}",
+                note = null
+            )
+            transactionRepository.creerTransaction(txEntranteDette).getOrThrow()
+        }
     }
 }

@@ -449,16 +449,22 @@ class CompteRepositoryImpl : CompteRepository {
             val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
 
             // 3. Préparer les données de mise à jour
+            val champSolde = when (collectionCompte) {
+                Collections.CREDIT -> "solde_utilise"
+                Collections.DETTE -> "solde_dette"
+                else -> "solde"
+            }
+
             val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {
                 // Pour les comptes chèque, mettre à jour aussi pret_a_placer si demandé
                 val nouveauPretAPlacer = compte.pretAPlacer + variationSolde
                 mapOf(
-                    "solde" to nouveauSolde,
+                    champSolde to nouveauSolde,
                     "pret_a_placer" to nouveauPretAPlacer
                 )
             } else {
-                // Sinon, mettre à jour seulement le solde
-                mapOf("solde" to nouveauSolde)
+                // Sinon, mettre à jour seulement le solde (avec champ adapté au type)
+                mapOf(champSolde to nouveauSolde)
             }
             val corpsRequete = gson.toJson(donneesUpdate)
 
