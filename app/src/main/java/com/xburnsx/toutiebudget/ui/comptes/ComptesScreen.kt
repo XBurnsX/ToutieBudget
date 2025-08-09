@@ -60,6 +60,7 @@ fun ComptesScreen(
         containerColor = Color(0xFF121212),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = { Text("Comptes", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
                 actions = {
