@@ -388,46 +388,46 @@ fun AjoutTransactionScreen(
                             .offset(y = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Bouton Fractionner (à gauche)
-                        Card(
-                            modifier = Modifier.weight(1f),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder) {
-                                    MaterialTheme.colorScheme.secondary // Couleur secondaire du thème
-                                } else {
-                                    Color(0xFF404040)
-                                }
-                            ),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    viewModel.ouvrirFractionnement()
-                                },
-                                enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.Transparent,
-                                    contentColor = Color.White,
-                                    disabledContainerColor = Color.Transparent,
-                                    disabledContentColor = Color.White.copy(alpha = 0.5f)
-                                )
+                        // Bouton Fractionner (visible uniquement en Dépense)
+                        if (uiState.typeTransaction == TypeTransaction.Depense) {
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder) {
+                                        MaterialTheme.colorScheme.secondary
+                                    } else {
+                                        Color(0xFF404040)
+                                    }
+                                ),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                             ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Button(
+                                    onClick = { viewModel.ouvrirFractionnement() },
+                                    enabled = uiState.peutFractionner && !uiState.estEnTrainDeSauvegarder,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = Color.White,
+                                        disabledContainerColor = Color.Transparent,
+                                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                    )
                                 ) {
-                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.CallSplit,
-                                        contentDescription = null
-                                    )
-                                    Text(
-                                        text = "Fractionner",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.CallSplit,
+                                            contentDescription = null
+                                        )
+                                        Text(
+                                            text = "Fractionner",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }

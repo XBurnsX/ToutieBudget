@@ -709,10 +709,14 @@ class ArgentServiceImpl @Inject constructor(
             compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
         }
 
-        // 5. Mettre à jour le solde de la carte pour le montant total (toujours)
-        val nouveauSoldeCarte = MoneyFormatter.roundAmount(carteOuDette.solde + montantPourCarte)
-        // Forcer la collection explicite de la carte de crédit
-        compteRepository.mettreAJourSolde(carteOuDetteId, "comptes_credits", nouveauSoldeCarte)
+        // 5. Mettre à jour le solde de la cible (carte OU dette) pour le montant total
+        val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + montantPourCarte)
+        // Utiliser la collection réellement sélectionnée (carte de crédit ou dette)
+        val collectionCible = when (collectionCarteOuDette) {
+            "comptes_dettes" -> "comptes_dettes"
+            else -> "comptes_credits"
+        }
+        compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
 
         // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
         for ((dette, part) in remboursementsDettes) {
