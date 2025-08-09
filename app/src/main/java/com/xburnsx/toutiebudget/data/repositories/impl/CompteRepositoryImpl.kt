@@ -93,7 +93,16 @@ class CompteRepositoryImpl : CompteRepository {
         val typeReponse = TypeToken.getParameterized(ListeResultats::class.java, T::class.java).type
         val resultatPagine: ListeResultats<T> = gson.fromJson(corpsReponse, typeReponse)
 
-        resultatPagine.items
+        // Normaliser la propriété 'collection' pour éviter des nulls provenant du JSON
+        resultatPagine.items.map { compte ->
+            when (compte) {
+                is CompteCheque -> compte.copy(collection = Collections.CHEQUE) as T
+                is CompteCredit -> compte.copy(collection = Collections.CREDIT) as T
+                is CompteDette -> compte.copy(collection = Collections.DETTE) as T
+                is CompteInvestissement -> compte.copy(collection = Collections.INVESTISSEMENT) as T
+                else -> compte
+            }
+        }
     }
 
     override suspend fun creerCompte(compte: Compte): Result<Unit> = withContext(Dispatchers.IO) {

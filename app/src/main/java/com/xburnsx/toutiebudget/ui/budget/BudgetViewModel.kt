@@ -493,7 +493,8 @@ class BudgetViewModel(
                 val nouveauPretAPlacer = MoneyFormatter.roundAmount(nouveauPretAPlacerBrut)
                 val compteModifie = compteSource.copy(
                     pretAPlacerRaw = nouveauPretAPlacer,
-                    collection = compteSource.collection // Assurer qu'on a une collection
+                    // Sécuriser la collection (évite crash si null dans des données anciennes)
+                    collection = "comptes_cheques"
                 )
 
                 val resultCompte = compteRepository.mettreAJourCompte(compteModifie)

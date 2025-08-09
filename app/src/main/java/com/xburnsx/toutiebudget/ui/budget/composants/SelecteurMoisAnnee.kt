@@ -83,7 +83,7 @@ fun SelecteurMoisAnnee(
             expanded = expanded,
             onDismissRequest = { expanded = false }, // Se ferme si on clique à l'extérieur
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .background(MaterialTheme.colorScheme.surface)
                 .fillMaxWidth(0.95f), // Prend 95% de la largeur de l'écran
             properties = PopupProperties(focusable = true) // Permet d'interagir avec les boutons à l'intérieur
         ) {
@@ -132,8 +132,8 @@ fun SelecteurMoisAnnee(
                                 )
                             } else {
                                 ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 

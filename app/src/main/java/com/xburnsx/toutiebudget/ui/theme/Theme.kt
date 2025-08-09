@@ -28,19 +28,19 @@ private fun createDarkColorScheme(couleurPrimaire: Color) = darkColorScheme(
     onBackground = TextPrimary,
 
     // ✅ FORCE TOUS LES DIALOGS À AVOIR LA MÊME COULEUR QUE LE BACKGROUND !
-    surface = DarkBackground,
+    surface = DarkSurface,
     onSurface = TextPrimary,
-    surfaceVariant = TextPrimary,           // ✅ Même couleur !
-    onSurfaceVariant = TextPrimary,
-    surfaceTint = TextPrimary,              // ✅ AJOUTE ÇA
-    surfaceBright = TextPrimary,            // ✅ AJOUTE ÇA
-    surfaceDim = TextPrimary,               // ✅ AJOUTE ÇA
-    surfaceContainer = TextPrimary,
-    surfaceContainerHigh = TextPrimary,
-    surfaceContainerHighest = TextPrimary,
-    surfaceContainerLow = TextPrimary,      // ✅ AJOUTE ÇA
-    surfaceContainerLowest = TextPrimary,   // ✅ AJOUTE ÇA
-    inverseSurface = TextPrimary,           // ✅ AJOUTE ÇA
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = TextSecondary,
+    surfaceTint = DarkSurfaceVariant,
+    surfaceBright = DarkSurface,
+    surfaceDim = DarkSurface,
+    surfaceContainer = DarkSurface,
+    surfaceContainerHigh = DarkSurface,
+    surfaceContainerHighest = DarkSurface,
+    surfaceContainerLow = DarkSurfaceVariant,
+    surfaceContainerLowest = DarkBackground,
+    inverseSurface = TextSecondary,
 )
 
 @Suppress("DEPRECATION")
