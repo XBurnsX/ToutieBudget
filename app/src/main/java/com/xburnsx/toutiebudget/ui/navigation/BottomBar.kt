@@ -35,7 +35,7 @@ fun FloatingTransformingBottomBar(navController: NavHostController) {
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(

@@ -4,6 +4,8 @@ package com.xburnsx.toutiebudget.ui.navigation
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -254,14 +256,20 @@ fun MainAppScaffold(
 
     Scaffold(
         bottomBar = {
-            FloatingTransformingBottomBar(navController = bottomBarNavController)
+            // Réduire la hauteur de la "bande noire" au strict minimum
+            androidx.compose.foundation.layout.Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(70.dp)
+            )
         }
     ) { innerPadding ->
-        NavHost(
-            navController = bottomBarNavController,
-            startDestination = Screen.Budget.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = bottomBarNavController,
+                startDestination = Screen.Budget.route,
+                modifier = Modifier.padding(innerPadding)
+            ) {
             composable(Screen.Budget.route) {
                 val viewModel = AppModule.provideBudgetViewModel()
                 BudgetScreen(
@@ -340,6 +348,12 @@ fun MainAppScaffold(
                         }
                     }
                 )
+            }
+            }
+
+            // Barre flottante par-dessus le contenu, sans élargir la "bande"
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                FloatingTransformingBottomBar(navController = bottomBarNavController)
             }
         }
     }
