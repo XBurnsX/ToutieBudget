@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -295,7 +297,8 @@ fun AjoutTransactionScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    // Aucun espace supplémentaire sous le contenu scrollable
+                    Spacer(modifier = Modifier.height(0.dp))
                 }
 
                 // Bouton de diagnostic (seulement si il y a une erreur)
@@ -306,13 +309,15 @@ fun AjoutTransactionScreen(
                     )
                 }
 
-                // Boutons de sauvegarde et fractionnement fixés en bas
+                // Boutons de sauvegarde et fractionnement fixés en bas (collés au bas)
                 if (uiState.modeOperation == "Paiement") {
                     // Mode Paiement : un seul bouton "Effectuer le paiement"
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 0.dp)
+                            .navigationBarsPadding()
+                            .offset(y = 12.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (uiState.peutSauvegarder && !uiState.estEnTrainDeSauvegarder) {
                                 MaterialTheme.colorScheme.primary
@@ -376,7 +381,9 @@ fun AjoutTransactionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 0.dp)
+                            .navigationBarsPadding()
+                            .offset(y = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Bouton Fractionner (à gauche)
@@ -490,6 +497,7 @@ fun AjoutTransactionScreen(
                         }
                     }
                 }
+                // Aucun espace supplémentaire: coller au bas de la zone de contenu
             }
         }
     }
