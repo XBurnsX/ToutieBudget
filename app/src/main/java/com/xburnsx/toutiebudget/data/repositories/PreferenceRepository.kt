@@ -6,4 +6,8 @@ import java.util.Date
 interface PreferenceRepository {
     suspend fun sauvegarderDernierRollover(date: Date)
     suspend fun recupererDernierRollover(): Date?
+
+    // Préférence UI: figer les bandeaux "Prêt à placer" dans Budget
+    suspend fun setFigerPretAPlacer(enabled: Boolean)
+    suspend fun getFigerPretAPlacer(): Boolean
 }

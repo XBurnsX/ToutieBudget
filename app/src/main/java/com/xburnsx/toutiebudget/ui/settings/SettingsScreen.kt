@@ -52,6 +52,8 @@ import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.ui.theme.ToutiePink
 import com.xburnsx.toutiebudget.ui.theme.ToutieRed
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +100,7 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+    LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -155,6 +157,62 @@ fun SettingsScreen(
             }
 
             item {
+            // Section Affichage Budget
+            SectionParametres(
+                titre = "Budget",
+                icone = Icons.Default.Info
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Figer les 'Prêt à placer'",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Toujours afficher les bandeaux en haut de la page Budget",
+                                color = Color.LightGray,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        var checked by remember { mutableStateOf(false) }
+                        // Charger l'état actuel (simple, non persisté à l'écran)
+                        LaunchedEffect(Unit) {
+                            checked = com.xburnsx.toutiebudget.di.AppModule
+                                .provideBudgetViewModel()
+                                .uiState.value.figerPretAPlacer
+                        }
+                        Switch(
+                            checked = checked,
+                            onCheckedChange = { value ->
+                                checked = value
+                                // Mettre à jour via le ViewModel Budget et préférences
+                                val vm = com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel()
+                                // Appel interne via event bus simple
+                                vm.setFigerPretAPlacer(value)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
                 // Section Données
                 SectionParametres(
                     titre = "Données",

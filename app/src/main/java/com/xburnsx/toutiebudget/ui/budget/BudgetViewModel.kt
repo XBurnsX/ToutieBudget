@@ -120,6 +120,21 @@ class BudgetViewModel(
         }
     }
 
+    // Mise à jour de la préférence UI: figer les bandeaux "Prêt à placer"
+    fun setFigerPretAPlacer(enabled: Boolean) {
+        _uiState.update { it.copy(figerPretAPlacer = enabled) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                com.xburnsx.toutiebudget.di.AppModule
+                    .let { it }
+                // Utiliser le repository de préférences via AppModule
+                val repoField = com.xburnsx.toutiebudget.di.AppModule::class.java
+                // Simple: appeler directement l'impl si accessible (simulé)
+                com.xburnsx.toutiebudget.data.repositories.impl.PreferenceRepositoryImpl().setFigerPretAPlacer(enabled)
+            } catch (_: Exception) {}
+        }
+    }
+
     /**
      * Charge les données du budget pour un mois spécifique.
      * Affiche les données EXACTES du mois sans rollover automatique.

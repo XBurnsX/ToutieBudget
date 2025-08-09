@@ -37,5 +37,6 @@ data class BudgetUiState(
     val messageChargement: String? = null,
     val erreur: String? = null,
     val bandeauxPretAPlacer: List<PretAPlacerUi> = emptyList(),
-    val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList()
+    val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList(),
+    val figerPretAPlacer: Boolean = false
 )

@@ -148,13 +148,32 @@ fun BudgetScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Bandeaux "Prêt à placer" pour chaque compte avec solde > 0
-            items(uiState.bandeauxPretAPlacer, key = { it.compteId }) { bandeau ->
-                PretAPlacerCarte(
-                    nomCompte = bandeau.nomCompte,
-                    montant = bandeau.montant,
-                    couleurCompte = bandeau.couleurCompte
-                )
+            if (uiState.figerPretAPlacer) {
+                stickyHeader {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF121212))
+                            .padding(vertical = 8.dp)
+                    ) {
+                        uiState.bandeauxPretAPlacer.forEach { bandeau ->
+                            PretAPlacerCarte(
+                                nomCompte = bandeau.nomCompte,
+                                montant = bandeau.montant,
+                                couleurCompte = bandeau.couleurCompte
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Bandeaux non épinglés
+                items(uiState.bandeauxPretAPlacer, key = { it.compteId }) { bandeau ->
+                    PretAPlacerCarte(
+                        nomCompte = bandeau.nomCompte,
+                        montant = bandeau.montant,
+                        couleurCompte = bandeau.couleurCompte
+                    )
+                }
             }
 
             // Enveloppes groupées par catégorie
