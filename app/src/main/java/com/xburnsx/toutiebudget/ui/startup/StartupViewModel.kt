@@ -48,6 +48,15 @@ class StartupViewModel : ViewModel() {
                 val isUserAuthenticated = PocketBaseClient.chargerAuthentificationSauvegardee(context)
 
                 if (isUserAuthenticated) {
+                    // Planifier le worker quotidien de rappels
+                    try {
+                        val work = androidx.work.PeriodicWorkRequestBuilder<com.xburnsx.toutiebudget.utils.notifications.RappelsWorker>(
+                            24, java.util.concurrent.TimeUnit.HOURS
+                        ).build()
+                        androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                            "rappelsBudget", androidx.work.ExistingPeriodicWorkPolicy.UPDATE, work
+                        )
+                    } catch (_: Exception) {}
                     _state.value = StartupState.UserAuthenticated
                 } else {
                     _state.value = StartupState.UserNotAuthenticated

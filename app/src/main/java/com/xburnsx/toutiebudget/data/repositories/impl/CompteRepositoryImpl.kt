@@ -61,8 +61,8 @@ class CompteRepositoryImpl : CompteRepository {
             // Attend que tous les appels soient terminés
             val listes = awaitAll(deferredCheque, deferredCredit, deferredDette, deferredInvestissement)
 
-            // Aplatit la liste de listes en une seule liste et trie
-            val tousLesComptes = listes.flatten().filter { !it.estArchive }.sortedBy { it.ordre }
+            // Aplatit la liste de listes en une seule liste et trie (inclut archivés)
+            val tousLesComptes = listes.flatten().sortedBy { it.ordre }
 
             Result.success(tousLesComptes)
         } catch (e: Exception) {

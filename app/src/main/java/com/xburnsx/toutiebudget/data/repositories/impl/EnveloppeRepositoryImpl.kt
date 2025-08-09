@@ -5,6 +5,7 @@
 
  package com.xburnsx.toutiebudget.data.repositories.impl
 
+ import com.google.gson.Gson
  import com.google.gson.JsonParser
  import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
  import com.xburnsx.toutiebudget.data.modeles.Enveloppe
@@ -432,31 +433,33 @@ import java.util.*
          }
      }
  
-     /**
-      * Supprime une enveloppe par son ID.
-      */
-     override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
-         try {
-             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
-             val urlBase = client.obtenirUrlBaseActive()
- 
-             val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records/$id"
-             val requete = Request.Builder()
-                 .url(url)
-                 .addHeader("Authorization", "Bearer $token")
-                 .delete()
-                 .build()
- 
-             val reponse = httpClient.newCall(requete).execute()
-             if (!reponse.isSuccessful) {
-                 throw Exception("Erreur lors de la suppression de l'enveloppe: ${reponse.code}")
-             }
- 
-             Result.success(Unit)
-         } catch (e: Exception) {
-             Result.failure(e)
-         }
-     }
+    /**
+     * Archive une enveloppe au lieu de la supprimer définitivement.
+     */
+    override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val json = Gson().toJson(mapOf("est_archive" to true))
+            val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val url = "$urlBase/api/collections/${Collections.ENVELOPPES}/records/$id"
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .patch(body)
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de l'archivage de l'enveloppe: ${reponse.code}")
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
  
      /**
       * Ajoute une dépense à une allocation mensuelle.

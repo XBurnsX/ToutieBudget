@@ -89,5 +89,9 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     debugImplementation(libs.ui.tooling)
 
-    // ...existing dependencies...
+    // WorkManager pour tâches planifiées
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // Notifications compat
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core")
 }

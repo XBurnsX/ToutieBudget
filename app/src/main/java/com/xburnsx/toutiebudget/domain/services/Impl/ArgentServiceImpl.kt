@@ -718,6 +718,18 @@ class ArgentServiceImpl @Inject constructor(
         }
         compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
 
+        // Auto-archiver la dette si soldée
+        if (collectionCible == "comptes_dettes") {
+            val compteActuel = compteRepository.getCompteById(carteOuDetteId, collectionCible) as? CompteDette
+            if (compteActuel != null) {
+                val estSoldee = kotlin.math.abs(compteActuel.solde) < 0.01
+                if (estSoldee && !compteActuel.estArchive) {
+                    val detteArchivee = compteActuel.copy(estArchive = true)
+                    compteRepository.mettreAJourCompte(detteArchivee)
+                }
+            }
+        }
+
         // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
         for ((dette, part) in remboursementsDettes) {
             val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde + part)
@@ -728,6 +740,13 @@ class ArgentServiceImpl @Inject constructor(
             if (detteActuelle != null) {
                 val detteMiseAJour = detteActuelle.copy(paiementEffectue = (detteActuelle.paiementEffectue + 1))
                 compteRepository.mettreAJourCompte(detteMiseAJour)
+
+                // Auto-archiver si soldée
+                val estSoldee = kotlin.math.abs(nouveauSoldeDette) < 0.01
+                if (estSoldee && !detteActuelle.estArchive) {
+                    val detteArchivee = detteMiseAJour.copy(estArchive = true)
+                    compteRepository.mettreAJourCompte(detteArchivee)
+                }
             }
         }
 

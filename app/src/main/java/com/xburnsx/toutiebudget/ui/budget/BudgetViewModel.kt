@@ -59,9 +59,18 @@ class BudgetViewModel(
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
 
+    // Affichage des archivés
+    private var showArchived: Boolean = false
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
+
+            // Charger la préférence locale pour figer les bandeaux
+            try {
+                val appContext = com.xburnsx.toutiebudget.di.AppModule::class.java
+                // On n'a pas de contexte global ici; laisser au Settings de l'écrire dans l'UI state via setFigerPretAPlacer()
+            } catch (_: Exception) {}
 
             // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES
             objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
@@ -150,17 +159,13 @@ class BudgetViewModel(
                 // 1. Charger les comptes
                 _uiState.update { it.copy(messageChargement = "Chargement des comptes...") }
                 val resultComptes = compteRepository.recupererTousLesComptes()
-                val comptes = resultComptes.getOrElse {
-                    emptyList() 
-                }
+                val comptes = resultComptes.getOrElse { emptyList() }.filter { showArchived || !it.estArchive }
                 cacheComptes = comptes
 
                 // 2. Charger les enveloppes
                 _uiState.update { it.copy(messageChargement = "Chargement des enveloppes...") }
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
-                val enveloppes = resultEnveloppes.getOrElse {
-                    emptyList() 
-                }
+                val enveloppes = resultEnveloppes.getOrElse { emptyList() }.filter { showArchived || !it.estArchive }
                 cacheEnveloppes = enveloppes
 
                 // 3. Charger les catégories
@@ -246,6 +251,12 @@ class BudgetViewModel(
         }
     }
 
+    fun setShowArchived(enabled: Boolean) {
+        showArchived = enabled
+        // rafraîchir pour appliquer le filtre
+        chargerDonneesBudget(moisSelectionne)
+    }
+
     /**
      * Crée les enveloppes UI en combinant les données des enveloppes et allocations.
      * Version avec diagnostic détaillé pour identifier le problème de correspondance.
@@ -313,18 +324,17 @@ class BudgetViewModel(
                 else -> StatutObjectif.GRIS
             }
             
-            // Formater la date d'objectif si elle existe
-            val dateObjectifFormatee = enveloppe.dateObjectif
-
-            // Pour les objectifs bihebdomadaires, calculer la date limite dynamique
-            val dateObjectifDynamique = if (enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire) {
-                // Note: La fonction calculerDateLimiteBihebdomadaire n'existe plus, utilisons dateObjectif directement
-                enveloppe.dateObjectif ?: dateObjectifFormatee
-            } else if (enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel && enveloppe.objectifJour != null) {
-                // Pour les objectifs mensuels, utiliser le jour du mois (ex: le 25 de chaque mois)
-                enveloppe.objectifJour.toString()
-            } else {
-                dateObjectifFormatee
+            // Chaîne de date objectif pour affichage
+            val dateObjectifStr: String? = when {
+                enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel && enveloppe.objectifJour != null -> {
+                    // Afficher simplement le jour du mois (ex: "25") si aucun calcul de date précis
+                    enveloppe.objectifJour.toString()
+                }
+                else -> {
+                    enveloppe.dateObjectif?.let { d ->
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d)
+                    }
+                }
             }
 
             EnveloppeUi(
@@ -337,11 +347,10 @@ class BudgetViewModel(
                 objectif = objectif,
                 couleurProvenance = compteSource?.couleur,
                 statutObjectif = statut,
-                dateObjectif = dateObjectifDynamique?.let { date ->
-                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
-                }, // Utiliser la date dynamique formatée en String
+                dateObjectif = dateObjectifStr, // déjà une chaîne formatée ou un jour simple
                 versementRecommande = versementRecommande,
-                typeObjectif = enveloppe.typeObjectif // Utiliser le nouveau nom de propriété
+                typeObjectif = enveloppe.typeObjectif, // Utiliser le nouveau nom de propriété
+                estArchive = enveloppe.estArchive
             )
         }
     }

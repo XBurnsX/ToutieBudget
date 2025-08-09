@@ -259,12 +259,18 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                  }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
-                                val dateTexte = dateFormatee?.let { "${it.jourTexte} ${it.mois}" } ?: "fin du mois"
-                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                val dateTexte = when {
+                                    // Si on a stocké juste le jour (ex: "10"), on l'affiche tel quel
+                                    enveloppe.dateObjectif?.matches(Regex("\\d{1,2}")) == true -> "le ${enveloppe.dateObjectif}"
+                                    else -> {
+                                        val df = enveloppe.dateObjectif?.toDateFormatee()
+                                        df?.toStringCourt() ?: "fin du mois"
+                                    }
+                                }
+                                if (enveloppe.alloueCumulatif >= objectif) {
                                     "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
                                 } else {
-                                    "${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte" //Objectif mensuel: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte
+                                    "${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
                                 }
                             }
                             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {

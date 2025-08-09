@@ -8,6 +8,8 @@ import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
+import com.xburnsx.toutiebudget.data.modeles.Categorie
+import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +42,7 @@ class ComptesViewModel(
         }
     }
 
-    fun chargerComptes() {
+    private fun chargerComptesInternal(showArchived: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             compteRepository.recupererTousLesComptes().onSuccess { comptes ->
@@ -51,8 +53,8 @@ class ComptesViewModel(
                         is CompteDette -> "Dettes"
                         is CompteInvestissement -> "Investissements"
                     }
-                }.mapValues { (_, comptes) ->
-                    comptes.sortedBy { it.ordre }
+                }.mapValues { (_, comptesType) ->
+                    comptesType.filter { showArchived || !it.estArchive }.sortedBy { it.ordre }
                 }
                 _uiState.update {
                     it.copy(isLoading = false, comptesGroupes = comptesGroupes)
@@ -64,6 +66,10 @@ class ComptesViewModel(
             }
         }
     }
+
+    fun chargerComptes() = chargerComptesInternal(showArchived = false)
+
+    fun chargerComptesArchives() = chargerComptesInternal(showArchived = true)
 
     fun onCompteLongPress(compte: Compte) {
         _uiState.update { it.copy(compteSelectionne = compte, isMenuContextuelVisible = true) }
@@ -311,15 +317,53 @@ class ComptesViewModel(
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
-            compteRepository.creerCompte(nouveauCompte).onSuccess {
+            compteRepository.creerCompte(nouveauCompte).onSuccess { compteCree ->
+                // Si c'est une dette, créer cat. "Dettes" + enveloppe correspondante
+                if (compteCree is CompteDette) {
+                    try {
+                        val categorieRepo = com.xburnsx.toutiebudget.di.AppModule.provideCategoriesEnveloppesViewModel() // obtenir VM non idéal; on va créer via repo direct
+                    } catch (_: Exception) {}
+                    // Utiliser directement les repositories via AppModule
+                    val catRepo = com.xburnsx.toutiebudget.di.AppModule.run { 
+                        javaClass // no-op pour import static
+                    }
+                    // Création rapide via endpoints existants
+                    val categorieRepository = com.xburnsx.toutiebudget.di.AppModule
+                        .let { com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl() }
+                    val enveloppeRepository = com.xburnsx.toutiebudget.di.AppModule
+                        .let { com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl() }
+
+                    // 1) Assurer la catégorie "Dettes"
+                    val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                    val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
+                        val nouvelleCat = Categorie(id = "", utilisateurId = compteCree.utilisateurId, nom = "Dettes", ordre = 999)
+                        categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
+                    }
+
+                    // 2) Créer l'enveloppe associée à la dette (solde restant dans la bulle)
+                    val env = Enveloppe(
+                        id = "",
+                        utilisateurId = compteCree.utilisateurId,
+                        nom = compteCree.nom,
+                        categorieId = catDettes.id,
+                        estArchive = false,
+                        ordre = 0,
+                        typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                        objectifMontant = 0.0,
+                        dateObjectif = null,
+                        dateDebutObjectif = null,
+                        objectifJour = null,
+                        resetApresEcheance = false
+                    )
+                    enveloppeRepository.creerEnveloppe(env)
+                }
+
                 chargerComptes()
                 onFermerTousLesDialogues()
 
-                // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR TOUTES LES PAGES
                 realtimeSyncService.declencherMiseAJourBudget()
                 realtimeSyncService.declencherMiseAJourComptes()
 
-                // Notifier les autres ViewModels du changement
                 onCompteChange?.invoke()
             }.onFailure {
                 // Gérer l'erreur

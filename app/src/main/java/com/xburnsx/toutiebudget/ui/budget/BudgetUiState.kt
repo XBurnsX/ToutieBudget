@@ -17,7 +17,8 @@ data class EnveloppeUi(
     val statutObjectif: StatutObjectif,
     val dateObjectif: String? = null, // Date choisie lors de la création de l'objectif
     val versementRecommande: Double = 0.0,
-    val typeObjectif: TypeObjectif = TypeObjectif.Aucun // Ajouter le type d'objectif
+    val typeObjectif: TypeObjectif = TypeObjectif.Aucun, // Ajouter le type d'objectif
+    val estArchive: Boolean = false
 )
 
 data class PretAPlacerUi(

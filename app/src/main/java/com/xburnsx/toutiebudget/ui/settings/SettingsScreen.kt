@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
@@ -54,6 +56,13 @@ import com.xburnsx.toutiebudget.ui.theme.ToutieRed
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +70,8 @@ fun SettingsScreen(
     couleurTheme: CouleurTheme = CouleurTheme.PINK,
     onCouleurThemeChange: (CouleurTheme) -> Unit,
     onLogout: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToArchives: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -77,6 +87,7 @@ fun SettingsScreen(
         containerColor = Color(0xFF121212),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = {
                     Text(
                         text = "Paramètres",
@@ -100,161 +111,185 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-    LazyColumn(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Apparence
             item {
-                // Section Apparence
-                SectionParametres(
-                    titre = "Apparence",
-                    icone = Icons.Default.Palette
-                ) {
-                    // Sélecteur de couleur de thème
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF2C2C2E)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Couleur du thème",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                // Thème Rose
-                                SelecteurCouleur(
-                                    couleur = ToutiePink,
-                                    nom = "Rose",
-                                    isSelected = couleurTheme == CouleurTheme.PINK,
-                                    onSelect = { onCouleurThemeChange(CouleurTheme.PINK) }
-                                )
-
-                                // Thème Rouge
-                                SelecteurCouleur(
-                                    couleur = ToutieRed,
-                                    nom = "Rouge",
-                                    isSelected = couleurTheme == CouleurTheme.RED,
-                                    onSelect = { onCouleurThemeChange(CouleurTheme.RED) }
-                                )
+                SectionParametres(titre = "Apparence", icone = Icons.Default.Palette) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(text = "Couleur du thème", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                SelecteurCouleur(couleur = ToutiePink, nom = "Rose", isSelected = couleurTheme == CouleurTheme.PINK) { onCouleurThemeChange(CouleurTheme.PINK) }
+                                SelecteurCouleur(couleur = ToutieRed, nom = "Rouge", isSelected = couleurTheme == CouleurTheme.RED) { onCouleurThemeChange(CouleurTheme.RED) }
                             }
                         }
                     }
                 }
             }
 
+            // Budget
             item {
-            // Section Affichage Budget
-            SectionParametres(
-                titre = "Budget",
-                icone = Icons.Default.Info
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Figer les 'Prêt à placer'",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Toujours afficher les bandeaux en haut de la page Budget",
-                                color = Color.LightGray,
-                                fontSize = 12.sp
+                SectionParametres(titre = "Budget", icone = Icons.Default.Info) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)), modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "Figer les 'Prêt à placer'", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                Text(text = "Toujours afficher les bandeaux en haut de la page Budget", color = Color.LightGray, fontSize = 12.sp)
+                            }
+                            var checked by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(context)) }
+                            Switch(
+                                checked = checked,
+                                onCheckedChange = { value ->
+                                    checked = value
+                                    val vm = com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel()
+                                    vm.setFigerPretAPlacer(value)
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setFigerPretAPlacer(context, value)
+                                },
+                                colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
                             )
                         }
-
-                        var checked by remember { mutableStateOf(false) }
-                        // Charger l'état actuel (simple, non persisté à l'écran)
-                        LaunchedEffect(Unit) {
-                            checked = com.xburnsx.toutiebudget.di.AppModule
-                                .provideBudgetViewModel()
-                                .uiState.value.figerPretAPlacer
-                        }
-                        Switch(
-                            checked = checked,
-                            onCheckedChange = { value ->
-                                checked = value
-                                // Mettre à jour via le ViewModel Budget et préférences
-                                val vm = com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel()
-                                // Appel interne via event bus simple
-                                vm.setFigerPretAPlacer(value)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
                     }
                 }
             }
-        }
 
-        item {
-                // Section Données
-                SectionParametres(
-                    titre = "Données",
-                    icone = Icons.Default.Delete
-                ) {
+            // Notifications
+            item {
+                SectionParametres(titre = "Notifications", icone = Icons.Default.Info) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            var notifEnabled by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getNotificationsEnabled(context)) }
+                            val notifPermissionLauncher = rememberLauncherForActivityResult(
+                                ActivityResultContracts.RequestPermission()
+                            ) { granted ->
+                                if (!granted) {
+                                    notifEnabled = false
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(context, false)
+                                }
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Activer les notifications", color = Color.White, fontWeight = FontWeight.Medium)
+                                Switch(checked = notifEnabled, onCheckedChange = { enabled ->
+                                    notifEnabled = enabled
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(context, enabled)
+                                    if (enabled && Build.VERSION.SDK_INT >= 33) {
+                                        val st = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                                        if (st != PackageManager.PERMISSION_GRANTED) {
+                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        }
+                                    }
+                                })
+                            }
+
+                            var joursAvant by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifObjJoursAvant(context)) }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Rappel objectifs (jours avant)", color = Color.White)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        if (joursAvant > 0) {
+                                            joursAvant -= 1
+                                            com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(context, joursAvant)
+                                        }
+                                    }) { Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White) }
+                                    Text("$joursAvant j", color = Color.LightGray)
+                                    IconButton(onClick = {
+                                        if (joursAvant < 30) {
+                                            joursAvant += 1
+                                            com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(context, joursAvant)
+                                        }
+                                    }) { Icon(Icons.Default.Add, contentDescription = null, tint = Color.White) }
+                                }
+                            }
+
+                            var notifEnvNeg by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifEnveloppeNegative(context)) }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Alerte enveloppe en négatif", color = Color.White)
+                                Switch(checked = notifEnvNeg, onCheckedChange = {
+                                    notifEnvNeg = it
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifEnveloppeNegative(context, it)
+                                })
+                            }
+
+                            // Retiré: rappel jour paiement dettes/cartes
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(onClick = {
+                                    if (Build.VERSION.SDK_INT >= 33) {
+                                        val st = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                                        if (st != PackageManager.PERMISSION_GRANTED) {
+                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                            return@TextButton
+                                        }
+                                    }
+                                    val req = androidx.work.OneTimeWorkRequestBuilder<com.xburnsx.toutiebudget.utils.notifications.RappelsWorker>().build()
+                                    androidx.work.WorkManager.getInstance(context).enqueue(req)
+                                }) {
+                                    Text("Tester les notifications", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Données
+            item {
+                SectionParametres(titre = "Données", icone = Icons.Default.Delete) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)), modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Afficher les éléments archivés", color = Color.White)
+                            TextButton(onClick = onNavigateToArchives) {
+                                Text("Voir les éléments archivés", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+
+                    // Retiré: archivage automatique par inactivité (non pertinent en budget)
+
                     OptionParametre(
                         titre = "Réinitialiser les données",
                         description = "Supprimer toutes les données de l'application",
                         icone = Icons.Default.Delete,
                         couleurTexte = Color.Red,
-                        onClick = {
-                            showResetDialog = true
-                        }
+                        onClick = { showResetDialog = true }
                     )
                 }
             }
 
+            // À propos
             item {
-                // Section À propos
-                SectionParametres(
-                    titre = "À propos",
-                    icone = Icons.Default.Info
-                ) {
+                SectionParametres(titre = "À propos", icone = Icons.Default.Info) {
                     Column {
                         OptionParametre(
                             titre = "Version de l'application",
                             description = "ToutieBudget v1.0.0",
                             icone = Icons.Default.Info,
-                            onClick = null // Non cliquable
+                            onClick = null
                         )
                     }
                 }
             }
 
+            // Déconnexion
             item {
-                // Bouton Déconnexion (séparé)
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2C2C2E)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E)), modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -263,18 +298,8 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = null,
-                            tint = Color.Red,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Se déconnecter",
-                            color = Color.Red,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Color.Red, modifier = Modifier.size(24.dp))
+                        Text(text = "Se déconnecter", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }

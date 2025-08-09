@@ -43,6 +43,7 @@ import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
 import com.xburnsx.toutiebudget.utils.ThemePreferences
 import com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen
 import com.xburnsx.toutiebudget.ui.dette.DetteScreen
+import com.xburnsx.toutiebudget.ui.archives.ArchivesScreen
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -253,6 +254,14 @@ fun MainAppScaffold(
     onCouleurThemeChange: (CouleurTheme) -> Unit
 ) {
     val bottomBarNavController = rememberNavController()
+    val ctx = LocalContext.current
+    // Synchroniser la préférence "figer prêt à placer" au démarrage
+    LaunchedEffect(Unit) {
+        val figer = com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(ctx)
+        com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setFigerPretAPlacer(figer)
+        val showArchived = com.xburnsx.toutiebudget.utils.PreferencesManager.getShowArchived(ctx)
+        com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setShowArchived(showArchived)
+    }
 
     Scaffold(
         bottomBar = {
@@ -296,9 +305,18 @@ fun MainAppScaffold(
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = {
-                        bottomBarNavController.popBackStack()
-                    }
+                    onBack = { bottomBarNavController.popBackStack() },
+                    onNavigateToArchives = { bottomBarNavController.navigate("archives") }
+                )
+            }
+            // Route archives
+            composable("archives") {
+                val comptesVm = AppModule.provideComptesViewModel()
+                val budgetVm = AppModule.provideBudgetViewModel()
+                ArchivesScreen(
+                    comptesViewModel = comptesVm,
+                    budgetViewModel = budgetVm,
+                    onBack = { bottomBarNavController.popBackStack() }
                 )
             }
             composable(Screen.Comptes.route) {

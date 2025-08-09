@@ -191,14 +191,20 @@ fun BudgetScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     )
 
-                    // 🆕 ENVELOPPES CLIQUABLES POUR OUVRIR LE CLAVIER
+                    // 🆕 ENVELOPPES (désactiver le clic pour la catégorie "Dettes")
+                    val clicActif = categorie.nomCategorie != "Dettes"
                     categorie.enveloppes.forEach { enveloppe ->
-                        Box(
-                            modifier = Modifier.clickable {
-                                enveloppeSelectionnee = enveloppe
-                                showClavierEnveloppe = true
+                        if (clicActif) {
+                            Box(
+                                modifier = Modifier.clickable {
+                                    enveloppeSelectionnee = enveloppe
+                                    showClavierEnveloppe = true
+                                }
+                            ) {
+                                EnveloppeItem(enveloppe = enveloppe)
                             }
-                        ) {
+                        } else {
+                            // Affichage simple, sans action
                             EnveloppeItem(enveloppe = enveloppe)
                         }
                     }
