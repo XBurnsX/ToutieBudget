@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Archive
@@ -110,6 +111,30 @@ fun SettingsScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Retour",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        val ctx = context
+                        val payload = mapOf(
+                            "theme" to (if (couleurTheme == CouleurTheme.RED) "RED" else "PINK"),
+                            "figer_pret_a_placer" to com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(ctx),
+                            "notifications_enabled" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotificationsEnabled(ctx),
+                            "notif_obj_jours_avant" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifObjJoursAvant(ctx),
+                            "notif_enveloppe_negatif" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifEnveloppeNegative(ctx)
+                        )
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            try {
+                                com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+                                    .mettreAJourPreferencesUtilisateur(payload)
+                            } catch (_: Exception) {}
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = "Enregistrer",
                             tint = Color.White
                         )
                     }

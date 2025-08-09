@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
@@ -236,6 +238,64 @@ class RealtimeSyncService @Inject constructor() {
         startRealtimeSync()
     }
 
+
+    /**
+     * Met à jour (ou crée) l'entrée de préférences utilisateur dans PocketBase.
+     * Collection: user_preferences, clé relation: utilisateur_id (unique).
+     */
+    suspend fun mettreAJourPreferencesUtilisateur(changements: Map<String, Any?>) {
+        val user = client.obtenirUtilisateurConnecte() ?: throw Exception("Utilisateur non connecté")
+        val token = client.obtenirToken() ?: throw Exception("Token manquant")
+        val urlBase = UrlResolver.obtenirUrlActive()
+
+        // 1) Lire l'existant pour cet utilisateur
+        val filter = "(utilisateur_id=\"${user.id}\")"
+        val getUrl = "$urlBase/api/collections/user_preferences/records?filter=${filter}&perPage=1"
+
+        val getReq = Request.Builder()
+            .url(getUrl)
+            .addHeader("Authorization", "Bearer $token")
+            .get()
+            .build()
+
+        val getResp = httpClient.newCall(getReq).execute()
+        val items = if (getResp.isSuccessful) {
+            try {
+                val obj = gson.fromJson(getResp.body?.string() ?: "{}", com.google.gson.JsonObject::class.java)
+                obj.getAsJsonArray("items")
+            } catch (_: Exception) { null }
+        } else null
+
+        val media = "application/json; charset=utf-8".toMediaType()
+
+        if (items != null && items.size() > 0) {
+            // PATCH sur le record existant
+            val recordId = items[0].asJsonObject.get("id").asString
+            val patchBody = gson.toJson(changements).toRequestBody(media)
+            val patchUrl = "$urlBase/api/collections/user_preferences/records/$recordId"
+            val patchReq = Request.Builder()
+                .url(patchUrl)
+                .addHeader("Authorization", "Bearer $token")
+                .patch(patchBody)
+                .build()
+            val patchResp = httpClient.newCall(patchReq).execute()
+            if (!patchResp.isSuccessful) throw Exception("Echec MAJ préférences: ${patchResp.code}")
+        } else {
+            // POST pour créer avec utilisateur_id + changements
+            val bodyMap = HashMap<String, Any?>()
+            bodyMap.putAll(changements)
+            bodyMap["utilisateur_id"] = user.id
+            val postBody = gson.toJson(bodyMap).toRequestBody(media)
+            val postUrl = "$urlBase/api/collections/user_preferences/records"
+            val postReq = Request.Builder()
+                .url(postUrl)
+                .addHeader("Authorization", "Bearer $token")
+                .post(postBody)
+                .build()
+            val postResp = httpClient.newCall(postReq).execute()
+            if (!postResp.isSuccessful) throw Exception("Echec création préférences: ${postResp.code}")
+        }
+    }
 
     suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
