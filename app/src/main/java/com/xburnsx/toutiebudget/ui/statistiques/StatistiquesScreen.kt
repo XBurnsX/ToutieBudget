@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -88,6 +89,12 @@ import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.runtime.CompositionLocalProvider
 import kotlinx.coroutines.delay
 import java.util.Calendar
@@ -142,6 +149,19 @@ fun StatistiquesScreen(
             TransactionModal(uiState.modalTitre, uiState.modalTransactions)
         }
     }
+    }
+}
+
+@Composable
+private fun netGradient(totalNet: Double): Brush {
+    return if (totalNet >= 0) {
+        Brush.linearGradient(
+            colors = listOf(Color(0x334CAF50), Color(0x664CAF50))
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f))
+        )
     }
 }
 // CompositionLocal pour exposer tiersId->nom à la modal
@@ -332,8 +352,8 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState) {
                 icon = Icons.Default.TrendingUp,
                 gradient = Brush.linearGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.tertiaryContainer,
-                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                        Color(0x334CAF50), // vert translucide
+                        Color(0x664CAF50)
                     )
                 ),
                 delay = 100
@@ -344,12 +364,7 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState) {
                 title = "Net",
                 value = MoneyFormatter.formatAmount(uiState.totalNet),
                 icon = Icons.Default.AccountBalance,
-                gradient = Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                    )
-                ),
+                gradient = netGradient(uiState.totalNet),
                 delay = 200
             )
         }
@@ -507,6 +522,167 @@ private fun AnimatedTopCards(
                         viewModel.ouvrirModalTransactions("Transactions - ${item.label}", tx)
                     }
                 )
+            }
+
+            // Courbe cumulée du mois (cashflow net) + MM7
+            CashflowSection(uiState)
+        }
+    }
+}
+@Composable
+private fun CashflowSection(uiState: StatistiquesUiState) {
+    if (uiState.cashflowCumulMensuel.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Cashflow du mois (cumul) • MM7",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            val labelsAll = uiState.cashflowCumulMensuel.map { it.first }
+            val cumulAll = uiState.cashflowCumulMensuel.map { it.second }
+            val mm7All = uiState.moyenneMobile7Jours.map { it.second }
+            val n = minOf(labelsAll.size, cumulAll.size, mm7All.size)
+            val labels = labelsAll.take(n)
+            val cumul = cumulAll.take(n)
+            val mm7 = mm7All.take(n)
+            val allValues = cumul + mm7
+            val minVal = (allValues.minOrNull() ?: 0.0)
+            val maxVal = (allValues.maxOrNull() ?: 0.0)
+            val paddingRatio = 0.1
+            val range = (maxVal - minVal).coerceAtLeast(0.01)
+            val minY = minVal - range * paddingRatio
+            val maxY = maxVal + range * paddingRatio
+
+            Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                // Légende + valeurs instantanées
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.width(18.dp).height(3.dp).background(MaterialTheme.colorScheme.error, RoundedCornerShape(2.dp)))
+                            Text("Cumul", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.width(18.dp).height(3.dp).background(Color(0xFFFFA000), RoundedCornerShape(2.dp)))
+                            Text("MM7 (net)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val lastCumul = cumul.lastOrNull() ?: 0.0
+                        val lastMm = mm7.lastOrNull() ?: 0.0
+                        Text("Cumul: ${MoneyFormatter.formatAmount(lastCumul)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text("MM7: ${MoneyFormatter.formatAmount(lastMm)}", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFA000))
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // Pré-calcul des couleurs
+                val outlineCol = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                val cumulCol = MaterialTheme.colorScheme.error
+                val mmCol = Color(0xFFFFA000)
+
+                // Zone de dessin avec axe Y à gauche
+                Row(Modifier.fillMaxWidth().weight(1f)) {
+                    // Axe Y (montants)
+                    Column(
+                        modifier = Modifier.width(56.dp).fillMaxHeight().padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(MoneyFormatter.formatAmount(maxY), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                        if (minY < 0 && maxY > 0) Text("0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(MoneyFormatter.formatAmount(minY), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    val w = size.width
+                    val h = size.height
+                    val n = cumul.size.coerceAtLeast(1)
+                    val stepX = if (n > 1) w / (n - 1) else 0f
+
+                    fun mapY(v: Double): Float {
+                        val ratio = ((v - minY) / (maxY - minY)).coerceIn(0.0, 1.0)
+                        return (h * (1f - ratio.toFloat()))
+                    }
+
+                    // Axe zéro
+                    if (minY < 0 && maxY > 0) {
+                        val y0 = mapY(0.0)
+                        drawLine(
+                            color = outlineCol,
+                            start = Offset(0f, y0),
+                            end = Offset(w, y0),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+
+                    // Tracer cumul (rouge)
+                    if (n >= 1) {
+                        val path = Path()
+                        path.moveTo(0f, mapY(cumul.first()))
+                        for (i in 1 until n) {
+                            path.lineTo(i * stepX, mapY(cumul[i]))
+                        }
+                        drawPath(
+                            path = path,
+                            color = cumulCol,
+                            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // Tracer MM7 (orange)
+                    if (n >= 1) {
+                        val path = Path()
+                        path.moveTo(0f, mapY(mm7.first()))
+                        for (i in 1 until n) {
+                            path.lineTo(i * stepX, mapY(mm7[i]))
+                        }
+                        drawPath(
+                            path = path,
+                            color = mmCol,
+                            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+                    }
+                    // Fin Canvas
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // Labels jours réduits (max 10)
+                val maxLabels = 10
+                val nLab = labels.size
+                val step = kotlin.math.max(1, nLab / maxLabels)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    labels.forEachIndexed { i, l ->
+                        val show = i % step == 0 || i == nLab - 1
+                        Text(
+                            if (show) l else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
+                }
             }
         }
     }
