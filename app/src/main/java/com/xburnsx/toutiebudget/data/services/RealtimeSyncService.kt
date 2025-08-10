@@ -324,6 +324,51 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
+    /**
+     * Récupère les préférences utilisateur à partir de PocketBase (collection user_preferences).
+     * Retourne une map clé/valeur simple, les clés possibles: "theme", "figer_pret_a_placer",
+     * "notifications_enabled", "notif_obj_jours_avant", "notif_enveloppe_negatif".
+     */
+    suspend fun recupererPreferencesUtilisateur(): Map<String, Any?> = withContext(Dispatchers.IO) {
+        val utilisateur = client.obtenirUtilisateurConnecte() ?: throw Exception("Utilisateur non connecté")
+        val token = client.obtenirToken() ?: throw Exception("Token manquant")
+        val urlBase = UrlResolver.obtenirUrlActive()
+
+        val rawFilter = "utilisateur_id=\"${utilisateur.id}\""
+        val encodedFilter = java.net.URLEncoder.encode(rawFilter, Charsets.UTF_8.name())
+        val getUrl = "$urlBase/api/collections/user_preferences/records?filter=$encodedFilter&perPage=1"
+
+        Log.d(logTag, "FETCH prefs → userId=${utilisateur.id}")
+        val getReq = okhttp3.Request.Builder()
+            .url(getUrl)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Accept", "application/json")
+            .get()
+            .build()
+
+        val response = httpClient.newCall(getReq).execute()
+        if (!response.isSuccessful) {
+            Log.d(logTag, "FETCH prefs failed code=${response.code}")
+            return@withContext emptyMap<String, Any?>()
+        }
+        val bodyStr = response.body?.string().orEmpty()
+        try {
+            val root = gson.fromJson(bodyStr, com.google.gson.JsonObject::class.java)
+            val items = root.getAsJsonArray("items")
+            if (items == null || items.size() == 0) return@withContext emptyMap<String, Any?>()
+            val record = items[0].asJsonObject
+            val map = mutableMapOf<String, Any?>()
+            if (record.has("theme")) map["theme"] = record.get("theme").asString
+            if (record.has("figer_pret_a_placer")) map["figer_pret_a_placer"] = record.get("figer_pret_a_placer").asBoolean
+            if (record.has("notifications_enabled")) map["notifications_enabled"] = record.get("notifications_enabled").asBoolean
+            if (record.has("notif_obj_jours_avant")) map["notif_obj_jours_avant"] = record.get("notif_obj_jours_avant").asInt
+            if (record.has("notif_enveloppe_negatif")) map["notif_enveloppe_negatif"] = record.get("notif_enveloppe_negatif").asBoolean
+            return@withContext map
+        } catch (_: Exception) {
+            return@withContext emptyMap<String, Any?>()
+        }
+    }
+
     suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
 

@@ -127,6 +127,7 @@ fun CategoriesEnveloppesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = { 
                     Text(
                         "Catégories & Enveloppes", 

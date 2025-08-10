@@ -25,6 +25,7 @@ import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
 import com.xburnsx.toutiebudget.ui.login.LoginViewModel
 import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
+import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
  import androidx.lifecycle.SavedStateHandle
 // import android.content.Context (supprimé)
 
@@ -148,6 +149,14 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
      private val detteViewModel: DetteViewModel by lazy {
          DetteViewModel(compteRepository = compteRepository)
      }
+
+      private val statistiquesViewModel: StatistiquesViewModel by lazy {
+          StatistiquesViewModel(
+              transactionRepository = transactionRepository,
+              enveloppeRepository = enveloppeRepository,
+              tiersRepository = tiersRepository
+          )
+      }
  
      // ===== FONCTIONS PUBLIQUES =====
      
@@ -164,6 +173,7 @@ import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
+      fun provideStatistiquesViewModel(): StatistiquesViewModel = statistiquesViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,

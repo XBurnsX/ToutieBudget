@@ -5,6 +5,7 @@
 package com.xburnsx.toutiebudget.ui.budget
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +60,7 @@ import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.util.Date
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BudgetScreen(
     viewModel: BudgetViewModel,

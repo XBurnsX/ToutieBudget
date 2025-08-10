@@ -44,6 +44,7 @@ import com.xburnsx.toutiebudget.utils.ThemePreferences
 import com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen
 import com.xburnsx.toutiebudget.ui.dette.DetteScreen
 import com.xburnsx.toutiebudget.ui.archives.ArchivesScreen
+import kotlinx.coroutines.launch
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -78,6 +79,8 @@ fun AppNavigation() {
         mutableStateOf(ThemePreferences.chargerCouleurTheme(context))
     }
 
+    // (Chargement à chaud des prefs après login déplacé dans MainAppScaffold)
+
     // Appliquer le thème dynamique à toute l'application
     ToutieBudgetTheme(couleurTheme = couleurTheme) {
         NavHost(
@@ -107,11 +110,43 @@ fun AppNavigation() {
 
             composable("login_flow") {
                 val loginViewModel = AppModule.provideLoginViewModel()
+                val scope = rememberCoroutineScope()
                 LoginScreen(
                     viewModel = loginViewModel,
                     onLoginSuccess = {
-                        navController.navigate("main_flow") {
-                            popUpTo("login_flow") { inclusive = true }
+                        scope.launch {
+                            try {
+                                val prefs = AppModule.provideRealtimeSyncService().recupererPreferencesUtilisateur()
+                                when (prefs["theme"] as? String) {
+                                    "RED" -> {
+                                        couleurTheme = CouleurTheme.RED
+                                        ThemePreferences.sauvegarderCouleurTheme(context, CouleurTheme.RED)
+                                    }
+                                    "PINK" -> {
+                                        couleurTheme = CouleurTheme.PINK
+                                        ThemePreferences.sauvegarderCouleurTheme(context, CouleurTheme.PINK)
+                                    }
+                                }
+                                (prefs["figer_pret_a_placer"] as? Boolean)?.let { value ->
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setFigerPretAPlacer(context, value)
+                                    AppModule.provideBudgetViewModel().setFigerPretAPlacer(value)
+                                }
+                                (prefs["notifications_enabled"] as? Boolean)?.let { value ->
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(context, value)
+                                }
+                                (prefs["notif_obj_jours_avant"] as? Int)?.let { value ->
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(context, value)
+                                }
+                                (prefs["notif_enveloppe_negatif"] as? Boolean)?.let { value ->
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifEnveloppeNegative(context, value)
+                                }
+                            } catch (_: Exception) {
+                                // ignorer en cas d'absence de record
+                            }
+
+                            navController.navigate("main_flow") {
+                                popUpTo("login_flow") { inclusive = true }
+                            }
                         }
                     }
                 )
@@ -255,12 +290,45 @@ fun MainAppScaffold(
 ) {
     val bottomBarNavController = rememberNavController()
     val ctx = LocalContext.current
-    // Synchroniser la préférence "figer prêt à placer" au démarrage
+    // Charger/Appliquer les préférences (locales + distantes) au démarrage du flux principal
     LaunchedEffect(Unit) {
-        val figer = com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(ctx)
-        com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setFigerPretAPlacer(figer)
-        val showArchived = com.xburnsx.toutiebudget.utils.PreferencesManager.getShowArchived(ctx)
-        com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setShowArchived(showArchived)
+        try {
+            // 1) Appliquer d'abord les locales pour éviter le flash
+            val figerLocal = com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(ctx)
+            com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setFigerPretAPlacer(figerLocal)
+            val showArchived = com.xburnsx.toutiebudget.utils.PreferencesManager.getShowArchived(ctx)
+            com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setShowArchived(showArchived)
+
+            // 2) Charger les distantes si connecté et les persister localement
+            val prefs = com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService().recupererPreferencesUtilisateur()
+            // Thème
+            when (prefs["theme"] as? String) {
+                "RED" -> {
+                    onCouleurThemeChange(com.xburnsx.toutiebudget.ui.theme.CouleurTheme.RED)
+                    ThemePreferences.sauvegarderCouleurTheme(ctx, com.xburnsx.toutiebudget.ui.theme.CouleurTheme.RED)
+                }
+                "PINK" -> {
+                    onCouleurThemeChange(com.xburnsx.toutiebudget.ui.theme.CouleurTheme.PINK)
+                    ThemePreferences.sauvegarderCouleurTheme(ctx, com.xburnsx.toutiebudget.ui.theme.CouleurTheme.PINK)
+                }
+            }
+            // Switches
+            (prefs["figer_pret_a_placer"] as? Boolean)?.let { value ->
+                com.xburnsx.toutiebudget.utils.PreferencesManager.setFigerPretAPlacer(ctx, value)
+                com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setFigerPretAPlacer(value)
+            }
+            (prefs["notifications_enabled"] as? Boolean)?.let { value ->
+                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(ctx, value)
+            }
+            (prefs["notif_obj_jours_avant"] as? Int)?.let { value ->
+                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(ctx, value)
+            }
+            (prefs["notif_enveloppe_negatif"] as? Boolean)?.let { value ->
+                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifEnveloppeNegative(ctx, value)
+            }
+        } catch (_: Exception) {
+            // Silencieux si non connecté / pas de record
+        }
     }
 
     Scaffold(
@@ -352,7 +420,8 @@ fun MainAppScaffold(
                 )
             }
             composable(Screen.Statistiques.route) {
-                PlaceholderScreen("Statistiques")
+                val viewModel = AppModule.provideStatistiquesViewModel()
+                com.xburnsx.toutiebudget.ui.statistiques.StatistiquesScreen(viewModel = viewModel)
             }
             composable(Screen.VirerArgent.route) {
                 val viewModel = AppModule.provideVirerArgentViewModel()

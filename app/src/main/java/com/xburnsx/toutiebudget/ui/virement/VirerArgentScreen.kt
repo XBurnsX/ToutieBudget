@@ -64,6 +64,7 @@ fun VirerArgentScreen(
         },
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = { Text("Virer de l'argent", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { onNavigateBack() }) {

@@ -57,6 +57,7 @@ fun GestionCarteCreditScreen(
         containerColor = Color(0xFF121212),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0),
                 title = {
                     Text(carteCredit?.nom ?: "Gestion Carte de Crédit")
                 },

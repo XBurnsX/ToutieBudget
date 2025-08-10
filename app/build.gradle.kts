@@ -14,8 +14,8 @@ android {
         applicationId = "com.xburnsx.toutiebudget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11  // ← BUILD 1.0 build 11
-        versionName = "1.0"
+        versionCode = 13
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

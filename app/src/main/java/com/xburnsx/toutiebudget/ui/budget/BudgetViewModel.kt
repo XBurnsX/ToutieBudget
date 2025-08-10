@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
@@ -275,6 +276,9 @@ class BudgetViewModel(
         // Créer une map des comptes par ID pour récupérer les couleurs
         val mapComptes = comptes.associateBy { it.id }
 
+        // Associer l'ID de catégorie à son nom pour détecter la catégorie "Dettes"
+        val nomCategorieParId = cacheCategories.associate { it.id to it.nom }
+
         return enveloppes.map { enveloppe ->
 
             // Récupérer toutes les allocations pour cette enveloppe pour le mois en cours
@@ -298,6 +302,15 @@ class BudgetViewModel(
 
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
+
+            // Pour les enveloppes de la catégorie "Dettes", afficher le solde du CompteDette correspondant
+            val estCategorieDettes = nomCategorieParId[enveloppe.categorieId]?.equals("Dettes", ignoreCase = true) == true
+            val soldeAffichage = if (estCategorieDettes) {
+                val detteAssociee = comptes.filterIsInstance<CompteDette>()
+                    .firstOrNull { it.nom.equals(enveloppe.nom, ignoreCase = true) }
+                // Si trouvée, afficher son solde (généralement négatif). Sinon, fallback sur le solde total de l'enveloppe
+                detteAssociee?.soldeDette ?: soldeTotal
+            } else soldeTotal
 
             // 🎯 SOLUTION SIMPLE : soldeTotal contient déjà la bonne valeur du mois !
             val progresActuel = when (enveloppe.typeObjectif) {
@@ -340,7 +353,7 @@ class BudgetViewModel(
             EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
-                solde = soldeTotal,
+                solde = soldeAffichage,
                 depense = depenseTotale,
                 alloue = alloueTotal, // Total alloué ce mois
                 alloueCumulatif = alloueCumulatif, // ← NOUVEAU : Total alloué depuis le début (pour barres de progression)

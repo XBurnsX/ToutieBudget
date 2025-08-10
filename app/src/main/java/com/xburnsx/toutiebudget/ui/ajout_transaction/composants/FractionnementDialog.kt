@@ -8,6 +8,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -94,7 +96,9 @@ fun FractionnementDialog(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(20.dp)
+                    .navigationBarsPadding()
+                    .imePadding(),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF1E1E1E)
                 ),

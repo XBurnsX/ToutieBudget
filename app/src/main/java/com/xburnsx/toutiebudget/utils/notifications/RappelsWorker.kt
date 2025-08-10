@@ -27,8 +27,10 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
 
         val state = budgetVm.uiState.value
 
-        // 1) Enveloppes négatives
-        state.categoriesEnveloppes.flatMap { it.enveloppes }.filter { it.solde < 0 }.forEach { env ->
+        // 1) Enveloppes négatives (exclure la catégorie "Dettes")
+        state.categoriesEnveloppes.flatMap { cat ->
+            if (cat.nomCategorie.equals("Dettes", ignoreCase = true)) emptyList() else cat.enveloppes
+        }.filter { it.solde < 0 }.forEach { env ->
             notify("Enveloppe négative", "${env.nom} est en négatif: ${env.solde}")
         }
 

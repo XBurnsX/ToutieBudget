@@ -168,7 +168,7 @@ class HistoriqueCompteViewModel(
                                     val enveloppeId = obj.get("enveloppeId")?.asString
                                     if (enveloppeId != null) {
                                         val enveloppe = enveloppes.find { it.id == enveloppeId }
-                                        enveloppe?.nom ?: "Enveloppe inconnue"
+                                        enveloppe?.nom ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
                                     } else {
                                         null
                                     }

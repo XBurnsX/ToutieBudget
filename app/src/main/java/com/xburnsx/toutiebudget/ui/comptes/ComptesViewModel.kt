@@ -317,34 +317,33 @@ class ComptesViewModel(
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
-            compteRepository.creerCompte(nouveauCompte).onSuccess { compteCree ->
+            compteRepository.creerCompte(nouveauCompte).onSuccess {
                 // Si c'est une dette, créer cat. "Dettes" + enveloppe correspondante
-                if (compteCree is CompteDette) {
+                if (nouveauCompte is CompteDette) {
                     try {
-                        val categorieRepo = com.xburnsx.toutiebudget.di.AppModule.provideCategoriesEnveloppesViewModel() // obtenir VM non idéal; on va créer via repo direct
-                    } catch (_: Exception) {}
-                    // Utiliser directement les repositories via AppModule
-                    val catRepo = com.xburnsx.toutiebudget.di.AppModule.run { 
-                        javaClass // no-op pour import static
-                    }
-                    // Création rapide via endpoints existants
-                    val categorieRepository = com.xburnsx.toutiebudget.di.AppModule
-                        .let { com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl() }
-                    val enveloppeRepository = com.xburnsx.toutiebudget.di.AppModule
-                        .let { com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl() }
+                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                            ?: return@onSuccess
+                        // Création via repositories directs
+                        val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
+                        val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
 
                     // 1) Assurer la catégorie "Dettes"
                     val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
                     val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
-                        val nouvelleCat = Categorie(id = "", utilisateurId = compteCree.utilisateurId, nom = "Dettes", ordre = 999)
+                            val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
+                                id = "",
+                                utilisateurId = utilisateurId,
+                                nom = "Dettes",
+                                ordre = 999
+                            )
                         categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
                     }
 
-                    // 2) Créer l'enveloppe associée à la dette (solde restant dans la bulle)
-                    val env = Enveloppe(
+                        // 2) Créer l'enveloppe associée à la dette (nom = dette)
+                        val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
                         id = "",
-                        utilisateurId = compteCree.utilisateurId,
-                        nom = compteCree.nom,
+                            utilisateurId = utilisateurId,
+                            nom = nouveauCompte.nom,
                         categorieId = catDettes.id,
                         estArchive = false,
                         ordre = 0,
@@ -356,6 +355,7 @@ class ComptesViewModel(
                         resetApresEcheance = false
                     )
                     enveloppeRepository.creerEnveloppe(env)
+                    } catch (_: Exception) {}
                 }
 
                 chargerComptes()
