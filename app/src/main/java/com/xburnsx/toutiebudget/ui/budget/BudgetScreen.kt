@@ -192,8 +192,8 @@ fun BudgetScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     )
 
-                    // 🆕 ENVELOPPES (désactiver le clic pour la catégorie "Dettes")
-                    val clicActif = categorie.nomCategorie != "Dettes"
+                    // 🆕 ENVELOPPES (clic actif aussi pour "Dettes" afin de placer l'argent)
+                    val clicActif = true
                     categorie.enveloppes.forEach { enveloppe ->
                         if (clicActif) {
                             Box(

@@ -202,6 +202,26 @@ class ComptesViewModel(
                 }
 
                 compteRepository.mettreAJourCompte(compteArchive).onSuccess {
+                    // Si dette archivée: supprimer enveloppe associée et nettoyer la catégorie si vide
+                    try {
+                        if (compte is CompteDette) {
+                            val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
+                            val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
+                            // Trouver l'enveloppe portant le même nom dans la catégorie Dettes
+                            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                            val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                            val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
+                            val envDette = enveloppes.firstOrNull { it.nom.equals(compte.nom, ignoreCase = true) && (catDettes == null || it.categorieId == catDettes.id) }
+                            envDette?.let { enveloppeRepository.supprimerEnveloppe(it.id) }
+                            // Si la catégorie Dettes est vide après suppression, la supprimer
+                            if (catDettes != null) {
+                                val reste = enveloppes.any { it.id != envDette?.id && it.categorieId == catDettes.id }
+                                if (!reste) {
+                                    categorieRepository.supprimerCategorie(catDettes.id)
+                                }
+                            }
+                        }
+                    } catch (_: Exception) { }
                     _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
 
                     // FORCER LE RAFRAÎCHISSEMENT IMMÉDIAT DES DEUX ÉCRANS
@@ -327,17 +347,29 @@ class ComptesViewModel(
                         val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
                         val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
 
-                    // 1) Assurer la catégorie "Dettes"
+                    // 1) Assurer la catégorie "Dettes" et la forcer en première position
                     val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
                     val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
-                            val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
-                                id = "",
-                                utilisateurId = utilisateurId,
-                                nom = "Dettes",
-                                ordre = 999
-                            )
+                        val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
+                            id = "",
+                            utilisateurId = utilisateurId,
+                            nom = "Dettes",
+                            ordre = 0
+                        )
                         categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
                     }
+                    try {
+                        if (catDettes.ordre != 0) {
+                            categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 0))
+                        }
+                        val autres = categories.filter { it.id != catDettes.id }.sortedBy { it.ordre }
+                        autres.forEachIndexed { index, c ->
+                            val targetOrdre = index + 1
+                            if (c.ordre != targetOrdre) {
+                                categorieRepository.mettreAJourCategorie(c.copy(ordre = targetOrdre))
+                            }
+                        }
+                    } catch (_: Exception) {}
 
                         // 2) Créer l'enveloppe associée à la dette (nom = dette)
                         val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
@@ -355,6 +387,59 @@ class ComptesViewModel(
                         resetApresEcheance = false
                     )
                     enveloppeRepository.creerEnveloppe(env)
+                    } catch (_: Exception) {}
+                }
+
+                // Si c'est une carte de crédit, créer cat. "Cartes de crédit" + enveloppe correspondante
+                if (nouveauCompte is CompteCredit) {
+                    try {
+                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                            ?: return@onSuccess
+                        val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
+                        val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
+
+                        // Assurer catégories et ordre: Cartes de crédit (0), Dettes (1), autres (2+)
+                        val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                        val catCartes = categories.firstOrNull { it.nom.equals("Cartes de crédit", ignoreCase = true) } ?: run {
+                            val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
+                                id = "",
+                                utilisateurId = utilisateurId,
+                                nom = "Cartes de crédit",
+                                ordre = 0
+                            )
+                            categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
+                        }
+                        val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
+
+                        // Forcer ordres
+                        try {
+                            if (catCartes.ordre != 0) categorieRepository.mettreAJourCategorie(catCartes.copy(ordre = 0))
+                            if (catDettes != null && catDettes.ordre != 1) categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 1))
+                            // Renuméroter autres à partir de 2
+                            val bloqueIds = setOf(catCartes.id) + (catDettes?.id?.let { setOf(it) } ?: emptySet())
+                            val autres = categories.filter { it.id !in bloqueIds }.sortedBy { it.ordre }
+                            autres.forEachIndexed { index, c ->
+                                val target = index + 2
+                                if (c.ordre != target) categorieRepository.mettreAJourCategorie(c.copy(ordre = target))
+                            }
+                        } catch (_: Exception) {}
+
+                        // Créer l'enveloppe associée à la carte
+                        val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
+                            id = "",
+                            utilisateurId = utilisateurId,
+                            nom = nouveauCompte.nom,
+                            categorieId = catCartes.id,
+                            estArchive = false,
+                            ordre = 0,
+                            typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                            objectifMontant = 0.0,
+                            dateObjectif = null,
+                            dateDebutObjectif = null,
+                            objectifJour = null,
+                            resetApresEcheance = false
+                        )
+                        enveloppeRepository.creerEnveloppe(env)
                     } catch (_: Exception) {}
                 }
 

@@ -58,7 +58,7 @@ fun DetteScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(0),
+                windowInsets = TopAppBarDefaults.windowInsets,
                 title = { 
                     Text(
                         text = "Paramètres de la dette",

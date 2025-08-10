@@ -6,6 +6,7 @@ import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
+import com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.*
@@ -697,12 +698,12 @@ class ArgentServiceImpl @Inject constructor(
 
         // 4. Mettre à jour le solde du compte payeur (sort -montant)
         if (collectionCompteQuiPaie == "comptes_cheques" && compteQuiPaie is CompteCheque) {
-            // variationSolde = -montant, MAJ pret_a_placer = true
+            // ❌ Ne pas toucher au prêt à placer (l'argent a déjà été placé dans l'enveloppe)
             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
                 compteId = compteQuiPaieId,
                 collectionCompte = collectionCompteQuiPaie,
                 variationSolde = -montant,
-                mettreAJourPretAPlacer = true
+                mettreAJourPretAPlacer = false
             )
         } else {
             val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(compteQuiPaie.solde - montant)
@@ -718,13 +719,18 @@ class ArgentServiceImpl @Inject constructor(
         }
         compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
 
-        // Auto-archiver la dette si soldée
+        // ✅ Paiement dette: incrémenter le compteur de paiements et auto-archiver si soldée
         if (collectionCible == "comptes_dettes") {
             val compteActuel = compteRepository.getCompteById(carteOuDetteId, collectionCible) as? CompteDette
             if (compteActuel != null) {
-                val estSoldee = kotlin.math.abs(compteActuel.solde) < 0.01
-                if (estSoldee && !compteActuel.estArchive) {
-                    val detteArchivee = compteActuel.copy(estArchive = true)
+                // Incrémenter le nombre de paiements effectués
+                val compteMaj = compteActuel.copy(paiementEffectue = (compteActuel.paiementEffectue + 1))
+                compteRepository.mettreAJourCompte(compteMaj)
+
+                // Archiver si la dette est soldée
+                val estSoldee = kotlin.math.abs(nouveauSoldeCible) < 0.01
+                if (estSoldee && !compteMaj.estArchive) {
+                    val detteArchivee = compteMaj.copy(estArchive = true)
                     compteRepository.mettreAJourCompte(detteArchivee)
                 }
             }
@@ -797,6 +803,26 @@ class ArgentServiceImpl @Inject constructor(
                 note = null
             )
             transactionRepository.creerTransaction(txEntranteDette).getOrThrow()
+        }
+
+        // 8. Si la cible est une dette OU une carte de crédit, incrémenter "dépense" sur l'allocation de l'enveloppe associée
+        if (collectionCarteOuDette == "comptes_dettes" || collectionCarteOuDette == "comptes_credits") {
+            try {
+                val enveloppeRepository = EnveloppeRepositoryImpl()
+                val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                // Associer la dette à une enveloppe par nom (même nom)
+                val enveloppeCible = toutesEnveloppes.firstOrNull { it.nom.equals(carteOuDette.nom, ignoreCase = true) }
+                if (enveloppeCible != null) {
+                    // Mois courant (premier jour)
+                    val cal = Calendar.getInstance().apply {
+                        set(Calendar.DAY_OF_MONTH, 1)
+                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    }
+                    val allocation = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeCible.id, cal.time)
+                    val allocationMaj = allocation.copy(depense = allocation.depense + montant)
+                    allocationMensuelleRepository.mettreAJourAllocation(allocationMaj)
+                }
+            } catch (_: Exception) { /* silencieux */ }
         }
     }
 }

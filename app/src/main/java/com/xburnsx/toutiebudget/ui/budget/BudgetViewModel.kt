@@ -303,13 +303,12 @@ class BudgetViewModel(
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
 
-            // Pour les enveloppes de la catégorie "Dettes", afficher le solde du CompteDette correspondant
-            val estCategorieDettes = nomCategorieParId[enveloppe.categorieId]?.equals("Dettes", ignoreCase = true) == true
-            val soldeAffichage = if (estCategorieDettes) {
-                val detteAssociee = comptes.filterIsInstance<CompteDette>()
-                    .firstOrNull { it.nom.equals(enveloppe.nom, ignoreCase = true) }
-                // Si trouvée, afficher son solde (généralement négatif). Sinon, fallback sur le solde total de l'enveloppe
-                detteAssociee?.soldeDette ?: soldeTotal
+            // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher l'alloué du mois
+            val nomCategorie = nomCategorieParId[enveloppe.categorieId]
+            val estCategorieDettes = nomCategorie?.equals("Dettes", ignoreCase = true) == true
+            val estCategorieCartesCredit = nomCategorie?.equals("Cartes de crédit", ignoreCase = true) == true
+            val soldeAffichage = if (estCategorieDettes || estCategorieCartesCredit) {
+                alloueTotal
             } else soldeTotal
 
             // 🎯 SOLUTION SIMPLE : soldeTotal contient déjà la bonne valeur du mois !

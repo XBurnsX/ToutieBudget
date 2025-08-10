@@ -85,6 +85,14 @@ class StatistiquesViewModel(
             val allocations = allocationsToutes
             val tiers = tiersResult.getOrNull().orEmpty()
 
+            // Exclure les enveloppes de catégories "Dettes" et "Cartes de crédit" des Top 5
+            val categorieRepo = try { com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl() } catch (_: Exception) { null }
+            val categories = try { categorieRepo?.recupererToutesLesCategories()?.getOrNull().orEmpty() } catch (_: Exception) { emptyList() }
+            val categoriesExclues = categories.filter { it.nom.equals("Dettes", ignoreCase = true) || it.nom.equals("Cartes de crédit", ignoreCase = true) }
+                .map { it.id }
+                .toSet()
+            val enveloppeIdsExclus = enveloppes.filter { it.categorieId in categoriesExclues }.map { it.id }.toSet()
+
             // Filtrer uniquement les transactions monétaires pertinentes pour les tops
             val depenses = transactions.filter { it.type == TypeTransaction.Depense }
             val revenus = transactions.filter { it.type == TypeTransaction.Revenu }
@@ -103,7 +111,11 @@ class StatistiquesViewModel(
             val depenseParEnveloppeSimple: MutableMap<String, Double> = mutableMapOf()
             depenses.filter { !it.estFractionnee }.forEach { tx ->
                 val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] } ?: ID_SANS_ENVELOPPE
-                depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
+                if (envId != ID_SANS_ENVELOPPE && envId in enveloppeIdsExclus) {
+                    // ignorer les dépenses sur Dettes/Cartes de crédit
+                } else {
+                    depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
+                }
             }
 
             // 2) Agréger les sous-items des transactions fractionnées par enveloppeId
@@ -115,7 +127,7 @@ class StatistiquesViewModel(
                         val obj = elem.asJsonObject
                         val envId = obj.get("enveloppeId")?.asString
                         val montant = obj.get("montant")?.asDouble ?: 0.0
-                        if (!envId.isNullOrBlank()) {
+                        if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
                             depenseParEnveloppeFractions[envId] = (depenseParEnveloppeFractions[envId] ?: 0.0) + montant
                         }
                     }
@@ -142,10 +154,30 @@ class StatistiquesViewModel(
 
             // Top 5 Tiers
             val tiersIdToNom = tiers.associateBy({ it.id }, { it.nom })
-            val depenseParTiers = depenses
-                .filter { it.tiersId != null || !it.tiers.isNullOrBlank() }
-                .groupBy { it.tiersId ?: it.tiers!! }
-                .mapValues { (_, list) -> list.sumOf { it.montant } }
+            // Calculer les dépenses par tiers en excluant les enveloppes de catégories "Dettes"/"Cartes de crédit"
+            val depenseParTiersMutable = mutableMapOf<String, Double>()
+            depenses.forEach { tx ->
+                val tiersKey = tx.tiersId ?: tx.tiers ?: return@forEach
+                if (!tx.estFractionnee) {
+                    val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
+                    if (envId == null || envId !in enveloppeIdsExclus) {
+                        depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + tx.montant
+                    }
+                } else if (!tx.sousItems.isNullOrBlank()) {
+                    try {
+                        val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
+                        arr.forEach { elem ->
+                            val obj = elem.asJsonObject
+                            val envId = obj.get("enveloppeId")?.asString
+                            val montant = obj.get("montant")?.asDouble ?: 0.0
+                            if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
+                                depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + montant
+                            }
+                        }
+                    } catch (_: Exception) { /* ignorer */ }
+                }
+            }
+            val depenseParTiers = depenseParTiersMutable
 
             val top5Tiers = depenseParTiers
                 .entries
