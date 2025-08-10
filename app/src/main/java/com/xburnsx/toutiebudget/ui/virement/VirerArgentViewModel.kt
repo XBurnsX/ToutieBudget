@@ -653,9 +653,16 @@ class VirerArgentViewModel(
 
                 // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (EN PARALLÈLE, non-bloquant)
                 launch {
+                    println("DEBUG: Virement réussi, rechargement des données...")
                     chargerDonneesInitiales().join()
                     
+                    // ⏱️ Délai plus long pour s'assurer que les données sont bien sauvegardées
+                    println("DEBUG: Attente de 1 seconde avant mise à jour du budget...")
+                    kotlinx.coroutines.delay(1000)
+                    
+                    println("DEBUG: Déclenchement de la mise à jour du budget...")
                     realtimeSyncService.declencherMiseAJourBudget()
+                    println("DEBUG: Mise à jour du budget déclenchée")
                 }
 
             } catch (e: Exception) {

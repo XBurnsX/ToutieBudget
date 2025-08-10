@@ -62,6 +62,7 @@ class RealtimeSyncService @Inject constructor() {
     private val _categoriesUpdated = MutableSharedFlow<Unit>()
 
     private val _transactionsUpdated = MutableSharedFlow<Unit>()
+    val transactionsUpdated: SharedFlow<Unit> = _transactionsUpdated.asSharedFlow()
 
     /**
      * Démarre la synchronisation temps réel.

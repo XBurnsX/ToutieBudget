@@ -117,6 +117,7 @@ class BudgetViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
+                println("DEBUG: BudgetViewModel reçoit l'événement budgetUpdated")
                 // 🔄 FORCER UN RECHARGEMENT COMPLET après un virement
                 // Vider le cache pour s'assurer d'avoir les données les plus récentes
                 cacheComptes = emptyList()
@@ -124,8 +125,10 @@ class BudgetViewModel(
                 cacheAllocations = emptyList()
                 cacheCategories = emptyList()
                 
+                println("DEBUG: Cache vidé, rechargement des données...")
                 // Recharger avec les données les plus récentes
                 chargerDonneesBudget(moisSelectionne)
+                println("DEBUG: Données rechargées")
             }
         }
     }

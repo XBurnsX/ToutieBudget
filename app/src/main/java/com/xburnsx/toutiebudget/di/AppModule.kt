@@ -154,7 +154,8 @@ import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
           StatistiquesViewModel(
               transactionRepository = transactionRepository,
               enveloppeRepository = enveloppeRepository,
-              tiersRepository = tiersRepository
+              tiersRepository = tiersRepository,
+              realtimeSyncService = realtimeSyncService
           )
       }
  

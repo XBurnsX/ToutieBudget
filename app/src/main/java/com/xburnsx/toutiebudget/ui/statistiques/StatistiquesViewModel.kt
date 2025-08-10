@@ -7,15 +7,18 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.*
 
 class StatistiquesViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val tiersRepository: TiersRepository
+    private val tiersRepository: TiersRepository,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StatistiquesUiState(isLoading = true))
@@ -27,6 +30,21 @@ class StatistiquesViewModel(
 
     init {
         rafraichirDonneesMoisCourant()
+        
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
+        viewModelScope.launch {
+            realtimeSyncService.budgetUpdated.collectLatest {
+                // Recharger les statistiques quand le budget change
+                rafraichirDonneesMoisCourant()
+            }
+        }
+        
+        viewModelScope.launch {
+            realtimeSyncService.transactionsUpdated.collectLatest {
+                // Recharger les statistiques quand les transactions changent
+                rafraichirDonneesMoisCourant()
+            }
+        }
     }
 
     fun rafraichirDonneesMoisCourant() {
@@ -81,6 +99,7 @@ class StatistiquesViewModel(
             val transactions6Mois = transactionsResult.getOrNull().orEmpty()
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
+            
             val enveloppes = enveloppesResult.getOrNull().orEmpty()
             val allocations = allocationsToutes
             val tiers = tiersResult.getOrNull().orEmpty()
