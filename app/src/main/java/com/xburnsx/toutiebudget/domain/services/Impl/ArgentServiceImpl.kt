@@ -819,7 +819,10 @@ class ArgentServiceImpl @Inject constructor(
                         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                     }
                     val allocation = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeCible.id, cal.time)
-                    val allocationMaj = allocation.copy(depense = allocation.depense + montant)
+                    val allocationMaj = allocation.copy(
+                        depense = allocation.depense + montant,
+                        solde = allocation.solde - montant
+                    )
                     allocationMensuelleRepository.mettreAJourAllocation(allocationMaj)
                 }
             } catch (_: Exception) { /* silencieux */ }

@@ -303,12 +303,12 @@ class BudgetViewModel(
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
 
-            // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher l'alloué du mois
+            // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher le solde réel (alloué - dépenses)
             val nomCategorie = nomCategorieParId[enveloppe.categorieId]
             val estCategorieDettes = nomCategorie?.equals("Dettes", ignoreCase = true) == true
             val estCategorieCartesCredit = nomCategorie?.equals("Cartes de crédit", ignoreCase = true) == true
             val soldeAffichage = if (estCategorieDettes || estCategorieCartesCredit) {
-                alloueTotal
+                soldeTotal // Utiliser le solde réel au lieu de l'alloué
             } else soldeTotal
 
             // 🎯 SOLUTION SIMPLE : soldeTotal contient déjà la bonne valeur du mois !
