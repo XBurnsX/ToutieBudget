@@ -46,7 +46,7 @@ fun DefinirObjectifDialog(
         } else {
             try {
                 // Utiliser BigDecimal pour éviter les erreurs de précision
-                BigDecimal(formState.montant)
+                BigDecimal(formState.montant.replace(',', '.'))
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(0, RoundingMode.HALF_UP)
                     .toLong()
@@ -60,7 +60,10 @@ fun DefinirObjectifDialog(
         onDismissRequest = onDismissRequest,
         title = { Text("Définir un objectif") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.windowInsetsPadding(WindowInsets.ime)
+            ) {
                 // Nom de l'enveloppe
                 Text(
                     text = "Objectif pour : $nomEnveloppe", 
@@ -69,11 +72,11 @@ fun DefinirObjectifDialog(
                 )
                 
                 // *** CHAMP MONTANT AVEC CALLBACK VERS CLAVIER GLOBAL ***
-                                    ChampUniversel(
+                ChampUniversel(
                         valeur = montantEnCentimes,
                         onValeurChange = { nouveauMontant ->
                             // Utiliser BigDecimal pour éviter les erreurs de précision
-                            val nouveauMontantString = String.format("%.2f", 
+                            val nouveauMontantString = String.format(java.util.Locale.US, "%.2f", 
                                 BigDecimal.valueOf(nouveauMontant)
                                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                                     .toDouble()
@@ -85,11 +88,11 @@ fun DefinirObjectifDialog(
                     isMoney = true,
                     icone = Icons.Default.Flag,
                     estObligatoire = true,
-                                            onClicPersonnalise = {
+                    onClicPersonnalise = {
                             // ✅ UTILISER le callback vers le clavier global
                             onOpenKeyboard(montantEnCentimes) { nouveauMontant ->
                                 // Utiliser BigDecimal pour éviter les erreurs de précision
-                                val nouveauMontantString = String.format("%.2f", 
+                                val nouveauMontantString = String.format(java.util.Locale.US, "%.2f", 
                                     BigDecimal.valueOf(nouveauMontant)
                                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                                         .toDouble()

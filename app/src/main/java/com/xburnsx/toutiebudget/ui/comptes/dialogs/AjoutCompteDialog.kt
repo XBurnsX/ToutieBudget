@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -47,7 +51,12 @@ fun AjoutCompteDialog(
         onDismissRequest = onDismissRequest,
         title = { Text("Nouveau Compte") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.ime)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            ) {
                 // Champ nom du compte
                 OutlinedTextField(
                     value = formState.nom,

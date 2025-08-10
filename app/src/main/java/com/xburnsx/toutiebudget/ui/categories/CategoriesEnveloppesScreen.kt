@@ -4,7 +4,9 @@
 package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -283,32 +285,41 @@ fun CategoriesEnveloppesScreen(
                 dismissOnClickOutside = true
             )
         ) {
-            // Le Dialog garantit que le clavier sera au-dessus de tout
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Permet de cliquer à travers la Box pour fermer le dialogue
-                    .pointerInput(Unit) {
-                        detectTapGestures {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Zone de fond cliquable pour fermer
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) {
                             showKeyboard = false
                             onMontantChangeCallback = null
                         }
-                    },
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                // Le clavier lui-même
-                ClavierNumerique(
-                    montantInitial = montantClavierInitial,
-                    isMoney = true,
-                    suffix = " $",
-                    onMontantChange = { nouveauMontant ->
-                        onMontantChangeCallback?.invoke(nouveauMontant)
-                    },
-                    onFermer = {
-                        showKeyboard = false
-                        onMontantChangeCallback = null
-                    }
                 )
+
+                // Clavier ancré en bas avec padding barres de navigation
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.ime)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                ) {
+                    ClavierNumerique(
+                        montantInitial = montantClavierInitial,
+                        isMoney = true,
+                        suffix = "",
+                        onMontantChange = { nouveauMontant ->
+                            // Mise à jour immédiate du ViewModel à chaque frappe
+                            onMontantChangeCallback?.invoke(nouveauMontant)
+                        },
+                        onFermer = {
+                            showKeyboard = false
+                            onMontantChangeCallback = null
+                        }
+                    )
+                }
             }
         }
     }

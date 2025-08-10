@@ -1,6 +1,12 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit.dialogs
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -256,37 +262,40 @@ fun ModifierCarteCreditDialog(
                 },
                 properties = DialogProperties(usePlatformDefaultWidth = false)
             ) {
-                // Le Dialog garantit que le clavier sera au-dessus de tout
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // Permet de cliquer à travers la Box pour fermer le dialogue
-                        .pointerInput(Unit) {
-                            detectTapGestures {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
                                 showKeyboard = false
                                 onMontantChangeCallback = null
                             }
-                        },
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    // Le clavier lui-même
-                    ClavierNumerique(
-                        montantInitial = montantClavierInitial,
-                        isMoney = nomDialogClavier != "Taux d'intérêt", // false pour taux d'intérêt, true pour le reste
-                        suffix = when (nomDialogClavier) {
-                            "Limite de crédit" -> "$"
-                            "Dette actuelle" -> "$"
-                            "Paiement minimum" -> "$"
-                            else -> ""
-                        },
-                        onMontantChange = { nouveauMontant ->
-                            onMontantChangeCallback?.invoke(nouveauMontant)
-                        },
-                        onFermer = {
-                            showKeyboard = false
-                            onMontantChangeCallback = null
-                        }
                     )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.ime)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                    ) {
+                        ClavierNumerique(
+                            montantInitial = montantClavierInitial,
+                            isMoney = nomDialogClavier != "Taux d'intérêt", // false pour taux d'intérêt, true pour le reste
+                            suffix = when (nomDialogClavier) {
+                                "Limite de crédit" -> "$"
+                                "Dette actuelle" -> "$"
+                                "Paiement minimum" -> "$"
+                                else -> ""
+                            },
+                            onMontantChange = { nouveauMontant ->
+                                onMontantChangeCallback?.invoke(nouveauMontant)
+                            },
+                            onFermer = {
+                                showKeyboard = false
+                                onMontantChangeCallback = null
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -3,6 +3,8 @@
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,10 +14,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -513,24 +518,37 @@ fun AjoutTransactionScreen(
             },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            // Le Dialog garantit que le clavier sera au-dessus de tout
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                // Le clavier lui-même
-                ClavierNumerique(
-                    montantInitial = montantClavier,
-                    isMoney = true,
-                    suffix = "",
-                    onMontantChange = { nouveauMontant ->
-                        onMontantChangeClavier(nouveauMontant)
-                    },
-                    onFermer = {
-                        afficherClavier = false
-                        onMontantChangeClavier = {}
-                    }
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Zone de fond cliquable pour fermer
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {
+                            afficherClavier = false
+                            onMontantChangeClavier = {}
+                        }
                 )
+
+                // Clavier ancré en bas avec padding IME + barres de navigation
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.ime)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                ) {
+                    ClavierNumerique(
+                        montantInitial = montantClavier,
+                        isMoney = true,
+                        suffix = "",
+                        onMontantChange = { nouveauMontant ->
+                            onMontantChangeClavier(nouveauMontant)
+                        },
+                        onFermer = {
+                            afficherClavier = false
+                            onMontantChangeClavier = {}
+                        }
+                    )
+                }
             }
         }
     }
