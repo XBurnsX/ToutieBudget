@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,7 +52,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.R
+import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
 import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
@@ -59,6 +62,7 @@ import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
 import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.util.Date
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -93,6 +97,10 @@ fun BudgetScreen(
         }
     }
 
+    val ctx = LocalContext.current
+    // L'animation a été supprimée
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color(0xFF121212),
         topBar = {
@@ -144,6 +152,7 @@ fun BudgetScreen(
             )
         }
     ) { paddingValues ->
+        // Contenu de la page
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -212,6 +221,7 @@ fun BudgetScreen(
                 }
             }
         }
+    }
     }
 
     // 🔄 FERMETURE AUTOMATIQUE DU CLAVIER EN CAS DE SUCCÈS

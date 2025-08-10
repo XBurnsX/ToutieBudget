@@ -23,6 +23,10 @@ data class AjoutTransactionUiState(
     val transactionReussie: Boolean = false,
     val transactionModifiee: Boolean = false,
     
+    // --- Messages de confirmation ---
+    val messageConfirmation: String? = null,
+    val detteSoldee: Boolean = false,
+    
     // --- Modes et types de transaction ---
     val modeOperation: String = "Standard", // Standard, Prêt, Dette, Paiement
     val typeTransaction: TypeTransaction = TypeTransaction.Depense, // Dépense, Revenu (pour mode Standard)

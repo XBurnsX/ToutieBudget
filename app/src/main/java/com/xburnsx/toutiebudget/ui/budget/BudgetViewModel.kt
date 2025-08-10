@@ -470,6 +470,15 @@ class BudgetViewModel(
         _uiState.update { it.copy(erreur = null) }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        // Nettoyer explicitement les caches en mémoire pour éviter toute fuite
+        cacheComptes = emptyList()
+        cacheEnveloppes = emptyList()
+        cacheAllocations = emptyList()
+        cacheCategories = emptyList()
+    }
+
     /**
      * 💰 ASSIGNER DE L'ARGENT D'UN COMPTE VERS UNE ENVELOPPE
      *

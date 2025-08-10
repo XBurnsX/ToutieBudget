@@ -93,19 +93,21 @@ interface CarteCreditRepository {
      */
     suspend fun appliquerInteretsMensuels(carteCreditId: String): Result<Unit>
 
-    /**
-     * Calcule la prochaine date d'échéance pour une carte de crédit.
-     * @param carteCredit La carte de crédit
-     * @return Date de la prochaine échéance
-     */
-    fun calculerProchaineEcheance(carteCredit: CompteCredit): Date
+     /**
+      * Calcule la prochaine date d'échéance pour une carte de crédit.
+      * Retourne null si non disponible/non implémenté.
+      * @param carteCredit La carte de crédit
+      * @return Date de la prochaine échéance, ou null si non disponible
+      */
+     fun calculerProchaineEcheance(carteCredit: CompteCredit): Date?
 
-    /**
-     * Calcule la prochaine date de facturation pour une carte de crédit.
-     * @param carteCredit La carte de crédit
-     * @return Date de la prochaine facturation
-     */
-    fun calculerProchaineFacturation(carteCredit: CompteCredit): Date
+     /**
+      * Calcule la prochaine date de facturation pour une carte de crédit.
+      * Retourne null si non disponible/non implémenté.
+      * @param carteCredit La carte de crédit
+      * @return Date de la prochaine facturation, ou null si non disponible
+      */
+     fun calculerProchaineFacturation(carteCredit: CompteCredit): Date?
 
     /**
      * Vérifie si une carte de crédit a des paiements en retard.

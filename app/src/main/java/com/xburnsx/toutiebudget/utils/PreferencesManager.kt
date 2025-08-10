@@ -17,6 +17,8 @@ object PreferencesManager {
     private const val KEY_SHOW_ARCHIVED = "show_archived"
     private const val KEY_ARCHIVE_AUTO_ENABLED = "archive_auto_enabled"
     private const val KEY_ARCHIVE_MONTHS = "archive_months"
+    private const val KEY_WELCOME_SHOWN = "welcome_animation_shown"
+    private const val KEY_WELCOME_SHOWN_V2 = "welcome_animation_shown_v2"
 
     fun setFigerPretAPlacer(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -98,6 +100,28 @@ object PreferencesManager {
     fun getArchiveMonths(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getInt(KEY_ARCHIVE_MONTHS, 6)
+    }
+
+    // Animation de bienvenue (affichée une seule fois au premier lancement)
+    fun setWelcomeShown(context: Context, shown: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_WELCOME_SHOWN, shown) }
+    }
+
+    fun getWelcomeShown(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_WELCOME_SHOWN, false)
+    }
+
+    // Nouvelle version de l'animation (emplacement/visuel revu)
+    fun setWelcomeShownV2(context: Context, shown: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit { putBoolean(KEY_WELCOME_SHOWN_V2, shown) }
+    }
+
+    fun getWelcomeShownV2(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_WELCOME_SHOWN_V2, false)
     }
 }
 

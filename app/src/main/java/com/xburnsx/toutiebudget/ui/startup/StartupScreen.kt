@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.R
+import com.xburnsx.toutiebudget.di.PocketBaseClient
 
 /**
  * Écran de démarrage qui vérifie l'état du serveur et l'authentification
@@ -224,7 +225,7 @@ fun StartupScreen(
 
                 // Les autres états déclenchent une navigation automatique
                 else -> {
-                    // Interface de transition avec logo minimal
+                    // Interface de transition minimale
                     Image(
                         painter = painterResource(id = R.drawable.splash),
                         contentDescription = "Logo ToutieBudget",
@@ -234,9 +235,7 @@ fun StartupScreen(
                             .alpha(0.8f),
                         contentScale = ContentScale.Crop
                     )
-                    
                     Spacer(modifier = Modifier.height(16.dp))
-                    
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White,

@@ -132,7 +132,7 @@ class EnregistrerTransactionUseCase(
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            return Result.failure(e)
         }
     }
 

@@ -508,7 +508,41 @@ class AjoutTransactionViewModel(
                     println("DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}")
                     
                     if (result.isSuccess) {
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+                        // Vérifier si la dette/carte est soldée après paiement
+                        var message = "Votre paiement a été enregistré"
+                        var detteTerminee = false
+                        try {
+                            val comptePaye = compteRepository.recupererCompteParId(comptePaiement.id, when (comptePaiement) {
+                                is CompteCredit -> "comptes_credits"
+                                is CompteDette -> "comptes_dettes"
+                                is CompteCheque -> "comptes_cheques"
+                                is CompteInvestissement -> "comptes_investissement"
+                                else -> "comptes_cheques"
+                            }).getOrNull()
+                            when (comptePaiement) {
+                                is CompteCredit -> {
+                                    val soldeActuel = (comptePaye as? CompteCredit)?.solde ?: 0.0
+                                    if (soldeActuel >= -0.01 && soldeActuel <= 0.01) {
+                                        detteTerminee = true
+                                    }
+                                    message = "Votre paiement à la carte ${comptePaiement.nom} a été enregistré"
+                                }
+                                is CompteDette -> {
+                                    val soldeActuel = (comptePaye as? CompteDette)?.solde ?: 0.0
+                                    if (soldeActuel >= -0.01 && soldeActuel <= 0.01) {
+                                        detteTerminee = true
+                                    }
+                                    message = "Votre paiement à la dette ${comptePaiement.nom} a été enregistré"
+                                }
+                                else -> { }
+                            }
+                        } catch (_: Exception) {}
+                        _uiState.update { it.copy(
+                            estEnTrainDeSauvegarder = false,
+                            transactionReussie = true,
+                            messageConfirmation = if (detteTerminee) message + "\nVotre dette est terminée, félicitations!" else message,
+                            detteSoldee = detteTerminee
+                        ) }
 
                         // Émettre l'événement global de rafraîchissement du budget
                         BudgetEvents.refreshBudget.tryEmit(Unit)
@@ -516,12 +550,16 @@ class AjoutTransactionViewModel(
                         // Déclencher la mise à jour des comptes dans les autres écrans
                         realtimeSyncService.declencherMiseAJourBudget()
 
-                        // Réinitialiser le formulaire après succès
+                        // Réinitialiser le formulaire après succès en PRÉSERVANT le message de confirmation
+                        val lastMessage = _uiState.value.messageConfirmation
+                        val lastDone = _uiState.value.detteSoldee
                         _uiState.update { 
                             AjoutTransactionUiState(
                                 isLoading = false,
                                 comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles
+                                enveloppesDisponibles = state.enveloppesDisponibles,
+                                messageConfirmation = lastMessage,
+                                detteSoldee = lastDone
                             ).calculerValidite()
                         }
                         
@@ -629,7 +667,16 @@ class AjoutTransactionViewModel(
                             }
                         }
                         
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+                        val message = when (typeTransaction) {
+                            TypeTransaction.Depense -> "Votre dépense a été enregistrée"
+                            TypeTransaction.Revenu -> "Votre revenu a été enregistré"
+                            else -> "Votre transaction a été enregistrée"
+                        }
+                        _uiState.update { it.copy(
+                            estEnTrainDeSauvegarder = false,
+                            transactionReussie = true,
+                            messageConfirmation = message
+                        ) }
 
                         // Émettre l'événement global de rafraîchissement du budget
                         BudgetEvents.refreshBudget.tryEmit(Unit)
@@ -637,12 +684,14 @@ class AjoutTransactionViewModel(
                         // Déclencher la mise à jour des comptes dans les autres écrans
                         realtimeSyncService.declencherMiseAJourBudget()
 
-                        // Réinitialiser le formulaire après succès
+                        // Réinitialiser le formulaire après succès en PRÉSERVANT le message de confirmation
+                        val lastMessage = _uiState.value.messageConfirmation
                         _uiState.update { 
                             AjoutTransactionUiState(
                                 isLoading = false,
                                 comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles
+                                enveloppesDisponibles = state.enveloppesDisponibles,
+                                messageConfirmation = lastMessage
                             ).calculerValidite()
                         }
                         
@@ -686,7 +735,16 @@ class AjoutTransactionViewModel(
                     )
                     
                     if (result.isSuccess) {
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true) }
+                        val message = when (typeTransaction) {
+                            TypeTransaction.Depense -> "Votre dépense a été enregistrée"
+                            TypeTransaction.Revenu -> "Votre revenu a été enregistré"
+                            else -> "Votre transaction a été enregistrée"
+                        }
+                        _uiState.update { it.copy(
+                            estEnTrainDeSauvegarder = false,
+                            transactionReussie = true,
+                            messageConfirmation = message
+                        ) }
 
                         // Émettre l'événement global de rafraîchissement du budget
                         BudgetEvents.refreshBudget.tryEmit(Unit)
@@ -694,12 +752,14 @@ class AjoutTransactionViewModel(
                         // Déclencher la mise à jour des comptes dans les autres écrans
                         realtimeSyncService.declencherMiseAJourBudget()
 
-                        // Réinitialiser le formulaire après succès
+                        // Réinitialiser le formulaire après succès en PRÉSERVANT le message de confirmation
+                        val lastMessage = _uiState.value.messageConfirmation
                         _uiState.update { 
                             AjoutTransactionUiState(
                                 isLoading = false,
                                 comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles
+                                enveloppesDisponibles = state.enveloppesDisponibles,
+                                messageConfirmation = lastMessage
                             ).calculerValidite()
                         }
                         
@@ -759,6 +819,13 @@ class AjoutTransactionViewModel(
      */
     fun effacerErreur() {
         _uiState.update { it.copy(messageErreur = null) }
+    }
+
+    /**
+     * Efface le message de confirmation.
+     */
+    fun effacerConfirmation() {
+        _uiState.update { it.copy(messageConfirmation = null, detteSoldee = false) }
     }
 
     /**

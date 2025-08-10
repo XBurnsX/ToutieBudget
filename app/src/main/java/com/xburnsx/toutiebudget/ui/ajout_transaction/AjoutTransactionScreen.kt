@@ -110,8 +110,9 @@ fun AjoutTransactionScreen(
     }
 
     // Détecter le succès de la transaction
-    LaunchedEffect(uiState.transactionReussie) {
-        if (uiState.transactionReussie) {
+    LaunchedEffect(uiState.transactionReussie, uiState.messageConfirmation) {
+        // Si succès sans message, on déclenche tout de suite le callback
+        if (uiState.transactionReussie && uiState.messageConfirmation.isNullOrBlank()) {
             onTransactionSuccess()
         }
     }
@@ -506,6 +507,38 @@ fun AjoutTransactionScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Snackbar/bandeau de confirmation en bas
+                uiState.messageConfirmation?.let { message ->
+                    // S'assurer que le bandeau s'affiche au-dessus des boutons
+                    // Auto-disparition après 3 secondes
+                    LaunchedEffect(message) {
+                        kotlinx.coroutines.delay(3000)
+                        viewModel.effacerConfirmation()
+                        onTransactionSuccess()
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                            .navigationBarsPadding()
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = message,
+                                modifier = Modifier.padding(16.dp),
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }

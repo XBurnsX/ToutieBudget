@@ -152,31 +152,34 @@ class CarteCreditRepositoryImpl(
         }
     }
 
-    override fun calculerProchaineEcheance(carteCredit: CompteCredit): Date {
-        // TODO: Implémenter quand nécessaire
-        return Date()
+    override fun calculerProchaineEcheance(carteCredit: CompteCredit): Date? {
+        // Non implémenté pour l'instant → retourner null de manière sûre
+        return null
     }
 
-    override fun calculerProchaineFacturation(carteCredit: CompteCredit): Date {
-        // TODO: Implémenter quand nécessaire
-        return Date()
+    override fun calculerProchaineFacturation(carteCredit: CompteCredit): Date? {
+        // Non implémenté pour l'instant → retourner null de manière sûre
+        return null
     }
 
     override fun estEnRetard(carteCredit: CompteCredit): Boolean {
-        // TODO: Implémenter quand nécessaire
-        return false
+        // Implémentation prudente par défaut: pas en retard si aucune info d'échéance
+        val dateEcheance = calculerProchaineEcheance(carteCredit) ?: return false
+        return Date().after(dateEcheance)
     }
 
     override fun calculerRecompenses(carteCredit: CompteCredit, montantDepense: Double): Double {
-        // TODO: Implémenter quand nécessaire
-        return 0.0
+        // Implémentation simple: 1% de cashback par défaut si le taux n'est pas défini
+        if (montantDepense <= 0) return 0.0
+        val tauxCashback = 0.01
+        return montantDepense * tauxCashback
     }
 
     override suspend fun recupererHistoriqueTransactions(carteCreditId: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         try {
-            // TODO: Implémenter la récupération des transactions liées à cette carte
-            // Cela nécessite d'ajouter un champ carteCreditId dans le modèle Transaction
-            Result.success(emptyList())
+            // Récupérer les transactions du compte carte de crédit via la collection adéquate
+            val transactionsRepo = com.xburnsx.toutiebudget.data.repositories.impl.TransactionRepositoryImpl()
+            transactionsRepo.recupererTransactionsPourCompte(carteCreditId, "comptes_credits")
         } catch (e: Exception) {
             Result.failure(e)
         }
