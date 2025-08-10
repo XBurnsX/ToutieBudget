@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
@@ -19,6 +20,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
+import java.net.URLEncoder
+import android.util.Log
 
 /**
  * Service de synchronisation temps réel avec PocketBase.
@@ -47,6 +50,7 @@ class RealtimeSyncService @Inject constructor() {
     private val gson = Gson()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var isConnected = false
+    private val logTag = "PrefsSync"
 
     // Events pour notifier les ViewModels
     private val _budgetUpdated = MutableSharedFlow<Unit>()
@@ -243,25 +247,33 @@ class RealtimeSyncService @Inject constructor() {
      * Met à jour (ou crée) l'entrée de préférences utilisateur dans PocketBase.
      * Collection: user_preferences, clé relation: utilisateur_id (unique).
      */
-    suspend fun mettreAJourPreferencesUtilisateur(changements: Map<String, Any?>) {
+    suspend fun mettreAJourPreferencesUtilisateur(changements: Map<String, Any?>) = withContext(Dispatchers.IO) {
         val user = client.obtenirUtilisateurConnecte() ?: throw Exception("Utilisateur non connecté")
         val token = client.obtenirToken() ?: throw Exception("Token manquant")
         val urlBase = UrlResolver.obtenirUrlActive()
 
         // 1) Lire l'existant pour cet utilisateur
-        val filter = "(utilisateur_id=\"${user.id}\")"
-        val getUrl = "$urlBase/api/collections/user_preferences/records?filter=${filter}&perPage=1"
+        val rawFilter = "utilisateur_id=\"${user.id}\""
+        val encodedFilter = URLEncoder.encode(rawFilter, Charsets.UTF_8.name())
+        val getUrl = "$urlBase/api/collections/user_preferences/records?filter=$encodedFilter&perPage=1"
+
+        Log.d(logTag, "GET prefs → userId=${user.id}")
+        Log.d(logTag, "GET url=${getUrl}")
 
         val getReq = Request.Builder()
             .url(getUrl)
             .addHeader("Authorization", "Bearer $token")
+            .addHeader("Accept", "application/json")
             .get()
             .build()
 
         val getResp = httpClient.newCall(getReq).execute()
+        Log.d(logTag, "GET code=${getResp.code}")
         val items = if (getResp.isSuccessful) {
             try {
-                val obj = gson.fromJson(getResp.body?.string() ?: "{}", com.google.gson.JsonObject::class.java)
+                val bodyStr = getResp.body?.string() ?: "{}"
+                Log.d(logTag, "GET body=${bodyStr}")
+                val obj = gson.fromJson(bodyStr, com.google.gson.JsonObject::class.java)
                 obj.getAsJsonArray("items")
             } catch (_: Exception) { null }
         } else null
@@ -271,15 +283,23 @@ class RealtimeSyncService @Inject constructor() {
         if (items != null && items.size() > 0) {
             // PATCH sur le record existant
             val recordId = items[0].asJsonObject.get("id").asString
+            Log.d(logTag, "PATCH recordId=${recordId}")
             val patchBody = gson.toJson(changements).toRequestBody(media)
             val patchUrl = "$urlBase/api/collections/user_preferences/records/$recordId"
+            Log.d(logTag, "PATCH url=${patchUrl}")
+            Log.d(logTag, "PATCH json=${gson.toJson(changements)}")
             val patchReq = Request.Builder()
                 .url(patchUrl)
                 .addHeader("Authorization", "Bearer $token")
+                .addHeader("Accept", "application/json")
                 .patch(patchBody)
                 .build()
             val patchResp = httpClient.newCall(patchReq).execute()
+            val patchStr = patchResp.body?.string()
+            Log.d(logTag, "PATCH code=${patchResp.code}")
+            Log.d(logTag, "PATCH body=${patchStr}")
             if (!patchResp.isSuccessful) throw Exception("Echec MAJ préférences: ${patchResp.code}")
+            Log.d(logTag, "PATCH OK")
         } else {
             // POST pour créer avec utilisateur_id + changements
             val bodyMap = HashMap<String, Any?>()
@@ -287,13 +307,20 @@ class RealtimeSyncService @Inject constructor() {
             bodyMap["utilisateur_id"] = user.id
             val postBody = gson.toJson(bodyMap).toRequestBody(media)
             val postUrl = "$urlBase/api/collections/user_preferences/records"
+            Log.d(logTag, "POST url=${postUrl}")
+            Log.d(logTag, "POST json=${gson.toJson(bodyMap)}")
             val postReq = Request.Builder()
                 .url(postUrl)
                 .addHeader("Authorization", "Bearer $token")
+                .addHeader("Accept", "application/json")
                 .post(postBody)
                 .build()
             val postResp = httpClient.newCall(postReq).execute()
+            val postStr = postResp.body?.string()
+            Log.d(logTag, "POST code=${postResp.code}")
+            Log.d(logTag, "POST body=${postStr}")
             if (!postResp.isSuccessful) throw Exception("Echec création préférences: ${postResp.code}")
+            Log.d(logTag, "POST OK")
         }
     }
 
