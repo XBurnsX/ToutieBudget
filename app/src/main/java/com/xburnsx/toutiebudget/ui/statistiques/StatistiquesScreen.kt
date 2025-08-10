@@ -82,6 +82,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.Transaction
@@ -223,8 +224,8 @@ private fun StatistiquesContent(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Header avec période
-        HeaderSection(uiState.periode?.label ?: "Période")
+        // Header avec période (inclut sélecteur dans la topbar)
+        HeaderSection(uiState, viewModel)
 
         // KPIs améliorés
         AnimatedKpiCards(uiState)
@@ -232,8 +233,7 @@ private fun StatistiquesContent(
         // Top 5 cards avec animation staggered
         AnimatedTopCards(uiState, viewModel)
 
-        // Sélecteurs de période
-        PeriodSelector(viewModel)
+        // Sélecteur retiré (désormais dans la topbar)
 
         // Graphique UNIQUE avec 2 barres par mois
         ChartsSection(uiState)
@@ -241,7 +241,7 @@ private fun StatistiquesContent(
 }
 
 @Composable
-private fun HeaderSection(periodLabel: String) {
+private fun HeaderSection(uiState: StatistiquesUiState, viewModel: StatistiquesViewModel) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -255,18 +255,41 @@ private fun HeaderSection(periodLabel: String) {
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                periodLabel,
+                uiState.periode?.label ?: "Période",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Icon(
-            imageVector = Icons.Default.TrendingUp,
-            contentDescription = null,
-            modifier = Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            var moisSelectionne by remember(uiState.periode) { mutableStateOf(uiState.periode?.debut ?: java.util.Date()) }
+            com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee(
+                moisSelectionne = moisSelectionne,
+                onMoisChange = { date ->
+                    moisSelectionne = date
+                    val debut = java.util.Calendar.getInstance().apply {
+                        time = date
+                        set(java.util.Calendar.DAY_OF_MONTH, 1)
+                        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+                    }.time
+                    val fin = java.util.Calendar.getInstance().apply {
+                        time = debut
+                        add(java.util.Calendar.MONTH, 1)
+                        add(java.util.Calendar.MILLISECOND, -1)
+                    }.time
+                    val label = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.FRENCH).format(debut)
+                        .replaceFirstChar { it.uppercase() }
+                    viewModel.chargerPeriode(debut, fin, label)
+                }
+            )
+
+            Icon(
+                imageVector = Icons.Default.TrendingUp,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
@@ -414,7 +437,7 @@ private fun GlassmorphicKpiCard(
 
                 Text(
                     value,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -471,7 +494,7 @@ private fun AnimatedTopCards(
                 EnhancedListCard(
                     modifier = Modifier.weight(1f),
                     title = "Top 5 Tiers",
-                    subtitle = "Dépenses par partenaire",
+                    subtitle = "Dépenses par tiers",
                     items = uiState.top5Tiers,
                     leadingTint = MaterialTheme.colorScheme.secondary,
                     leadingIcon = Icons.Filled.Person,
@@ -631,7 +654,7 @@ private fun CompactListItem(
 
 @Composable
 private fun PeriodSelector(viewModel: StatistiquesViewModel) {
-    val selectedPreset = remember { mutableStateOf("Mois en cours") }
+    var moisSelectionne by remember { mutableStateOf(Date()) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -641,46 +664,26 @@ private fun PeriodSelector(viewModel: StatistiquesViewModel) {
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            listOf("Mois en cours", "30 jours", "90 jours").forEach { label ->
-                val isSelected = selectedPreset.value == label
-
-                AssistChip(
-                    onClick = {
-                        selectedPreset.value = label
-                        val (debut, fin, labelPeriod) = computePeriodeFromPreset(label)
-                        viewModel.chargerPeriode(debut, fin, labelPeriod)
-                    },
-                    label = {
-                        Text(
-                            label,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                        )
-                    },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (isSelected)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant,
-                        labelColor = if (isSelected)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurface
-                    ),
-                    border = AssistChipDefaults.assistChipBorder(
-                        enabled = true,
-                        borderColor = if (isSelected)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        else
-                            MaterialTheme.colorScheme.outlineVariant,
-                        borderWidth = if (isSelected) 2.dp else 1.dp
-                    ),
-                    elevation = AssistChipDefaults.assistChipElevation(
-                        elevation = if (isSelected) 4.dp else 0.dp
-                    )
-                )
+        // Sélecteur de mois/année (même composant que sur l'écran Budget)
+        com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee(
+            moisSelectionne = moisSelectionne,
+            onMoisChange = { date ->
+                moisSelectionne = date
+                val debut = Calendar.getInstance().apply {
+                    time = date
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                }.time
+                val fin = Calendar.getInstance().apply {
+                    time = debut
+                    add(Calendar.MONTH, 1)
+                    add(Calendar.MILLISECOND, -1)
+                }.time
+                val label = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.FRENCH).format(debut)
+                    .replaceFirstChar { it.uppercase() }
+                viewModel.chargerPeriode(debut, fin, label)
             }
-        }
+        )
     }
 }
 
@@ -709,7 +712,7 @@ private fun ChartsSection(uiState: StatistiquesUiState) {
             // UN SEUL graphique avec 2 barres par mois
             DoubleBarChart(
                 depenses = uiState.depenses6DerniersMois,
-                revenus = uiState.depenses6DerniersMois // Remplacez par uiState.revenus6DerniersMois
+                revenus = uiState.revenus6DerniersMois
             )
 
             // Répartition
@@ -759,7 +762,27 @@ private fun DoubleBarChart(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Légende Dépenses
+                // Légende Revenus (gauche) en vert
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                Color(0xFF4CAF50),
+                                RoundedCornerShape(2.dp)
+                            )
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Revenus",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                // Légende Dépenses (droite) en rouge
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -772,26 +795,6 @@ private fun DoubleBarChart(
                     Spacer(Modifier.width(4.dp))
                     Text(
                         "Dépenses",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(Modifier.width(16.dp))
-
-                // Légende Revenus
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .background(
-                                MaterialTheme.colorScheme.tertiary,
-                                RoundedCornerShape(2.dp)
-                            )
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        "Revenus",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -837,7 +840,16 @@ private fun DoubleBarChart(
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalAlignment = Alignment.Bottom
                         ) {
-                            // Barre Dépenses
+                            // Barre Revenus (à gauche) en vert
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height((100 * animatedRevenuRatio).dp)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(Color(0xFF4CAF50))
+                            )
+
+                            // Barre Dépenses (à droite) en rouge
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -845,39 +857,24 @@ private fun DoubleBarChart(
                                     .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                     .background(MaterialTheme.colorScheme.error)
                             )
-
-                            // Barre Revenus
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height((100 * animatedRevenuRatio).dp)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(MaterialTheme.colorScheme.tertiary)
-                            )
                         }
+
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            // Zone des labels (toujours visible)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                depenses.forEach { (label, _) ->
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
@@ -887,13 +884,8 @@ private fun EnhancedPieChart(items: List<TopItem>) {
     if (items.isEmpty()) return
 
     val total = items.sumOf { it.montant }.coerceAtLeast(0.01)
-    val palette = listOf(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.secondary,
-        MaterialTheme.colorScheme.tertiary,
-        MaterialTheme.colorScheme.error,
-        MaterialTheme.colorScheme.surfaceTint
-    )
+    // Palette forcée en rouge pour toutes les catégories
+    val rouge = MaterialTheme.colorScheme.error
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -912,7 +904,7 @@ private fun EnhancedPieChart(items: List<TopItem>) {
             items.forEachIndexed { i, item ->
                 val pct = (item.montant / total).toFloat().coerceIn(0f, 1f)
                 val pct100 = (pct * 100).roundToInt()
-                val color = palette[i % palette.size]
+                val color = rouge
 
                 var isVisible by remember { mutableStateOf(false) }
 
@@ -1007,7 +999,7 @@ private fun EnhancedPieChart(items: List<TopItem>) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -1022,13 +1014,13 @@ private fun EnhancedPieChart(items: List<TopItem>) {
                         "Total des dépenses",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         MoneyFormatter.formatAmount(total),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -1054,17 +1046,24 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
                 titre,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
 
             Text(
                 "${transactions.size} transaction${if (transactions.size > 1) "s" else ""}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
 
         // Liste des transactions avec animation
+        val fallbackTiers = remember(titre) {
+            titre.removePrefix("Transactions - ").takeIf { it.isNotBlank() }
+        }
         transactions.forEachIndexed { index, tx ->
             var isVisible by remember { mutableStateOf(false) }
 
@@ -1095,7 +1094,13 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             val tiersMap = LocalTiersMap.current
-                            val nomTiers = tx.tiers ?: (tx.tiersId?.let { tiersMap[it] }) ?: "Tiers inconnu"
+                            val nomTiersBrut = when {
+                                !tx.tiers.isNullOrBlank() -> tx.tiers!!
+                                !tx.tiersId.isNullOrBlank() && tiersMap[tx.tiersId] != null -> tiersMap[tx.tiersId]!!
+                                !tx.tiersId.isNullOrBlank() -> tx.tiersId!!
+                                else -> "Tiers inconnu"
+                            }
+                            val nomTiers = if (nomTiersBrut == "Tiers inconnu") fallbackTiers ?: nomTiersBrut else nomTiersBrut
                             Text(
                                 nomTiers,
                                 style = MaterialTheme.typography.bodyLarge,

@@ -23,6 +23,7 @@ class StatistiquesViewModel(
 
     // Map pour résoudre allocation -> enveloppe
     private var allocationIdToEnveloppeId: Map<String, String> = emptyMap()
+    private val ID_SANS_ENVELOPPE = "__SANS_ENV__"
 
     init {
         rafraichirDonneesMoisCourant()
@@ -33,7 +34,10 @@ class StatistiquesViewModel(
         val cal = Calendar.getInstance().apply { time = now; set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
         val debut = cal.time
         val fin = Calendar.getInstance().apply { time = debut; add(Calendar.MONTH, 1); add(Calendar.MILLISECOND, -1) }.time
-        chargerPeriode(debut, fin, "Mois en cours")
+        val label = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.FRENCH)
+            .format(debut)
+            .replaceFirstChar { it.uppercase() }
+        chargerPeriode(debut, fin, label)
     }
 
     fun chargerPeriode(debut: Date, fin: Date, label: String) {
@@ -41,7 +45,15 @@ class StatistiquesViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val periode = Periode(debut, fin, label)
 
-            val transactionsResult = transactionRepository.recupererTransactionsParPeriode(debut, fin)
+            // Charger toutes les transactions sur la fenêtre des 6 derniers mois (pour le graphique)
+            val calSix = Calendar.getInstance().apply {
+                time = debut
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                add(Calendar.MONTH, -5)
+            }
+            val debut6Mois = calSix.time
+            val transactionsResult = transactionRepository.recupererTransactionsParPeriode(debut6Mois, fin)
             val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
             // Récupérer les allocations pour chaque mois couvert par la période (stabilise les noms sur 30/90 jours)
             val allocationsToutes = mutableListOf<com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle>()
@@ -66,7 +78,9 @@ class StatistiquesViewModel(
                 return@launch
             }
 
-            val transactions = transactionsResult.getOrNull().orEmpty()
+            val transactions6Mois = transactionsResult.getOrNull().orEmpty()
+            // Transactions strictement pour la période sélectionnée (tops, KPIs)
+            val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             val enveloppes = enveloppesResult.getOrNull().orEmpty()
             val allocations = allocationsToutes
             val tiers = tiersResult.getOrNull().orEmpty()
@@ -87,9 +101,9 @@ class StatistiquesViewModel(
 
             // 1) Agréger les transactions simples (non fractionnées) par enveloppe via allocation -> enveloppe
             val depenseParEnveloppeSimple: MutableMap<String, Double> = mutableMapOf()
-            depenses.filter { !it.estFractionnee && it.allocationMensuelleId != null }.forEach { tx ->
-                val envId = allocationIdToEnveloppeId[tx.allocationMensuelleId!!]
-                if (envId != null) depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
+            depenses.filter { !it.estFractionnee }.forEach { tx ->
+                val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] } ?: ID_SANS_ENVELOPPE
+                depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
             }
 
             // 2) Agréger les sous-items des transactions fractionnées par enveloppeId
@@ -118,7 +132,8 @@ class StatistiquesViewModel(
             // 4) Construire le Top 5 par enveloppe
             val top5Enveloppes = depenseParEnveloppe.entries
                 .map { (envId, montant) ->
-                    val label = enveloppeIdParNom[envId] ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                    val label = if (envId == ID_SANS_ENVELOPPE) com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE else (enveloppeIdParNom[envId]
+                        ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE)
                     TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
                 }
                 .sortedByDescending { it.montant }
@@ -153,12 +168,18 @@ class StatistiquesViewModel(
                     val mStart = calStart.time
                     val mEnd = Calendar.getInstance().apply { time = mStart; add(Calendar.MONTH, 1); add(Calendar.MILLISECOND, -1) }.time
                     sixMoisDates += mStart to mEnd
-                    sixMoisLabels += java.text.SimpleDateFormat("MMM", Locale.getDefault()).format(mStart).replaceFirstChar { it.uppercase() }
+                    sixMoisLabels += java.text.SimpleDateFormat("MMM", java.util.Locale.FRENCH)
+                        .format(mStart)
+                        .replaceFirstChar { it.uppercase() }
                     calStart.add(Calendar.MONTH, 1)
                 }
             }
             val depenses6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
-                val total = transactions.filter { it.type == TypeTransaction.Depense && it.date >= mStart && it.date <= mEnd }.sumOf { it.montant }
+                val total = transactions6Mois.filter { it.type == TypeTransaction.Depense && it.date >= mStart && it.date <= mEnd }.sumOf { it.montant }
+                sixMoisLabels[idx] to total
+            }
+            val revenus6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
+                val total = transactions6Mois.filter { it.type == TypeTransaction.Revenu && it.date >= mStart && it.date <= mEnd }.sumOf { it.montant }
                 sixMoisLabels[idx] to total
             }
 
@@ -173,6 +194,7 @@ class StatistiquesViewModel(
                 top5Enveloppes = top5Enveloppes,
                 top5Tiers = top5Tiers,
                 depenses6DerniersMois = depenses6DerniersMois,
+                revenus6DerniersMois = revenus6DerniersMois,
                 tiersIdToNom = tiersIdToNom
             )
         }

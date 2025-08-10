@@ -27,6 +27,7 @@ data class StatistiquesUiState(
     val top5Enveloppes: List<TopItem> = emptyList(),
     val top5Tiers: List<TopItem> = emptyList(),
     val depenses6DerniersMois: List<Pair<String, Double>> = emptyList(),
+    val revenus6DerniersMois: List<Pair<String, Double>> = emptyList(),
     val tiersIdToNom: Map<String, String> = emptyMap(),
     val modalOuvert: Boolean = false,
     val modalTitre: String = "",

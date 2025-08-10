@@ -29,7 +29,7 @@ fun PlanRemboursementDialog(
     paiementMensuel: Double,
     onDismiss: () -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("MMM yyyy", Locale.FRENCH)
 
     Dialog(
         onDismissRequest = onDismiss,
