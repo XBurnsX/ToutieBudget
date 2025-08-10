@@ -1,6 +1,8 @@
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,6 +49,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,6 +100,7 @@ fun ModifierTransactionScreen(
                     onTransactionModified()
                     viewModel.effacerNavigationEvent()
                 }
+
                 else -> {
                     // Ignorer les autres événements
                 }
@@ -100,16 +108,16 @@ fun ModifierTransactionScreen(
         }
     }
 
-    // États pour le clavier global
-    var afficherClavier by remember { mutableStateOf(false) }
-    var montantClavier by remember { mutableStateOf(0L) }
-    var onMontantChangeClavier by remember { mutableStateOf<(Long) -> Unit>({}) }
+    // États pour le clavier numérique - NOMS CORRIGÉS
+    var showKeyboard by remember { mutableStateOf(false) }
+    var montantClavierInitial by remember { mutableStateOf(0L) }
+    var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
 
-    // Fonction pour ouvrir le clavier
+    // Fonction pour ouvrir le clavier - NOMS CORRIGÉS
     val ouvrirClavier = { montantInitial: Long, onMontantChange: (Long) -> Unit ->
-        montantClavier = montantInitial
-        onMontantChangeClavier = onMontantChange
-        afficherClavier = true
+        montantClavierInitial = montantInitial
+        onMontantChangeCallback = onMontantChange
+        showKeyboard = true
     }
 
     Scaffold(
@@ -140,7 +148,7 @@ fun ModifierTransactionScreen(
         },
         containerColor = Color(0xFF121212)
     ) { paddingValues ->
-        
+
         if (uiState.isLoading) {
             // Écran de chargement
             Box(
@@ -184,12 +192,14 @@ fun ModifierTransactionScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
+
                         "Prêt" -> {
                             TypePretSelector(
                                 typeSelectionne = uiState.typePret,
                                 onTypeChange = { /* Pas de changement pour la modification */ }
                             )
                         }
+
                         "Emprunt" -> {
                             TypeDetteSelector(
                                 typeSelectionne = uiState.typeDette,
@@ -408,43 +418,76 @@ fun ModifierTransactionScreen(
                 )
             }
 
-            // Clavier numérique global
-            if (afficherClavier) {
+            // 🎯 CLAVIER NUMÉRIQUE OPTIMISÉ POUR PIXEL 7 & 8 PRO
+            if (showKeyboard) {
+                val configuration = LocalConfiguration.current
+                val density = LocalDensity.current
+
+                // Padding optimisé pour les Pixel et appareils similaires
+                val paddingBottom = with(density) {
+                    when {
+                        // Pixel 7, Galaxy S23, etc. (écrans ~6.3")
+                        configuration.screenHeightDp in 800..850 -> 72.dp
+                        // Pixel 8 Pro, Galaxy S23 Ultra, etc. (écrans ~6.7"+)
+                        configuration.screenHeightDp > 850 -> 88.dp
+                        // Appareils plus petits
+                        configuration.screenHeightDp < 800 -> 56.dp
+                        // Fallback
+                        else -> 64.dp
+                    }
+                }
+
                 Dialog(
                     onDismissRequest = {
-                        afficherClavier = false
-                        onMontantChangeClavier = {}
+                        showKeyboard = false
+                        onMontantChangeCallback = null
                     },
-                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                    properties = DialogProperties(
+                        usePlatformDefaultWidth = false,
+                        decorFitsSystemWindows = false
+                    )
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        // Fond cliquable pour fermer
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .systemBarsPadding()
+                    ) {
+                        // Zone de fond cliquable pour fermer
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                    afficherClavier = false
-                                    onMontantChangeClavier = {}
+                                .pointerInput(Unit) {
+                                    detectTapGestures {
+                                        showKeyboard = false
+                                        onMontantChangeCallback = null
+                                    }
                                 }
                         )
 
-                        // Clavier ancré en bas avec padding IME + nav bars
+                        // Clavier optimisé pour Pixel
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .windowInsetsPadding(WindowInsets.ime)
-                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .fillMaxWidth()
+                                .wrapContentHeight()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(
+                                    start = 0.dp,
+                                    top = 30.dp,      // Zone colorée qui remonte
+                                    end = 0.dp,
+                                    bottom = paddingBottom
+                                )
                         ) {
                             ClavierNumerique(
-                                montantInitial = montantClavier,
+                                montantInitial = montantClavierInitial,
                                 isMoney = true,
                                 suffix = "",
                                 onMontantChange = { nouveauMontant ->
-                                    onMontantChangeClavier(nouveauMontant)
+                                    onMontantChangeCallback?.invoke(nouveauMontant)
                                 },
                                 onFermer = {
-                                    afficherClavier = false
-                                    onMontantChangeClavier = {}
+                                    showKeyboard = false
+                                    onMontantChangeCallback = null
                                 }
                             )
                         }
@@ -452,36 +495,5 @@ fun ModifierTransactionScreen(
                 }
             }
         }
-    }
-}
-
-/**
- * Obtient la couleur du montant selon le mode et type de transaction sélectionnés.
- */
-private fun obtenirCouleurMontant(uiState: AjoutTransactionUiState): Color {
-    return when (uiState.modeOperation) {
-        "Standard" -> {
-            when (uiState.typeTransaction) {
-                TypeTransaction.Depense -> Color(0xFFEF4444) // Rouge pour dépense
-                TypeTransaction.Revenu -> Color(0xFF10B981) // Vert pour revenu
-                else -> Color(0xFF10B981) // Vert par défaut
-            }
-        }
-        "Prêt" -> {
-            when (uiState.typePret) {
-                "Prêt accordé" -> Color(0xFFEF4444) // Rouge pour prêt accordé
-                "Remboursement reçu" -> Color(0xFF10B981) // Vert pour remboursement reçu
-                else -> Color(0xFF10B981) // Vert par défaut
-            }
-        }
-        "Emprunt" -> {
-            when (uiState.typeDette) {
-                "Dette contractée" -> Color(0xFF10B981) // Vert pour dette contractée
-                "Remboursement donné" -> Color(0xFFEF4444) // Rouge pour remboursement donné
-                else -> Color(0xFF10B981) // Vert par défaut
-            }
-        }
-        "Paiement" -> Color(0xFFEF4444) // Rouge pour paiement
-        else -> Color(0xFF10B981) // Vert par défaut
     }
 }
