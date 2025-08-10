@@ -62,7 +62,10 @@ fun ComptesScreen(
             TopAppBar(
                 windowInsets = WindowInsets(0),
                 title = { Text("Comptes", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF121212),
+                    titleContentColor = Color.White
+                ),
                 actions = {
                     // 🆕 Bouton de mode réorganisation
                     IconButton(
@@ -122,7 +125,8 @@ fun ComptesScreen(
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(horizontal = 16.dp, vertical = 12.dp)
+                            modifier = Modifier.fillMaxWidth().background(Color(0xFF121212))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         )
                     }
                     items(listeDeComptes, key = { it.id }) { compte ->
@@ -232,7 +236,11 @@ fun ComptesScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    var nouveauSolde by remember { mutableStateOf(((uiState.compteSelectionne?.solde ?: 0.0) * 100).toLong()) }
+                    var nouveauSolde by remember {
+                        mutableStateOf(
+                            ((uiState.compteSelectionne?.solde ?: 0.0) * 100).toLong()
+                        )
+                    }
 
                     ChampUniversel(
                         valeur = nouveauSolde,
@@ -269,7 +277,7 @@ fun ComptesScreen(
                         }
 
                         Button(
-                            onClick = { 
+                            onClick = {
                                 viewModel.onReconcilierCompte(nouveauSolde / 100.0)
                             },
                             modifier = Modifier.weight(1f)
@@ -447,12 +455,16 @@ fun ComptesScreen(
                 showKeyboard = false
                 onMontantChangeCallback = null
             },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false // ✅ LIGNE IMPORTANTE AJOUTÉE
+            )
         ) {
             // Le Dialog garantit que le clavier sera au-dessus de tout
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .systemBarsPadding() // ✅ REMPLACÉ windowInsetsPadding par systemBarsPadding
             ) {
                 // Zone de fond cliquable pour fermer
                 Box(
@@ -466,12 +478,11 @@ fun ComptesScreen(
                         }
                 )
 
-                // Clavier ancré en bas, avec padding IME + nav bars
+                // Clavier ancré en bas avec padding de sécurité
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.ime)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(bottom = 32.dp) // ✅ PADDING FIXE au lieu d'insets automatiques
                 ) {
                     ClavierNumerique(
                         montantInitial = montantClavierInitial,
