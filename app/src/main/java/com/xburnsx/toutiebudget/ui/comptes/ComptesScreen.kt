@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -449,7 +451,26 @@ fun ComptesScreen(
     }
 
     // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal
+// 🎯 SOLUTION OPTIMISÉE POUR PIXEL 7 & 8 PRO
+
     if (showKeyboard) {
+        val configuration = LocalConfiguration.current
+        val density = LocalDensity.current
+
+        // Padding optimisé pour les Pixel et appareils similaires
+        val paddingBottom = with(density) {
+            when {
+                // Pixel 7, Galaxy S23, etc. (écrans ~6.3")
+                configuration.screenHeightDp in 800..850 -> 72.dp
+                // Pixel 8 Pro, Galaxy S23 Ultra, etc. (écrans ~6.7"+)
+                configuration.screenHeightDp > 850 -> 88.dp
+                // Appareils plus petits
+                configuration.screenHeightDp < 800 -> 56.dp
+                // Fallback
+                else -> 64.dp
+            }
+        }
+
         Dialog(
             onDismissRequest = {
                 showKeyboard = false
@@ -457,14 +478,13 @@ fun ComptesScreen(
             },
             properties = DialogProperties(
                 usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false // ✅ LIGNE IMPORTANTE AJOUTÉE
+                decorFitsSystemWindows = false
             )
         ) {
-            // Le Dialog garantit que le clavier sera au-dessus de tout
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .systemBarsPadding() // ✅ REMPLACÉ windowInsetsPadding par systemBarsPadding
+                    .systemBarsPadding()
             ) {
                 // Zone de fond cliquable pour fermer
                 Box(
@@ -478,11 +498,19 @@ fun ComptesScreen(
                         }
                 )
 
-                // Clavier ancré en bas avec padding de sécurité
+                // Clavier optimisé pour Pixel
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp) // ✅ PADDING FIXE au lieu d'insets automatiques
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(
+                            start = 0.dp,
+                            top = 30.dp,      // Zone colorée qui remonte
+                            end = 0.dp,
+                            bottom = paddingBottom
+                        )
                 ) {
                     ClavierNumerique(
                         montantInitial = montantClavierInitial,

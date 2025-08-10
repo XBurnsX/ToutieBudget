@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
@@ -247,14 +250,38 @@ fun GestionCarteCreditScreen(
 
     // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal
     if (showKeyboard) {
+        val configuration = LocalConfiguration.current
+        val density = LocalDensity.current
+
+        // Padding optimisé pour les Pixel et appareils similaires
+        val paddingBottom = with(density) {
+            when {
+                // Pixel 7, Galaxy S23, etc. (écrans ~6.3")
+                configuration.screenHeightDp in 800..850 -> 72.dp
+                // Pixel 8 Pro, Galaxy S23 Ultra, etc. (écrans ~6.7"+)
+                configuration.screenHeightDp > 850 -> 88.dp
+                // Appareils plus petits
+                configuration.screenHeightDp < 800 -> 56.dp
+                // Fallback
+                else -> 64.dp
+            }
+        }
+
         Dialog(
             onDismissRequest = {
                 showKeyboard = false
                 onMontantChangeCallback = null
             },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+            ) {
                 // Zone de fond cliquable pour fermer
                 Box(
                     modifier = Modifier
@@ -267,12 +294,19 @@ fun GestionCarteCreditScreen(
                         }
                 )
 
-                // Clavier ancré en bas, avec padding IME + nav bars
+                // Clavier optimisé pour Pixel
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.ime)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(
+                            start = 0.dp,
+                            top = 30.dp,      // Zone colorée qui remonte
+                            end = 0.dp,
+                            bottom = paddingBottom
+                        )
                 ) {
                     ClavierNumerique(
                         montantInitial = montantClavierInitial,

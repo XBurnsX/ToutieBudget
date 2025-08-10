@@ -4,6 +4,7 @@
 package com.xburnsx.toutiebudget.ui.categories
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -274,6 +277,23 @@ fun CategoriesEnveloppesScreen(
     // ===== CLAVIER NUMÉRIQUE GLOBAL =====
 
     if (showKeyboard) {
+        val configuration = LocalConfiguration.current
+        val density = LocalDensity.current
+
+        // Padding optimisé pour les Pixel et appareils similaires
+        val paddingBottom = with(density) {
+            when {
+                // Pixel 7, Galaxy S23, etc. (écrans ~6.3")
+                configuration.screenHeightDp in 800..850 -> 72.dp
+                // Pixel 8 Pro, Galaxy S23 Ultra, etc. (écrans ~6.7"+)
+                configuration.screenHeightDp > 850 -> 88.dp
+                // Appareils plus petits
+                configuration.screenHeightDp < 800 -> 56.dp
+                // Fallback
+                else -> 64.dp
+            }
+        }
+
         Dialog(
             onDismissRequest = {
                 showKeyboard = false
@@ -281,37 +301,45 @@ fun CategoriesEnveloppesScreen(
             },
             properties = DialogProperties(
                 usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
+                decorFitsSystemWindows = false
             )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+            ) {
                 // Zone de fond cliquable pour fermer
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) {
-                            showKeyboard = false
-                            onMontantChangeCallback = null
+                        .pointerInput(Unit) {
+                            detectTapGestures {
+                                showKeyboard = false
+                                onMontantChangeCallback = null
+                            }
                         }
                 )
 
-                // Clavier ancré en bas avec padding barres de navigation
+                // Clavier optimisé pour Pixel
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.ime)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(
+                            start = 0.dp,
+                            top = 30.dp,      // Zone colorée qui remonte
+                            end = 0.dp,
+                            bottom = paddingBottom
+                        )
                 ) {
                     ClavierNumerique(
                         montantInitial = montantClavierInitial,
                         isMoney = true,
                         suffix = "",
                         onMontantChange = { nouveauMontant ->
-                            // Mise à jour immédiate du ViewModel à chaque frappe
                             onMontantChangeCallback?.invoke(nouveauMontant)
                         },
                         onFermer = {
@@ -320,32 +348,6 @@ fun CategoriesEnveloppesScreen(
                         }
                     )
                 }
-            }
-        }
-    }
-
-    // ===== GESTION DES ERREURS =====
-
-    uiState.erreur?.let { erreur ->
-        LaunchedEffect(erreur) {
-            // L'erreur sera effacée automatiquement au tap
-        }
-
-        // Affichage de l'erreur en bas de l'écran
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Surface(
-                color = Color(0xFFFF3B30),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = erreur,
-                    color = Color.White,
-                    modifier = Modifier.padding(16.dp)
-                )
             }
         }
     }
