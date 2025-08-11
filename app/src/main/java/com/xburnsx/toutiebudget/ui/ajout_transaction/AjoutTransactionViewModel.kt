@@ -25,6 +25,7 @@ import java.util.Calendar
 import java.util.Date
 import java.time.LocalDate
 import java.time.ZoneId
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 /**
  * ViewModel pour l'écran d'ajout de transactions.
@@ -467,7 +468,7 @@ class AjoutTransactionViewModel(
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
 
             try {
-                val montant = state.montant.toDoubleOrNull()
+                val montant = state.montant.toDoubleOrNull()?.let { MoneyFormatter.roundAmount(it) }
                     ?: throw Exception(VirementErrorMessages.General.MONTANT_INVALIDE)
 
                 val compte = state.compteSelectionne
@@ -582,7 +583,7 @@ class AjoutTransactionViewModel(
                     val fractions = state.fractionsSauvegardees
                     
                     // Convertir les fractions en JSON pour sousItems
-                    val sousItems = fractions.mapIndexed { index, fraction ->
+                        val sousItems = fractions.mapIndexed { index, fraction ->
                         // Récupérer ou créer l'allocation mensuelle pour cette enveloppe
                         val allocationActuelle = allocationMensuelleRepository.recupererOuCreerAllocation(
                             enveloppeId = fraction.enveloppeId,
@@ -590,7 +591,7 @@ class AjoutTransactionViewModel(
                         )
                         
                                                  // Le montant est en centimes, on le convertit en dollars pour le JSON
-                         val montantEnDollars = fraction.montant / 100.0
+                         val montantEnDollars = MoneyFormatter.roundAmount(fraction.montant / 100.0)
                         
                         // Déterminer la collection du compte
                         val collectionCompte = when (compte) {
@@ -629,7 +630,7 @@ class AjoutTransactionViewModel(
                     // Créer la transaction principale avec estFractionnee = true
                     val transactionPrincipale = enregistrerTransactionUseCase.executer(
                         typeTransaction = typeTransaction,
-                        montant = montant / 100.0, // Convertir centimes en dollars pour le use case
+                        montant = MoneyFormatter.roundAmount(montant / 100.0), // Convertir centimes en dollars et arrondir
                         compteId = compte.id,
                         collectionCompte = when (compte) {
                             is CompteCheque -> "comptes_cheques"

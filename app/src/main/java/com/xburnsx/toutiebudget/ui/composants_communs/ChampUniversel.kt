@@ -77,10 +77,10 @@ fun ChampUniversel(
             val resultat = String.format("%.2f", bigDecimal.toDouble())
             resultat
         } else {
-            // Mode non-monétaire : toujours avec décimales (ex: 1290 -> 12.9)
+            // Mode non-monétaire : forcer exactement 2 décimales (ex: 1290 -> 12.90)
             val bigDecimal = BigDecimal.valueOf(valeur)
-                .divide(BigDecimal.valueOf(100), 1, RoundingMode.HALF_UP)
-            val resultat = String.format("%.1f", bigDecimal.toDouble())
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+            val resultat = String.format("%.2f", bigDecimal.toDouble())
             resultat
         }
     }

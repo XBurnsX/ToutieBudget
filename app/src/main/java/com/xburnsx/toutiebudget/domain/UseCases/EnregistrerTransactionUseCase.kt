@@ -11,6 +11,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.util.Calendar
 import java.util.Date
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
 /**
  * Use case pour enregistrer une transaction et mettre à jour les soldes correspondants.
@@ -87,7 +88,8 @@ class EnregistrerTransactionUseCase(
                 // mais les allocations mensuelles restent toujours basées sur le mois actuel
                 val transaction = Transaction(
                     type = typeTransaction,
-                    montant = montant,
+                    // Forcer arrondi exact
+                    montant = MoneyFormatter.roundAmount(montant),
                     date = date, // Date sélectionnée par l'utilisateur
                     note = note,
                     compteId = compteId,

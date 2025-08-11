@@ -17,7 +17,8 @@
  import okhttp3.MediaType.Companion.toMediaType
  import okhttp3.OkHttpClient
  import okhttp3.Request
- import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.SimpleDateFormat
 import java.util.*
 import java.net.URLEncoder
@@ -105,9 +106,9 @@ import java.net.URLEncoder
             // ✅ Utiliser le bon format au lieu de gson.toJson() bugué
             val donneesUpdate = mapOf(
                 "utilisateur_id" to allocation.utilisateurId, // ← AJOUT ! Peut-être requis pour l'autorisation
-                "solde" to allocation.solde,
-                "alloue" to allocation.alloue,
-                "depense" to allocation.depense,
+                "solde" to MoneyFormatter.roundAmount(allocation.solde),
+                "alloue" to MoneyFormatter.roundAmount(allocation.alloue),
+                "depense" to MoneyFormatter.roundAmount(allocation.depense),
                 "mois" to DATE_FORMAT.format(allocation.mois),
                 "compte_source_id" to (allocation.compteSourceId ?: ""),
                 "collection_compte_source" to (allocation.collectionCompteSource ?: "")
@@ -409,9 +410,9 @@ import java.net.URLEncoder
              "utilisateur_id" to utilisateurId,
              "enveloppe_id" to allocation.enveloppeId,
              "mois" to DATE_FORMAT.format(allocation.mois),
-             "solde" to allocation.solde,
-             "alloue" to allocation.alloue,
-             "depense" to allocation.depense,
+              "solde" to com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(allocation.solde),
+              "alloue" to com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(allocation.alloue),
+              "depense" to com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(allocation.depense),
              "compte_source_id" to allocation.compteSourceId,
              "collection_compte_source" to allocation.collectionCompteSource
          )

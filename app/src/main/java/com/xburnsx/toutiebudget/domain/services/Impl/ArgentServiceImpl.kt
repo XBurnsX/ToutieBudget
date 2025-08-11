@@ -710,8 +710,14 @@ class ArgentServiceImpl @Inject constructor(
             compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
         }
 
-        // 5. Mettre à jour le solde de la cible (carte OU dette) pour le montant total
-        val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + montantPourCarte)
+        // 5. Mettre à jour le solde de la cible (carte OU dette)
+        // Paiement d'une dette/carte doit DIMINUER le solde dû
+        val deltaCible = if (collectionCarteOuDette == "comptes_credits" || collectionCarteOuDette == "comptes_dettes") {
+            -montantPourCarte
+        } else {
+            montantPourCarte
+        }
+        val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + deltaCible)
         // Utiliser la collection réellement sélectionnée (carte de crédit ou dette)
         val collectionCible = when (collectionCarteOuDette) {
             "comptes_dettes" -> "comptes_dettes"
@@ -738,7 +744,8 @@ class ArgentServiceImpl @Inject constructor(
 
         // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
         for ((dette, part) in remboursementsDettes) {
-            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde + part)
+            // Un remboursement réduit le solde de la dette
+            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde - part)
             // Forcer la collection explicite pour éviter tout contexte invalide
             compteRepository.mettreAJourSolde(dette.id, "comptes_dettes", nouveauSoldeDette)
 
@@ -772,7 +779,7 @@ class ArgentServiceImpl @Inject constructor(
         )
         transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
 
-        // 7.2 Transactions entrantes sur la carte et sur les dettes
+        // 7.2 Transactions sur la carte et sur les dettes (reçues comme remboursement)
         if (montantPourCarte > 0) {
             val txEntranteCarte = Transaction(
                 id = UUID.randomUUID().toString(),

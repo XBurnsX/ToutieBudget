@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.Date
 
 /**
@@ -261,7 +262,7 @@ class ModifierTransactionViewModel(
         }
         
         // Convertir les centimes en dollars pour le use case
-        val montantEnDollars = montantEnCentimes / 100.0
+        val montantEnDollars = MoneyFormatter.roundAmount(montantEnCentimes / 100.0)
 
         if (state.compteSelectionne == null) {
             _uiState.update { it.copy(messageErreur = "Veuillez sélectionner un compte") }

@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLEncoder
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,7 +58,8 @@ class TransactionRepositoryImpl : TransactionRepository {
             val donneesTransaction = mutableMapOf(
                 "utilisateur_id" to utilisateurId,
                 "type" to transaction.type.valeurPocketBase,
-                "montant" to transaction.montant,
+                // Forcer 2 décimales
+                "montant" to MoneyFormatter.roundAmount(transaction.montant),
                 "date" to dateEnUTC,
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
@@ -312,7 +314,8 @@ class TransactionRepositoryImpl : TransactionRepository {
             val dateEnUTC = dateFormatter.format(transaction.date)
             val donneesTransaction = mutableMapOf(
                 "type" to transaction.type.valeurPocketBase,
-                "montant" to transaction.montant,
+                // Forcer 2 décimales
+                "montant" to MoneyFormatter.roundAmount(transaction.montant),
                 "date" to dateEnUTC,
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
