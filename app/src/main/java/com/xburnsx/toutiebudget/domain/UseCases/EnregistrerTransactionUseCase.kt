@@ -13,6 +13,7 @@ import java.util.Calendar
 import java.util.Date
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
+
 /**
  * Use case pour enregistrer une transaction et mettre à jour les soldes correspondants.
  * Gère la logique métier complète de création d'une transaction.
@@ -112,7 +113,7 @@ class EnregistrerTransactionUseCase(
                     },
                     async { 
                         if (!allocationMensuelleId.isNullOrBlank()) {
-                            mettreAJourSoldeEnveloppe(allocationMensuelleId, montant)
+                            mettreAJourSoldeEnveloppe(allocationMensuelleId, montant, collectionCompte)
                         } else {
                             Result.success(Unit)
                         }
@@ -232,7 +233,28 @@ class EnregistrerTransactionUseCase(
      * Met à jour le solde d'une enveloppe (allocation mensuelle).
      * Pour une dépense, soustrait le montant du solde et l'ajoute aux dépenses.
      */
-    private suspend fun mettreAJourSoldeEnveloppe(allocationMensuelleId: String, montant: Double): Result<Unit> {
-        return enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
+    private suspend fun mettreAJourSoldeEnveloppe(
+        allocationMensuelleId: String,
+        montant: Double,
+        collectionCompte: String
+    ): Result<Unit> {
+        return try {
+            if (collectionCompte == "comptes_credits") {
+                // Carte de crédit: ne PAS toucher au solde d'allocation, seulement depense et alloue
+                val allocation = enveloppeRepository.recupererAllocationParId(allocationMensuelleId).getOrThrow()
+                val allocationMaj = allocation.copy(
+                    depense = MoneyFormatter.roundAmount(allocation.depense + montant),
+                    alloue = MoneyFormatter.roundAmount(allocation.alloue + montant),
+                    solde = MoneyFormatter.roundAmount(allocation.solde)
+                )
+                allocationMensuelleRepository.mettreAJourAllocation(allocationMaj)
+                Result.success(Unit)
+            } else {
+                // Comportement normal: depense += montant et solde -= montant
+                enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
