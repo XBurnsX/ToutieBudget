@@ -279,57 +279,94 @@ import java.net.URLEncoder
      /**
       * NOUVELLE FONCTION : Fusionne plusieurs allocations en une seule et supprime les doublons.
       */
-          private suspend fun fusionnerEtNettoyerAllocations(
+    private suspend fun fusionnerEtNettoyerAllocations(
         allocations: List<AllocationMensuelle>,
         enveloppeId: String,
         mois: Date
     ): AllocationMensuelle = withContext(Dispatchers.IO) {
-        
-        // 1. Calculer les totaux de toutes les allocations
+        // 1) Calculer les totaux à fusionner
         val soldeTotal = allocations.sumOf { it.solde }
         val alloueTotal = allocations.sumOf { it.alloue }
         val depenseTotal = allocations.sumOf { it.depense }
-        
-        // 2. Prendre les informations de la première allocation (pour les métadonnées)
-        val premiereAllocation = allocations.first()
-        
-        // ✅ LOGIQUE PROVENANCE SIMPLE ! (comme demandé par l'utilisateur)
-        val compteProvenanceFinal = if (soldeTotal < 0.1) {
-            null // Reset provenance si plus d'argent
-        } else {
-            // Trouver la provenance dominante (allocation avec le plus gros solde positif)
-            val allocationDominante = allocations
-                .filter { it.solde > 0.0 }
-                .maxByOrNull { it.solde }
-            allocationDominante?.compteSourceId
-        }
- 
-        // 3. Créer une nouvelle allocation fusionnée
-        val allocationFusionnee = AllocationMensuelle(
-            id = "", // Sera généré lors de la création
-            utilisateurId = premiereAllocation.utilisateurId,
-            enveloppeId = enveloppeId,
+
+        // 2) Choisir une allocation CANONIQUE à conserver (garder l'ID pour ne PAS casser les références)
+        val allocationCanonique = allocations.first()
+
+        // 3) Déterminer la provenance finale (compte source et collection)
+        val allocationDominante = allocations
+            .filter { it.solde > 0.0 }
+            .maxByOrNull { it.solde }
+        val compteSourceFinal = if (soldeTotal < 0.01) null else allocationDominante?.compteSourceId
+        val collectionCompteSourceFinal = if (soldeTotal < 0.01) null else allocationDominante?.collectionCompteSource
+
+        // 4) Construire l'objet fusionné avec le MÊME ID (celui de l'allocation canonique)
+        val allocationFusionnee = allocationCanonique.copy(
             mois = mois,
             solde = soldeTotal,
             alloue = alloueTotal,
             depense = depenseTotal,
-            compteSourceId = compteProvenanceFinal,
-            collectionCompteSource = if (compteProvenanceFinal != null) premiereAllocation.collectionCompteSource else null
+            compteSourceId = compteSourceFinal,
+            collectionCompteSource = collectionCompteSourceFinal
         )
 
         try {
-            // 4. Supprimer toutes les anciennes allocations
-            allocations.forEach { allocation ->
-                supprimerAllocation(allocation.id)
+            // 5) Mettre à jour l'allocation canonique avec les totaux
+            mettreAJourAllocation(allocationFusionnee)
+
+            // 6) Avant de supprimer les doublons, réassigner leurs transactions vers l'ID canonique
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: throw Exception("Utilisateur non connecté")
+            val token = client.obtenirToken() ?: throw Exception("Token manquant")
+            val urlBase = UrlResolver.obtenirUrlActive()
+
+            allocations.drop(1).forEach { doublon ->
+                if (doublon.id == allocationCanonique.id) return@forEach
+
+                // 6.a) Récupérer les transactions liées à ce doublon
+                val filtre = java.net.URLEncoder.encode(
+                    "utilisateur_id = '$utilisateurId' && allocation_mensuelle_id = '${doublon.id}'",
+                    "UTF-8"
+                )
+                val urlRecherche = "$urlBase/api/collections/transactions/records?filter=$filtre&perPage=500"
+                val reqRecherche = okhttp3.Request.Builder()
+                    .url(urlRecherche)
+                    .addHeader("Authorization", "Bearer $token")
+                    .get()
+                    .build()
+
+                httpClient.newCall(reqRecherche).execute().use { respList ->
+                    if (respList.isSuccessful) {
+                        val body = respList.body?.string().orEmpty()
+                        val json = JsonParser.parseString(body).asJsonObject
+                        val items = json.getAsJsonArray("items")
+                        for (i in 0 until items.size()) {
+                            val item = items[i].asJsonObject
+                            val transactionId = item.get("id").asString
+                            // 6.b) PATCH de la transaction pour pointer vers l'allocation canonique
+                            val patchJson = gson.toJson(mapOf(
+                                "allocation_mensuelle_id" to allocationCanonique.id
+                            ))
+                            val urlPatch = "$urlBase/api/collections/transactions/records/$transactionId"
+                            val reqPatch = okhttp3.Request.Builder()
+                                .url(urlPatch)
+                                .addHeader("Authorization", "Bearer $token")
+                                .addHeader("Content-Type", "application/json")
+                                .patch(patchJson.toRequestBody("application/json".toMediaType()))
+                                .build()
+                            httpClient.newCall(reqPatch).execute().use { _ -> }
+                        }
+                    }
+                }
+
+                // 6.c) Supprimer le doublon
+                supprimerAllocation(doublon.id)
             }
 
-            // 5. Créer la nouvelle allocation fusionnée
-            val nouvelleAllocation = creerAllocationMensuelleInterne(allocationFusionnee)
-            nouvelleAllocation
-            
+            // 7) Retourner l'allocation fusionnée conservant le même ID
+            allocationFusionnee
         } catch (e: Exception) {
-            // En cas d'erreur, retourner la première allocation
-            premiereAllocation
+            // En cas d'erreur, au moins retourner l'allocation canonique inchangée
+            allocationCanonique
         }
     }
  
