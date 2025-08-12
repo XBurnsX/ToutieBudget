@@ -26,6 +26,7 @@ import com.xburnsx.toutiebudget.ui.login.LoginViewModel
 import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
 import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
+import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
  import androidx.lifecycle.SavedStateHandle
 // import android.content.Context (supprimé)
 
@@ -158,6 +159,12 @@ import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
               realtimeSyncService = realtimeSyncService
           )
       }
+
+      private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
+          PretPersonnelViewModel(
+              pretPersonnelRepository = PretPersonnelRepositoryImpl()
+          )
+      }
  
      // ===== FONCTIONS PUBLIQUES =====
      
@@ -175,6 +182,7 @@ import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
       fun provideStatistiquesViewModel(): StatistiquesViewModel = statistiquesViewModel
+      fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,

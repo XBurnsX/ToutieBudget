@@ -28,6 +28,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +65,7 @@ import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.util.Date
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Menu
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -70,7 +73,8 @@ fun BudgetScreen(
     viewModel: BudgetViewModel,
     onCategoriesClick: (() -> Unit)? = null,
     onVirementClick: (() -> Unit)? = null,
-    onSettingsClick: (() -> Unit)? = null
+    onSettingsClick: (() -> Unit)? = null,
+    onPretPersonnelClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var moisSelectionne by remember { mutableStateOf(Date()) }
@@ -120,14 +124,35 @@ fun BudgetScreen(
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    // Icône de virement
-                    IconButton(onClick = { onVirementClick?.invoke() }) {
-                        Icon(
-                            ImageVector.vectorResource(R.drawable.transfert_argent),
-                            contentDescription = "Virement d'argent",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    // Menu hamburger (à droite, le plus à gauche des icônes)
+                    var menuExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Prêt personnel") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPretPersonnelClick?.invoke()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Virer argent") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onVirementClick?.invoke()
+                                }
+                            )
+                        }
                     }
 
                     // Icône des catégories (séparée)

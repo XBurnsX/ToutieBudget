@@ -268,7 +268,7 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                     }
                                 }
                                 if (enveloppe.alloueCumulatif >= objectif) {
-                                    "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)}"
+                                    "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
                                 } else {
                                     "${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
                                 }

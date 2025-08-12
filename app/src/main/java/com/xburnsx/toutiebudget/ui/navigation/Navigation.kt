@@ -359,6 +359,9 @@ fun MainAppScaffold(
                     },
                     onSettingsClick = {
                         bottomBarNavController.navigate(Screen.Settings.route)
+                    },
+                    onPretPersonnelClick = {
+                        bottomBarNavController.navigate("pret_personnel")
                     }
                 )
             }
@@ -434,6 +437,14 @@ fun MainAppScaffold(
                             popUpTo(Screen.Budget.route) { inclusive = true }
                         }
                     }
+                )
+            }
+            // Écran Prêt personnel
+            composable("pret_personnel") {
+                val viewModel = AppModule.providePretPersonnelViewModel()
+                com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelScreen(
+                    viewModel = viewModel,
+                    onBack = { bottomBarNavController.popBackStack() }
                 )
             }
             }
