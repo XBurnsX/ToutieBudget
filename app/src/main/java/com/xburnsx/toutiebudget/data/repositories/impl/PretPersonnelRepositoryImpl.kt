@@ -49,7 +49,7 @@ class PretPersonnelRepositoryImpl : PretPersonnelRepository {
         }
     }
 
-    override suspend fun creer(pret: PretPersonnel): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun creer(pret: PretPersonnel): Result<PretPersonnel> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) return@withContext Result.failure(Exception("Non connecté"))
         try {
             val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
@@ -63,6 +63,29 @@ class PretPersonnelRepositoryImpl : PretPersonnelRepository {
                 .build()
             val resp = http.newCall(req).execute()
             if (!resp.isSuccessful) throw Exception("Erreur création: ${resp.code} ${resp.body?.string()}")
+            val body = resp.body!!.string()
+            // Retourner l’objet créé (best effort)
+            val created = try { gson.fromJson(body, PretPersonnel::class.java) } catch (_: Exception) { pret }
+            Result.success(created)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun mettreAJour(pret: PretPersonnel): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) return@withContext Result.failure(Exception("Non connecté"))
+        try {
+            val token = client.obtenirToken() ?: return@withContext Result.failure(Exception("Token manquant"))
+            val base = client.obtenirUrlBaseActive()
+            val url = "$base/api/collections/pret_personnel/records/${pret.id}"
+            val json = gson.toJson(pret)
+            val req = Request.Builder().url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .patch(json.toRequestBody("application/json".toMediaType()))
+                .build()
+            val resp = http.newCall(req).execute()
+            if (!resp.isSuccessful) throw Exception("Erreur mise à jour: ${resp.code} ${resp.body?.string()}")
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

@@ -38,6 +38,8 @@ class AjoutTransactionViewModel(
     private val tiersRepository: TiersRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
+    private val transactionRepository: TransactionRepository,
+    private val pretPersonnelRepository: PretPersonnelRepository,
     private val argentService: com.xburnsx.toutiebudget.domain.services.ArgentService,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
@@ -572,6 +574,193 @@ class AjoutTransactionViewModel(
                     return@launch
                 }
                 
+                // Gestion spécifique PRÊT/EMPRUNT via collection pret_personnel
+                if (state.modeOperation == "Prêt") {
+                    val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
+                    val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                        ?: throw Exception("Utilisateur non connecté")
+                    val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                    if (nomTiers.isBlank()) throw Exception("Nom du tiers requis")
+                    val collectionCompte = when (compte) {
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissements"
+                        else -> "comptes_cheques"
+                    }
+                    val nowLocal = java.time.LocalDateTime.now()
+                    val dateTx = Date.from(state.dateTransaction.atTime(nowLocal.hour, nowLocal.minute, nowLocal.second).atZone(ZoneId.systemDefault()).toInstant())
+                    if (state.typePret == "Prêt accordé") {
+                        val record = com.xburnsx.toutiebudget.data.modeles.PretPersonnel(
+                            utilisateurId = utilisateurId,
+                            nomTiers = nomTiers,
+                            montantInitial = montantDollars,
+                            solde = montantDollars,
+                            type = com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET,
+                            estArchive = false
+                        )
+                        val res = pretPersonnelRepository.creer(record)
+                        val created = res.getOrElse { throw it }
+                        // Débiter le compte et le prêt à placer
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = -montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        // persister la transaction pour historique
+                        transactionRepository.creerTransaction(
+                            Transaction(
+                                type = TypeTransaction.Pret,
+                                montant = montantDollars,
+                                date = dateTx,
+                                compteId = compte.id,
+                                collectionCompte = collectionCompte,
+                                note = state.note.takeIf { it.isNotBlank() },
+                                tiers = nomTiers,
+                                sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
+                            )
+                        )
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Prêt enregistré") }
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        return@launch
+                    } else if (state.typePret == "Remboursement reçu") {
+                        // Remboursement reçu: distribuer sur TOUS les prêts actifs de ce tiers (FIFO)
+                        val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
+                            .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
+                            .sortedBy { it.created ?: "" } // plus ancien d'abord
+                        var restant = montantDollars
+                        if (existants.isEmpty()) throw Exception("Aucun prêt actif pour ce tiers")
+                        // Créditer le compte et prêt à placer UNE fois pour le total
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        for (pret in existants) {
+                            if (restant <= 0) break
+                            val aPayer = kotlin.math.min(restant, pret.solde)
+                            val nouveauSolde = kotlin.math.max(0.0, pret.solde - aPayer)
+                            val archiver = kotlin.math.abs(nouveauSolde) < 0.005
+                            val maj = pret.copy(solde = nouveauSolde, estArchive = archiver)
+                            pretPersonnelRepository.mettreAJour(maj)
+                            // Créer UNE transaction par portion appliquée à ce prêt
+                            val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"" + "}"
+                            transactionRepository.creerTransaction(
+                                Transaction(
+                                    type = TypeTransaction.RemboursementRecu,
+                                    montant = aPayer,
+                                    date = dateTx,
+                                    compteId = compte.id,
+                                    collectionCompte = collectionCompte,
+                                    note = state.note.takeIf { it.isNotBlank() },
+                                    tiers = nomTiers,
+                                    sousItems = sous
+                                )
+                            )
+                            restant -= aPayer
+                        }
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        return@launch
+                    }
+                }
+                if (state.modeOperation == "Emprunt") {
+                    val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
+                    val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                        ?: throw Exception("Utilisateur non connecté")
+                    val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                    if (nomTiers.isBlank()) throw Exception("Nom du tiers requis")
+                    val collectionCompte = when (compte) {
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissements"
+                        else -> "comptes_cheques"
+                    }
+                    val nowLocal2 = java.time.LocalDateTime.now()
+                    val dateTx2 = Date.from(state.dateTransaction.atTime(nowLocal2.hour, nowLocal2.minute, nowLocal2.second).atZone(ZoneId.systemDefault()).toInstant())
+                    if (state.typeDette == "Dette contractée") {
+                        val record = com.xburnsx.toutiebudget.data.modeles.PretPersonnel(
+                            utilisateurId = utilisateurId,
+                            nomTiers = nomTiers,
+                            montantInitial = montantDollars,
+                            solde = -montantDollars,
+                            type = com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE,
+                            estArchive = false
+                        )
+                        val res = pretPersonnelRepository.creer(record)
+                        val created = res.getOrElse { throw it }
+                        // Créditer le compte et le prêt à placer
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        transactionRepository.creerTransaction(
+                            Transaction(
+                                type = TypeTransaction.Emprunt,
+                                montant = montantDollars,
+                                date = dateTx2,
+                                compteId = compte.id,
+                                collectionCompte = collectionCompte,
+                                note = state.note.takeIf { it.isNotBlank() },
+                                tiers = nomTiers,
+                                sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
+                            )
+                        )
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Emprunt enregistré") }
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        return@launch
+                    } else if (state.typeDette == "Remboursement donné") {
+                        // Remboursement donné: distribuer sur TOUTES les dettes actives de ce tiers (FIFO)
+                        val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
+                            .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
+                            .sortedBy { it.created ?: "" }
+                        if (existants.isEmpty()) throw Exception("Aucun emprunt actif pour ce tiers")
+                        var restant = montantDollars
+                        // Débiter le compte UNE fois
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = -montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        for (det in existants) {
+                            if (restant <= 0) break
+                            val besoin = kotlin.math.abs(det.solde)
+                            val aPayer = kotlin.math.min(restant, besoin)
+                            val nouveauSolde = -(kotlin.math.max(0.0, besoin - aPayer))
+                            val archiver = kotlin.math.abs(nouveauSolde) < 0.005
+                            val maj = det.copy(solde = nouveauSolde, estArchive = archiver)
+                            pretPersonnelRepository.mettreAJour(maj)
+                            val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
+                            transactionRepository.creerTransaction(
+                                Transaction(
+                                    type = TypeTransaction.RemboursementDonne,
+                                    montant = aPayer,
+                                    date = dateTx2,
+                                    compteId = compte.id,
+                                    collectionCompte = collectionCompte,
+                                    note = state.note.takeIf { it.isNotBlank() },
+                                    tiers = nomTiers,
+                                    sousItems = sous
+                                )
+                            )
+                            restant -= aPayer
+                        }
+                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
+                        BudgetEvents.refreshBudget.tryEmit(Unit)
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        return@launch
+                    }
+                }
+
                 // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
                 // pour utiliser l'heure réelle de création de la transaction
                 val maintenant = java.time.LocalDateTime.now()

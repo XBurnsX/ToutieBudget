@@ -108,9 +108,11 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
              categorieRepository = categorieRepository,
              tiersRepository = tiersRepository,
              allocationMensuelleRepository = allocationMensuelleRepository,
-             argentService = argentService,
-             enregistrerTransactionUseCase = enregistrerTransactionUseCase,
-             realtimeSyncService = realtimeSyncService
+              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
+              transactionRepository = transactionRepository,
+              pretPersonnelRepository = PretPersonnelRepositoryImpl(),
+              argentService = argentService,
+              realtimeSyncService = realtimeSyncService
          )
      }
      
@@ -162,7 +164,8 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
 
       private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
           PretPersonnelViewModel(
-              pretPersonnelRepository = PretPersonnelRepositoryImpl()
+              pretPersonnelRepository = PretPersonnelRepositoryImpl(),
+              transactionRepository = transactionRepository
           )
       }
  
