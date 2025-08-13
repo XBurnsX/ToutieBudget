@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
 import com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel
 import com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository
+import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ import java.util.Locale
 
 class PretPersonnelViewModel(
     private val pretPersonnelRepository: PretPersonnelRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val compteRepository: CompteRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PretPersonnelUiState(isLoading = true))
@@ -60,7 +62,6 @@ class PretPersonnelViewModel(
             _uiState.value = _uiState.value.copy(isLoadingHistorique = true)
             val txs = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
                 .filter { t ->
-                    (t.tiers?.equals(nomTiers, ignoreCase = true) == true) &&
                     (t.type == TypeTransaction.Pret || t.type == TypeTransaction.RemboursementRecu ||
                      t.type == TypeTransaction.Emprunt || t.type == TypeTransaction.RemboursementDonne) &&
                     (t.sousItems?.contains(pretId) == true)
@@ -84,21 +85,8 @@ class PretPersonnelViewModel(
             val recordActif = pretPersonnelRepository.lister().getOrElse { emptyList() }
                 .firstOrNull { it.id == pretId }
 
-            // Ajouter l'événement initial (début du prêt/emprunt)
-            val itemsAvecDebut = if (recordActif != null) {
-                val startLabel = if (recordActif.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) "Prêt accordé" else "Dette contractée"
-                val startDate: Date = parseDate(recordActif.dateCreation)
-                    ?: parseDate(recordActif.created)
-                    ?: Date(0)
-                items + HistoriqueItem(
-                    id = "debut_${recordActif.id}",
-                    date = startDate,
-                    type = startLabel,
-                    montant = recordActif.montantInitial
-                )
-            } else items
-
-            val itemsTries = itemsAvecDebut.sortedByDescending { it.date }
+            // ✅ Ne plus ajouter l'événement initial car il est déjà dans les transactions
+            val itemsTries = items.sortedByDescending { it.date }
 
             _uiState.value = _uiState.value.copy(
                 isLoadingHistorique = false,
@@ -110,6 +98,75 @@ class PretPersonnelViewModel(
 
     fun clearHistorique() {
         _uiState.value = _uiState.value.copy(historique = emptyList(), isLoadingHistorique = false)
+    }
+
+    fun enregistrerRemboursement(
+        pretId: String,
+        nomTiers: String,
+        montant: Double,
+        compteId: String? = null,
+        collectionCompte: String? = null
+    ) {
+        if (montant <= 0) return
+        viewModelScope.launch {
+            try {
+                val pret = pretPersonnelRepository.lister().getOrElse { emptyList() }.firstOrNull { it.id == pretId } ?: return@launch
+                val typeTx = if (pret.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) TypeTransaction.RemboursementRecu else TypeTransaction.RemboursementDonne
+                val variationSoldeCompte = if (typeTx == TypeTransaction.RemboursementRecu) montant else -montant
+
+                // 0) Choisir le compte par défaut si non fourni
+                val (compteUtiliseId, collectionUtilisee) = if (compteId.isNullOrBlank() || collectionCompte.isNullOrBlank()) {
+                    val comptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                    val compteParDefaut = comptes.firstOrNull { it.collection == "comptes_cheques" } ?: comptes.firstOrNull()
+                    val coll = compteParDefaut?.collection ?: "comptes_cheques"
+                    val id = compteParDefaut?.id ?: ""
+                    id to coll
+                } else compteId to collectionCompte
+
+                // 1) Créer la transaction
+                val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                    ?: throw Exception("Utilisateur non connecté")
+                transactionRepository.creerTransaction(
+                    com.xburnsx.toutiebudget.data.modeles.Transaction(
+                        id = java.util.UUID.randomUUID().toString(),
+                        utilisateurId = utilisateurId,
+                        type = typeTx,
+                        montant = montant,
+                        date = java.util.Date(),
+                        note = null,
+                        compteId = compteUtiliseId,
+                        collectionCompte = collectionUtilisee,
+                        allocationMensuelleId = null,
+                        estFractionnee = false,
+                        sousItems = "{\"pret_personnel_id\":\"$pretId\"}",
+                        tiers = nomTiers
+                    )
+                )
+
+                // 2) Mettre à jour le compte (solde et prêt à placer si entrée)
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                    compteId = compteUtiliseId,
+                    collectionCompte = collectionUtilisee,
+                    variationSolde = variationSoldeCompte,
+                    mettreAJourPretAPlacer = (typeTx == TypeTransaction.RemboursementRecu)
+                )
+
+                // 3) Mettre à jour le prêt
+                val nouveauSolde = if (pret.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) {
+                    (pret.solde - montant).coerceAtLeast(0.0)
+                } else {
+                    (pret.solde + montant).coerceAtMost(0.0)
+                }
+                val pretMaj = pret.copy(solde = nouveauSolde, estArchive = kotlin.math.abs(nouveauSolde) < 0.005)
+                pretPersonnelRepository.mettreAJour(pretMaj)
+
+                // 4) Rafraîchir l'historique
+                chargerHistoriquePourPret(pretId, nomTiers)
+            } catch (e: Exception) { 
+                println("Erreur lors de l'enregistrement du remboursement: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun PretPersonnel.toItem(): PretPersonnelItem = PretPersonnelItem(

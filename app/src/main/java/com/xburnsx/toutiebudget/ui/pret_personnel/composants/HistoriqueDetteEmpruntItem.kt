@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -80,7 +81,7 @@ fun HistoriqueDetteEmpruntItem(
 	visible: Boolean,
 	nomTiers: String,
 	uiState: PretPersonnelUiState,
-	onDismiss: () -> Unit
+    onDismiss: () -> Unit
 ) {
 	if (!visible) return
 
@@ -117,8 +118,8 @@ fun HistoriqueDetteEmpruntItem(
                     color = cs.onSurface
                 )
 
-				when {
-					uiState.isLoadingHistorique -> {
+                when {
+                    uiState.isLoadingHistorique -> {
 						Row(
 							modifier = Modifier
 								.fillMaxWidth()
@@ -134,7 +135,7 @@ fun HistoriqueDetteEmpruntItem(
 						)
 					}
 					else -> {
-                    HistoryList(items = uiState.historique, isPret = isPret)
+                        HistoryList(items = uiState.historique, isPret = isPret)
 					}
 				}
 			}
@@ -162,28 +163,23 @@ private fun HeaderCard(
         colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-		// Bandeau hero dégradé basé sur le thème
-		Box(
-			modifier = Modifier
-				.fillMaxWidth()
-				.background(
-					Brush.horizontalGradient(
-						listOf(cs.primaryContainer, cs.secondaryContainer)
-					)
-				)
-				.padding(16.dp)
-		) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
 				// Avatar initiales
 				val initials = nomTiers.split(" ").take(2).map { it.firstOrNull()?.uppercase() ?: "" }.joinToString("")
 				Box(
 					modifier = Modifier
 						.clip(CircleShape)
-						.background(cs.onPrimaryContainer.copy(alpha = 0.08f))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 						.padding(14.dp),
 					contentAlignment = Alignment.Center
 				) {
-					Text(initials, style = MaterialTheme.typography.titleSmall, color = cs.onPrimaryContainer)
+                    Text(initials, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
 				}
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -191,14 +187,13 @@ private fun HeaderCard(
 						AssistChip(onClick = {}, label = {
 							Text(if (isPret) "Prêt" else "Emprunt", style = MaterialTheme.typography.labelLarge)
 						})
-						Text(nomTiers, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(nomTiers, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
 					}
 					Spacer(Modifier.height(6.dp))
-					KeyValueRow(cle = "Montant initial", valeur = MoneyFormatter.formatAmount(montantInitial))
-					KeyValueRow(cle = "Solde restant", valeur = MoneyFormatter.formatAmount(solde), valeurEmphase = true)
+                    KeyValueRow(cle = "Montant initial", valeur = MoneyFormatter.formatAmount(montantInitial))
+                    KeyValueRow(cle = "Solde restant", valeur = MoneyFormatter.formatAmount(solde), valeurEmphase = true)
 				}
-			}
-		}
+        }
 		Divider(color = cs.outline.copy(alpha = 0.25f))
 	}
 }
@@ -240,8 +235,8 @@ private fun HistoryList(
 ) {
 	val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
-	LazyColumn(
-		modifier = modifier.height(300.dp),
+    LazyColumn(
+        modifier = modifier.heightIn(max = 300.dp),
 		verticalArrangement = Arrangement.spacedBy(10.dp)
 	) {
         items(items, key = { it.id }) { h ->
@@ -265,19 +260,30 @@ private fun HistoryRow(
 	modifier: Modifier = Modifier
 ) {
 	val cs = MaterialTheme.colorScheme
-    // Couleurs selon sens réel de l'argent par rapport AU COMPTE
-    // - Si c'est un prêt (je prête de l'argent):
-    //   * Prêt accordé -> sortie (rouge), Remboursement reçu -> entrée (vert)
-    // - Si c'est une dette (j'ai emprunté):
-    //   * Dette contractée -> entrée (vert), Remboursement donné -> sortie (rouge)
+    // ✅ VOS RÈGLES : Argent qui RENTRE = VERT + flèche BAS, Argent qui SORT = ROUGE + flèche HAUT
+    
+    // DEBUG: Afficher le type pour diagnostiquer
+    println("DEBUG HistoriqueDetteEmpruntItem: libelle='$libelle', isPret=$isPret, montant=$montant")
+    
     val inflow = when (libelle) {
-        "Prêt accordé" -> false
-        "Remboursement reçu" -> true
-        "Dette contractée" -> true
-        "Remboursement donné" -> false
-        else -> if (isPret) montant >= 0 else montant <= 0
+        "Prêt accordé" -> false      // Argent qui SORT → ROUGE + flèche vers le HAUT
+        "Remboursement reçu" -> true // Argent qui RENTRE → VERT + flèche vers le BAS
+        "Dette contractée" -> true   // Argent qui RENTRE → VERT + flèche vers le BAS
+        "Remboursement donné" -> false // Argent qui SORT → ROUGE + flèche vers le HAUT
+        else -> {
+            println("DEBUG: Type non reconnu '$libelle', fallback=false")
+            false // Par défaut, considérer comme sortie
+        }
     }
-    val amountColor = animateColorAsState(if (inflow) cs.primary else cs.error)
+    
+    println("DEBUG: inflow=$inflow, couleur=${if (inflow) "VERT" else "ROUGE"}")
+    
+    // ✅ FORCER DES COULEURS VRAIMENT VERTES ET ROUGES
+    val amountColor = if (inflow) {
+        androidx.compose.ui.graphics.Color(0xFF00FF00) // VERT PUR pour Remboursement reçu et Dette contractée
+    } else {
+        androidx.compose.ui.graphics.Color(0xFFFF0000) // ROUGE PUR pour Prêt accordé et Remboursement donné
+    }
 
 	Row(
 		modifier = modifier
@@ -292,13 +298,14 @@ private fun HistoryRow(
 		}
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            val icon = if (inflow) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward
-			Icon(imageVector = icon, contentDescription = null, tint = amountColor.value)
+            // ✅ VOS RÈGLES : inflow=true = flèche BAS, inflow=false = flèche HAUT
+            val icon = if (inflow) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward
+			Icon(imageVector = icon, contentDescription = null, tint = amountColor)
 			Text(
 				text = MoneyFormatter.formatAmount(montant),
 				style = MaterialTheme.typography.bodyLarge,
 				fontWeight = FontWeight.SemiBold,
-				color = amountColor.value
+				color = amountColor
 			)
 		}
 	}
@@ -336,7 +343,7 @@ private fun HistoriqueDetteEmpruntItemPreview() {
 		HistoriqueDetteEmpruntItem(
 			visible = true,
 			nomTiers = "Alice",
-			uiState = uiState,
+            uiState = uiState,
 			onDismiss = {}
 		)
 	}

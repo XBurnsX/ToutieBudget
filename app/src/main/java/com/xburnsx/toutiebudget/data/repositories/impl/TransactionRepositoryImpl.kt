@@ -56,7 +56,7 @@ class TransactionRepositoryImpl : TransactionRepository {
             // Préparer les données pour PocketBase
             val dateEnUTC = dateFormatter.format(transaction.date)
             val donneesTransaction = mutableMapOf(
-                "utilisateur_id" to utilisateurId,
+                "utilisateur_id" to transaction.utilisateurId.ifBlank { utilisateurId },
                 "type" to transaction.type.valeurPocketBase,
                 // Forcer 2 décimales
                 "montant" to MoneyFormatter.roundAmount(transaction.montant),
@@ -65,7 +65,8 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,
                 "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
-                "tiers_id" to (transaction.tiers ?: "")
+                "tiers_id" to (transaction.tiersId ?: ""),
+                "tiers" to (transaction.tiers ?: "")
             )
             
             // Ajouter les nouveaux champs seulement s'ils ont des valeurs
@@ -92,10 +93,15 @@ class TransactionRepositoryImpl : TransactionRepository {
             }
 
             val corpsReponse = reponse.body!!.string()
+            // ✅ La transaction est créée dans PocketBase, même si la désérialisation échoue
             val transactionCreee = deserialiserTransaction(corpsReponse)
-                ?: throw Exception("Erreur lors de la désérialisation de la transaction créée")
-
-            Result.success(transactionCreee)
+            if (transactionCreee != null) {
+                Result.success(transactionCreee)
+            } else {
+                // ✅ Retourner un succès avec la transaction originale si désérialisation échoue
+                println("WARNING: Désérialisation échouée mais transaction créée dans PocketBase")
+                Result.success(transaction)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -396,11 +402,12 @@ class TransactionRepositoryImpl : TransactionRepository {
             // Créer une transaction de base sans sous_items
             val transactionBase = gson.fromJson(jsonSansSousItems.toString(), Transaction::class.java)
             
-            // Gérer le champ sous_items manuellement
+            // Gérer le champ sous_items manuellement - il peut être un objet ou une string
             val sousItemsElement = jsonObject.get("sous_items")
             val sousItemsString = when {
                 sousItemsElement == null || sousItemsElement.isJsonNull -> null
                 sousItemsElement.isJsonArray -> sousItemsElement.toString()
+                sousItemsElement.isJsonObject -> sousItemsElement.toString() // ✅ Gérer les objets JSON
                 else -> sousItemsElement.asString
             }
             

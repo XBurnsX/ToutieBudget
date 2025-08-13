@@ -165,7 +165,8 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
       private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
           PretPersonnelViewModel(
               pretPersonnelRepository = PretPersonnelRepositoryImpl(),
-              transactionRepository = transactionRepository
+              transactionRepository = transactionRepository,
+              compteRepository = compteRepository
           )
       }
  

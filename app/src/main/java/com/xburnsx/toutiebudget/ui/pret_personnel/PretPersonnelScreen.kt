@@ -86,14 +86,16 @@ fun PretPersonnelScreen(
                         PretTab.EMPRUNT -> uiState.itemsEmprunt
                         PretTab.ARCHIVER -> emptyList() // TODO: brancher quand archive sera supporté
                     }
-                    var openDialogFor by remember { mutableStateOf<String?>(null) }
-                    if (openDialogFor != null) {
+                    var openDialogPretId by remember { mutableStateOf<String?>(null) }
+                    var openDialogNomTiers by remember { mutableStateOf<String?>(null) }
+                    if (openDialogPretId != null && openDialogNomTiers != null) {
                         HistoriqueDetteEmpruntItem(
                             visible = true,
-                            nomTiers = openDialogFor!!,
+                            nomTiers = openDialogNomTiers!!,
                             uiState = uiState,
                             onDismiss = {
-                                openDialogFor = null
+                                openDialogPretId = null
+                                openDialogNomTiers = null
                                 viewModel.clearHistorique()
                             }
                         )
@@ -106,7 +108,8 @@ fun PretPersonnelScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
                                     .clickable {
-                                        openDialogFor = item.nomTiers
+                                        openDialogPretId = item.key
+                                        openDialogNomTiers = item.nomTiers
                                         viewModel.chargerHistoriquePourPret(item.key, item.nomTiers)
                                     },
                                 colors = androidx.compose.material3.CardDefaults.cardColors(
