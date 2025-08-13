@@ -110,7 +110,7 @@ fun PretPersonnelScreen(
                                         viewModel.chargerHistoriquePourPret(item.key, item.nomTiers)
                                     },
                                 colors = androidx.compose.material3.CardDefaults.cardColors(
-                                    containerColor = Color(0xFF1E1E1E)
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                                 )
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
@@ -119,9 +119,15 @@ fun PretPersonnelScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(item.nomTiers, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                        Text(item.nomTiers, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                                         val solde = MoneyFormatter.formatAmount(item.soldeRestant)
-                                        Text(solde, color = if (item.soldeRestant > 0) Color(0xFF4CAF50) else Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+                                        val isPret = uiState.currentTab == PretTab.PRET
+                                        val color = if (isPret) {
+                                            if (item.soldeRestant > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        } else {
+                                            if (item.soldeRestant < 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        }
+                                        Text(solde, color = color, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(Modifier.height(6.dp))
                                     Row(
@@ -129,7 +135,7 @@ fun PretPersonnelScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         val label = if (uiState.currentTab == PretTab.PRET) "Montant prêté" else "Montant emprunté"
-                                        Text("$label: ${MoneyFormatter.formatAmount(item.montantPrete)}", color = Color.LightGray)
+                                        Text("$label: ${MoneyFormatter.formatAmount(item.montantPrete)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

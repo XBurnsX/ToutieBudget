@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class PretPersonnelViewModel(
     private val pretPersonnelRepository: PretPersonnelRepository,
@@ -79,7 +83,28 @@ class PretPersonnelViewModel(
             }
             val recordActif = pretPersonnelRepository.lister().getOrElse { emptyList() }
                 .firstOrNull { it.id == pretId }
-            _uiState.value = _uiState.value.copy(isLoadingHistorique = false, historique = items, detailPret = recordActif)
+
+            // Ajouter l'événement initial (début du prêt/emprunt)
+            val itemsAvecDebut = if (recordActif != null) {
+                val startLabel = if (recordActif.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) "Prêt accordé" else "Dette contractée"
+                val startDate: Date = parseDate(recordActif.dateCreation)
+                    ?: parseDate(recordActif.created)
+                    ?: Date(0)
+                items + HistoriqueItem(
+                    id = "debut_${recordActif.id}",
+                    date = startDate,
+                    type = startLabel,
+                    montant = recordActif.montantInitial
+                )
+            } else items
+
+            val itemsTries = itemsAvecDebut.sortedByDescending { it.date }
+
+            _uiState.value = _uiState.value.copy(
+                isLoadingHistorique = false,
+                historique = itemsTries,
+                detailPret = recordActif
+            )
         }
     }
 
@@ -95,6 +120,25 @@ class PretPersonnelViewModel(
         soldeRestant = this.solde,
         derniereDate = null
     )
+
+    private fun parseDate(raw: String?): Date? {
+        if (raw.isNullOrBlank()) return null
+        val formats = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        )
+        for (pattern in formats) {
+            try {
+                val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+                sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                return sdf.parse(raw)
+            } catch (_: ParseException) {
+            }
+        }
+        return null
+    }
 }
 
 
