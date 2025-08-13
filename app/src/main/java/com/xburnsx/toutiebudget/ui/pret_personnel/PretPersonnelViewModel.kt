@@ -35,17 +35,30 @@ class PretPersonnelViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val result = pretPersonnelRepository.lister()
             result.onSuccess { entries ->
+                println("DEBUG: Total entries: ${entries.size}")
+                println("DEBUG: Entries avec estArchive=true: ${entries.count { it.estArchive }}")
+                entries.filter { it.estArchive }.forEach { 
+                    println("DEBUG: Archive trouvé: ${it.nomTiers} - Solde: ${it.solde} - Type: ${it.type}")
+                }
+                
                 val itemsPret = entries
                     .filter { it.type == TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
                     .map { it.toItem() }
                 val itemsEmprunt = entries
                     .filter { it.type == TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
                     .map { it.toItem() }
+                val itemsArchives = entries
+                    .filter { it.estArchive }
+                    .map { it.toItem() }
+                
+                println("DEBUG: itemsArchives count: ${itemsArchives.size}")
+                
                 _uiState.value = PretPersonnelUiState(
                     isLoading = false,
                     items = itemsPret + itemsEmprunt,
                     itemsPret = itemsPret,
-                    itemsEmprunt = itemsEmprunt
+                    itemsEmprunt = itemsEmprunt,
+                    itemsArchives = itemsArchives
                 )
             }.onFailure { e ->
                 _uiState.value = PretPersonnelUiState(isLoading = false, erreur = e.message)
@@ -175,7 +188,8 @@ class PretPersonnelViewModel(
         montantPrete = this.montantInitial,
         montantRembourse = 0.0,
         soldeRestant = this.solde,
-        derniereDate = null
+        derniereDate = null,
+        type = this.type
     )
 
     private fun parseDate(raw: String?): Date? {

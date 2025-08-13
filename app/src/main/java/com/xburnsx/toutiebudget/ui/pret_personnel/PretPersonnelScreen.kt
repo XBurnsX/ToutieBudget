@@ -1,6 +1,7 @@
 package com.xburnsx.toutiebudget.ui.pret_personnel
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.ui.pret_personnel.composants.HistoriqueDetteEmpruntItem
 
@@ -78,14 +81,20 @@ fun PretPersonnelScreen(
                 Text(uiState.erreur ?: "Erreur inconnue", color = MaterialTheme.colorScheme.error)
             }
             else -> {
-                if (uiState.items.isEmpty()) {
-                    Text("Aucun prêt personnel trouvé", color = Color.White)
-                } else {
-                    val items = when (uiState.currentTab) {
-                        PretTab.PRET -> uiState.itemsPret
-                        PretTab.EMPRUNT -> uiState.itemsEmprunt
-                        PretTab.ARCHIVER -> emptyList() // TODO: brancher quand archive sera supporté
+                val items = when (uiState.currentTab) {
+                    PretTab.PRET -> uiState.itemsPret
+                    PretTab.EMPRUNT -> uiState.itemsEmprunt
+                    PretTab.ARCHIVER -> uiState.itemsArchives
+                }
+                
+                if (items.isEmpty()) {
+                    val message = when (uiState.currentTab) {
+                        PretTab.PRET -> "Aucun prêt personnel trouvé"
+                        PretTab.EMPRUNT -> "Aucun emprunt personnel trouvé"
+                        PretTab.ARCHIVER -> "Aucun prêt/emprunt archivé trouvé"
                     }
+                    Text(message, color = Color.White)
+                } else {
                     var openDialogPretId by remember { mutableStateOf<String?>(null) }
                     var openDialogNomTiers by remember { mutableStateOf<String?>(null) }
                     if (openDialogPretId != null && openDialogNomTiers != null) {
@@ -122,7 +131,34 @@ fun PretPersonnelScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(item.nomTiers, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(item.nomTiers, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                                            
+                                            // Afficher l'indicateur Prêt/Emprunt seulement dans l'onglet Archivé
+                                            if (uiState.currentTab == PretTab.ARCHIVER) {
+                                                val label = when (item.type) {
+                                                    com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET -> "Prêt"
+                                                    com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE -> "Emprunt"
+                                                }
+                                                Text(
+                                                    text = label,
+                                                    modifier = Modifier
+                                                        .border(
+                                                            width = 1.dp,
+                                                            color = Color.White,
+                                                            shape = CircleShape
+                                                        )
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    color = Color.White,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                        
                                         val solde = MoneyFormatter.formatAmount(item.soldeRestant)
                                         val isPret = uiState.currentTab == PretTab.PRET
                                         val color = if (isPret) {

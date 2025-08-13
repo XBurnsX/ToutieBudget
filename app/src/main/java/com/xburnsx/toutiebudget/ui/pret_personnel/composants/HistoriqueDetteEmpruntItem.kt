@@ -163,25 +163,13 @@ private fun HeaderCard(
         colors = CardDefaults.cardColors(containerColor = cs.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+                Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-				// Avatar initiales
-				val initials = nomTiers.split(" ").take(2).map { it.firstOrNull()?.uppercase() ?: "" }.joinToString("")
-				Box(
-					modifier = Modifier
-						.clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-						.padding(14.dp),
-					contentAlignment = Alignment.Center
-				) {
-                    Text(initials, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-				}
-
                 Column(modifier = Modifier.weight(1f)) {
 					Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 						AssistChip(onClick = {}, label = {
