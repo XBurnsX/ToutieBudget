@@ -399,8 +399,8 @@ fun AjoutTransactionScreen(
                             .offset(y = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Bouton Fractionner (visible uniquement en Dépense)
-                        if (uiState.typeTransaction == TypeTransaction.Depense) {
+                        // Bouton Fractionner (visible uniquement en Dépense, pas pour Pret/Emprunt)
+                        if (uiState.typeTransaction == TypeTransaction.Depense && uiState.modeOperation == "Standard") {
                             Card(
                                 modifier = Modifier.weight(1f),
                                 colors = CardDefaults.cardColors(
@@ -496,10 +496,23 @@ fun AjoutTransactionScreen(
                                             contentDescription = null
                                         )
                                         Text(
-                                            text = if (uiState.typeTransaction == TypeTransaction.Depense) {
-                                                "Enregistrer la dépense"
-                                            } else {
-                                                "Enregistrer le revenu"
+                                            text = when (uiState.modeOperation) {
+                                                "Standard" -> when (uiState.typeTransaction) {
+                                                    TypeTransaction.Depense -> "Enregistrer la dépense"
+                                                    TypeTransaction.Revenu -> "Enregistrer le revenu"
+                                                    else -> "Enregistrer"
+                                                }
+                                                "Prêt" -> when (uiState.typePret) {
+                                                    "Prêt accordé" -> "Effectuer le prêt"
+                                                    "Remboursement reçu" -> "Effectuer le remboursement"
+                                                    else -> "Effectuer le prêt"
+                                                }
+                                                "Emprunt" -> when (uiState.typeDette) {
+                                                    "Dette contractée" -> "Contracter la dette"
+                                                    "Remboursement donné" -> "Rembourser la dette"
+                                                    else -> "Contracter la dette"
+                                                }
+                                                else -> "Enregistrer"
                                             },
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Medium

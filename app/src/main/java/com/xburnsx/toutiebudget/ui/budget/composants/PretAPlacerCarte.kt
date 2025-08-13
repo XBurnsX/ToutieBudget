@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,10 +45,14 @@ fun PretAPlacerCarte(
     couleurCompte: String
 ) {
     // --- Couleurs ---
-    val couleurCadre = try {
-        Color(couleurCompte.toColorInt())
-    } catch (_: Exception) {
-        Color(0xFF007BFF) // Couleur par défaut
+    val couleurCadre = if (montant < 0) {
+        MaterialTheme.colorScheme.error // Rouge si montant négatif
+    } else {
+        try {
+            Color(couleurCompte.toColorInt())
+        } catch (_: Exception) {
+            Color(0xFF007BFF) // Couleur par défaut
+        }
     }
     val couleurFond = Color(0xFF1C1C1E) // Fond gris foncé neutre
 
@@ -103,7 +108,7 @@ fun PretAPlacerCarte(
             // Montant
             Text(
                 text = montantFormatte,
-                color = Color.White,
+                color = if (montant >= 0) Color.White else MaterialTheme.colorScheme.error,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold
             )

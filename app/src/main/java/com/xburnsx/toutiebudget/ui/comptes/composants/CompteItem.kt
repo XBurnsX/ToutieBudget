@@ -120,11 +120,11 @@ fun CompteItem(
                             fontSize = 17.sp,
                             color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
                         )
-                        if (compte is CompteCheque) {
+                        if (compte is CompteCheque && compte.pretAPlacer != 0.0) {
                             Text(
                                 text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
                                 fontSize = 13.sp,
-                                color = Color(0xFF66BB6A),
+                                color = if (compte.pretAPlacer >= 0) Color(0xFF66BB6A) else MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.offset(y = 12.dp) // Déplace le texte vers le bas
                             )
