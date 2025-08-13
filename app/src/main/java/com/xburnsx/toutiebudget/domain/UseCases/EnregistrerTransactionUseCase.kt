@@ -48,6 +48,7 @@ class EnregistrerTransactionUseCase(
         collectionCompte: String,
         enveloppeId: String? = null,
         tiersNom: String? = null,
+        tiersId: String? = null,
         note: String? = null,
         date: Date = Date(),
         estFractionnee: Boolean = false,
@@ -97,6 +98,7 @@ class EnregistrerTransactionUseCase(
                     collectionCompte = collectionCompte,
                     allocationMensuelleId = allocationMensuelleId, // Basé sur le mois actuel
                     tiers = tiersNom,
+                    tiersId = tiersId,
                     estFractionnee = estFractionnee,
                     sousItems = sousItems
                 )

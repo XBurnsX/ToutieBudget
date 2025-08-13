@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.data.repositories.TiersRepository
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ import java.util.TimeZone
 class HistoriqueCompteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
+    private val tiersRepository: TiersRepository,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -134,8 +137,32 @@ class HistoriqueCompteViewModel(
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
-                    // Utiliser directement le champ tiersId de la transaction (qui contient le nom)
-                    val nomTiers = transaction.tiersId ?: "Transaction"
+                    // Créer un libellé descriptif selon le type de transaction
+                    val nomTiers = if (!transaction.tiers.isNullOrBlank()) {
+                        transaction.tiers
+                    } else if (!transaction.tiersId.isNullOrBlank()) {
+                        // Récupérer le nom du tiers depuis l'ID
+                        val resultTiers = tiersRepository.recupererTousLesTiers()
+                        if (resultTiers.isSuccess) {
+                            val tiers = resultTiers.getOrThrow()
+                            tiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
+                        } else {
+                            transaction.tiersId
+                        }
+                    } else {
+                        "Transaction"
+                    }
+                    
+                    // Créer un libellé descriptif selon le type de transaction
+                    val libelleDescriptif = when (transaction.type) {
+                        TypeTransaction.Pret -> "Prêt accordé à : $nomTiers"
+                        TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiers"
+                        TypeTransaction.Emprunt -> "Dette contractée de : $nomTiers"
+                        TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiers"
+                        TypeTransaction.Depense -> nomTiers
+                        TypeTransaction.Revenu -> nomTiers
+                        else -> nomTiers
+                    }
 
                     // Créer TransactionUi avec les données récupérées
                     val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
@@ -188,7 +215,7 @@ class HistoriqueCompteViewModel(
                         type = transaction.type,
                         montant = transaction.montant,
                         date = transaction.date, // Valeur par défaut si date est null
-                        tiers = nomTiers, // Utiliser directement le champ tiers de la transaction
+                        tiers = libelleDescriptif, // Utiliser le libellé descriptif
                         nomEnveloppe = nomEnveloppe,
                         note = transaction.note, // Garder la note complète
                         estFractionnee = transaction.estFractionnee,

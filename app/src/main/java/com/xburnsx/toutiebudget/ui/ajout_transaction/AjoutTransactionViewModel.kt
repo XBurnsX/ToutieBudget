@@ -619,6 +619,7 @@ class AjoutTransactionViewModel(
                             collectionCompte = collectionCompte,
                             note = state.note.takeIf { it.isNotBlank() },
                             tiers = nomTiers,
+                            tiersId = state.tiersSelectionne?.id,
                             sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                         )
                         println("DEBUG: Tentative de création de transaction PRET: ${transactionPret}")
@@ -665,6 +666,7 @@ class AjoutTransactionViewModel(
                                 collectionCompte = collectionCompte,
                                 note = state.note.takeIf { it.isNotBlank() },
                                 tiers = nomTiers,
+                                tiersId = state.tiersSelectionne?.id,
                                 sousItems = sous
                             )
                             println("DEBUG: Tentative de création de transaction: ${transactionARendre}")
@@ -726,6 +728,7 @@ class AjoutTransactionViewModel(
                                 collectionCompte = collectionCompte,
                                 note = state.note.takeIf { it.isNotBlank() },
                                 tiers = nomTiers,
+                                tiersId = state.tiersSelectionne?.id,
                                 sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                             )
                         )
@@ -848,6 +851,7 @@ class AjoutTransactionViewModel(
                         },
                         enveloppeId = null, // Pas d'enveloppe pour la transaction principale
                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                        tiersId = state.tiersSelectionne?.id,
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction,
                         estFractionnee = true,

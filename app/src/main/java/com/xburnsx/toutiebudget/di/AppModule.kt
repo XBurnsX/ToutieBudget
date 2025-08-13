@@ -191,6 +191,7 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
+             tiersRepository = tiersRepository,
              supprimerTransactionUseCase = supprimerTransactionUseCase,
              savedStateHandle = savedStateHandle
          )
