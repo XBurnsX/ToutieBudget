@@ -12,7 +12,7 @@ fun SelecteurJourSemaine(jourSelectionne: Int?, onJourSelected: (Int) -> Unit) {
 
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
         OutlinedTextField(
-            value = if (jourSelectionne != null) jours[jourSelectionne - 1] else "Jour",
+            value = if (jourSelectionne != null && jourSelectionne > 0 && jourSelectionne <= jours.size) jours[jourSelectionne - 1] else "Jour",
             onValueChange = {},
             readOnly = true,
             modifier = androidx.compose.ui.Modifier.menuAnchor(),

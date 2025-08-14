@@ -199,10 +199,10 @@ class ObjectifResetService(
             mois = moisNouveauCycle
         )
         
-        // Reset le solde alloué ET les dépenses à 0 pour le nouveau cycle
-        // Important : reset aussi depense car solde = alloue - depense
+        // Reset seulement l'alloué et les dépenses à 0 pour le nouveau cycle
+        // IMPORTANT : Garder le solde existant pour ne pas perdre l'argent
         val allocationResetee = allocationExistante.copy(
-            solde = 0.0,
+            solde = allocationExistante.solde,  // ← Conserver le solde existant
             alloue = 0.0,
             depense = 0.0
         )
