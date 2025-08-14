@@ -147,7 +147,8 @@ class ArgentServiceImpl @Inject constructor(
             TypeTransaction.RemboursementRecu -> compte.solde + montant
             TypeTransaction.Emprunt -> compte.solde + montant
             TypeTransaction.RemboursementDonne -> compte.solde - montant
-            TypeTransaction.Paiement -> compte.solde - montant
+            TypeTransaction.Paiement -> compte.solde + montant
+            TypeTransaction.PaiementEffectue -> compte.solde - montant
             TypeTransaction.TransfertSortant -> compte.solde - montant
             TypeTransaction.TransfertEntrant -> compte.solde + montant
         }
@@ -711,9 +712,10 @@ class ArgentServiceImpl @Inject constructor(
         }
 
         // 5. Mettre à jour le solde de la cible (carte OU dette)
-        // Paiement d'une dette/carte doit DIMINUER le solde dû
+        // Paiement d'une dette doit AJOUTER le montant (rapprocher de zéro)
+        // Paiement d'une carte de crédit doit AJOUTER le montant (augmenter le solde disponible)
         val deltaCible = if (collectionCarteOuDette == "comptes_credits" || collectionCarteOuDette == "comptes_dettes") {
-            -montantPourCarte
+            montantPourCarte  // AJOUTER le montant pour rapprocher de zéro
         } else {
             montantPourCarte
         }
@@ -744,8 +746,8 @@ class ArgentServiceImpl @Inject constructor(
 
         // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
         for ((dette, part) in remboursementsDettes) {
-            // Un remboursement réduit le solde de la dette
-            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde - part)
+            // Un remboursement AJOUTE le montant au solde de la dette (rapproche de zéro)
+            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde + part)
             // Forcer la collection explicite pour éviter tout contexte invalide
             compteRepository.mettreAJourSolde(dette.id, "comptes_dettes", nouveauSoldeDette)
 
@@ -768,29 +770,39 @@ class ArgentServiceImpl @Inject constructor(
         val txSortanteCarte = Transaction(
             id = UUID.randomUUID().toString(),
             utilisateurId = compteQuiPaie.utilisateurId,
-            type = TypeTransaction.Pret,
+            type = TypeTransaction.PaiementEffectue,
             montant = montantPourCarte,
             date = Date(),
             compteId = compteQuiPaieId,
             collectionCompte = collectionCompteQuiPaie,
             allocationMensuelleId = null,
-            tiers = note ?: "Paiement ${carteOuDette.nom}",
+            tiers = null,
+            tiersId = note, // Utiliser le nom de la dette comme tiersId
             note = null
         )
         transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
 
         // 7.2 Transactions sur la carte et sur les dettes (reçues comme remboursement)
         if (montantPourCarte > 0) {
+            // Pour une dette, utiliser Paiement (diminue le solde négatif)
+            // Pour une carte de crédit, utiliser Emprunt (augmente le solde disponible)
+            val typeTransactionCible = if (collectionCarteOuDette == "comptes_dettes") {
+                TypeTransaction.Paiement
+            } else {
+                TypeTransaction.Emprunt
+            }
+            
             val txEntranteCarte = Transaction(
                 id = UUID.randomUUID().toString(),
                 utilisateurId = carteOuDette.utilisateurId,
-                type = TypeTransaction.Emprunt,
+                type = typeTransactionCible,
                 montant = montantPourCarte,
                 date = Date(),
                 compteId = carteOuDetteId,
                 collectionCompte = collectionCarteOuDette,
                 allocationMensuelleId = null,
-                tiers = note ?: "Paiement reçu de ${compteQuiPaie.nom}",
+                tiers = null,
+                tiersId = note, // Utiliser le nom de la dette comme tiersId
                 note = null
             )
             transactionRepository.creerTransaction(txEntranteCarte).getOrThrow()
@@ -800,13 +812,14 @@ class ArgentServiceImpl @Inject constructor(
             val txEntranteDette = Transaction(
                 id = UUID.randomUUID().toString(),
                 utilisateurId = dette.utilisateurId,
-                type = TypeTransaction.Emprunt,
+                type = TypeTransaction.Paiement, // Pour une dette, utiliser Paiement
                 montant = part,
                 date = Date(),
                 compteId = dette.id,
                 collectionCompte = "comptes_dettes",
                 allocationMensuelleId = null,
-                tiers = note ?: "Remboursement auto ${dette.nom} via paiement ${carteOuDette.nom}",
+                tiers = null,
+                tiersId = dette.nom, // Utiliser le nom de la dette comme tiersId
                 note = null
             )
             transactionRepository.creerTransaction(txEntranteDette).getOrThrow()

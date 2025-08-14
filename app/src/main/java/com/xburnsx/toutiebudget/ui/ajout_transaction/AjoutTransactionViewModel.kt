@@ -505,7 +505,7 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         },
                         montant = montant / 100.0, // Convertir centimes en dollars
-                        note = state.note.takeIf { it.isNotBlank() }
+                        note = comptePaiement.nom // Passer le nom de la dette/carte comme tiers
                     )
                     
                     println("DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}")
@@ -770,6 +770,7 @@ class AjoutTransactionViewModel(
                                     collectionCompte = collectionCompte,
                                     note = state.note.takeIf { it.isNotBlank() },
                                     tiers = nomTiers,
+                                    tiersId = state.tiersSelectionne?.id,
                                     sousItems = sous
                                 )
                             )
@@ -961,6 +962,7 @@ class AjoutTransactionViewModel(
                                         collectionCompte = collectionCompte,
                                         note = state.note.takeIf { it.isNotBlank() },
                                         tiers = nomTiers,
+                                        tiersId = state.tiersSelectionne?.id,
                                         sousItems = sous
                                     )
                                 )
@@ -1010,6 +1012,7 @@ class AjoutTransactionViewModel(
                                         collectionCompte = collectionCompte,
                                         note = state.note.takeIf { it.isNotBlank() },
                                         tiers = nomTiers,
+                                        tiersId = state.tiersSelectionne?.id,
                                         sousItems = sous
                                     )
                                 )
@@ -1072,6 +1075,7 @@ class AjoutTransactionViewModel(
                                             collectionCompte = collectionCompte,
                                             note = state.note.takeIf { it.isNotBlank() },
                                             tiers = nomTiers,
+                                            tiersId = state.tiersSelectionne?.id,
                                             sousItems = sous
                                         )
                                     )
@@ -1123,6 +1127,7 @@ class AjoutTransactionViewModel(
                                             collectionCompte = collectionCompte,
                                             note = state.note.takeIf { it.isNotBlank() },
                                             tiers = nomTiers,
+                                            tiersId = state.tiersSelectionne?.id,
                                             sousItems = sous
                                         )
                                     )

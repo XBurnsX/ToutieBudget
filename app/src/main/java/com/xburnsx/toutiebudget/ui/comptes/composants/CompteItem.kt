@@ -120,7 +120,7 @@ fun CompteItem(
                             fontSize = 17.sp,
                             color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
                         )
-                        if (compte is CompteCheque && compte.pretAPlacer != 0.0) {
+                        if (compte is CompteCheque) {
                             Text(
                                 text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
                                 fontSize = 13.sp,

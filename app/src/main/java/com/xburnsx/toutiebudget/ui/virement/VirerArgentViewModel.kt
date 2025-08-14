@@ -133,10 +133,9 @@ class VirerArgentViewModel(
      */
     private fun configurerPourModeEnveloppes() {
 
-        // Créer les items de comptes (seulement les comptes chèque avec prêt à placer disponible)
+        // Créer les items de comptes (tous les comptes chèque)
         val itemsComptes = allComptes
             .filterIsInstance<CompteCheque>()
-            .filter { it.pretAPlacer > 0 } // Ne garder que les comptes avec un montant prêt à placer disponible
             .map { ItemVirement.CompteItem(it) }
 
         // Créer les enveloppes UI

@@ -139,6 +139,7 @@ class SupprimerTransactionUseCase(
             TypeTransaction.Emprunt -> -montant // Annuler un emprunt = soustraction
             TypeTransaction.RemboursementDonne -> montant  // Annuler un remboursement donné = addition
             TypeTransaction.Paiement -> montant // Annuler un paiement = addition
+            TypeTransaction.PaiementEffectue -> montant // Annuler un paiement effectué = addition
             TypeTransaction.TransfertSortant -> montant  // Annuler un transfert sortant = addition
             TypeTransaction.TransfertEntrant -> -montant // Annuler un transfert entrant = soustraction
         }

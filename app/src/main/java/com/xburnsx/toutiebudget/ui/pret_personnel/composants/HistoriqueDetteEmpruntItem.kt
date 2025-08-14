@@ -135,7 +135,7 @@ fun HistoriqueDetteEmpruntItem(
 						)
 					}
 					else -> {
-                        HistoryList(items = uiState.historique, isPret = isPret)
+                        HistoryList(items = uiState.historique, isPret = isPret, nomDette = nomTiers)
 					}
 				}
 			}
@@ -219,6 +219,7 @@ private fun KeyValueRow(
 private fun HistoryList(
     items: List<HistoriqueItem>,
     isPret: Boolean,
+    nomDette: String = "",
 	modifier: Modifier = Modifier
 ) {
 	val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
@@ -232,7 +233,8 @@ private fun HistoryList(
                 libelle = h.type,
                 date = dateFmt.format(h.date),
                 montant = h.montant,
-                isPret = isPret
+                isPret = isPret,
+                nomDette = nomDette
             )
 			Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
 		}
@@ -245,6 +247,7 @@ private fun HistoryRow(
 	date: String,
 	montant: Double,
     isPret: Boolean,
+    nomDette: String = "",
 	modifier: Modifier = Modifier
 ) {
 	val cs = MaterialTheme.colorScheme
@@ -258,6 +261,7 @@ private fun HistoryRow(
         "Remboursement reçu" -> true // Argent qui RENTRE → VERT + flèche vers le BAS
         "Dette contractée" -> true   // Argent qui RENTRE → VERT + flèche vers le BAS
         "Remboursement donné" -> false // Argent qui SORT → ROUGE + flèche vers le HAUT
+        "Transaction" -> false       // Transaction = Paiement → ROUGE + flèche vers le HAUT
         else -> {
             println("DEBUG: Type non reconnu '$libelle', fallback=false")
             false // Par défaut, considérer comme sortie
@@ -281,7 +285,14 @@ private fun HistoryRow(
 		verticalAlignment = Alignment.CenterVertically
 	) {
 		Column(Modifier.weight(1f)) {
-			Text(libelle, style = MaterialTheme.typography.bodyMedium, color = cs.onSurface)
+			// Afficher "Paiement de [nom de la dette]" si le libellé est "Transaction"
+			val texteAffiche = if (libelle == "Transaction" && nomDette.isNotBlank()) {
+				"Paiement de $nomDette"
+			} else {
+				libelle
+			}
+			// Le texte est toujours en blanc (cs.onSurface), c'est le montant qui est coloré
+			Text(texteAffiche, style = MaterialTheme.typography.bodyMedium, color = cs.onSurface)
 			Text(date, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
 		}
 

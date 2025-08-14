@@ -163,8 +163,8 @@ private fun DialogSelectionEnveloppeVirement(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 LazyColumn {
-                    // Afficher la catégorie "Prêt à placer" en premier si des comptes chèque ont un montant "prêt à placer" positif
-                    val comptesChequeAvecPretAPlacer = comptesPretAPlacer.filter { it.pretAPlacer > 0 }
+                    // Afficher la catégorie "Prêt à placer" en premier pour tous les comptes chèque
+                    val comptesChequeAvecPretAPlacer = comptesPretAPlacer
 
                     if (comptesChequeAvecPretAPlacer.isNotEmpty()) {
                         item {

@@ -26,6 +26,7 @@ enum class TypeTransaction(
     
     // Paiements spéciaux
     Paiement("Paiement", "Paiement spécifique (factures, etc.)"),
+    PaiementEffectue("Paiement effectue", "Paiement effectué sur une dette ou carte de crédit"),
     
     // Transferts entre comptes
     TransfertSortant("Transfert sortant", "Transfert vers un autre compte"),

@@ -58,6 +58,8 @@ fun HistoriqueItem(
         TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
         TypeTransaction.RemboursementRecu -> Color.Green  // REMBOURSEMENT REÇU = VERT (argent qui rentre)
         TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
+        TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
+        TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
         else -> Color.Yellow
     }
 

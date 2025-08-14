@@ -153,12 +153,14 @@ class HistoriqueCompteViewModel(
                         "Transaction"
                     }
                     
-                    // Créer un libellé descriptif selon le type de transaction
+                    // Créer un libellé descriptif selon le type de transaction , texte pour les paiements
                     val libelleDescriptif = when (transaction.type) {
                         TypeTransaction.Pret -> "Prêt accordé à : $nomTiers"
                         TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiers"
                         TypeTransaction.Emprunt -> "Dette contractée de : $nomTiers"
                         TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiers"
+                        TypeTransaction.Paiement -> "Paiement : $nomTiers" // Afficher "Paiement : [nom de la dette]"
+                        TypeTransaction.PaiementEffectue -> "Paiement effectue : $nomTiers" // Paiement effectué sur une dette/carte
                         TypeTransaction.Depense -> nomTiers
                         TypeTransaction.Revenu -> nomTiers
                         else -> nomTiers
