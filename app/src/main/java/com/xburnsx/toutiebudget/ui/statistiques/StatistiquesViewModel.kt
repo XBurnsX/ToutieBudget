@@ -114,10 +114,16 @@ class StatistiquesViewModel(
 
             // Filtrer uniquement les transactions monétaires pertinentes pour les tops
             val depenses = transactions.filter { 
-                it.type == TypeTransaction.Depense || it.type == TypeTransaction.TransfertSortant 
+                it.type == TypeTransaction.Depense || 
+                it.type == TypeTransaction.Pret || 
+                it.type == TypeTransaction.RemboursementDonne || 
+                it.type == TypeTransaction.PaiementEffectue
             }
             val revenus = transactions.filter { 
-                it.type == TypeTransaction.Revenu || it.type == TypeTransaction.TransfertEntrant 
+                it.type == TypeTransaction.Revenu || 
+                it.type == TypeTransaction.Emprunt || 
+                it.type == TypeTransaction.RemboursementRecu || 
+                it.type == TypeTransaction.Paiement
             }
 
             val totalDepenses = depenses.sumOf { it.montant }
@@ -231,14 +237,20 @@ class StatistiquesViewModel(
             }
             val depenses6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
                 val total = transactions6Mois.filter { 
-                    (it.type == TypeTransaction.Depense || it.type == TypeTransaction.TransfertSortant) && 
+                    (it.type == TypeTransaction.Depense || 
+                     it.type == TypeTransaction.Pret || 
+                     it.type == TypeTransaction.RemboursementDonne || 
+                     it.type == TypeTransaction.PaiementEffectue) && 
                     it.date >= mStart && it.date <= mEnd 
                 }.sumOf { it.montant }
                 sixMoisLabels[idx] to total
             }
             val revenus6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
                 val total = transactions6Mois.filter { 
-                    (it.type == TypeTransaction.Revenu || it.type == TypeTransaction.TransfertEntrant) && 
+                    (it.type == TypeTransaction.Revenu || 
+                     it.type == TypeTransaction.Emprunt || 
+                     it.type == TypeTransaction.RemboursementRecu || 
+                     it.type == TypeTransaction.Paiement) && 
                     it.date >= mStart && it.date <= mEnd 
                 }.sumOf { it.montant }
                 sixMoisLabels[idx] to total
@@ -281,11 +293,17 @@ class StatistiquesViewModel(
                     set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
                 }.time
                             val revenusJour = transactions.filter { 
-                (it.type == TypeTransaction.Revenu || it.type == TypeTransaction.TransfertEntrant) && 
+                (it.type == TypeTransaction.Revenu || 
+                 it.type == TypeTransaction.Emprunt || 
+                 it.type == TypeTransaction.RemboursementRecu || 
+                 it.type == TypeTransaction.Paiement) && 
                 it.date >= start && it.date <= end 
             }.sumOf { it.montant }
             val depensesJour = transactions.filter { 
-                (it.type == TypeTransaction.Depense || it.type == TypeTransaction.TransfertSortant) && 
+                (it.type == TypeTransaction.Depense || 
+                 it.type == TypeTransaction.Pret || 
+                 it.type == TypeTransaction.RemboursementDonne || 
+                 it.type == TypeTransaction.PaiementEffectue) && 
                 it.date >= start && it.date <= end 
             }.sumOf { it.montant }
                 revenusJour - depensesJour
@@ -341,7 +359,10 @@ class StatistiquesViewModel(
     fun ouvrirModalTransactionsPourEnveloppe(enveloppeId: String) {
         val txPeriode = _uiState.value.transactionsPeriode
         val selection = txPeriode.filter { tx ->
-            if (tx.type != TypeTransaction.Depense && tx.type != TypeTransaction.TransfertSortant) return@filter false
+            if (tx.type != TypeTransaction.Depense && 
+                tx.type != TypeTransaction.Pret && 
+                tx.type != TypeTransaction.RemboursementDonne && 
+                tx.type != TypeTransaction.PaiementEffectue) return@filter false
             // 1) Cas simple: allocation -> enveloppe
             val allocId = tx.allocationMensuelleId
             val matchSimple = allocId != null && allocationIdToEnveloppeId[allocId] == enveloppeId
@@ -363,6 +384,30 @@ class StatistiquesViewModel(
             modalTitre = "",
             modalTransactions = emptyList()
         )
+    }
+
+    // Ouvrir la modal pour toutes les dépenses de la période
+    fun ouvrirModalDepenses() {
+        val txPeriode = _uiState.value.transactionsPeriode
+        val depenses = txPeriode.filter { tx ->
+            tx.type == TypeTransaction.Depense || 
+            tx.type == TypeTransaction.Pret || 
+            tx.type == TypeTransaction.RemboursementDonne || 
+            tx.type == TypeTransaction.PaiementEffectue
+        }
+        ouvrirModalTransactions("Toutes les dépenses - ${_uiState.value.periode?.label ?: "Période"}", depenses)
+    }
+
+    // Ouvrir la modal pour tous les revenus de la période
+    fun ouvrirModalRevenus() {
+        val txPeriode = _uiState.value.transactionsPeriode
+        val revenus = txPeriode.filter { tx ->
+            tx.type == TypeTransaction.Revenu || 
+            tx.type == TypeTransaction.Emprunt || 
+            tx.type == TypeTransaction.RemboursementRecu || 
+            tx.type == TypeTransaction.Paiement
+        }
+        ouvrirModalTransactions("Tous les revenus - ${_uiState.value.periode?.label ?: "Période"}", revenus)
     }
 }
 

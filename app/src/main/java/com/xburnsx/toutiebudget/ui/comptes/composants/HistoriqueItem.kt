@@ -60,12 +60,17 @@ fun HistoriqueItem(
         TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
         TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
         TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
+        TypeTransaction.TransfertSortant -> Color.Red    // VIREMENT SORTANT = ROUGE (argent qui sort)
+        TypeTransaction.TransfertEntrant -> Color.Green  // VIREMENT ENTRANT = VERT (argent qui entre)
         else -> Color.Yellow
     }
 
-    // ✅ Formater la date et l'heure complète
-    val titreComplet =
-        transaction.tiers //  Avec Date et heure  val titreComplet = "${transaction.tiers} - ${formateurDate.format(transaction.date)}"
+    // ✅ Formater la date et l'heure complète avec texte spécial pour les virements
+    val titreComplet = when (transaction.type) {
+        TypeTransaction.TransfertSortant -> "Envoyé vers : ${transaction.tiers}"
+        TypeTransaction.TransfertEntrant -> "Reçu de : ${transaction.tiers}"
+        else -> transaction.tiers
+    }
 
     // Parser les fractions si c'est une transaction fractionnée
     val fractions = remember(transaction.sousItems) {

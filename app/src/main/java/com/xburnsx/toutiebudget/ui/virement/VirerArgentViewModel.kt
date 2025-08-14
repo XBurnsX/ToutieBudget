@@ -554,7 +554,7 @@ class VirerArgentViewModel(
                                 }
                             }
                         } else if (estPretAPlacer(destination.enveloppe)) {
-                            // Destination est un "Prêt à placer"
+                            // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
                             val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
                             val compteDestination = allComptes.find { it.id == compteId }
                             if (compteDestination == null) {
@@ -567,11 +567,11 @@ class VirerArgentViewModel(
                                 )
                                 // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
                                 val moisActuel = Date()
-                                                        try {
-                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
-                        } catch (_: Exception) {
-                            // Erreur silencieuse
-                        }
+                                try {
+                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                } catch (_: Exception) {
+                                    // Erreur silencieuse
+                                }
                                 result
                             }
                         } else {

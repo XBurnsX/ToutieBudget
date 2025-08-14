@@ -217,21 +217,8 @@ class VirementUseCase @Inject constructor(
             )
 
 
-            // 7. Créer une transaction de traçabilité
-            val transaction = Transaction(
-                type = TypeTransaction.Revenu,
-                montant = montant,
-                date = Date(), // Utilise l'heure locale actuelle du téléphone
-                note = "Virement depuis enveloppe vers Prêt à placer",
-                compteId = compteId,
-                collectionCompte = "comptes_cheque",
-                allocationMensuelleId = allocationCree.id
-            )
-
-            val resultTransaction = transactionRepository.creerTransaction(transaction)
-            if (resultTransaction.isFailure) {
-                throw resultTransaction.exceptionOrNull() ?: Exception("Erreur création transaction")
-            }
+            // 7. ✅ PAS DE TRANSACTION - C'est un virement interne !
+            // L'argent reste dans les fonds de l'utilisateur, pas besoin de transaction
 
         }
     }

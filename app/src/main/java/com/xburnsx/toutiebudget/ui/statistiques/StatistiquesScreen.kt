@@ -248,7 +248,7 @@ private fun StatistiquesContent(
         HeaderSection(uiState, viewModel)
 
         // KPIs améliorés
-        AnimatedKpiCards(uiState)
+                    AnimatedKpiCards(uiState, viewModel)
 
         // Top 5 cards avec animation staggered
         AnimatedTopCards(uiState, viewModel)
@@ -314,7 +314,7 @@ private fun HeaderSection(uiState: StatistiquesUiState, viewModel: StatistiquesV
 }
 
 @Composable
-private fun AnimatedKpiCards(uiState: StatistiquesUiState) {
+private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: StatistiquesViewModel) {
     var isVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -342,7 +342,8 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState) {
                         MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
                     )
                 ),
-                delay = 0
+                delay = 0,
+                onClick = { viewModel.ouvrirModalDepenses() }
             )
 
             GlassmorphicKpiCard(
@@ -356,7 +357,8 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState) {
                         Color(0x664CAF50)
                     )
                 ),
-                delay = 100
+                delay = 100,
+                onClick = { viewModel.ouvrirModalRevenus() }
             )
 
             GlassmorphicKpiCard(
@@ -378,7 +380,8 @@ private fun GlassmorphicKpiCard(
     value: String,
     icon: ImageVector,
     gradient: Brush,
-    delay: Long
+    delay: Long,
+    onClick: (() -> Unit)? = null
 ) {
     var isVisible by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -398,7 +401,17 @@ private fun GlassmorphicKpiCard(
     Card(
         modifier = modifier
             .scale(scale)
-            .height(120.dp),
+            .height(120.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = rememberRipple(bounded = true)
+                    ) { onClick() }
+                } else {
+                    Modifier
+                }
+            ),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
@@ -1237,9 +1250,6 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
         }
 
         // Liste des transactions avec animation
-        val fallbackTiers = remember(titre) {
-            titre.removePrefix("Transactions - ").takeIf { it.isNotBlank() }
-        }
         transactions.forEachIndexed { index, tx ->
             var isVisible by remember { mutableStateOf(false) }
 
@@ -1269,6 +1279,7 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
+                            // Utiliser la même logique que HistoriqueCompteViewModel
                             val tiersMap = LocalTiersMap.current
                             val nomTiersBrut = when {
                                 !tx.tiers.isNullOrBlank() -> tx.tiers!!
@@ -1276,17 +1287,43 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
                                 !tx.tiersId.isNullOrBlank() -> tx.tiersId!!
                                 else -> "Tiers inconnu"
                             }
-                            val nomTiers = if (nomTiersBrut == "Tiers inconnu") fallbackTiers ?: nomTiersBrut else nomTiersBrut
+                            
+                                                         // Générer le libellé descriptif comme dans HistoriqueCompteViewModel
+                             val libelleDescriptif = when (tx.type) {
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé à : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée de : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectue : $nomTiersBrut"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> nomTiersBrut
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> nomTiersBrut
+                                 else -> nomTiersBrut
+                             }
+                            
                             Text(
-                                nomTiers,
+                                libelleDescriptif,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
 
+                                                         // Afficher le type de transaction
+                             val typeTransaction = when (tx.type) {
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> "Dépense"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> "Revenu"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement reçu"
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectué"
+                                 else -> "Transaction"
+                             }
+                            
                             Text(
-                                "Transaction",
+                                typeTransaction,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -1296,11 +1333,24 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
 
                         Spacer(Modifier.width(12.dp))
 
+                                                 // Couleur du montant selon le type (comme dans HistoriqueItem)
+                         val couleurMontant = when (tx.type) {
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> Color.Red
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> Color.Red        // PRET = ROUGE (argent qui sort)
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> Color.Green
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> Color.Green  // REMBOURSEMENT REÇU = VERT (argent qui rentre)
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
+                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
+                             else -> Color.Yellow
+                         }
+
                         Text(
                             MoneyFormatter.formatAmount(tx.montant),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = couleurMontant
                         )
                     }
                 }

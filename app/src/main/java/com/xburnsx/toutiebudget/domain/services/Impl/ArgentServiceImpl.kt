@@ -710,7 +710,8 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteSource.id,
             collectionCompte = compteSource.collection,
             allocationMensuelleId = null,
-            tiers = "Argent envoyé à $nomCompteDest", // LE TIERS c'est ça ! PAS de note !
+            tiers = nomCompteDest, // ✅ Nom du compte qui reçoit l'argent
+            tiersId = nomCompteDest, // ✅ NOM du compte qui reçoit l'argent
             note = null // PAS de note !
         )
         try {
@@ -729,7 +730,8 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteDest.id,
             collectionCompte = compteDest.collection,
             allocationMensuelleId = null,
-            tiers = "Argent reçu de $nomCompteSource", // LE TIERS c'est ça ! PAS de note !
+            tiers = nomCompteSource, // ✅ Nom du compte qui envoie l'argent
+            tiersId = nomCompteSource, // ✅ NOM du compte qui envoie l'argent
             note = null // PAS de note !
         )
         try {
