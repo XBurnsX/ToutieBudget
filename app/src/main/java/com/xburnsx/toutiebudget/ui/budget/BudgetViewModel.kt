@@ -420,18 +420,19 @@ class BudgetViewModel(
     }
 
     /**
-     * Crée les bandeaux "Prêt à placer" à partir des comptes chèque ayant un montant "prêt à placer" positif.
+     * Crée les bandeaux "Prêt à placer" à partir des comptes chèque ayant un montant "prêt à placer" (positif ou négatif).
      */
     private fun creerBandeauxPretAPlacer(comptes: List<Compte>): List<PretAPlacerUi> {
         return comptes
             .filterIsInstance<CompteCheque>()
-            .filter { it.pretAPlacer > 0 }
+            .filter { it.pretAPlacer != 0.0 }
             .map { compte ->
+                val couleur = if (compte.pretAPlacer < 0) "#FF0000" else compte.couleur
                 PretAPlacerUi(
                     compteId = compte.id,
                     nomCompte = compte.nom,
                     montant = compte.pretAPlacer,
-                    couleurCompte = compte.couleur
+                    couleurCompte = couleur
                 )
             }
     }
