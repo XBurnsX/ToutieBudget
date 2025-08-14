@@ -328,7 +328,7 @@ class RealtimeSyncService @Inject constructor() {
     /**
      * Récupère les préférences utilisateur à partir de PocketBase (collection user_preferences).
      * Retourne une map clé/valeur simple, les clés possibles: "theme", "figer_pret_a_placer",
-     * "notifications_enabled", "notif_obj_jours_avant", "notif_enveloppe_negatif".
+     * "notifications_enabled", "notif_obj_jours_avant", "notif_enveloppe_negatif", "categories_ouvertes".
      */
     suspend fun recupererPreferencesUtilisateur(): Map<String, Any?> = withContext(Dispatchers.IO) {
         val utilisateur = client.obtenirUtilisateurConnecte() ?: throw Exception("Utilisateur non connecté")
@@ -364,6 +364,17 @@ class RealtimeSyncService @Inject constructor() {
             if (record.has("notifications_enabled")) map["notifications_enabled"] = record.get("notifications_enabled").asBoolean
             if (record.has("notif_obj_jours_avant")) map["notif_obj_jours_avant"] = record.get("notif_obj_jours_avant").asInt
             if (record.has("notif_enveloppe_negatif")) map["notif_enveloppe_negatif"] = record.get("notif_enveloppe_negatif").asBoolean
+            if (record.has("categories_ouvertes")) {
+                try {
+                    val categoriesJson = record.get("categories_ouvertes")
+                    if (!categoriesJson.isJsonNull) {
+                        val categoriesMap = gson.fromJson(categoriesJson, Map::class.java)
+                        map["categories_ouvertes"] = categoriesMap
+                    }
+                } catch (e: Exception) {
+                    Log.w(logTag, "Erreur parsing categories_ouvertes: ${e.message}")
+                }
+            }
             return@withContext map
         } catch (_: Exception) {
             return@withContext emptyMap<String, Any?>()

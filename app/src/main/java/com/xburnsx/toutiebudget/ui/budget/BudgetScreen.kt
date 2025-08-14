@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -214,33 +216,50 @@ fun BudgetScreen(
             // Enveloppes groupées par catégorie
             items(uiState.categoriesEnveloppes, key = { it.nomCategorie }) { categorie ->
                 Column {
-                    // En-tête de catégorie
-                    Text(
-                        text = categorie.nomCategorie,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                    // En-tête de catégorie avec flèche pliable
+                    val estOuverte = uiState.categoriesOuvertes[categorie.nomCategorie] ?: true
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFF121212))
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
+                            .clickable { viewModel.toggleCategorie(categorie.nomCategorie) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = categorie.nomCategorie,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Flèche pliable
+                        Icon(
+                            imageVector = if (estOuverte) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                            contentDescription = if (estOuverte) "Fermer la catégorie" else "Ouvrir la catégorie",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
-                    // 🆕 ENVELOPPES (clic actif aussi pour "Dettes" afin de placer l'argent)
-                    val clicActif = true
-                    categorie.enveloppes.forEach { enveloppe ->
-                        if (clicActif) {
-                            Box(
-                                modifier = Modifier.clickable {
-                                    enveloppeSelectionnee = enveloppe
-                                    showClavierEnveloppe = true
+                    // 🆕 ENVELOPPES (affichées seulement si la catégorie est ouverte)
+                    if (estOuverte) {
+                        val clicActif = true
+                        categorie.enveloppes.forEach { enveloppe ->
+                            if (clicActif) {
+                                Box(
+                                    modifier = Modifier.clickable {
+                                        enveloppeSelectionnee = enveloppe
+                                        showClavierEnveloppe = true
+                                    }
+                                ) {
+                                    EnveloppeItem(enveloppe = enveloppe)
                                 }
-                            ) {
+                            } else {
+                                // Affichage simple, sans action
                                 EnveloppeItem(enveloppe = enveloppe)
                             }
-                        } else {
-                            // Affichage simple, sans action
-                            EnveloppeItem(enveloppe = enveloppe)
                         }
                     }
                 }

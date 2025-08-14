@@ -39,5 +39,6 @@ data class BudgetUiState(
     val erreur: String? = null,
     val bandeauxPretAPlacer: List<PretAPlacerUi> = emptyList(),
     val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList(),
-    val figerPretAPlacer: Boolean = false
+    val figerPretAPlacer: Boolean = false,
+    val categoriesOuvertes: Map<String, Boolean> = emptyMap() // État ouvert/fermé de chaque catégorie
 )

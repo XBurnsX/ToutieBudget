@@ -229,12 +229,43 @@ class BudgetViewModel(
                     CategorieEnveloppesUi(nomCategorie, enveloppesUiCategorie)
                 }
 
-                // 9. Mettre à jour l'état final
+                // 9. Charger l'état des catégories ouvertes depuis PocketBase
+                val categoriesOuvertes = try {
+                    val preferences = realtimeSyncService.recupererPreferencesUtilisateur()
+                    println("DEBUG: Préférences récupérées de PocketBase: $preferences")
+                    
+                    val rawCategoriesOuvertes = preferences["categories_ouvertes"]
+                    println("DEBUG: Raw categories_ouvertes: $rawCategoriesOuvertes (type: ${rawCategoriesOuvertes?.javaClass?.simpleName})")
+                    
+                    val categoriesOuvertes = when (rawCategoriesOuvertes) {
+                        is Map<*, *> -> {
+                            // Conversion sécurisée Map<*, *> -> Map<String, Boolean>
+                            rawCategoriesOuvertes.entries.associate { (key, value) ->
+                                key.toString() to (value as? Boolean ?: true)
+                            }
+                        }
+                        else -> {
+                            println("DEBUG: Type inattendu, utilisation de emptyMap()")
+                            emptyMap<String, Boolean>()
+                        }
+                    }
+                    
+                    println("DEBUG: Categories ouvertes finales: $categoriesOuvertes")
+                    categoriesOuvertes
+                } catch (e: Exception) {
+                    println("DEBUG: Erreur lors du chargement des catégories: ${e.message}")
+                    e.printStackTrace()
+                    // En cas d'erreur, utiliser l'état par défaut (toutes ouvertes)
+                    emptyMap<String, Boolean>()
+                }
+
+                // 10. Mettre à jour l'état final
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
                         categoriesEnveloppes = categoriesEnveloppesUi,
+                        categoriesOuvertes = categoriesOuvertes,
                         messageChargement = null,
                         erreur = null
                     )
@@ -597,6 +628,38 @@ class BudgetViewModel(
                         messageChargement = null
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Ouvre ou ferme une catégorie d'enveloppes.
+     * @param nomCategorie Nom de la catégorie à basculer
+     */
+    fun toggleCategorie(nomCategorie: String) {
+        _uiState.update { currentState ->
+            val categoriesOuvertes = currentState.categoriesOuvertes.toMutableMap()
+            val estOuverte = categoriesOuvertes[nomCategorie] ?: true // Par défaut ouvert
+            categoriesOuvertes[nomCategorie] = !estOuverte
+            currentState.copy(categoriesOuvertes = categoriesOuvertes)
+        }
+        
+        // Sauvegarder l'état dans PocketBase
+        viewModelScope.launch {
+            try {
+                val currentState = _uiState.value
+                val categoriesToSave = currentState.categoriesOuvertes
+                println("DEBUG: Sauvegarde des catégories: $categoriesToSave")
+                
+                // Utiliser le RealtimeSyncService pour sauvegarder dans PocketBase
+                realtimeSyncService.mettreAJourPreferencesUtilisateur(
+                    mapOf("categories_ouvertes" to categoriesToSave)
+                )
+                println("DEBUG: Catégories sauvegardées avec succès dans PocketBase")
+            } catch (e: Exception) {
+                // Erreur silencieuse - l'état local est déjà mis à jour
+                println("DEBUG: Erreur sauvegarde catégories: ${e.message}")
+                e.printStackTrace()
             }
         }
     }

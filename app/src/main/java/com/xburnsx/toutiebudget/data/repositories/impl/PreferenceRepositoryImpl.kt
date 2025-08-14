@@ -7,6 +7,7 @@ import java.util.Date
 class PreferenceRepositoryImpl : PreferenceRepository {
     private var dernierRollover: Date? = null
     private var figerPretAPlacer: Boolean = false
+    private var categoriesOuvertes: Map<String, Boolean> = emptyMap()
 
     override suspend fun sauvegarderDernierRollover(date: Date) {
         dernierRollover = date
@@ -22,5 +23,14 @@ class PreferenceRepositoryImpl : PreferenceRepository {
 
     override suspend fun getFigerPretAPlacer(): Boolean {
         return figerPretAPlacer
+    }
+
+    override suspend fun sauvegarderCategoriesOuvertes(categoriesOuvertes: Map<String, Boolean>) {
+        this.categoriesOuvertes = categoriesOuvertes
+        // TODO: Sauvegarder dans PocketBase via RealtimeSyncService
+    }
+
+    override suspend fun recupererCategoriesOuvertes(): Map<String, Boolean> {
+        return categoriesOuvertes
     }
 }
