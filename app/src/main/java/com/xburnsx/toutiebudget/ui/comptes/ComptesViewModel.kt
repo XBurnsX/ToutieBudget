@@ -55,6 +55,13 @@ class ComptesViewModel(
                     }
                 }.mapValues { (_, comptesType) ->
                     comptesType.filter { showArchived || !it.estArchive }.sortedBy { it.ordre }
+                }.filter { (typeDeCompte, comptesType) ->
+                    // Ne pas afficher la catégorie "Dettes" s'il n'y a plus de dettes actives
+                    if (typeDeCompte == "Dettes") {
+                        comptesType.isNotEmpty()
+                    } else {
+                        true
+                    }
                 }
                 _uiState.update {
                     it.copy(isLoading = false, comptesGroupes = comptesGroupes)

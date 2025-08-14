@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl
+import com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.*
@@ -838,6 +839,38 @@ class ArgentServiceImpl @Inject constructor(
                 if (estSoldee && !compteMaj.estArchive) {
                     val detteArchivee = compteMaj.copy(estArchive = true)
                     compteRepository.mettreAJourCompte(detteArchivee)
+                    
+                    // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
+                    try {
+                        val enveloppeRepository = EnveloppeRepositoryImpl()
+                        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                        
+                        // Trouver l'enveloppe correspondante à la dette
+                        val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(compteActuel.nom, ignoreCase = true) }
+                        if (enveloppeDette != null) {
+                            // Vérifier si l'enveloppe a un solde de 0
+                            val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
+                            if (kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
+                                // Supprimer l'enveloppe
+                                enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
+                                
+                                // Vérifier s'il reste d'autres dettes actives
+                                val toutesDettes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                                    .filterIsInstance<CompteDette>()
+                                    .filter { !it.estArchive }
+                                
+                                // Si c'était la dernière dette, supprimer la catégorie "Dette"
+                                if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
+                                    val categorieRepository = CategorieRepositoryImpl()
+                                    val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                                    val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
+                                    if (categorieDette != null) {
+                                        categorieRepository.supprimerCategorie(categorieDette.id)
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) { /* silencieux */ }
                 }
             }
         }
@@ -859,6 +892,38 @@ class ArgentServiceImpl @Inject constructor(
                 if (estSoldee && !detteActuelle.estArchive) {
                     val detteArchivee = detteMiseAJour.copy(estArchive = true)
                     compteRepository.mettreAJourCompte(detteArchivee)
+                    
+                    // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
+                    try {
+                        val enveloppeRepository = EnveloppeRepositoryImpl()
+                        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                        
+                        // Trouver l'enveloppe correspondante à la dette
+                        val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(detteActuelle.nom, ignoreCase = true) }
+                        if (enveloppeDette != null) {
+                            // Vérifier si l'enveloppe a un solde de 0
+                            val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
+                            if (kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
+                                // Supprimer l'enveloppe
+                                enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
+                                
+                                // Vérifier s'il reste d'autres dettes actives
+                                val toutesDettes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                                    .filterIsInstance<CompteDette>()
+                                    .filter { !it.estArchive }
+                                
+                                // Si c'était la dernière dette, supprimer la catégorie "Dette"
+                                if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
+                                    val categorieRepository = CategorieRepositoryImpl()
+                                    val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                                    val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
+                                    if (categorieDette != null) {
+                                        categorieRepository.supprimerCategorie(categorieDette.id)
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) { /* silencieux */ }
                 }
             }
         }
