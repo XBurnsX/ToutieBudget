@@ -402,15 +402,16 @@ class VirerArgentViewModel(
             return
         }
 
-        // Vérifier que la source a assez d'argent
+        // Vérifier que la source a assez d'argent (permettre les soldes négatifs)
         val soldeSource = obtenirSoldeItem(source)
         
-        if (soldeSource < montantEnDollars) {
-            _uiState.update {
-                it.copy(erreur = VirementErrorMessages.General.soldeInsuffisant(soldeSource))
-            }
-            return
-        }
+        // Permettre les transferts même si le solde devient négatif
+        // if (soldeSource < montantEnDollars) {
+        //     _uiState.update {
+        //         it.copy(erreur = VirementErrorMessages.General.soldeInsuffisant(soldeSource))
+        //     }
+        //     return
+        // }
 
         viewModelScope.launch {
             try {
