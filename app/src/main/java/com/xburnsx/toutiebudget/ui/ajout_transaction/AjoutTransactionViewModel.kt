@@ -1169,6 +1169,7 @@ class AjoutTransactionViewModel(
                         },
                         enveloppeId = enveloppeId,
                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
+                        tiersId = state.tiersSelectionne?.id,
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction
                     )

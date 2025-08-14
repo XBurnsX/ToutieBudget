@@ -343,6 +343,7 @@ class ModifierTransactionViewModel(
                          collectionCompte = collectionCompte,
                          enveloppeId = null, // Pas d'enveloppe pour la transaction principale
                          tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                         tiersId = state.tiersSelectionne?.id,
                          note = state.note.takeIf { it.isNotBlank() },
                          date = dateTransaction,
                          estFractionnee = true,
@@ -409,6 +410,7 @@ class ModifierTransactionViewModel(
                         collectionCompte = collectionCompte,
                         enveloppeId = enveloppeId,
                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
+                        tiersId = state.tiersSelectionne?.id,
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction,
                         estFractionnee = false,
