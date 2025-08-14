@@ -208,6 +208,11 @@ class ModifierTransactionViewModel(
                 } else {
                     transaction.tiers ?: ""
                 },
+                tiersSelectionne = if (transaction.tiersId != null) {
+                    allTiers.find { it.id == transaction.tiersId }
+                } else {
+                    null
+                },
                 tiers = if (transaction.tiersId != null) {
                     allTiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
                 } else {
@@ -512,6 +517,18 @@ class ModifierTransactionViewModel(
     fun onTexteTiersSaisiChange(nouveauTexte: String) {
         _uiState.update { state ->
             state.copy(texteTiersSaisi = nouveauTexte).calculerValidite()
+        }
+    }
+
+    /**
+     * Sélectionne un tiers existant.
+     */
+    fun onTiersSelectionne(tiers: Tiers) {
+        _uiState.update { state ->
+            state.copy(
+                tiersSelectionne = tiers,
+                texteTiersSaisi = tiers.nom
+            ).calculerValidite()
         }
     }
 

@@ -239,7 +239,7 @@ fun ModifierTransactionScreen(
                         tiersSelectionne = uiState.tiersSelectionne,
                         texteSaisi = uiState.texteTiersSaisi,
                         onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
-                        onTiersSelectionne = { /* Pas de changement pour la modification */ },
+                        onTiersSelectionne = viewModel::onTiersSelectionne,
                         onCreerNouveauTiers = { /* Pas de création pour la modification */ },
                         isLoading = uiState.isLoadingTiers,
                         modifier = Modifier.fillMaxWidth()
