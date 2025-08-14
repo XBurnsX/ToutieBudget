@@ -96,20 +96,28 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
 
     // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
+    // MÊME LOGIQUE QUE LA BARRE DE PROGRESSION pour la cohérence
     val couleurStatut = when {
-        // Vert : L'objectif est défini et atteint selon le type d'objectif
-        objectif > 0 && when (enveloppe.typeObjectif) {
+        // Objectif atteint : Vert ou couleur du compte source si dépensé
+        estObjectifAtteint -> {
+            when (enveloppe.typeObjectif) {
+                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                    if (enveloppe.depense >= objectif) enveloppe.couleurProvenance?.toColor() ?: Color(0xFF4CAF50) else Color(0xFF4CAF50)
+                }
+                else -> Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
+            }
+        }
+        // Vert si objectif atteint (même logique que barre de progression)
+        when (enveloppe.typeObjectif) {
             com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue >= objectif
             else -> enveloppe.alloueCumulatif >= objectif
         } -> Color(0xFF4CAF50)
-        // Jaune : Il y a de l'argent (alloué si objectif défini, sinon solde)
+        // Jaune si en cours (même logique que barre de progression)
         when (enveloppe.typeObjectif) {
-            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> 
-                if (objectif > 0) enveloppe.alloue > 0.001 else enveloppe.solde > 0.001
-            else -> 
-                if (objectif > 0) enveloppe.alloueCumulatif > 0.001 else enveloppe.solde > 0.001
+            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue > 0.001
+            else -> enveloppe.alloueCumulatif > 0.001
         } -> Color(0xFFFFC107)
-        // Gris : Pas d'argent
+        // Gris si pas d'argent
         else -> Color.Gray
     }
 
