@@ -81,6 +81,50 @@ class ArgentServiceImpl @Inject constructor(
         
         transactionRepository.creerTransaction(transaction)
     }
+
+    /**
+     * Alloue un montant d'un compte source vers une enveloppe pour un mois donné SANS créer de transaction.
+     * Utilisé pour les virements internes (prêt à placer vers enveloppe).
+     */
+    override suspend fun allouerArgentEnveloppeSansTransaction(
+        enveloppeId: String,
+        compteSourceId: String,
+        collectionCompteSource: String,
+        montant: Double,
+        mois: Date
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant de l'allocation doit être positif.")
+        
+        // 1. Récupérer le compte source
+        val compteSource = compteRepository.getCompteById(compteSourceId, collectionCompteSource)
+            ?: throw IllegalArgumentException("Compte source non trouvé: $compteSourceId")
+        
+        // 2. Vérifier que le compte a suffisamment de fonds
+        if (compteSource.solde < montant) {
+            throw IllegalStateException("Solde insuffisant sur le compte source.")
+        }
+        
+        // 3. CRÉER une nouvelle allocation mensuelle (pas de récupération)
+        val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = "",
+            enveloppeId = enveloppeId,
+            mois = mois,
+            solde = montant,
+            alloue = montant,
+            depense = 0.0,
+            compteSourceId = compteSourceId,
+            collectionCompteSource = collectionCompteSource
+        )
+
+        allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+
+        // 4. Mettre à jour le solde du compte source
+        val nouveauSolde = compteSource.solde - montant
+        compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSolde)
+        
+        // 5. PAS DE TRANSACTION - C'est un virement interne !
+    }
     
     /**
      * Enregistre une nouvelle transaction (dépense ou revenu) et met à jour les soldes correspondants.
@@ -423,6 +467,58 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transaction)
     }
 
+    override suspend fun effectuerVirementEnveloppeVersCompteSansTransaction(
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit> = runCatching {
+        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        
+        // Récupérer l'allocation mensuelle de l'enveloppe
+        val allocation = allocationMensuelleRepository.getAllocationById(enveloppe.id)
+            ?: throw IllegalArgumentException("Aucune allocation trouvée pour l'enveloppe ${enveloppe.nom}")
+        
+        if (allocation.solde < montant) {
+            throw IllegalStateException("Solde insuffisant dans l'enveloppe ${enveloppe.nom}.")
+        }
+        
+        // Mettre à jour le solde du compte
+        val nouveauSoldeCompteBrut = compte.solde + montant
+        // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
+        val nouveauSoldeCompte = MoneyFormatter.roundAmount(nouveauSoldeCompteBrut)
+        compteRepository.mettreAJourSolde(compte.id, compte.collection, nouveauSoldeCompte)
+        
+        // ✅ UTILISER recupererOuCreerAllocation + allocation négative pour éviter les doublons
+        val calendrier = Calendar.getInstance().apply {
+            time = Date()
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val premierJourMois = calendrier.time
+
+        // ✅ Obtenir/créer l'allocation de base pour l'enveloppe
+        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
+
+        // ✅ CRÉER une allocation négative pour le virement vers prêt à placer (addition automatique)
+        val allocationVirement = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
+            id = "",
+            utilisateurId = allocationExistante.utilisateurId,
+            enveloppeId = allocationExistante.enveloppeId,
+            mois = premierJourMois,
+            solde = -montant,        // Négatif pour sortir l'argent
+            alloue = -montant,       // Alloué négatif pour virement sortant
+            depense = 0.0,           // Pas une dépense, c'est un virement !
+            compteSourceId = allocationExistante.compteSourceId,
+            collectionCompteSource = allocationExistante.collectionCompteSource
+        )
+        allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
+        
+        // PAS DE TRANSACTION - C'est un virement interne !
+    }
+
     /**
      * Effectue un virement d'enveloppe vers enveloppe.
      * Architecture : Crée une NOUVELLE allocation pour la destination (pas de récupération/modification)
@@ -608,7 +704,7 @@ class ArgentServiceImpl @Inject constructor(
         val transactionSortante = Transaction(
             id = "",
             utilisateurId = compteSource.utilisateurId,
-            type = TypeTransaction.Pret, // Utiliser Pret au lieu de TransfertSortant
+            type = TypeTransaction.TransfertSortant, // ✅ Utiliser TransfertSortant pour les virements
             montant = montant,
             date = Date(), // Utilise l'heure locale actuelle du téléphone
             compteId = compteSource.id,
@@ -627,7 +723,7 @@ class ArgentServiceImpl @Inject constructor(
         val transactionEntrante = Transaction(
             id = "",
             utilisateurId = compteDest.utilisateurId,
-            type = TypeTransaction.Emprunt, // Utiliser Emprunt au lieu de TransfertEntrant
+            type = TypeTransaction.TransfertEntrant, // ✅ Utiliser TransfertEntrant pour les virements
             montant = montant,
             date = Date(), // Utilise l'heure locale actuelle du téléphone
             compteId = compteDest.id,

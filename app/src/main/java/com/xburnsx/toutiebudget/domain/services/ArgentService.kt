@@ -27,6 +27,25 @@ interface ArgentService {
     ): Result<Unit>
 
     /**
+     * Alloue un montant d'un compte source vers une enveloppe pour un mois donné SANS créer de transaction.
+     * Utilisé pour les virements internes (prêt à placer vers enveloppe).
+     *
+     * @param enveloppeId L'ID de l'enveloppe à créditer.
+     * @param compteSourceId L'ID du compte d'où provient l'argent.
+     * @param collectionCompteSource Le nom de la collection du compte source (ex: "comptes_cheque").
+     * @param montant Le montant à allouer.
+     * @param mois Le mois de l'allocation (le premier jour du mois).
+     * @return Une Result<Unit> indiquant le succès ou l'échec de l'opération.
+     */
+    suspend fun allouerArgentEnveloppeSansTransaction(
+        enveloppeId: String,
+        compteSourceId: String,
+        collectionCompteSource: String,
+        montant: Double,
+        mois: Date
+    ): Result<Unit>
+
+    /**
      * Enregistre une nouvelle transaction (dépense ou revenu) et met à jour les soldes correspondants.
      *
      * @param type Le type de transaction (Depense, Revenu, Pret, Emprunt).
@@ -88,6 +107,16 @@ interface ArgentService {
      * Effectue un virement d'une enveloppe vers un compte.
      */
     suspend fun effectuerVirementEnveloppeVersCompte(
+        enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        montant: Double
+    ): Result<Unit>
+
+    /**
+     * Effectue un virement d'une enveloppe vers un compte SANS créer de transaction.
+     * Utilisé pour les virements internes (enveloppe vers prêt à placer).
+     */
+    suspend fun effectuerVirementEnveloppeVersCompteSansTransaction(
         enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
         compte: com.xburnsx.toutiebudget.data.modeles.Compte,
         montant: Double

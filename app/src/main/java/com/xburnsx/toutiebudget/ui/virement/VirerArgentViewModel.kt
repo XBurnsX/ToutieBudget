@@ -433,7 +433,7 @@ class VirerArgentViewModel(
 
                 // Effectuer le virement selon les types source/destination
                 val virementResult = when {
-                    // Compte vers Compte - AUCUNE VALIDATION DE PROVENANCE NÉCESSAIRE
+                    // Compte vers Compte - VIREMENT EXTERNE (crée des transactions)
                     source is ItemVirement.CompteItem && destination is ItemVirement.CompteItem -> {
                         argentService.effectuerVirementEntreComptes(
                             compteSourceId = source.compte.id,
@@ -444,13 +444,13 @@ class VirerArgentViewModel(
                         )
                     }
 
-                    // Compte vers Enveloppe (Prêt à placer vers enveloppe) - VALIDATION APPLIQUÉE
+                    // Compte vers Enveloppe (Prêt à placer vers enveloppe) - VIREMENT INTERNE (pas de transaction)
                     source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
                         val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
                         if (enveloppeDestination == null) {
                             Result.failure(Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(destination.enveloppe.nom)))
                         } else {
-                            val result = argentService.allouerArgentEnveloppe(
+                            val result = argentService.allouerArgentEnveloppeSansTransaction(
                                 enveloppeId = destination.enveloppe.id,
                                 compteSourceId = source.compte.id,
                                 collectionCompteSource = source.compte.collection,
@@ -468,13 +468,13 @@ class VirerArgentViewModel(
                         }
                     }
 
-                    // Enveloppe vers Compte (Enveloppe vers Prêt à placer) - VALIDATION APPLIQUÉE
+                    // Enveloppe vers Compte (Enveloppe vers Prêt à placer) - VIREMENT INTERNE (pas de transaction)
                     source is ItemVirement.EnveloppeItem && destination is ItemVirement.CompteItem -> {
                         val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
                         if (enveloppeSource == null) {
                             Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.enveloppeSourceIntrouvable(source.enveloppe.nom)))
                         } else {
-                            val result = argentService.effectuerVirementEnveloppeVersCompte(
+                            val result = argentService.effectuerVirementEnveloppeVersCompteSansTransaction(
                                 enveloppe = enveloppeSource,
                                 compte = destination.compte,
                                 montant = montantEnDollars
