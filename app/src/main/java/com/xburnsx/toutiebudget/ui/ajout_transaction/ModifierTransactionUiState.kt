@@ -1,6 +1,3 @@
-// chemin/simule: /ui/ajout_transaction/AjoutTransactionUiState.kt
-// Dépendances: Compte.kt, EnveloppeUi.kt, TypeTransaction.kt
-
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import com.xburnsx.toutiebudget.data.modeles.Compte
@@ -11,21 +8,14 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransact
 import java.time.LocalDate
 
 /**
- * État de l'interface utilisateur pour l'écran d'ajout de transaction.
+ * État de l'interface utilisateur pour l'écran de modification de transaction.
  * Contient toutes les données nécessaires à l'affichage et à la saisie.
  */
-data class AjoutTransactionUiState(
+data class ModifierTransactionUiState(
     // --- État de chargement ---
     val isLoading: Boolean = true,
     val messageErreur: String? = null,
     val estEnTrainDeSauvegarder: Boolean = false,
-    val erreur: String? = null,
-    val transactionReussie: Boolean = false,
-    val transactionModifiee: Boolean = false,
-    
-    // --- Messages de confirmation ---
-    val messageConfirmation: String? = null,
-    val detteSoldee: Boolean = false,
     
     // --- Modes et types de transaction ---
     val modeOperation: String = "Standard", // Standard, Prêt, Dette, Paiement
@@ -70,7 +60,7 @@ data class AjoutTransactionUiState(
     /**
      * Vérifie si le formulaire est valide pour la sauvegarde et le fractionnement.
      */
-    fun calculerValidite(): AjoutTransactionUiState {
+    fun calculerValidite(): ModifierTransactionUiState {
         val montantEstValide = montant.toDoubleOrNull()?.let { it > 0 } ?: false
         val compteEstSelectionne = compteSelectionne != null
         val tiersEstRempli = tiersUtiliser.isNotBlank()

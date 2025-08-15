@@ -254,9 +254,8 @@ fun AjoutTransactionScreen(
                             // Pour les autres modes, utiliser le sélecteur de tiers normal
                             SelecteurTiers(
                                 tiersDisponibles = uiState.tiersDisponibles,
-                                tiersSelectionne = uiState.tiersSelectionne,
-                                texteSaisi = uiState.texteTiersSaisi,
-                                onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
+                                tiersUtiliser = uiState.tiersUtiliser,
+                                onTiersUtiliserChange = viewModel::onTexteTiersSaisiChange,
                                 onTiersSelectionne = viewModel::onTiersSelectionne,
                                 onCreerNouveauTiers = viewModel::onCreerNouveauTiers,
                                 isLoading = uiState.isLoadingTiers,

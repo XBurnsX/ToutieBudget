@@ -65,6 +65,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurCompte
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurDate
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurEnveloppe
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurComptePaiement
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTypeTransaction
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypeDetteSelector
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.TypePretSelector
@@ -233,17 +234,33 @@ fun ModifierTransactionScreen(
                         }
                     )
 
-                    // Sélecteur de tiers
-                    SelecteurTiers(
-                        tiersDisponibles = uiState.tiersDisponibles,
-                        tiersSelectionne = uiState.tiersSelectionne,
-                        texteSaisi = uiState.texteTiersSaisi,
-                        onTexteSaisiChange = viewModel::onTexteTiersSaisiChange,
-                        onTiersSelectionne = viewModel::onTiersSelectionne,
-                        onCreerNouveauTiers = { /* Pas de création pour la modification */ },
-                        isLoading = uiState.isLoadingTiers,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Sélecteur selon le mode
+                    when (uiState.modeOperation) {
+                        "Paiement" -> {
+                            // Pour le mode Paiement, utiliser SelecteurComptePaiement au lieu du tiers
+                            SelecteurComptePaiement(
+                                comptes = uiState.comptesDisponibles.filter { compte ->
+                                    compte is com.xburnsx.toutiebudget.data.modeles.CompteCredit ||
+                                            compte is com.xburnsx.toutiebudget.data.modeles.CompteDette
+                                },
+                                compteSelectionne = uiState.comptePaiementSelectionne,
+                                onCompteChange = viewModel::onComptePaiementChanged,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        else -> {
+                            // Pour les autres modes, utiliser le sélecteur de tiers normal
+                            SelecteurTiers(
+                                tiersDisponibles = uiState.tiersDisponibles,
+                                tiersUtiliser = uiState.tiersUtiliser,
+                                onTiersUtiliserChange = viewModel::onTexteTiersSaisiChange,
+                                onTiersSelectionne = viewModel::onTiersSelectionne,
+                                onCreerNouveauTiers = { /* Pas de création pour la modification */ },
+                                isLoading = uiState.isLoadingTiers,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
 
                     // Sélecteur de compte
                     SelecteurCompte(

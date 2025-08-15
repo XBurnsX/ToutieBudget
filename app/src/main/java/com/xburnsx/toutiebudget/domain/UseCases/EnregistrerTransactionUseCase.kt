@@ -33,7 +33,7 @@ class EnregistrerTransactionUseCase(
      * @param compteId ID du compte concerné
      * @param collectionCompte Collection du compte (ex: "comptes_cheque")
      * @param enveloppeId ID de l'enveloppe (pour les dépenses)
-     * @param tiersNom Nom du tiers associé à la transaction
+     * @param tiersUtiliser Nom du tiers utilisé dans la transaction
      * @param note Note facultative
      * @param date Date de la transaction (par défaut: maintenant)
      * @param estFractionnee Si la transaction est fractionnée
@@ -47,8 +47,7 @@ class EnregistrerTransactionUseCase(
         compteId: String,
         collectionCompte: String,
         enveloppeId: String? = null,
-        tiersNom: String? = null,
-        tiersId: String? = null,
+        tiersUtiliser: String? = null,
         note: String? = null,
         date: Date = Date(),
         estFractionnee: Boolean = false,
@@ -97,8 +96,7 @@ class EnregistrerTransactionUseCase(
                     compteId = compteId,
                     collectionCompte = collectionCompte,
                     allocationMensuelleId = allocationMensuelleId, // Basé sur le mois actuel
-                    tiers = tiersNom,
-                    tiersId = tiersId,
+                    tiersUtiliser = tiersUtiliser,
                     estFractionnee = estFractionnee,
                     sousItems = sousItems
                 )

@@ -592,6 +592,7 @@ class ArgentServiceImpl @Inject constructor(
             compteId = "", // Pas de compte impliqué
             collectionCompte = "",
             allocationMensuelleId = allocationSourceCreee.id,
+            tiersUtiliser = "Virement vers enveloppe ${enveloppeDestination.nom}",
             note = "Virement vers enveloppe ${enveloppeDestination.nom}"
         )
         
@@ -604,7 +605,8 @@ class ArgentServiceImpl @Inject constructor(
             compteId = "", // Pas de compte impliqué
             collectionCompte = "",
             allocationMensuelleId = allocationDestCreee.id,
-            note = "Virement depuis enveloppe ${enveloppeSource.nom}"
+            tiersUtiliser = "Virement depuis enveloppe ${enveloppeSource.nom}",
+            note = "Virement depuis enveloppe ${enveloppeDestination.nom}"
         )
 
         transactionRepository.creerTransaction(transactionSource)
@@ -711,8 +713,7 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteSource.id,
             collectionCompte = compteSource.collection,
             allocationMensuelleId = null,
-            tiers = nomCompteDest, // ✅ Nom du compte qui reçoit l'argent
-            tiersId = nomCompteDest, // ✅ NOM du compte qui reçoit l'argent
+            tiersUtiliser = nomCompteDest, // ✅ NOM du compte qui reçoit l'argent
             note = null // PAS de note !
         )
         try {
@@ -731,8 +732,7 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteDest.id,
             collectionCompte = compteDest.collection,
             allocationMensuelleId = null,
-            tiers = nomCompteSource, // ✅ Nom du compte qui envoie l'argent
-            tiersId = nomCompteSource, // ✅ NOM du compte qui envoie l'argent
+            tiersUtiliser = nomCompteSource, // ✅ NOM du compte qui envoie l'argent
             note = null // PAS de note !
         )
         try {
@@ -848,9 +848,11 @@ class ArgentServiceImpl @Inject constructor(
                         // Trouver l'enveloppe correspondante à la dette
                         val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(compteActuel.nom, ignoreCase = true) }
                         if (enveloppeDette != null) {
-                            // Vérifier si l'enveloppe a un solde de 0
+                            // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
+                            // Delay pour laisser le temps à l'allocation d'être créée dans PocketBase
+                            kotlinx.coroutines.delay(1000)
                             val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
-                            if (kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
+                            if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
                                 // Supprimer l'enveloppe
                                 enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
                                 
@@ -901,9 +903,11 @@ class ArgentServiceImpl @Inject constructor(
                         // Trouver l'enveloppe correspondante à la dette
                         val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(detteActuelle.nom, ignoreCase = true) }
                         if (enveloppeDette != null) {
-                            // Vérifier si l'enveloppe a un solde de 0
+                            // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
+                            // Delay pour laisser le temps à l'allocation d'être créée dans PocketBase
+                            kotlinx.coroutines.delay(1000)
                             val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
-                            if (kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
+                            if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
                                 // Supprimer l'enveloppe
                                 enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
                                 
@@ -939,8 +943,7 @@ class ArgentServiceImpl @Inject constructor(
             compteId = compteQuiPaieId,
             collectionCompte = collectionCompteQuiPaie,
             allocationMensuelleId = null,
-            tiers = null,
-            tiersId = note, // Utiliser le nom de la dette comme tiersId
+            tiersUtiliser = note, // Utiliser le nom de la dette comme tiersUtiliser
             note = null
         )
         transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
@@ -964,8 +967,7 @@ class ArgentServiceImpl @Inject constructor(
                 compteId = carteOuDetteId,
                 collectionCompte = collectionCarteOuDette,
                 allocationMensuelleId = null,
-                tiers = null,
-                tiersId = note, // Utiliser le nom de la dette comme tiersId
+                tiersUtiliser = note, // Utiliser le nom de la dette comme tiersUtiliser
                 note = null
             )
             transactionRepository.creerTransaction(txEntranteCarte).getOrThrow()
@@ -981,8 +983,7 @@ class ArgentServiceImpl @Inject constructor(
                 compteId = dette.id,
                 collectionCompte = "comptes_dettes",
                 allocationMensuelleId = null,
-                tiers = null,
-                tiersId = dette.nom, // Utiliser le nom de la dette comme tiersId
+                tiersUtiliser = dette.nom, // Utiliser le nom de la dette comme tiersUtiliser
                 note = null
             )
             transactionRepository.creerTransaction(txEntranteDette).getOrThrow()

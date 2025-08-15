@@ -139,8 +139,13 @@ class StatistiquesViewModel(
             // 1) Agréger les transactions simples (non fractionnées) par enveloppe via allocation -> enveloppe
             val depenseParEnveloppeSimple: MutableMap<String, Double> = mutableMapOf()
             depenses.filter { !it.estFractionnee }.forEach { tx ->
-                val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] } ?: ID_SANS_ENVELOPPE
-                if (envId != ID_SANS_ENVELOPPE && envId in enveloppeIdsExclus) {
+                val envId = if (tx.type == TypeTransaction.PaiementEffectue) {
+                    // Pour les PaiementEffectue, utiliser un ID spécial pour les identifier
+                    "__PAIEMENT_EFFECTUE__"
+                } else {
+                    tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] } ?: ID_SANS_ENVELOPPE
+                }
+                if (envId != ID_SANS_ENVELOPPE && envId != "__PAIEMENT_EFFECTUE__" && envId in enveloppeIdsExclus) {
                     // ignorer les dépenses sur Dettes/Cartes de crédit
                 } else {
                     depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
@@ -173,8 +178,11 @@ class StatistiquesViewModel(
             // 4) Construire le Top 5 par enveloppe
             val top5Enveloppes = depenseParEnveloppe.entries
                 .map { (envId, montant) ->
-                    val label = if (envId == ID_SANS_ENVELOPPE) com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE else (enveloppeIdParNom[envId]
-                        ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE)
+                    val label = when (envId) {
+                        ID_SANS_ENVELOPPE -> com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                        "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
+                        else -> enveloppeIdParNom[envId] ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                    }
                     TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
                 }
                 .sortedByDescending { it.montant }
@@ -182,11 +190,11 @@ class StatistiquesViewModel(
                 .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
 
             // Top 5 Tiers
-            val tiersIdToNom = tiers.associateBy({ it.id }, { it.nom })
+            val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
             // Calculer les dépenses par tiers en excluant les enveloppes de catégories "Dettes"/"Cartes de crédit"
             val depenseParTiersMutable = mutableMapOf<String, Double>()
             depenses.forEach { tx ->
-                val tiersKey = tx.tiersId ?: tx.tiers ?: return@forEach
+                val tiersKey = tx.tiersUtiliser ?: return@forEach
                 if (!tx.estFractionnee) {
                     val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
                     if (envId == null || envId !in enveloppeIdsExclus) {
@@ -211,7 +219,7 @@ class StatistiquesViewModel(
             val top5Tiers = depenseParTiers
                 .entries
                 .map { (tiersKey, montant) ->
-                    val label = tiersIdToNom[tiersKey] ?: tiersKey
+                    val label = tiersToNom[tiersKey] ?: tiersKey
                     TopItem(id = tiersKey, label = label, montant = montant, pourcentage = 0.0)
                 }
                 .sortedByDescending { it.montant }
@@ -340,7 +348,7 @@ class StatistiquesViewModel(
                 top5Tiers = top5Tiers,
                 depenses6DerniersMois = depenses6DerniersMois,
                 revenus6DerniersMois = revenus6DerniersMois,
-                tiersIdToNom = tiersIdToNom,
+                tiersToNom = tiersToNom,
                 cashflowCumulMensuel = cashflowCumulMensuel,
                 moyenneMobile7Jours = moyenneMobile7Jours
             )

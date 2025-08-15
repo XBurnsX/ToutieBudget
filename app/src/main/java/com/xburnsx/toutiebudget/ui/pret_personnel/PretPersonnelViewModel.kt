@@ -152,7 +152,7 @@ class PretPersonnelViewModel(
                         allocationMensuelleId = null,
                         estFractionnee = false,
                         sousItems = "{\"pret_personnel_id\":\"$pretId\"}",
-                        tiers = nomTiers
+                        tiersUtiliser = nomTiers
                     )
                 )
 

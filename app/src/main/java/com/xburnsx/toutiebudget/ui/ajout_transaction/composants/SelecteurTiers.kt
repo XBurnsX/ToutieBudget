@@ -64,9 +64,8 @@ import com.xburnsx.toutiebudget.data.modeles.Tiers
 @Composable
 fun SelecteurTiers(
     tiersDisponibles: List<Tiers>,
-    tiersSelectionne: Tiers?,
-    texteSaisi: String,
-    onTexteSaisiChange: (String) -> Unit,
+    tiersUtiliser: String,
+    onTiersUtiliserChange: (String) -> Unit,
     onTiersSelectionne: (Tiers) -> Unit,
     onCreerNouveauTiers: (String) -> Unit,
     isLoading: Boolean = false,
@@ -78,16 +77,16 @@ fun SelecteurTiers(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Filtrer les tiers selon le texte saisi (insensible à la casse)
-    val tiersFiltres = remember(tiersDisponibles, texteSaisi) {
-        if (texteSaisi.isBlank()) {
-            tiersDisponibles
-        } else {
-            tiersDisponibles.filter { tiers ->
-                tiers.nom.contains(texteSaisi, ignoreCase = true)
-            }
-        }
-    }
+                    // Filtrer les tiers selon le texte saisi (insensible à la casse)
+                val tiersFiltres = remember(tiersDisponibles, tiersUtiliser) {
+                    if (tiersUtiliser.isBlank()) {
+                        tiersDisponibles
+                    } else {
+                        tiersDisponibles.filter { tiers ->
+                            tiers.nom.contains(tiersUtiliser, ignoreCase = true)
+                        }
+                    }
+                }
 
     Column(
         modifier = modifier,
@@ -104,9 +103,9 @@ fun SelecteurTiers(
         Box {
             // TextField principal
             OutlinedTextField(
-                value = texteSaisi,
+                value = tiersUtiliser,
                 onValueChange = { newValue ->
-                    onTexteSaisiChange(newValue)
+                    onTiersUtiliserChange(newValue)
                     // Ouvrir le dropdown quand on commence à taper
                     if (newValue.isNotBlank() && isFocused) {
                         dropdownVisible = true
@@ -136,12 +135,12 @@ fun SelecteurTiers(
                     fontSize = 16.sp
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (texteSaisi.isBlank()) {
+                    focusedBorderColor = if (tiersUtiliser.isBlank()) {
                         MaterialTheme.colorScheme.primary // Rouge quand vide
                     } else {
                         Color(0xFF404040) // Gris quand il y a du contenu
                     },
-                    unfocusedBorderColor = if (texteSaisi.isBlank()) {
+                    unfocusedBorderColor = if (tiersUtiliser.isBlank()) {
                         MaterialTheme.colorScheme.primary // Rouge quand vide
                     } else {
                         Color(0xFF404040) // Gris quand il y a du contenu
@@ -174,7 +173,7 @@ fun SelecteurTiers(
 
             // Dropdown avec les résultats
             DropdownMenu(
-                expanded = dropdownVisible && (tiersFiltres.isNotEmpty() || texteSaisi.isNotBlank()),
+                expanded = dropdownVisible && (tiersFiltres.isNotEmpty() || tiersUtiliser.isNotBlank()),
                 onDismissRequest = {
                     dropdownVisible = false
                 },
@@ -184,10 +183,10 @@ fun SelecteurTiers(
                     .heightIn(max = 400.dp)
             ) {
                 // Option pour créer un nouveau tiers si le texte n'est pas vide
-                if (texteSaisi.isNotBlank() && tiersFiltres.none { it.nom.equals(texteSaisi, ignoreCase = true) }) {
+                if (tiersUtiliser.isNotBlank() && tiersFiltres.none { it.nom.equals(tiersUtiliser, ignoreCase = true) }) {
                     DropdownMenuItem(
                         onClick = {
-                            onCreerNouveauTiers(texteSaisi)
+                            onCreerNouveauTiers(tiersUtiliser)
                             dropdownVisible = false
                             focusManager.clearFocus()
                             keyboardController?.hide()
@@ -204,7 +203,7 @@ fun SelecteurTiers(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "Ajouter : $texteSaisi",
+                                    text = "Ajouter : $tiersUtiliser",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -223,7 +222,7 @@ fun SelecteurTiers(
                     DropdownMenuItem(
                         onClick = {
                             onTiersSelectionne(tiers)
-                            onTexteSaisiChange(tiers.nom)
+                            onTiersUtiliserChange(tiers.nom)
                             dropdownVisible = false
                             focusManager.clearFocus()
                             keyboardController?.hide()
@@ -250,7 +249,7 @@ fun SelecteurTiers(
                 }
 
                 // Message si aucun résultat
-                if (tiersFiltres.isEmpty() && texteSaisi.isNotBlank()) {
+                if (tiersFiltres.isEmpty() && tiersUtiliser.isNotBlank()) {
                     DropdownMenuItem(
                         onClick = { },
                         enabled = false,
@@ -267,60 +266,6 @@ fun SelecteurTiers(
             }
         }
 
-        // Affichage du tiers sélectionné (si différent du texte saisi)
-        if (tiersSelectionne != null && tiersSelectionne.nom != texteSaisi) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1F1F1F)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "Tiers sélectionné : ${tiersSelectionne.nom}",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            onTiersSelectionne(Tiers()) // Réinitialiser
-                            onTexteSaisiChange("")
-                        },
-                        modifier = Modifier.size(20.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Clear,
-                            contentDescription = "Effacer la sélection",
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-        }
+
     }
 }

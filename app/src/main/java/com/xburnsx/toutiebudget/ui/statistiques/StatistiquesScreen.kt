@@ -115,7 +115,7 @@ fun StatistiquesScreen(
     }
 
     // Fournir le mapping tiers pour toute la page (incluant la modal)
-    CompositionLocalProvider(LocalTiersMap provides uiState.tiersIdToNom) {
+    CompositionLocalProvider(LocalTiersMap provides uiState.tiersToNom) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -164,7 +164,7 @@ private fun netGradient(totalNet: Double): Brush {
         )
     }
 }
-// CompositionLocal pour exposer tiersId->nom à la modal
+// CompositionLocal pour exposer tiers->nom à la modal
 val LocalTiersMap = staticCompositionLocalOf<Map<String, String>> { emptyMap() }
 
 @Composable
@@ -530,7 +530,7 @@ private fun AnimatedTopCards(
                     onItemClick = { item ->
                         val tx = uiState.transactionsPeriode.filter {
                             it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense &&
-                                    (it.tiersId == item.id || it.tiers == item.label)
+                                    (it.tiersUtiliser == item.label)
                         }
                         viewModel.ouvrirModalTransactions("Transactions - ${item.label}", tx)
                     }
@@ -1287,13 +1287,7 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 // Utiliser la même logique que HistoriqueCompteViewModel
-                                val tiersMap = LocalTiersMap.current
-                                val nomTiersBrut = when {
-                                    !tx.tiers.isNullOrBlank() -> tx.tiers!!
-                                    !tx.tiersId.isNullOrBlank() && tiersMap[tx.tiersId] != null -> tiersMap[tx.tiersId]!!
-                                    !tx.tiersId.isNullOrBlank() -> tx.tiersId!!
-                                    else -> "Tiers inconnu"
-                                }
+                                val nomTiersBrut = tx.tiersUtiliser ?: "Tiers inconnu"
                                 
                                                              // Générer le libellé descriptif comme dans HistoriqueCompteViewModel
                                  val libelleDescriptif = when (tx.type) {

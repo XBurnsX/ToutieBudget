@@ -67,9 +67,9 @@ fun HistoriqueItem(
 
     // ✅ Formater la date et l'heure complète avec texte spécial pour les virements
     val titreComplet = when (transaction.type) {
-        TypeTransaction.TransfertSortant -> "Envoyé vers : ${transaction.tiers}"
-        TypeTransaction.TransfertEntrant -> "Reçu de : ${transaction.tiers}"
-        else -> transaction.tiers
+        TypeTransaction.TransfertSortant -> "Envoyé vers : ${transaction.tiersUtiliser}"
+        TypeTransaction.TransfertEntrant -> "Reçu de : ${transaction.tiersUtiliser}"
+        else -> transaction.tiersUtiliser
     }
 
     // Parser les fractions si c'est une transaction fractionnée
@@ -372,7 +372,7 @@ fun HistoriqueItemPreview() {
             type = TypeTransaction.Depense,
             montant = 25.99,
             date = Date(),
-            tiers = "Arbec",
+            tiersUtiliser = "Arbec",
             nomEnveloppe = "Alimentation",
             note = "Courses hebdomadaires",
             estFractionnee = false,
@@ -392,7 +392,7 @@ fun HistoriqueItemRevenuPreview() {
             type = TypeTransaction.Revenu,
             montant = 2500.00,
             date = Date(),
-            tiers = "Entreprise ABC",
+            tiersUtiliser = "Entreprise ABC",
             nomEnveloppe = "Salaire",
             note = "Paie mensuelle",
             estFractionnee = false,

@@ -137,21 +137,8 @@ class HistoriqueCompteViewModel(
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
-                    // Créer un libellé descriptif selon le type de transaction
-                    val nomTiers = if (!transaction.tiers.isNullOrBlank()) {
-                        transaction.tiers
-                    } else if (!transaction.tiersId.isNullOrBlank()) {
-                        // Récupérer le nom du tiers depuis l'ID
-                        val resultTiers = tiersRepository.recupererTousLesTiers()
-                        if (resultTiers.isSuccess) {
-                            val tiers = resultTiers.getOrThrow()
-                            tiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
-                        } else {
-                            transaction.tiersId
-                        }
-                    } else {
-                        "Transaction"
-                    }
+                                    // Créer un libellé descriptif selon le type de transaction
+                val nomTiers = transaction.tiersUtiliser ?: "Transaction"
                     
                     // Créer un libellé descriptif selon le type de transaction , texte pour les paiements
                     val libelleDescriptif = when (transaction.type) {
@@ -217,7 +204,7 @@ class HistoriqueCompteViewModel(
                         type = transaction.type,
                         montant = transaction.montant,
                         date = transaction.date, // Valeur par défaut si date est null
-                        tiers = libelleDescriptif, // Utiliser le libellé descriptif
+                        tiersUtiliser = libelleDescriptif, // Utiliser le libellé descriptif
                         nomEnveloppe = nomEnveloppe,
                         note = transaction.note, // Garder la note complète
                         estFractionnee = transaction.estFractionnee,

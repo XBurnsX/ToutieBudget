@@ -5,7 +5,7 @@ import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
 import com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel
 
 data class PretPersonnelItem(
-    val key: String, // tiersId ou nom
+    val key: String, // tiersUtiliser ou nom
     val nomTiers: String,
     val montantPrete: Double,
     val montantRembourse: Double,

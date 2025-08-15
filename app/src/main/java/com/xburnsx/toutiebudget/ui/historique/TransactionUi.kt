@@ -8,7 +8,7 @@ data class TransactionUi(
     val type: TypeTransaction,
     val montant: Double,
     val date: Date,
-    val tiers: String,
+    val tiersUtiliser: String,
     val nomEnveloppe: String?,
     val note: String?,
     val estFractionnee: Boolean = false,

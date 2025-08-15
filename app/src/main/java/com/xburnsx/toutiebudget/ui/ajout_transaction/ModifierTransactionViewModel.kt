@@ -203,21 +203,7 @@ class ModifierTransactionViewModel(
                         allEnveloppes.find { enveloppe -> enveloppe.id == allocation.enveloppeId }?.let { construireEnveloppeUi(it) }
                     }
                 } else null,
-                texteTiersSaisi = if (transaction.tiersId != null) {
-                    allTiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
-                } else {
-                    transaction.tiers ?: ""
-                },
-                tiersSelectionne = if (transaction.tiersId != null) {
-                    allTiers.find { it.id == transaction.tiersId }
-                } else {
-                    null
-                },
-                tiers = if (transaction.tiersId != null) {
-                    allTiers.find { it.id == transaction.tiersId }?.nom ?: transaction.tiersId
-                } else {
-                    transaction.tiers ?: ""
-                },
+                tiersUtiliser = transaction.tiersUtiliser ?: "",
                 note = transaction.note ?: "",
                 dateTransaction = transaction.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
                 estFractionnee = transaction.estFractionnee,
@@ -347,8 +333,7 @@ class ModifierTransactionViewModel(
                          compteId = state.compteSelectionne.id,
                          collectionCompte = collectionCompte,
                          enveloppeId = null, // Pas d'enveloppe pour la transaction principale
-                         tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
-                         tiersId = state.tiersSelectionne?.id,
+                         tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
                          note = state.note.takeIf { it.isNotBlank() },
                          date = dateTransaction,
                          estFractionnee = true,
@@ -414,8 +399,7 @@ class ModifierTransactionViewModel(
                         compteId = state.compteSelectionne.id,
                         collectionCompte = collectionCompte,
                         enveloppeId = enveloppeId,
-                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
-                        tiersId = state.tiersSelectionne?.id,
+                        tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction",
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction,
                         estFractionnee = false,
@@ -508,6 +492,30 @@ class ModifierTransactionViewModel(
         }
     }
 
+    /**
+     * Met à jour le compte de paiement sélectionné (pour le mode Paiement).
+     */
+    fun onComptePaiementChanged(nouveauCompte: Compte?) {
+        _uiState.update { state ->
+            val updated = state.copy(
+                comptePaiementSelectionne = nouveauCompte,
+                // Mettre automatiquement le nom du compte dans tiersUtiliser pour le mode Paiement
+                tiersUtiliser = if (state.modeOperation == "Paiement" && nouveauCompte != null) {
+                    nouveauCompte.nom
+                } else {
+                    state.tiersUtiliser
+                }
+            )
+            val montantAuto = (nouveauCompte as? com.xburnsx.toutiebudget.data.modeles.CompteDette)?.paiementMinimum
+            if (state.modeOperation == "Paiement" && montantAuto != null && montantAuto > 0) {
+                val cents = kotlin.math.round(montantAuto * 100).toLong().toString()
+                updated.copy(montant = cents).calculerValidite()
+            } else {
+                updated.calculerValidite()
+            }
+        }
+    }
+
     fun onEnveloppeChanged(nouvelleEnveloppe: EnveloppeUi?) {
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
@@ -516,7 +524,7 @@ class ModifierTransactionViewModel(
 
     fun onTexteTiersSaisiChange(nouveauTexte: String) {
         _uiState.update { state ->
-            state.copy(texteTiersSaisi = nouveauTexte).calculerValidite()
+            state.copy(tiersUtiliser = nouveauTexte).calculerValidite()
         }
     }
 
@@ -526,8 +534,7 @@ class ModifierTransactionViewModel(
     fun onTiersSelectionne(tiers: Tiers) {
         _uiState.update { state ->
             state.copy(
-                tiersSelectionne = tiers,
-                texteTiersSaisi = tiers.nom
+                tiersUtiliser = tiers.nom
             ).calculerValidite()
         }
     }

@@ -65,8 +65,7 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,
                 "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
-                "tiers_id" to (transaction.tiersId ?: ""),
-                "tiers" to (transaction.tiers ?: "")
+                "tiers_utiliser" to (transaction.tiersUtiliser ?: "")
             )
             
             // Ajouter les nouveaux champs seulement s'ils ont des valeurs
@@ -326,9 +325,8 @@ class TransactionRepositoryImpl : TransactionRepository {
                 "note" to (transaction.note ?: ""),
                 "compte_id" to transaction.compteId,
                 "collection_compte" to transaction.collectionCompte,
-                "allocation_mensuelle_id" to (transaction.allocationMensuelleId ?: ""),
-                "tiers_id" to (transaction.tiersId ?: ""),
-                "tiers" to (transaction.tiers ?: "")
+                "allocation_mensuelleId" to (transaction.allocationMensuelleId ?: ""),
+                "tiers_utiliser" to (transaction.tiersUtiliser ?: "")
             )
             
             // Ajouter les nouveaux champs seulement s'ils ont des valeurs

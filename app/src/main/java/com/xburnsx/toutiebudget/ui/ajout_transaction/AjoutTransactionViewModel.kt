@@ -274,7 +274,7 @@ class AjoutTransactionViewModel(
      */
     fun onTiersChanged(nouveauTiers: String) {
         _uiState.update { state ->
-            state.copy(tiers = nouveauTiers).calculerValidite()
+            state.copy(tiersUtiliser = nouveauTiers).calculerValidite()
         }
     }
 
@@ -324,7 +324,15 @@ class AjoutTransactionViewModel(
      */
     fun onComptePaiementChanged(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            val updated = state.copy(comptePaiementSelectionne = nouveauCompte)
+            val updated = state.copy(
+                comptePaiementSelectionne = nouveauCompte,
+                // Mettre automatiquement le nom du compte dans tiersUtiliser pour le mode Paiement
+                tiersUtiliser = if (state.modeOperation == "Paiement" && nouveauCompte != null) {
+                    nouveauCompte.nom
+                } else {
+                    state.tiersUtiliser
+                }
+            )
             val montantAuto = (nouveauCompte as? CompteDette)?.paiementMinimum
             if (state.modeOperation == "Paiement" && montantAuto != null && montantAuto > 0) {
                 val cents = kotlin.math.round(montantAuto * 100).toLong().toString()
@@ -360,7 +368,7 @@ class AjoutTransactionViewModel(
      */
     fun onTexteTiersSaisiChange(nouveauTexte: String) {
         _uiState.update { state ->
-            state.copy(texteTiersSaisi = nouveauTexte).calculerValidite()
+            state.copy(tiersUtiliser = nouveauTexte).calculerValidite()
         }
     }
 
@@ -370,8 +378,7 @@ class AjoutTransactionViewModel(
     fun onTiersSelectionne(tiers: Tiers) {
         _uiState.update { state ->
             state.copy(
-                tiersSelectionne = tiers,
-                texteTiersSaisi = tiers.nom
+                tiersUtiliser = tiers.nom
             ).calculerValidite()
         }
     }
@@ -400,8 +407,7 @@ class AjoutTransactionViewModel(
                         state.copy(
                             isLoadingTiers = false,
                             tiersDisponibles = allTiers,
-                            tiersSelectionne = tiersCreated,
-                            texteTiersSaisi = tiersCreated.nom
+                            tiersUtiliser = tiersCreated.nom
                         ).calculerValidite()
                     }
                 } else {
@@ -579,7 +585,7 @@ class AjoutTransactionViewModel(
                     val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
                     val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
                         ?: throw Exception("Utilisateur non connecté")
-                    val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                    val nomTiers = state.tiersUtiliser
                     if (nomTiers.isBlank()) throw Exception("Nom du tiers requis")
                     val collectionCompte = when (compte) {
                         is CompteCheque -> "comptes_cheques"
@@ -618,8 +624,7 @@ class AjoutTransactionViewModel(
                             compteId = compte.id,
                             collectionCompte = collectionCompte,
                             note = state.note.takeIf { it.isNotBlank() },
-                            tiers = nomTiers,
-                            tiersId = state.tiersSelectionne?.id,
+                            tiersUtiliser = nomTiers,
                             sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                         )
                         println("DEBUG: Tentative de création de transaction PRET: ${transactionPret}")
@@ -665,8 +670,7 @@ class AjoutTransactionViewModel(
                                 compteId = compte.id,
                                 collectionCompte = collectionCompte,
                                 note = state.note.takeIf { it.isNotBlank() },
-                                tiers = nomTiers,
-                                tiersId = state.tiersSelectionne?.id,
+                                tiersUtiliser = nomTiers,
                                 sousItems = sous
                             )
                             println("DEBUG: Tentative de création de transaction: ${transactionARendre}")
@@ -688,7 +692,7 @@ class AjoutTransactionViewModel(
                     val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
                     val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
                         ?: throw Exception("Utilisateur non connecté")
-                    val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                    val nomTiers = state.tiersUtiliser
                     if (nomTiers.isBlank()) throw Exception("Nom du tiers requis")
                     val collectionCompte = when (compte) {
                         is CompteCheque -> "comptes_cheques"
@@ -727,8 +731,7 @@ class AjoutTransactionViewModel(
                                 compteId = compte.id,
                                 collectionCompte = collectionCompte,
                                 note = state.note.takeIf { it.isNotBlank() },
-                                tiers = nomTiers,
-                                tiersId = state.tiersSelectionne?.id,
+                                tiersUtiliser = nomTiers,
                                 sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                             )
                         )
@@ -769,8 +772,7 @@ class AjoutTransactionViewModel(
                                     compteId = compte.id,
                                     collectionCompte = collectionCompte,
                                     note = state.note.takeIf { it.isNotBlank() },
-                                    tiers = nomTiers,
-                                    tiersId = state.tiersSelectionne?.id,
+                                    tiersUtiliser = nomTiers,
                                     sousItems = sous
                                 )
                             )
@@ -851,8 +853,7 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         },
                         enveloppeId = null, // Pas d'enveloppe pour la transaction principale
-                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
-                        tiersId = state.tiersSelectionne?.id,
+                        tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction,
                         estFractionnee = true,
@@ -923,7 +924,7 @@ class AjoutTransactionViewModel(
                     // Gestion spécifique Remboursements (associer au prêt via sous_items et MAJ soldes prêts)
                     if (typeTransaction == TypeTransaction.RemboursementRecu || typeTransaction == TypeTransaction.RemboursementDonne) {
                         val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
-                        val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                        val nomTiers = state.tiersUtiliser
                         if (nomTiers.isBlank()) throw Exception("Nom du tiers requis pour le remboursement")
                         val collectionCompte = when (compte) {
                             is CompteCheque -> "comptes_cheques"
@@ -961,8 +962,7 @@ class AjoutTransactionViewModel(
                                         compteId = compte.id,
                                         collectionCompte = collectionCompte,
                                         note = state.note.takeIf { it.isNotBlank() },
-                                        tiers = nomTiers,
-                                        tiersId = state.tiersSelectionne?.id,
+                                        tiersUtiliser = nomTiers,
                                         sousItems = sous
                                     )
                                 )
@@ -1011,8 +1011,7 @@ class AjoutTransactionViewModel(
                                         compteId = compte.id,
                                         collectionCompte = collectionCompte,
                                         note = state.note.takeIf { it.isNotBlank() },
-                                        tiers = nomTiers,
-                                        tiersId = state.tiersSelectionne?.id,
+                                        tiersUtiliser = nomTiers,
                                         sousItems = sous
                                     )
                                 )
@@ -1037,7 +1036,7 @@ class AjoutTransactionViewModel(
 
                     // AUTO-LIAGE REMBOURSEMENT si l'utilisateur a choisi Revenu/Depense au lieu de RemboursementRecu/Donne
                     run {
-                        val nomTiers = state.texteTiersSaisi.ifBlank { state.tiersSelectionne?.nom ?: "" }
+                        val nomTiers = state.tiersUtiliser
                         val montantDollars = MoneyFormatter.roundAmount((state.montant.toDoubleOrNull() ?: 0.0) / 100.0)
                         val collectionCompte = when (compte) {
                             is CompteCheque -> "comptes_cheques"
@@ -1074,8 +1073,7 @@ class AjoutTransactionViewModel(
                                             compteId = compte.id,
                                             collectionCompte = collectionCompte,
                                             note = state.note.takeIf { it.isNotBlank() },
-                                            tiers = nomTiers,
-                                            tiersId = state.tiersSelectionne?.id,
+                                            tiersUtiliser = nomTiers,
                                             sousItems = sous
                                         )
                                     )
@@ -1126,8 +1124,7 @@ class AjoutTransactionViewModel(
                                             compteId = compte.id,
                                             collectionCompte = collectionCompte,
                                             note = state.note.takeIf { it.isNotBlank() },
-                                            tiers = nomTiers,
-                                            tiersId = state.tiersSelectionne?.id,
+                                            tiersUtiliser = nomTiers,
                                             sousItems = sous
                                         )
                                     )
@@ -1173,8 +1170,7 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         },
                         enveloppeId = enveloppeId,
-                        tiersNom = state.texteTiersSaisi.takeIf { it.isNotBlank() } ?: "Transaction",
-                        tiersId = state.tiersSelectionne?.id,
+                        tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction",
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction
                     )
