@@ -74,11 +74,11 @@ fun HistoriqueCompteScreen(
         viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
     }
 
-    // Recharger les transactions quand l'écran devient visible (après modification)
-    LaunchedEffect(Unit) {
-        // Recharger une fois au début pour s'assurer que les données sont à jour
-        viewModel.rechargerTransactions()
-    }
+    // ✅ OPTIMISATION : Supprimer le rechargement automatique qui cause le double loading
+    // LaunchedEffect(Unit) {
+    //     // Recharger une fois au début pour s'assurer que les données sont à jour
+    //     viewModel.rechargerTransactions()
+    // }
 
     Scaffold(
         topBar = {

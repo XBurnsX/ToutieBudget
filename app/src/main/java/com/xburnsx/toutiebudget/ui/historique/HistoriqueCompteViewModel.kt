@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,6 +49,7 @@ class HistoriqueCompteViewModel(
 
         if (compteId != null && collectionCompte != null) {
             _uiState.update { it.copy(nomCompte = nomCompte ?: "") }
+            // ✅ OPTIMISATION : Charger une seule fois au démarrage
             chargerTransactions(compteId, collectionCompte)
         } else {
             _uiState.update { it.copy(isLoading = false, erreur = "ID de compte manquant.") }
@@ -120,25 +122,39 @@ class HistoriqueCompteViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                // D'abord, récupérer TOUTES les transactions de l'utilisateur pour voir la structure
-                val resultToutesTransactions = transactionRepository.recupererToutesLesTransactions()
-                if (resultToutesTransactions.isSuccess) {
+                // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
+                val deferredTransactions = async { 
+                    transactionRepository.recupererTransactionsPourCompte(compteId, collectionCompte)
+                }
+                val deferredEnveloppes = async { 
+                    enveloppeRepository.recupererToutesLesEnveloppes()
+                }
+                // ✅ CORRECTION : Utiliser la bonne méthode pour les allocations
+                val deferredAllocations = async { 
+                    enveloppeRepository.recupererAllocationsPourMois(Date())
                 }
 
-                // Ensuite, récupérer les transactions du compte spécifique
-                val resultTransactions = transactionRepository.recupererTransactionsPourCompte(compteId, collectionCompte)
+                // Attendre que tous les appels soient terminés
+                val resultTransactions = deferredTransactions.await()
+                val resultEnveloppes = deferredEnveloppes.await()
+                val resultAllocations = deferredAllocations.await()
+
                 if (resultTransactions.isFailure) {
                     throw resultTransactions.exceptionOrNull() ?: Exception("Erreur lors du chargement des transactions")
                 }
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
+                val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
+                val allocations = resultAllocations.getOrNull() ?: emptyList()
 
-                // Récupérer les enveloppes pour les noms
+                // ✅ OPTIMISATION : Créer des maps pour un accès rapide
+                val enveloppesMap = enveloppes.associateBy { it.id }
+                val allocationsMap = allocations.associateBy { it.id }
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
-                                    // Créer un libellé descriptif selon le type de transaction
-                val nomTiers = transaction.tiersUtiliser ?: "Transaction"
+                    // Créer un libellé descriptif selon le type de transaction
+                    val nomTiers = transaction.tiersUtiliser ?: "Transaction"
                     
                     // Créer un libellé descriptif selon le type de transaction , texte pour les paiements
                     val libelleDescriptif = when (transaction.type) {
@@ -153,44 +169,28 @@ class HistoriqueCompteViewModel(
                         else -> nomTiers
                     }
 
-                    // Créer TransactionUi avec les données récupérées
+                    // ✅ OPTIMISATION : Utiliser les maps pour un accès rapide
                     val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
-                        // Récupérer le nom de l'enveloppe depuis l'allocation
-                        val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
-                        if (resultAllocation.isSuccess) {
-                            val allocation = resultAllocation.getOrThrow()
-                            // Récupérer l'enveloppe depuis l'allocation
-                            val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
-                            if (resultEnveloppes.isSuccess) {
-                                val enveloppe = resultEnveloppes.getOrThrow().find { it.id == allocation.enveloppeId }
-                                enveloppe?.nom
-                            } else {
-                                null
-                            }
+                        val allocation = allocationsMap[allocationId]
+                        if (allocation != null) {
+                            enveloppesMap[allocation.enveloppeId]?.nom
                         } else {
                             null
                         }
                     }
 
-                    // Pour les transactions fractionnées, récupérer les noms des enveloppes depuis le JSON
+                    // ✅ OPTIMISATION : Utiliser la map des enveloppes
                     val nomsEnveloppesFractions = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
                         try {
                             val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
-                            val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
-                            if (resultEnveloppes.isSuccess) {
-                                val enveloppes = resultEnveloppes.getOrThrow()
-                                jsonArray.mapNotNull { element ->
-                                    val obj = element.asJsonObject
-                                    val enveloppeId = obj.get("enveloppeId")?.asString
-                                    if (enveloppeId != null) {
-                                        val enveloppe = enveloppes.find { it.id == enveloppeId }
-                                        enveloppe?.nom ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
-                                    } else {
-                                        null
-                                    }
+                            jsonArray.mapNotNull { element ->
+                                val obj = element.asJsonObject
+                                val enveloppeId = obj.get("enveloppeId")?.asString
+                                if (enveloppeId != null) {
+                                    enveloppesMap[enveloppeId]?.nom ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                                } else {
+                                    null
                                 }
-                            } else {
-                                emptyList()
                             }
                         } catch (_: Exception) {
                             emptyList()

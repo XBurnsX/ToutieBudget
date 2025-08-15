@@ -200,30 +200,40 @@ class RealtimeSyncService @Inject constructor() {
     private suspend fun handleRealtimeEvent(data: String) {
         try {
             val jsonEvent = gson.fromJson(data, JsonObject::class.java)
-            jsonEvent.get("action")?.asString
+            val action = jsonEvent.get("action")?.asString
             val record = jsonEvent.get("record")?.asJsonObject
             val collection = record?.get("collectionName")?.asString
 
-            // Notifier les ViewModels selon la collection modifiée
+            // ✅ OPTIMISATION : Éviter les notifications multiples pour la même action
             when (collection) {
                 "allocations_mensuelles" -> {
-                    _budgetUpdated.emit(Unit)
+                    if (action == "create" || action == "update" || action == "delete") {
+                        _budgetUpdated.emit(Unit)
+                    }
                 }
                 "comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement" -> {
-                    _comptesUpdated.emit(Unit)
-                    _budgetUpdated.emit(Unit)
+                    if (action == "create" || action == "update" || action == "delete") {
+                        _comptesUpdated.emit(Unit)
+                        _budgetUpdated.emit(Unit)
+                    }
                 }
                 "enveloppes" -> {
-                    _budgetUpdated.emit(Unit)
+                    if (action == "create" || action == "update" || action == "delete") {
+                        _budgetUpdated.emit(Unit)
+                    }
                 }
                 "categories" -> {
-                    _categoriesUpdated.emit(Unit)
-                    _budgetUpdated.emit(Unit)
+                    if (action == "create" || action == "update" || action == "delete") {
+                        _categoriesUpdated.emit(Unit)
+                        _budgetUpdated.emit(Unit)
+                    }
                 }
                 "transactions" -> {
-                    _transactionsUpdated.emit(Unit)
-                    _budgetUpdated.emit(Unit)
-                    _comptesUpdated.emit(Unit)
+                    if (action == "create" || action == "update" || action == "delete") {
+                        _transactionsUpdated.emit(Unit)
+                        _budgetUpdated.emit(Unit)
+                        _comptesUpdated.emit(Unit)
+                    }
                 }
                 else -> {
                     // Collection non reconnue
