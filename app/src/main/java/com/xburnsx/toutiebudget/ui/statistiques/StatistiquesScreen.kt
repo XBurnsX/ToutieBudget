@@ -1249,109 +1249,117 @@ private fun TransactionModal(titre: String, transactions: List<Transaction>) {
             )
         }
 
-        // Liste des transactions avec animation
-        transactions.forEachIndexed { index, tx ->
-            var isVisible by remember { mutableStateOf(false) }
+        // Liste des transactions avec LazyColumn pour permettre le défilement
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp), // Limiter la hauteur maximale pour éviter que la modale soit trop grande
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(transactions.size) { index ->
+                val tx = transactions[index]
+                var isVisible by remember { mutableStateOf(false) }
 
-            LaunchedEffect(Unit) {
-                delay(index * 50L)
-                isVisible = true
-            }
+                LaunchedEffect(Unit) {
+                    delay(index * 50L)
+                    isVisible = true
+                }
 
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn(animationSpec = tween(300)) +
-                        slideInVertically(animationSpec = tween(300)) { it / 4 }
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(16.dp)
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(animationSpec = tween(300)) { it / 4 }
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            // Utiliser la même logique que HistoriqueCompteViewModel
-                            val tiersMap = LocalTiersMap.current
-                            val nomTiersBrut = when {
-                                !tx.tiers.isNullOrBlank() -> tx.tiers!!
-                                !tx.tiersId.isNullOrBlank() && tiersMap[tx.tiersId] != null -> tiersMap[tx.tiersId]!!
-                                !tx.tiersId.isNullOrBlank() -> tx.tiersId!!
-                                else -> "Tiers inconnu"
-                            }
-                            
-                                                         // Générer le libellé descriptif comme dans HistoriqueCompteViewModel
-                             val libelleDescriptif = when (tx.type) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé à : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée de : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectue : $nomTiersBrut"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> nomTiersBrut
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> nomTiersBrut
-                                 else -> nomTiersBrut
-                             }
-                            
-                            Text(
-                                libelleDescriptif,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                // Utiliser la même logique que HistoriqueCompteViewModel
+                                val tiersMap = LocalTiersMap.current
+                                val nomTiersBrut = when {
+                                    !tx.tiers.isNullOrBlank() -> tx.tiers!!
+                                    !tx.tiersId.isNullOrBlank() && tiersMap[tx.tiersId] != null -> tiersMap[tx.tiersId]!!
+                                    !tx.tiersId.isNullOrBlank() -> tx.tiersId!!
+                                    else -> "Tiers inconnu"
+                                }
+                                
+                                                             // Générer le libellé descriptif comme dans HistoriqueCompteViewModel
+                                 val libelleDescriptif = when (tx.type) {
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé à : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée de : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectue : $nomTiersBrut"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> nomTiersBrut
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> nomTiersBrut
+                                     else -> nomTiersBrut
+                                 }
+                                
+                                Text(
+                                    libelleDescriptif,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
 
-                                                         // Afficher le type de transaction
-                             val typeTransaction = when (tx.type) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> "Dépense"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> "Revenu"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement reçu"
-                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectué"
-                                 else -> "Transaction"
+                                                             // Afficher le type de transaction
+                                 val typeTransaction = when (tx.type) {
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> "Dépense"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> "Revenu"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> "Prêt accordé"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> "Dette contractée"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> "Remboursement reçu"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> "Remboursement donné"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> "Paiement reçu"
+                                     com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> "Paiement effectué"
+                                     else -> "Transaction"
+                                 }
+                                
+                                Text(
+                                    typeTransaction,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                                                     // Couleur du montant selon le type (comme dans HistoriqueItem)
+                             val couleurMontant = when (tx.type) {
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> Color.Red
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> Color.Red        // PRET = ROUGE (argent qui sort)
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> Color.Green
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> Color.Green  // REMBOURSEMENT REÇU = VERT (argent qui rentre)
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
+                                 com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
+                                 else -> Color.Yellow
                              }
-                            
+
                             Text(
-                                typeTransaction,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                MoneyFormatter.formatAmount(tx.montant),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = couleurMontant
                             )
                         }
-
-                        Spacer(Modifier.width(12.dp))
-
-                                                 // Couleur du montant selon le type (comme dans HistoriqueItem)
-                         val couleurMontant = when (tx.type) {
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense -> Color.Red
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Pret -> Color.Red        // PRET = ROUGE (argent qui sort)
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Revenu -> Color.Green
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementRecu -> Color.Green  // REMBOURSEMENT REÇU = VERT (argent qui rentre)
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
-                             com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
-                             else -> Color.Yellow
-                         }
-
-                        Text(
-                            MoneyFormatter.formatAmount(tx.montant),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = couleurMontant
-                        )
                     }
                 }
             }

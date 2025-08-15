@@ -122,8 +122,8 @@ class StatistiquesViewModel(
             val revenus = transactions.filter { 
                 it.type == TypeTransaction.Revenu || 
                 it.type == TypeTransaction.Emprunt || 
-                it.type == TypeTransaction.RemboursementRecu || 
-                it.type == TypeTransaction.Paiement
+                it.type == TypeTransaction.RemboursementRecu
+                // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
             }
 
             val totalDepenses = depenses.sumOf { it.montant }
@@ -249,9 +249,9 @@ class StatistiquesViewModel(
                 val total = transactions6Mois.filter { 
                     (it.type == TypeTransaction.Revenu || 
                      it.type == TypeTransaction.Emprunt || 
-                     it.type == TypeTransaction.RemboursementRecu || 
-                     it.type == TypeTransaction.Paiement) && 
+                     it.type == TypeTransaction.RemboursementRecu) && 
                     it.date >= mStart && it.date <= mEnd 
+                    // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
                 }.sumOf { it.montant }
                 sixMoisLabels[idx] to total
             }
@@ -295,9 +295,9 @@ class StatistiquesViewModel(
                             val revenusJour = transactions.filter { 
                 (it.type == TypeTransaction.Revenu || 
                  it.type == TypeTransaction.Emprunt || 
-                 it.type == TypeTransaction.RemboursementRecu || 
-                 it.type == TypeTransaction.Paiement) && 
+                 it.type == TypeTransaction.RemboursementRecu) && 
                 it.date >= start && it.date <= end 
+                // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
             }.sumOf { it.montant }
             val depensesJour = transactions.filter { 
                 (it.type == TypeTransaction.Depense || 
@@ -404,8 +404,8 @@ class StatistiquesViewModel(
         val revenus = txPeriode.filter { tx ->
             tx.type == TypeTransaction.Revenu || 
             tx.type == TypeTransaction.Emprunt || 
-            tx.type == TypeTransaction.RemboursementRecu || 
-            tx.type == TypeTransaction.Paiement
+            tx.type == TypeTransaction.RemboursementRecu
+            // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
         }
         ouvrirModalTransactions("Tous les revenus - ${_uiState.value.periode?.label ?: "Période"}", revenus)
     }

@@ -98,6 +98,10 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
     // MÊME LOGIQUE QUE LA BARRE DE PROGRESSION pour la cohérence
     val couleurStatut = when {
+        // Si pas d'objectif (objectif = 0 ou typeObjectif = Aucun) et solde = 0 : Gris
+        (objectif <= 0 || enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun) && enveloppe.solde <= 0.001 -> Color.Gray
+        // Si pas d'objectif mais solde > 0 : JAUNE pour indiquer l'activité
+        (objectif <= 0 || enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun) && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
         // Objectif atteint : Vert ou couleur du compte source si dépensé
         estObjectifAtteint -> {
             when (enveloppe.typeObjectif) {
