@@ -23,7 +23,8 @@ class ArgentServiceImpl @Inject constructor(
     private val compteRepository: CompteRepository,
     private val transactionRepository: TransactionRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val virementUseCase: VirementUseCase
+    private val virementUseCase: VirementUseCase,
+    private val enveloppeRepository: com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 ) : ArgentService {
 
     /**
@@ -123,6 +124,8 @@ class ArgentServiceImpl @Inject constructor(
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
         compteRepository.mettreAJourSolde(compteSourceId, collectionCompteSource, nouveauSolde)
+        
+
         
         // 5. PAS DE TRANSACTION - C'est un virement interne !
     }
