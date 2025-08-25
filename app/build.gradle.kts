@@ -1,97 +1,131 @@
-plugins {
-    id("com.android.application")
-    id("kotlin-android")
-    id("kotlin-kapt")
-    id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.plugin.compose")
+plugins {  
+    id("com.android.application")  
+    id("org.jetbrains.kotlin.android")  
+    id("com.google.devtools.ksp")  
+    id("com.google.dagger.hilt.android")  
+    id("com.google.gms.google-services")  
 }
 
 android {
     namespace = "com.xburnsx.toutiebudget"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.xburnsx.toutiebudget"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 31
-        versionName = "1.3.2"
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1078578579569-eb1v1cre9rius8grrppg1sktal3bkbrl.apps.googleusercontent.com\"")
-    }
-
-    signingConfigs {
-        create("release") {
-            storeFile = file("../toutiebudget-release-key.jks")
-            storePassword = "qwerty"  // Remplacez par votre mot de passe
-            keyAlias = "toutiebudget"
-            keyPassword = "qwerty"  // Remplacez par votre mot de passe
+        vectorDrawables {
+            useSupportLibrary = true
         }
+
+        // BuildConfig fields CRITIQUES pour l'app
+        buildConfigField("String", "POCKETBASE_URL_LOCAL", "\"http://192.168.1.77:8090/\"")
+        buildConfigField("String", "POCKETBASE_URL_PUBLIC", "\"http://toutiebudget.duckdns.org:8090/\"")
+        buildConfigField("String", "POCKETBASE_URL_EMULATEUR", "\"http://10.0.2.2:8090/\"")
+        buildConfigField("String", "POCKETBASE_URL_EMULATEUR_AVD", "\"http://10.0.2.15:8090/\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1078578579569-eb1v1cre9rius8grrppg1sktal3bkbrl.apps.googleusercontent.com\"")
+        buildConfigField("boolean", "EST_MODE_DEBUG", "true")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "1.8"
     }
-
     buildFeatures {
         compose = true
-        buildConfig = true
+        buildConfig = true  // CRITIQUE pour BuildConfig
     }
-
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
+    }
     packaging {
         resources {
-            excludes += "/META-INF/DEPENDENCIES"
-            excludes += "/META-INF/LICENSE"
-            excludes += "/META-INF/LICENSE.txt"
-            excludes += "/META-INF/license.txt"
-            excludes += "/META-INF/NOTICE"
-            excludes += "/META-INF/NOTICE.txt"
-            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
 
 dependencies {
-    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
-    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.ui:ui-tooling")
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.navigation:navigation-compose:2.7.2")
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material")
-    implementation("androidx.activity:activity-compose:1.7.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.1")
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.squareup.okhttp3:okhttp:4.11.0")
-    implementation("javax.inject:javax.inject:1")
-    
-    // Splash screen natif Android
-    implementation("androidx.core:core-splashscreen:1.0.1")
-    debugImplementation(libs.ui.tooling)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 
-    // WorkManager pour tâches planifiées
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-    // Notifications compat
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.core:core")
+        // Hilt  
+    implementation(libs.hilt.android)  
+    ksp(libs.hilt.compiler)  
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // ViewModel
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
+
+    // Datastore
+    implementation(libs.androidx.datastore.preferences)
+
+    // Splash Screen
+    implementation(libs.androidx.splashscreen)
+
+    // Icons
+    implementation(libs.androidx.material.icons.extended)
+
+    // Coil
+    implementation(libs.coil.compose)
+
+    // Gson
+    implementation(libs.gson)
+      
+        // Room Database  
+    implementation(libs.room.runtime)  
+    implementation(libs.room.ktx)  
+    ksp(libs.room.compiler)
+
+        // WorkManager for background jobs  
+    implementation(libs.work.runtime.ktx)  
+    implementation(libs.hilt.work)  
+    ksp(libs.hilt.work.compiler)
+
+    // Google Play Services Auth (CRITIQUE pour Google Auth)
+    implementation(libs.google.play.services.auth)
+
+    // Reorderable (pour réorganiser les comptes/enveloppes)
+    implementation(libs.reorderable)
+}
+
+ksp {  
+    arg("room.schemaLocation", "$projectDir/schemas")  
 }
