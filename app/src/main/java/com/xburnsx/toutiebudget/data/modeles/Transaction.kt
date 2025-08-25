@@ -3,25 +3,35 @@
 
 package com.xburnsx.toutiebudget.data.modeles
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import com.google.gson.annotations.SerializedName
 import java.util.Date
 
-/**
- * Modèle de données représentant une transaction financière.
- * Correspond à la collection "transactions" dans PocketBase.
- */
+@Entity(tableName = "transactions")
 data class Transaction(
-    val id: String = "",
-    val utilisateurId: String = "",
-    val type: TypeTransaction = TypeTransaction.Depense,
-    val montant: Double = 0.0,
-    val date: Date = Date(),
-    val note: String? = null,
-    val compteId: String = "",
-    val collectionCompte: String = "",
-    val allocationMensuelleId: String? = null,
-    val estFractionnee: Boolean = false, // Si la transaction est fractionnée
-    val sousItems: String? = null, // JSON des sous-items pour les transactions fractionnées
-    val tiersUtiliser: String? = null, // Nom du tiers utilisé dans cette transaction
-    val created: Date? = null,
-    val updated: Date? = null
-)
+    @PrimaryKey @SerializedName("id") override var id: String = "",
+    @SerializedName("created") override var created: Date? = null,
+    @SerializedName("updated") override var updated: Date? = null,
+    @SerializedName("montant") var montant: Double = 0.0,
+    @SerializedName("type") var type: String = "",
+    @SerializedName("compte") var compte: String = "",
+    @SerializedName("compte_couleur") var compteCouleur: String? = null,
+    @SerializedName("compte_nom") var compteNom: String? = null,
+    @SerializedName("compte_emoji") var compteEmoji: String? = null,
+    @SerializedName("vers_compte") var versCompte: String? = null,
+    @SerializedName("vers_compte_couleur") var versCompteCouleur: String? = null,
+    @SerializedName("vers_compte_nom") var versCompteNom: String? = null,
+    @SerializedName("vers_compte_emoji") var versCompteEmoji: String? = null,
+    @SerializedName("categorie") var categorie: String? = null,
+    @SerializedName("enveloppe") var enveloppe: String? = null,
+    @SerializedName("enveloppe_couleur") var enveloppeCouleur: String? = null,
+    @SerializedName("enveloppe_nom") var enveloppeNom: String? = null,
+    @SerializedName("enveloppe_emoji") var enveloppeEmoji: String? = null,
+    @SerializedName("tiers") var tiers: String? = null,
+    @SerializedName("note") var note: String? = null,
+    @SerializedName("date") var date: Date = Date(),
+    @SerializedName("statut") var statut: String? = null,
+    @SerializedName("provenance") var provenance: String? = null,
+    @SerializedName("mode_operation") var modeOperation: String? = null
+) : BaseModel()

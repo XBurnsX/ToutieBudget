@@ -1,29 +1,26 @@
 // chemin/simule: /data/modeles/Enveloppe.kt
 package com.xburnsx.toutiebudget.data.modeles
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
-import java.util.Date
+import java.util.*
 
+@Entity(tableName = "enveloppes")
 data class Enveloppe(
-    val id: String,
-    @SerializedName("utilisateur_id")
-    val utilisateurId: String,
-    val nom: String,
-    @SerializedName("categorie_Id")  // Correspondre exactement au nom dans PocketBase
-    val categorieId: String, // <-- référence à la catégorie
-    @SerializedName("est_archive")
-    val estArchive: Boolean,
-    val ordre: Int,
-    @SerializedName("frequence_objectif")  // Nouveau nom dans PocketBase
-    val typeObjectif: TypeObjectif = TypeObjectif.Aucun,
-    @SerializedName("montant_objectif")  // Nouveau nom dans PocketBase
-    val objectifMontant: Double = 0.0,
-    @SerializedName("date_objectif")  // La date de fin de l'objectif (échéance)
-    val dateObjectif: Date? = null,
-    @SerializedName("date_debut_objectif")  // La date où l'objectif commence
-    val dateDebutObjectif: Date? = null,
-    @SerializedName("objectif_jour")  // Garder ce champ si nécessaire
-    val objectifJour: Int? = null,
-    @SerializedName("reset_apres_echeance")  // Nouveau champ pour les objectifs d'échéance
-    val resetApresEcheance: Boolean = false
-)
+    @PrimaryKey @SerializedName("id") override var id: String = "",
+    @SerializedName("created") override var created: Date? = null,
+    @SerializedName("updated") override var updated: Date? = null,
+    @SerializedName("nom") var nom: String = "",
+    @SerializedName("categorie") var categorie: String = "",
+    @SerializedName("budget") var budget: Double = 0.0,
+    @SerializedName("solde") var solde: Double = 0.0,
+    @SerializedName("couleur") var couleur: String = "#000000",
+    @SerializedName("emoji") var emoji: String = "✉️",
+    @SerializedName("ordre") var ordre: Int = 0,
+    @SerializedName("type_objectif") var typeObjectif: String = TypeObjectif.Aucun.name,
+    @SerializedName("montant_objectif") var montantObjectif: Double = 0.0,
+    @SerializedName("date_objectif") var dateObjectif: Date? = null,
+    @SerializedName("notes") var notes: String = "",
+    @SerializedName("user_id") var userId: String? = null
+) : BaseModel()

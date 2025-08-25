@@ -1,7 +1,10 @@
 // chemin/simule: /data/modeles/Compte.kt
 package com.xburnsx.toutiebudget.data.modeles
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
+import java.util.Date
 
 sealed interface Compte {
     val id: String
@@ -16,8 +19,9 @@ sealed interface Compte {
     val collection: String
 }
 
+@Entity(tableName = "comptes_cheques")
 data class CompteCheque(
-    override val id: String = "",
+    @PrimaryKey @SerializedName("id") override val id: String = "",
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
@@ -49,8 +53,9 @@ enum class TypeFrais {
     PONCTUEL    // Payé seulement si applicable (ex: frais de retard)
 }
 
+@Entity(tableName = "comptes_credits")
 data class CompteCredit(
-    override val id: String = "",
+    @PrimaryKey @SerializedName("id") override val id: String = "",
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
@@ -122,8 +127,9 @@ data class CompteCredit(
     }
 }
 
+@Entity(tableName = "comptes_dettes")
 data class CompteDette(
-    override val id: String = "",
+    @PrimaryKey @SerializedName("id") override val id: String = "",
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
@@ -153,8 +159,9 @@ data class CompteDette(
     override val solde: Double get() = soldeDette
 }
 
+@Entity(tableName = "comptes_investissement")
 data class CompteInvestissement(
-    override val id: String = "",
+    @PrimaryKey @SerializedName("id") override val id: String = "",
     @SerializedName("utilisateur_id")
     override var utilisateurId: String = "",
     override val nom: String,
