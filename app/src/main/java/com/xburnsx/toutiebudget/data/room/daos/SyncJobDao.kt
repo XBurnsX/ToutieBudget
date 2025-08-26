@@ -26,26 +26,14 @@ interface SyncJobDao {
     /**
      * Récupère les tâches par type d'entité
      */
-    @Query("SELECT * FROM sync_jobs WHERE entityType = :entityType ORDER BY createdAt ASC")
-    suspend fun getSyncJobsByEntityType(entityType: String): List<SyncJob>
-    
-    /**
-     * Récupère les tâches par collection Pocketbase
-     */
-    @Query("SELECT * FROM sync_jobs WHERE collection = :collection ORDER BY createdAt ASC")
-    suspend fun getSyncJobsByCollection(collection: String): List<SyncJob>
+    @Query("SELECT * FROM sync_jobs WHERE type = :type ORDER BY createdAt ASC")
+    suspend fun getSyncJobsByType(type: String): List<SyncJob>
     
     /**
      * Récupère une tâche par son ID
      */
     @Query("SELECT * FROM sync_jobs WHERE id = :id")
-    suspend fun getSyncJobById(id: Long): SyncJob?
-    
-    /**
-     * Récupère une tâche par l'ID de l'entité et l'action
-     */
-    @Query("SELECT * FROM sync_jobs WHERE entityId = :entityId AND action = :action AND status = 'PENDING' LIMIT 1")
-    suspend fun getPendingSyncJobByEntityAndAction(entityId: String, action: String): SyncJob?
+    suspend fun getSyncJobById(id: String): SyncJob?
     
     /**
      * Insère une nouvelle tâche de synchronisation
@@ -72,41 +60,20 @@ interface SyncJobDao {
     suspend fun deleteCompletedSyncJobs()
     
     /**
-     * Supprime toutes les tâches d'une entité spécifique
-     */
-    @Query("DELETE FROM sync_jobs WHERE entityId = :entityId")
-    suspend fun deleteSyncJobsByEntityId(entityId: String)
-    
-    /**
-     * Marque une tâche comme en cours
-     */
-    @Query("UPDATE sync_jobs SET status = 'IN_PROGRESS', lastAttemptAt = :timestamp WHERE id = :id")
-    suspend fun markSyncJobInProgress(id: Long, timestamp: Long = System.currentTimeMillis())
-    
-    /**
      * Marque une tâche comme terminée avec succès
      */
-    @Query("UPDATE sync_jobs SET status = 'COMPLETED', completedAt = :timestamp WHERE id = :id")
-    suspend fun markSyncJobCompleted(id: Long, timestamp: Long = System.currentTimeMillis())
+    @Query("UPDATE sync_jobs SET status = 'COMPLETED' WHERE id = :id")
+    suspend fun markSyncJobCompleted(id: String)
     
     /**
      * Marque une tâche comme échouée
      */
-    @Query("UPDATE sync_jobs SET status = 'FAILED', errorMessage = :errorMessage, lastAttemptAt = :timestamp, retryCount = retryCount + 1 WHERE id = :id")
-    suspend fun markSyncJobFailed(id: Long, errorMessage: String, timestamp: Long = System.currentTimeMillis())
-    
-    /**
-     * Remet une tâche en attente pour nouvelle tentative
-     */
-    @Query("UPDATE sync_jobs SET status = 'PENDING', lastAttemptAt = :timestamp WHERE id = :id")
-    suspend fun resetSyncJobToPending(id: Long, timestamp: Long = System.currentTimeMillis())
+    @Query("UPDATE sync_jobs SET status = 'FAILED' WHERE id = :id")
+    suspend fun markSyncJobFailed(id: String)
     
     /**
      * Compte le nombre de tâches en attente
      */
     @Query("SELECT COUNT(*) FROM sync_jobs WHERE status = 'PENDING'")
     suspend fun getPendingSyncJobsCount(): Int
-    
-    // Méthode temporairement supprimée pour simplifier la compilation
-    // TODO: Réimplémenter avec une approche plus simple
 }

@@ -9,6 +9,7 @@
  import com.xburnsx.toutiebudget.data.repositories.impl.*
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
+ import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
@@ -27,26 +28,56 @@ import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
 import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
 import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
- import androidx.lifecycle.SavedStateHandle
-// import android.content.Context (supprimé)
+import com.xburnsx.toutiebudget.ui.settings.SyncJobViewModel
+import androidx.lifecycle.SavedStateHandle
+import android.content.Context
 
  /**
   * Module d'injection de dépendances pour l'application Toutie Budget.
   * Gère l'instanciation de tous les repositories, services, use cases et ViewModels.
   * SÉCURITÉ FINANCIÈRE : Validation complexe pour éviter les faux soldes
+  * ROOM-FIRST : Utilise les repositories Room pour les opérations locales
   */
  object AppModule {
      
-    // ===== SERVICES DE CACHE (supprimés) =====
+    // ===== BASE DE DONNÉES ROOM =====
+     private lateinit var database: ToutieBudgetDatabase
      
-     // ===== REPOSITORIES =====
-     private val compteRepository: CompteRepository by lazy { CompteRepositoryImpl() }
-     private val enveloppeRepository: EnveloppeRepository by lazy { EnveloppeRepositoryImpl() }
-     private val categorieRepository: CategorieRepository by lazy { CategorieRepositoryImpl() }
-     private val transactionRepository: TransactionRepository by lazy { TransactionRepositoryImpl() }
+     fun initializeDatabase(context: Context) {
+         if (!::database.isInitialized) {
+             database = ToutieBudgetDatabase.getDatabase(context)
+         }
+     }
+     
+    // ===== REPOSITORIES ROOM-FIRST =====
+     private val compteRepository: CompteRepository by lazy { 
+         CompteRepositoryRoomImpl(
+             database.compteChequeDao(),
+             database.compteCreditDao(),
+             database.compteDetteDao(),
+             database.compteInvestissementDao(),
+             database.syncJobDao()
+         )
+     }
+     private val enveloppeRepository: EnveloppeRepository by lazy { 
+         EnveloppeRepositoryRoomImpl(database)
+     }
+     private val categorieRepository: CategorieRepository by lazy { 
+         CategorieRepositoryRoomImpl(database)
+     }
+     private val transactionRepository: TransactionRepository by lazy { 
+         TransactionRepositoryRoomImpl(database)
+     }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
-     private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { AllocationMensuelleRepositoryImpl() }
-     private val tiersRepository: TiersRepository by lazy { TiersRepositoryImpl() }
+     private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { 
+         AllocationMensuelleRepositoryRoomImpl(database)
+     }
+     private val tiersRepository: TiersRepository by lazy { 
+         TiersRepositoryRoomImpl(database)
+     }
+     private val pretPersonnelRepository: PretPersonnelRepository by lazy { 
+         PretPersonnelRepositoryRoomImpl(database)
+     }
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
@@ -110,7 +141,7 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
              allocationMensuelleRepository = allocationMensuelleRepository,
               enregistrerTransactionUseCase = enregistrerTransactionUseCase,
               transactionRepository = transactionRepository,
-              pretPersonnelRepository = PretPersonnelRepositoryImpl(),
+              pretPersonnelRepository = pretPersonnelRepository,
               argentService = argentService,
               realtimeSyncService = realtimeSyncService
          )
@@ -164,10 +195,14 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
 
       private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
           PretPersonnelViewModel(
-              pretPersonnelRepository = PretPersonnelRepositoryImpl(),
+              pretPersonnelRepository = pretPersonnelRepository,
               transactionRepository = transactionRepository,
               compteRepository = compteRepository
           )
+      }
+      
+      private val syncJobViewModel: SyncJobViewModel by lazy {
+          SyncJobViewModel(database.syncJobDao())
       }
  
      // ===== FONCTIONS PUBLIQUES =====
@@ -187,6 +222,7 @@ import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
       fun provideStatistiquesViewModel(): StatistiquesViewModel = statistiquesViewModel
       fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
+      fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
          return HistoriqueCompteViewModel(
              transactionRepository = transactionRepository,

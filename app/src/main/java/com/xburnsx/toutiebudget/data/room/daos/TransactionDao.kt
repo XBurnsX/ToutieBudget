@@ -3,8 +3,6 @@ package com.xburnsx.toutiebudget.data.room.daos
 import androidx.room.*
 import com.xburnsx.toutiebudget.data.room.entities.Transaction
 import kotlinx.coroutines.flow.Flow
-import java.util.Date
-
 @Dao
 interface TransactionDao {
     
@@ -15,13 +13,19 @@ interface TransactionDao {
     suspend fun getTransactionById(id: String): Transaction?
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND compte_id = :compteId ORDER BY date DESC")
-    fun getTransactionsByCompte(utilisateurId: String, compteId: String): Flow<List<Transaction>>
+    fun getTransactionsByUtilisateurAndCompte(utilisateurId: String, compteId: String): Flow<List<Transaction>>
+    
+    @Query("SELECT * FROM transactions WHERE compte_id = :compteId AND collection_compte = :collectionCompte ORDER BY date DESC")
+    fun getTransactionsByCompte(compteId: String, collectionCompte: String): Flow<List<Transaction>>
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND date BETWEEN :dateDebut AND :dateFin ORDER BY date DESC")
-    fun getTransactionsByPeriode(utilisateurId: String, dateDebut: Date, dateFin: Date): Flow<List<Transaction>>
+    fun getTransactionsByUtilisateurAndPeriod(utilisateurId: String, dateDebut: String, dateFin: String): Flow<List<Transaction>>
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND allocation_mensuelle_id = :allocationId ORDER BY date DESC")
     fun getTransactionsByAllocation(utilisateurId: String, allocationId: String): Flow<List<Transaction>>
+    
+    @Query("SELECT * FROM transactions WHERE allocation_mensuelle_id = :allocationId ORDER BY date DESC")
+    fun getTransactionsByAllocation(allocationId: String): Flow<List<Transaction>>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction): Long

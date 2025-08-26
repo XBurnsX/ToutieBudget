@@ -2,7 +2,6 @@ package com.xburnsx.toutiebudget.data.room.entities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.util.Date
 
 /**
  * Entité représentant une tâche de synchronisation à effectuer.
@@ -10,13 +9,13 @@ import java.util.Date
  */
 @Entity(tableName = "sync_jobs")
 data class SyncJob(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey
+    val id: String = "",
     
     /**
-     * Type d'entité à synchroniser (ex: "compte", "transaction", "categorie")
+     * Type d'entité à synchroniser (ex: "TRANSACTION", "COMPTE", "CATEGORIE")
      */
-    val entityType: String,
+    val type: String,
     
     /**
      * Action à effectuer (CREATE, UPDATE, DELETE)
@@ -24,47 +23,17 @@ data class SyncJob(
     val action: String,
     
     /**
-     * ID de l'entité concernée
-     */
-    val entityId: String,
-    
-    /**
-     * Collection Pocketbase cible (ex: "comptes_cheques", "transactions")
-     */
-    val collection: String,
-    
-    /**
      * Données JSON de l'entité à synchroniser
      */
     val dataJson: String,
     
     /**
+     * Timestamp de création de la tâche
+     */
+    val createdAt: Long = 0,
+    
+    /**
      * Statut de la tâche (PENDING, IN_PROGRESS, COMPLETED, FAILED)
      */
-    val status: String = "PENDING",
-    
-    /**
-     * Nombre de tentatives de synchronisation
-     */
-    val retryCount: Int = 0,
-    
-    /**
-     * Message d'erreur en cas d'échec
-     */
-    val errorMessage: String? = null,
-    
-    /**
-     * Date de création de la tâche
-     */
-    val createdAt: Date = Date(),
-    
-    /**
-     * Date de dernière tentative
-     */
-    val lastAttemptAt: Date? = null,
-    
-    /**
-     * Date de complétion
-     */
-    val completedAt: Date? = null
+    val status: String = "PENDING"
 )

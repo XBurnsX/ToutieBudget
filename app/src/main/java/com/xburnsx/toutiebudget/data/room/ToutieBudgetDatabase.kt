@@ -7,6 +7,7 @@ import androidx.room.TypeConverters
 import android.content.Context
 import com.xburnsx.toutiebudget.data.room.entities.*
 import com.xburnsx.toutiebudget.data.room.daos.*
+import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
 /**
  * Base de données Room principale pour ToutieBudget.
  * Cette base de données contiendra toutes les entités locales et la table SyncJob.
@@ -28,6 +29,7 @@ import com.xburnsx.toutiebudget.data.room.daos.*
     version = 1,
     exportSchema = false
 )
+@TypeConverters(DateStringConverter::class)
 abstract class ToutieBudgetDatabase : RoomDatabase() {
     
     // DAO pour la gestion des tâches de synchronisation

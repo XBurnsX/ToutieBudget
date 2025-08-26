@@ -59,6 +59,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -83,6 +86,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,7 +114,8 @@ fun SettingsScreen(
     onCouleurThemeChange: (CouleurTheme) -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit,
-    onNavigateToArchives: () -> Unit = {}
+    onNavigateToArchives: () -> Unit = {},
+    onNavigateToSyncJobs: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -121,6 +126,8 @@ fun SettingsScreen(
     var showResetConfirmDialog by remember { mutableStateOf(false) }
     var isResetting by remember { mutableStateOf(false) }
     var resetError by remember { mutableStateOf<String?>(null) }
+    
+
 
     // Service pour la réinitialisation
     val realtimeSyncService = remember { com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService() }
@@ -345,6 +352,22 @@ fun SettingsScreen(
                             WorkManager.getInstance(context).enqueue(req)
                             scope.launch { snack.showSnackbar("Notification de test envoyée") }
                         },
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                    )
+                }
+            }
+
+
+
+            // Section Synchronisation
+            item { SectionHeader(titre = "Synchronisation", icone = Icons.Default.Sync) }
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Sync,
+                        titre = "Liste de tâches de synchronisation",
+                        description = "Voir les tâches en attente de synchronisation",
+                        onClick = onNavigateToSyncJobs,
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
                     )
                 }
