@@ -204,53 +204,56 @@ Il y a quatre pièces maîtresses qui font tout fonctionner en arrière-plan, sa
 
 ## 📋 PLAN D'ACTION DÉTAILLÉ ET NUMÉROTÉ
 
-### ÉTAPE 1 : Ajout de Room (Nouveau) - [🔄 EN COURS]
+### ÉTAPE 1 : Ajout de Room (Nouveau) - [✅ COMPLÉTÉ]
 
 #### 1.1 Ajouter les dépendances Room dans build.gradle
-- [ ] Ajouter `room-runtime` dans dependencies
-- [ ] Ajouter `room-compiler` dans kapt
-- [ ] Ajouter `room-ktx` pour support Coroutines
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Ajouter `room-runtime` dans dependencies
+- [x] Ajouter `room-compiler` dans kapt
+- [x] Ajouter `room-ktx` pour support Coroutines
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 #### 1.2 Créer la base de données Room
-- [ ] Créer la classe `ToutieBudgetDatabase`
-- [ ] Configurer les entités et DAOs
-- [ ] Ajouter la configuration dans le module DI
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Créer la classe `ToutieBudgetDatabase`
+- [x] Configurer les entités et DAOs
+- [x] Ajouter la configuration dans le module DI
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 #### 1.3 Créer l'entité SyncJob (Liste de Tâches)
-- [ ] Créer la table `sync_jobs` avec champs : id, type, action, data_json, created_at, status
-- [ ] Créer le DAO `SyncJobDao` avec méthodes CRUD
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Créer la table `sync_jobs` avec champs : id, type, action, data_json, created_at, status
+- [x] Créer le DAO `SyncJobDao` avec méthodes CRUD
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 #### 1.4 Créer les entités Room avec noms IDENTIQUES à Pocketbase
-- [ ] Créer l'entité `CompteCheque` (même structure que le modèle existant)
-- [ ] Créer l'entité `CompteCredit` (même structure que le modèle existant)
-- [ ] Créer l'entité `CompteDette` (même structure que le modèle existant)
-- [ ] Créer l'entité `CompteInvestissement` (même structure que le modèle existant)
-- [ ] Créer l'entité `Transaction` (même structure que le modèle existant)
-- [ ] Créer l'entité `Categorie` (même structure que le modèle existant)
-- [ ] Créer l'entité `Enveloppe` (même structure que le modèle existant)
-- [ ] Créer l'entité `Tiers` (même structure que le modèle existant)
-- [ ] Créer l'entité `PretPersonnel` (même structure que le modèle existant)
-- [ ] Créer l'entité `AllocationMensuelle` (même structure que le modèle existant)
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Créer l'entité `CompteCheque` (même structure que le modèle existant)
+- [x] Créer l'entité `CompteCredit` (même structure que le modèle existant)
+- [x] Créer l'entité `CompteDette` (même structure que le modèle existant)
+- [x] Créer l'entité `CompteInvestissement` (même structure que le modèle existant)
+- [x] Créer l'entité `Transaction` (même structure que le modèle existant)
+- [x] Créer l'entité `Categorie` (même structure que le modèle existant)
+- [x] Créer l'entité `Enveloppe` (même structure que le modèle existant)
+- [x] Créer l'entité `Tiers` (même structure que le modèle existant)
+- [x] Créer l'entité `PretPersonnel` (même structure que le modèle existant)
+- [x] Créer l'entité `AllocationMensuelle` (même structure que le modèle existant)
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 #### 1.5 Créer les DAOs pour chaque entité
-- [ ] Créer `CompteDao` avec méthodes CRUD
-- [ ] Créer `TransactionDao` avec méthodes CRUD
-- [ ] Créer `CategorieDao` avec méthodes CRUD
-- [ ] Créer `EnveloppeDao` avec méthodes CRUD
-- [ ] Créer `TiersDao` avec méthodes CRUD
-- [ ] Créer `PretPersonnelDao` avec méthodes CRUD
-- [ ] Créer `AllocationMensuelleDao` avec méthodes CRUD
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Créer `CompteChequeDao` avec méthodes CRUD
+- [x] Créer `CompteCreditDao` avec méthodes CRUD
+- [x] Créer `CompteDetteDao` avec méthodes CRUD
+- [x] Créer `CompteInvestissementDao` avec méthodes CRUD
+- [x] Créer `TransactionDao` avec méthodes CRUD
+- [x] Créer `CategorieDao` avec méthodes CRUD
+- [x] Créer `EnveloppeDao` avec méthodes CRUD
+- [x] Créer `TiersDao` avec méthodes CRUD
+- [x] Créer `PretPersonnelDao` avec méthodes CRUD
+- [x] Créer `AllocationMensuelleDao` avec méthodes CRUD
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 #### 1.6 Tests de validation des noms
-- [ ] Vérifier que tous les noms de champs correspondent exactement
-- [ ] Vérifier que toutes les tables ont les bons noms
-- [ ] Tester la compilation et la création de la base
-- [ ] **STATUT** : ⏳ À FAIRE
+- [x] Vérifier que tous les noms de champs correspondent exactement
+- [x] Vérifier que toutes les tables ont les bons noms
+- [x] Tester la compilation et la création de la base
+- [x] **STATUT** : ✅ COMPLÉTÉ
 
 ---
 
