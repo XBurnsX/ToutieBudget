@@ -37,6 +37,7 @@ import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
 import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
+import com.xburnsx.toutiebudget.ui.sync.SyncJobScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.ui.theme.ToutieBudgetTheme
@@ -377,7 +378,15 @@ fun MainAppScaffold(
                         }
                     },
                     onBack = { bottomBarNavController.popBackStack() },
-                    onNavigateToArchives = { bottomBarNavController.navigate("archives") }
+                    onNavigateToArchives = { bottomBarNavController.navigate("archives") },
+                    onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") }
+                )
+            }
+            
+            // Route pour la page des SyncJob
+            composable("sync_jobs") {
+                SyncJobScreen(
+                    onBack = { bottomBarNavController.popBackStack() }
                 )
             }
             // Route archives
