@@ -60,23 +60,42 @@ import android.content.Context
          )
      }
      private val enveloppeRepository: EnveloppeRepository by lazy { 
-         EnveloppeRepositoryRoomImpl(database)
+         EnveloppeRepositoryRoomImpl(
+             database.enveloppeDao(),
+             database.allocationMensuelleDao(),
+             database.syncJobDao()
+         )
      }
      private val categorieRepository: CategorieRepository by lazy { 
-         CategorieRepositoryRoomImpl(database)
+         CategorieRepositoryRoomImpl(
+             database.categorieDao(),
+             database.syncJobDao()
+         )
      }
      private val transactionRepository: TransactionRepository by lazy { 
-         TransactionRepositoryRoomImpl(database)
+         TransactionRepositoryRoomImpl(
+             database.transactionDao(),
+             database.syncJobDao()
+         )
      }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { 
-         AllocationMensuelleRepositoryRoomImpl(database)
+         AllocationMensuelleRepositoryRoomImpl(
+             database.allocationMensuelleDao(),
+             database.syncJobDao()
+         )
      }
      private val tiersRepository: TiersRepository by lazy { 
-         TiersRepositoryRoomImpl(database)
+         TiersRepositoryRoomImpl(
+             database.tiersDao(),
+             database.syncJobDao()
+         )
      }
      private val pretPersonnelRepository: PretPersonnelRepository by lazy { 
-         PretPersonnelRepositoryRoomImpl(database)
+         PretPersonnelRepositoryRoomImpl(
+             database.pretPersonnelDao(),
+             database.syncJobDao()
+         )
      }
 
      // ===== SERVICES =====

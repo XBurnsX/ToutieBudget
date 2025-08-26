@@ -1,9 +1,13 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
-import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.TransactionDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.Transaction as TransactionEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -25,13 +29,15 @@ import java.util.TimeZone
  * INTERFACE IDENTIQUE : Même interface que TransactionRepository pour compatibilité
  */
 class TransactionRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val transactionDao: TransactionDao,
+    private val syncJobDao: SyncJobDao
 ) : TransactionRepository {
-    
-    private val transactionDao = database.transactionDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
     
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
+
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
@@ -62,11 +68,11 @@ class TransactionRepositoryRoomImpl(
             val id = transactionDao.insertTransaction(transactionEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(transactionEntity),
+                dataJson = gson.toJson(transactionEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -194,11 +200,11 @@ class TransactionRepositoryRoomImpl(
             transactionDao.updateTransaction(transactionEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(transactionEntity),
+                dataJson = gson.toJson(transactionEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -218,11 +224,11 @@ class TransactionRepositoryRoomImpl(
             transactionDao.deleteTransactionById(transactionId)
             
             // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "DELETE",
-                dataJson = com.google.gson.Gson().toJson(mapOf("id" to transactionId)),
+                dataJson = gson.toJson(mapOf("id" to transactionId)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

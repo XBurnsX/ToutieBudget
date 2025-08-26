@@ -2,8 +2,10 @@ package com.xburnsx.toutiebudget.data.repositories.impl
 
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
-import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.AllocationMensuelleDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle as AllocationMensuelleEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +15,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 
 /**
  * Implémentation Room-first du repository des allocations mensuelles.
@@ -25,12 +29,13 @@ import java.util.TimeZone
  * INTERFACE IDENTIQUE : Même interface que AllocationMensuelleRepository pour compatibilité
  */
 class AllocationMensuelleRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val allocationMensuelleDao: AllocationMensuelleDao,
+    private val syncJobDao: SyncJobDao
 ) : AllocationMensuelleRepository {
-    
-    private val allocationMensuelleDao = database.allocationMensuelleDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
     
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -72,7 +77,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
+                dataJson = gson.toJson(nouvelleAllocation),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -133,7 +138,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(allocationEntity),
+                dataJson = gson.toJson(allocationEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -169,7 +174,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(allocationEntity),
+                dataJson = gson.toJson(allocationEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -203,7 +208,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
+                dataJson = gson.toJson(nouvelleAllocation),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -238,7 +243,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(allocationEntity),
+                dataJson = gson.toJson(allocationEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

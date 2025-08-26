@@ -1,9 +1,14 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Tiers
 import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.TiersDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.Tiers as TiersEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -21,12 +26,15 @@ import kotlinx.coroutines.withContext
  * INTERFACE IDENTIQUE : Même interface que TiersRepository pour compatibilité
  */
 class TiersRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val tiersDao: TiersDao,
+    private val syncJobDao: SyncJobDao
 ) : TiersRepository {
     
-    private val tiersDao = database.tiersDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
+    
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
 
     override suspend fun recupererTousLesTiers(): Result<List<Tiers>> = withContext(Dispatchers.IO) {
         try {
@@ -66,11 +74,11 @@ class TiersRepositoryRoomImpl(
             val id = tiersDao.insertTiers(tiersEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(tiersEntity),
+                dataJson = gson.toJson(tiersEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -120,11 +128,11 @@ class TiersRepositoryRoomImpl(
             tiersDao.updateTiers(tiersEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(tiersEntity),
+                dataJson = gson.toJson(tiersEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -144,11 +152,11 @@ class TiersRepositoryRoomImpl(
             tiersDao.deleteTiersById(tiersId)
             
             // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "DELETE",
-                dataJson = com.google.gson.Gson().toJson(mapOf("id" to tiersId)),
+                dataJson = gson.toJson(mapOf("id" to tiersId)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

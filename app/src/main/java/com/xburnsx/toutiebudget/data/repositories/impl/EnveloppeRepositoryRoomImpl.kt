@@ -1,11 +1,16 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
+import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
-import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.EnveloppeDao
+import com.xburnsx.toutiebudget.data.room.daos.AllocationMensuelleDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.Enveloppe as EnveloppeEntity
 import com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle as AllocationMensuelleEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -27,14 +32,16 @@ import java.util.TimeZone
  * INTERFACE IDENTIQUE : Même interface que EnveloppeRepository pour compatibilité
  */
 class EnveloppeRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val enveloppeDao: EnveloppeDao,
+    private val allocationMensuelleDao: AllocationMensuelleDao,
+    private val syncJobDao: SyncJobDao
 ) : EnveloppeRepository {
-    
-    private val enveloppeDao = database.enveloppeDao()
-    private val allocationMensuelleDao = database.allocationMensuelleDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
     
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
+
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
@@ -98,11 +105,11 @@ class EnveloppeRepositoryRoomImpl(
             allocationMensuelleDao.updateAllocation(allocationEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(allocationEntity),
+                dataJson = gson.toJson(allocationEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -140,11 +147,11 @@ class EnveloppeRepositoryRoomImpl(
             val id = enveloppeDao.insertEnveloppe(enveloppeEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ENVELOPPE",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(enveloppeEntity),
+                dataJson = gson.toJson(enveloppeEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -180,11 +187,11 @@ class EnveloppeRepositoryRoomImpl(
             enveloppeDao.updateEnveloppe(enveloppeEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ENVELOPPE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(enveloppeEntity),
+                dataJson = gson.toJson(enveloppeEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -204,11 +211,11 @@ class EnveloppeRepositoryRoomImpl(
             enveloppeDao.deleteEnveloppeById(id)
             
             // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ENVELOPPE",
                 action = "DELETE",
-                dataJson = com.google.gson.Gson().toJson(mapOf("id" to id)),
+                dataJson = gson.toJson(mapOf("id" to id)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -238,11 +245,11 @@ class EnveloppeRepositoryRoomImpl(
             allocationMensuelleDao.updateAllocation(nouvelleAllocation)
             
             // 4. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
+                dataJson = gson.toJson(nouvelleAllocation),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -272,11 +279,11 @@ class EnveloppeRepositoryRoomImpl(
             allocationMensuelleDao.updateAllocation(nouvelleAllocation)
             
             // 4. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
+                dataJson = gson.toJson(nouvelleAllocation),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -334,11 +341,11 @@ class EnveloppeRepositoryRoomImpl(
             val id = allocationMensuelleDao.insertAllocation(allocationEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(allocationEntity),
+                dataJson = gson.toJson(allocationEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

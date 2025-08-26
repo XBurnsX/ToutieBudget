@@ -107,11 +107,20 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
+            // Sérialiser l'entité Room au lieu du modèle pour éviter les problèmes avec les interfaces
+            val dataJson = when (compteAvecId) {
+                is CompteCheque -> gson.toJson(compteAvecId.toCompteChequeEntity())
+                is CompteCredit -> gson.toJson(compteAvecId.toCompteCreditEntity())
+                is CompteDette -> gson.toJson(compteAvecId.toCompteDetteEntity())
+                is CompteInvestissement -> gson.toJson(compteAvecId.toCompteInvestissementEntity())
+                else -> gson.toJson(compteAvecId)
+            }
+            
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "COMPTE",
                 action = "CREATE",
-                dataJson = gson.toJson(compteAvecId),
+                dataJson = dataJson,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -158,11 +167,20 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
+            // Sérialiser l'entité Room au lieu du modèle pour éviter les problèmes avec les interfaces
+            val dataJson = when (compteAvecUtilisateurId) {
+                is CompteCheque -> gson.toJson(compteAvecUtilisateurId.toCompteChequeEntity())
+                is CompteCredit -> gson.toJson(compteAvecUtilisateurId.toCompteCreditEntity())
+                is CompteDette -> gson.toJson(compteAvecUtilisateurId.toCompteDetteEntity())
+                is CompteInvestissement -> gson.toJson(compteAvecUtilisateurId.toCompteInvestissementEntity())
+                else -> gson.toJson(compteAvecUtilisateurId)
+            }
+            
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "COMPTE",
                 action = "UPDATE",
-                dataJson = gson.toJson(compteAvecUtilisateurId),
+                dataJson = dataJson,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

@@ -406,7 +406,7 @@ Il y a quatre pièces maîtresses qui font tout fonctionner en arrière-plan, sa
 - ✅ **SyncJob simplifié** : Structure compatible avec la nouvelle version
 - ✅ **Interface identique** : Même signature que l'existant
 
-**�� Logique Room-first parfaite :**
+**🎯 Logique Room-first parfaite :**
 1. **Opération locale** : Room (instantané)
 2. **Liste de tâches** : SyncJob (pour synchronisation)
 3. **Worker** : Synchronisera en arrière-plan (ÉTAPE 3)
@@ -615,3 +615,40 @@ Il y a quatre pièces maîtresses qui font tout fonctionner en arrière-plan, sa
 
 *Document créé le : [Date actuelle]*
 *Version : 4.0 - Plan détaillé et numéroté avec suivi de progression*
+
+## 🔄 **ÉTAPE 1.6 : Correction de l'incohérence Gson dans tous les repositories**
+
+### ✅ **COMPLÉTÉ !**
+
+**🎯 Problème résolu :**
+- ✅ **Incohérence Gson** : Certains repositories utilisaient encore `new Gson()` au lieu de l'instance configurée avec `LOWER_CASE_WITH_UNDERSCORES`
+- ✅ **Synchronisation des noms de champs** : Tous les `SyncJob.dataJson` utilisent maintenant le même format `snake_case` que Pocketbase
+- ✅ **Sérialisation des comptes** : Correction de la sérialisation des comptes (dette, crédit, etc.) en utilisant les entités Room au lieu des modèles avec interfaces
+
+**🔧 Repositories corrigés :**
+- ✅ `AllocationMensuelleRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `CategorieRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `TransactionRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `EnveloppeRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `PretPersonnelRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `TiersRepositoryRoomImpl` : Instance Gson configurée + imports DAOs
+- ✅ `CompteRepositoryRoomImpl` : Sérialisation des comptes via entités Room + Gson configuré
+
+**📁 Modifications effectuées :**
+- ✅ **Constructeurs mis à jour** : Tous les repositories acceptent maintenant les DAOs individuels au lieu de la base de données
+- ✅ **AppModule mis à jour** : Injection des DAOs individuels pour chaque repository
+- ✅ **Imports corrigés** : Tous les DAOs et entités sont correctement importés
+- ✅ **Gson uniformisé** : Toutes les instances Gson utilisent `LOWER_CASE_WITH_UNDERSCORES`
+- ✅ **Sérialisation des comptes** : Utilisation des entités Room pour éviter les problèmes avec les interfaces et annotations `@SerializedName`
+
+**🧪 Tests de compilation :**
+- ✅ `./gradlew compileDebugKotlin` : SUCCESS
+- ✅ `./gradlew assembleDebug` : SUCCESS
+- ✅ `./gradlew installDebug` : SUCCESS
+
+**🎯 Avantages :**
+1. **Cohérence** : Tous les `SyncJob.dataJson` utilisent le même format de sérialisation
+2. **Maintenabilité** : Un seul endroit pour configurer la politique de nommage Gson
+3. **Performance** : Pas de création répétée d'instances Gson
+4. **Compatibilité** : Format `snake_case` identique à Pocketbase
+5. **Sérialisation correcte** : Tous les types de comptes (dette, crédit, chèque, investissement) créent maintenant des SyncJob avec des données JSON complètes

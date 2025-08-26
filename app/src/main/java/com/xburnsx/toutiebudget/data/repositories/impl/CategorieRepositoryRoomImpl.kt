@@ -1,9 +1,14 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.CategorieDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.Categorie as CategorieEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -21,12 +26,15 @@ import kotlinx.coroutines.withContext
  * INTERFACE IDENTIQUE : Même interface que CategorieRepository pour compatibilité
  */
 class CategorieRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val categorieDao: CategorieDao,
+    private val syncJobDao: SyncJobDao
 ) : CategorieRepository {
     
-    private val categorieDao = database.categorieDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
+    
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
 
     override suspend fun recupererToutesLesCategories(): Result<List<Categorie>> = withContext(Dispatchers.IO) {
         try {
@@ -63,11 +71,11 @@ class CategorieRepositoryRoomImpl(
             val id = categorieDao.insertCategorie(categorieEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "CATEGORIE",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(categorieEntity),
+                dataJson = gson.toJson(categorieEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -95,11 +103,11 @@ class CategorieRepositoryRoomImpl(
             categorieDao.updateCategorie(categorieEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "CATEGORIE",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(categorieEntity),
+                dataJson = gson.toJson(categorieEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -119,11 +127,11 @@ class CategorieRepositoryRoomImpl(
             categorieDao.deleteCategorieById(id)
             
             // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "CATEGORIE",
                 action = "DELETE",
-                dataJson = com.google.gson.Gson().toJson(mapOf("id" to id)),
+                dataJson = gson.toJson(mapOf("id" to id)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

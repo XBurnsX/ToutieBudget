@@ -1,9 +1,13 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
 import com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository
-import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+import com.xburnsx.toutiebudget.data.room.daos.PretPersonnelDao
+import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.entities.PretPersonnel as PretPersonnelEntity
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -21,12 +25,14 @@ import kotlinx.coroutines.withContext
  * INTERFACE IDENTIQUE : Même interface que PretPersonnelRepository pour compatibilité
  */
 class PretPersonnelRepositoryRoomImpl(
-    private val database: ToutieBudgetDatabase
+    private val pretPersonnelDao: PretPersonnelDao,
+    private val syncJobDao: SyncJobDao
 ) : PretPersonnelRepository {
-    
-    private val pretPersonnelDao = database.pretPersonnelDao()
-    private val syncJobDao = database.syncJobDao()
     private val client = PocketBaseClient
+
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
 
     override suspend fun lister(): Result<List<PretPersonnel>> = withContext(Dispatchers.IO) {
         try {
@@ -69,11 +75,11 @@ class PretPersonnelRepositoryRoomImpl(
             val id = pretPersonnelDao.insertPret(pretEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "CREATE",
-                dataJson = com.google.gson.Gson().toJson(pretEntity),
+                dataJson = gson.toJson(pretEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -107,11 +113,11 @@ class PretPersonnelRepositoryRoomImpl(
             pretPersonnelDao.updatePret(pretEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "UPDATE",
-                dataJson = com.google.gson.Gson().toJson(pretEntity),
+                dataJson = gson.toJson(pretEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -131,11 +137,11 @@ class PretPersonnelRepositoryRoomImpl(
             pretPersonnelDao.deletePretById(id)
             
             // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
+            val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "DELETE",
-                dataJson = com.google.gson.Gson().toJson(mapOf("id" to id)),
+                dataJson = gson.toJson(mapOf("id" to id)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
