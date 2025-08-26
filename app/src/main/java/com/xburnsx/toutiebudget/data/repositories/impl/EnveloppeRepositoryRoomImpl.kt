@@ -72,13 +72,31 @@ class EnveloppeRepositoryRoomImpl(
 
             val moisStr = dateFormatter.format(mois)
 
+            // 🔍 LOGS DEBUG : Vérifier les dates
+            println("DEBUG: recupererAllocationsPourMois - mois demandé = $mois")
+            println("DEBUG: recupererAllocationsPourMois - moisStr formaté = $moisStr")
+
             // Récupérer depuis Room (PRIMARY)
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
             
-            // Filtrer par mois et convertir
+            // 🔍 LOGS DEBUG : Vérifier les allocations trouvées
+            println("DEBUG: recupererAllocationsPourMois - nombre d'allocations trouvées = ${allocationsEntities.size}")
+            allocationsEntities.forEach { entity ->
+                println("DEBUG: recupererAllocationsPourMois - allocation ${entity.id} - mois = ${entity.mois}")
+            }
+            
+            // Filtrer par mois et convertir (seulement mois et année, pas la date complète)
             val allocations = allocationsEntities
-                .filter { entity -> entity.mois == moisStr }
+                .filter { entity -> 
+                    // Extraire seulement le mois et l'année de entity.mois (format: 2025-08-01 00:00:00)
+                    val entityMoisAnnee = entity.mois.substring(0, 7) // "2025-08"
+                    val moisAnneeDemande = moisStr.substring(0, 7)    // "2025-08"
+                    entityMoisAnnee == moisAnneeDemande
+                }
                 .map { entity -> entity.toAllocationMensuelleModel() }
+            
+            // 🔍 LOGS DEBUG : Vérifier le filtrage
+            println("DEBUG: recupererAllocationsPourMois - allocations après filtrage = ${allocations.size}")
             
             Result.success(allocations)
         } catch (e: Exception) {

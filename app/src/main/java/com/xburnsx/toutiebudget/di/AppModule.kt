@@ -143,7 +143,9 @@ import android.content.Context
      private val comptesViewModel: ComptesViewModel by lazy {
          ComptesViewModel(
              compteRepository = compteRepository,
-             realtimeSyncService = realtimeSyncService
+             realtimeSyncService = realtimeSyncService,
+             categorieRepository = categorieRepository,
+             enveloppeRepository = enveloppeRepository
          )
      }
      

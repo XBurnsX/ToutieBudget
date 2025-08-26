@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.di.PocketBaseClient
@@ -190,7 +191,7 @@ class CategoriesEnveloppesViewModel(
                 // Créer l'objet catégorie temporaire avec le bon ordre
                 val nouvelOrdre = categoriesMap.values.maxByOrNull { it.ordre }?.ordre?.plus(1) ?: 0
                 val categorieTemporaire = Categorie(
-                    id = "temp_${System.currentTimeMillis()}",
+                    id = IdGenerator.generateId(),
                     utilisateurId = utilisateurId,
                     nom = nom,
                     ordre = nouvelOrdre
@@ -294,7 +295,7 @@ class CategoriesEnveloppesViewModel(
 
                 // ✅ CRÉATION D'UNE ENVELOPPE COMPLÈTEMENT VIDE
                 val enveloppeVide = Enveloppe(
-                    id = "temp_${System.currentTimeMillis()}",
+                    id = IdGenerator.generateId(),
                     utilisateurId = utilisateurId,
                     nom = nom,
                     categorieId = categorie.id, // IMPORTANT: Lien avec la catégorie

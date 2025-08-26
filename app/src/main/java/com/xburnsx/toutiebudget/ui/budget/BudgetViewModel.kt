@@ -600,6 +600,9 @@ class BudgetViewModel(
                 // ✅ MISE À JOUR : Sauvegarder l'allocation unique
                 allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
+                // 🔄 FORCER LA VISIBILITÉ DES SYNCJOB des allocations
+                realtimeSyncService.declencherMiseAJourBudget()
+
                 // 🔄 FORCER UN RECHARGEMENT COMPLET après le virement
                 // Vider le cache pour s'assurer d'avoir les données les plus récentes
                 cacheComptes = emptyList()

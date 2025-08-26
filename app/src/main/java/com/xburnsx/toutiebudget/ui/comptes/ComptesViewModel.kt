@@ -11,6 +11,8 @@ import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
 import com.xburnsx.toutiebudget.data.modeles.Categorie
 import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +21,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.xburnsx.toutiebudget.utils.IdGenerator
 
 class ComptesViewModel(
     private val compteRepository: CompteRepository,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val categorieRepository: CategorieRepository,
+    private val enveloppeRepository: EnveloppeRepository
 ) : ViewModel() {
 
     // Callback pour notifier les autres ViewModels des changements
@@ -349,119 +354,145 @@ class ComptesViewModel(
                 "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
+            // OPTIMISATION : Créer le compte immédiatement pour UX fluide
             compteRepository.creerCompte(nouveauCompte).onSuccess {
-                // Si c'est une dette, créer cat. "Dettes" + enveloppe correspondante
-                if (nouveauCompte is CompteDette) {
-                    try {
-                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                            ?: return@onSuccess
-                        // Création via repositories directs
-                        val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
-                        val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
-
-                    // 1) Assurer la catégorie "Dettes" et la forcer en première position
-                    val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                    val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
-                        val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
-                            id = "",
-                            utilisateurId = utilisateurId,
-                            nom = "Dettes",
-                            ordre = 0
-                        )
-                        categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
-                    }
-                    try {
-                        if (catDettes.ordre != 0) {
-                            categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 0))
-                        }
-                        val autres = categories.filter { it.id != catDettes.id }.sortedBy { it.ordre }
-                        autres.forEachIndexed { index, c ->
-                            val targetOrdre = index + 1
-                            if (c.ordre != targetOrdre) {
-                                categorieRepository.mettreAJourCategorie(c.copy(ordre = targetOrdre))
-                            }
-                        }
-                    } catch (_: Exception) {}
-
-                        // 2) Créer l'enveloppe associée à la dette (nom = dette)
-                        val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
-                        id = "",
-                            utilisateurId = utilisateurId,
-                            nom = nouveauCompte.nom,
-                        categorieId = catDettes.id,
-                        estArchive = false,
-                        ordre = 0,
-                        typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
-                        objectifMontant = 0.0,
-                        dateObjectif = null,
-                        dateDebutObjectif = null,
-                        objectifJour = null,
-                        resetApresEcheance = false
-                    )
-                    enveloppeRepository.creerEnveloppe(env)
-                    } catch (_: Exception) {}
-                }
-
-                // Si c'est une carte de crédit, créer cat. "Cartes de crédit" + enveloppe correspondante
-                if (nouveauCompte is CompteCredit) {
-                    try {
-                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                            ?: return@onSuccess
-                        val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
-                        val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
-
-                        // Assurer catégories et ordre: Cartes de crédit (0), Dettes (1), autres (2+)
-                        val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                        val catCartes = categories.firstOrNull { it.nom.equals("Cartes de crédit", ignoreCase = true) } ?: run {
-                            val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
-                                id = "",
-                                utilisateurId = utilisateurId,
-                                nom = "Cartes de crédit",
-                                ordre = 0
-                            )
-                            categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
-                        }
-                        val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
-
-                        // Forcer ordres
-                        try {
-                            if (catCartes.ordre != 0) categorieRepository.mettreAJourCategorie(catCartes.copy(ordre = 0))
-                            if (catDettes != null && catDettes.ordre != 1) categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 1))
-                            // Renuméroter autres à partir de 2
-                            val bloqueIds = setOf(catCartes.id) + (catDettes?.id?.let { setOf(it) } ?: emptySet())
-                            val autres = categories.filter { it.id !in bloqueIds }.sortedBy { it.ordre }
-                            autres.forEachIndexed { index, c ->
-                                val target = index + 2
-                                if (c.ordre != target) categorieRepository.mettreAJourCategorie(c.copy(ordre = target))
-                            }
-                        } catch (_: Exception) {}
-
-                        // Créer l'enveloppe associée à la carte
-                        val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
-                            id = "",
-                            utilisateurId = utilisateurId,
-                            nom = nouveauCompte.nom,
-                            categorieId = catCartes.id,
-                            estArchive = false,
-                            ordre = 0,
-                            typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
-                            objectifMontant = 0.0,
-                            dateObjectif = null,
-                            dateDebutObjectif = null,
-                            objectifJour = null,
-                            resetApresEcheance = false
-                        )
-                        enveloppeRepository.creerEnveloppe(env)
-                    } catch (_: Exception) {}
-                }
-
+                // ✅ COMPTE CRÉÉ IMMÉDIATEMENT - L'utilisateur le voit tout de suite !
+                
+                // 🔄 Mettre à jour l'UI immédiatement
                 chargerComptes()
                 onFermerTousLesDialogues()
-
                 realtimeSyncService.declencherMiseAJourBudget()
                 realtimeSyncService.declencherMiseAJourComptes()
-
                 onCompteChange?.invoke()
+
+                // 🚀 CRÉATION EN ARRIÈRE-PLAN des catégories/enveloppes (transparent pour l'utilisateur)
+                viewModelScope.launch {
+                    try {
+                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                            ?: return@launch
+                        
+                        // Création via repositories directs
+                        // Utiliser les repositories Room injectés dans le ViewModel
+
+                        when (nouveauCompte) {
+                            is CompteDette -> {
+                                // 1) Assurer la catégorie "Dettes" et la forcer en première position
+                                val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                                val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
+                                    val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
+                                        id = "",
+                                        utilisateurId = utilisateurId,
+                                        nom = "Dettes",
+                                        ordre = 0
+                                    )
+                                    categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
+                                }
+                                
+                                try {
+                                    if (catDettes.ordre != 0) {
+                                        categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 0))
+                                    }
+                                    val autres = categories.filter { it.id != catDettes.id }.sortedBy { it.ordre }
+                                    autres.forEachIndexed { index, c ->
+                                        val targetOrdre = index + 1
+                                        if (c.ordre != targetOrdre) {
+                                            categorieRepository.mettreAJourCategorie(c.copy(ordre = targetOrdre))
+                                        }
+                                    }
+                                } catch (_: Exception) {}
+
+                                // 2) Créer l'enveloppe associée à la dette
+                                val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
+                                    id = IdGenerator.generateId(),
+                                    utilisateurId = utilisateurId,
+                                    nom = nouveauCompte.nom,
+                                    categorieId = catDettes.id,
+                                    estArchive = false,
+                                    ordre = 0,
+                                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                                    objectifMontant = 0.0,
+                                    dateObjectif = null,
+                                    dateDebutObjectif = null,
+                                    objectifJour = null,
+                                    resetApresEcheance = false
+                                )
+                                enveloppeRepository.creerEnveloppe(env)
+                            }
+                            
+                            is CompteCredit -> {
+                                // Assurer catégories et ordre: Cartes de crédit (0), Dettes (1), autres (2+)
+                                val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+                                val catCartes = categories.firstOrNull { it.nom.equals("Cartes de crédit", ignoreCase = true) } ?: run {
+                                    val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
+                                        id = "",
+                                        utilisateurId = utilisateurId,
+                                        nom = "Cartes de crédit",
+                                        ordre = 0
+                                    )
+                                    categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
+                                }
+                                val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
+
+                                // Forcer ordres
+                                try {
+                                    if (catCartes.ordre != 0) categorieRepository.mettreAJourCategorie(catCartes.copy(ordre = 0))
+                                    if (catDettes != null && catDettes.ordre != 1) categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 1))
+                                    // Renuméroter autres à partir de 2
+                                    val bloqueIds = setOf(catCartes.id) + (catDettes?.id?.let { setOf(it) } ?: emptySet())
+                                    val autres = categories.filter { it.id !in bloqueIds }.sortedBy { it.ordre }
+                                    autres.forEachIndexed { index, c ->
+                                        val target = index + 2
+                                        if (c.ordre != target) categorieRepository.mettreAJourCategorie(c.copy(ordre = target))
+                                    }
+                                } catch (_: Exception) {}
+
+                                // Créer l'enveloppe associée à la carte
+                                val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
+                                    id = IdGenerator.generateId(),
+                                    utilisateurId = utilisateurId,
+                                    nom = nouveauCompte.nom,
+                                    categorieId = catCartes.id,
+                                    estArchive = false,
+                                    ordre = 0,
+                                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                                    objectifMontant = 0.0,
+                                    dateObjectif = null,
+                                    dateDebutObjectif = null,
+                                    objectifJour = null,
+                                    resetApresEcheance = false
+                                )
+                                enveloppeRepository.creerEnveloppe(env)
+                            }
+                            
+                            is CompteCheque -> {
+                                // Pour les comptes chèques, pas de catégorie spéciale nécessaire
+                                // L'enveloppe sera créée automatiquement par le système d'enveloppes
+                            }
+                            
+                            is CompteInvestissement -> {
+                                // Pour les comptes d'investissement, pas de catégorie spéciale nécessaire
+                                // L'enveloppe sera créée automatiquement par le système d'enveloppes
+                            }
+                        }
+                        
+                        // 🔄 Rafraîchir l'UI après création des catégories/enveloppes
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        
+                        // Attendre un peu pour que les SyncJob soient créés (comptes + enveloppes + allocations)
+                        kotlinx.coroutines.delay(500L)
+                        
+                        // Forcer une deuxième mise à jour pour s'assurer que les SyncJob sont visibles
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        
+                        // Attendre encore un peu et forcer une troisième mise à jour
+                        kotlinx.coroutines.delay(300L)
+                        realtimeSyncService.declencherMiseAJourBudget()
+                        
+                    } catch (e: Exception) {
+                        // 🚨 Gestion d'erreur silencieuse - ne pas bloquer l'utilisateur
+                        // Les catégories/enveloppes seront créées plus tard si nécessaire
+                    }
+                }
             }.onFailure {
                 // Gérer l'erreur
             }

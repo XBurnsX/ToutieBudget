@@ -6,6 +6,7 @@ package com.xburnsx.toutiebudget.domain.usecases
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -87,6 +88,11 @@ class EnregistrerTransactionUseCase(
                 // 2. Créer la transaction avec la date sélectionnée par l'utilisateur
                 // Note: La date de la transaction peut être différente de la date actuelle
                 // mais les allocations mensuelles restent toujours basées sur le mois actuel
+                
+                // 🔍 LOGS DEBUG : Vérifier l'allocation
+                println("DEBUG: allocationMensuelleId = $allocationMensuelleId")
+                println("DEBUG: enveloppeId = $enveloppeId")
+                
                 val transaction = Transaction(
                     type = typeTransaction,
                     // Forcer arrondi exact
@@ -167,7 +173,7 @@ class EnregistrerTransactionUseCase(
 
         val nouvelleAllocation = AllocationMensuelle(
             id = "",
-            utilisateurId = "",
+            utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: "",
             enveloppeId = enveloppeId,
             mois = premierJourMois,
             solde = 0.0, // Solde initial à 0
@@ -179,6 +185,11 @@ class EnregistrerTransactionUseCase(
         
         return try {
             val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+            
+            // 🔍 LOGS DEBUG : Vérifier l'allocation créée
+            println("DEBUG: Allocation créée avec ID = ${allocationCreee.id}")
+            println("DEBUG: Allocation créée avec enveloppeId = ${allocationCreee.enveloppeId}")
+            
             Result.success(allocationCreee.id)
         } catch (e: Exception) {
             Result.failure(e)

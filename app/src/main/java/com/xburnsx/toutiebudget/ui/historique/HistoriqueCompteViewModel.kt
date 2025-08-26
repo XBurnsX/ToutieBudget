@@ -147,9 +147,18 @@ class HistoriqueCompteViewModel(
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 val allocations = resultAllocations.getOrNull() ?: emptyList()
 
+                // 🔍 LOGS DEBUG : Vérifier les résultats
+                println("DEBUG: resultAllocations.isSuccess = ${resultAllocations.isSuccess}")
+                println("DEBUG: resultAllocations.isFailure = ${resultAllocations.isFailure}")
+                println("DEBUG: allocations.size = ${allocations.size}")
+
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
                 val enveloppesMap = enveloppes.associateBy { it.id }
                 val allocationsMap = allocations.associateBy { it.id }
+                
+                // 🔍 LOGS DEBUG : Vérifier les maps
+                println("DEBUG: enveloppesMap.size = ${enveloppesMap.size}")
+                println("DEBUG: allocationsMap.size = ${allocationsMap.size}")
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->
