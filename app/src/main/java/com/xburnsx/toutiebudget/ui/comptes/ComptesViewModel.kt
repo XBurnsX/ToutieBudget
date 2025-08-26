@@ -78,6 +78,11 @@ class ComptesViewModel(
 
     fun chargerComptesArchives() = chargerComptesInternal(showArchived = true)
 
+    // 🔄 NOUVELLE MÉTHODE : Rafraîchir les comptes
+    fun rafraichirComptes() {
+        chargerComptes()
+    }
+
     fun onCompteLongPress(compte: Compte) {
         _uiState.update { it.copy(compteSelectionne = compte, isMenuContextuelVisible = true) }
     }

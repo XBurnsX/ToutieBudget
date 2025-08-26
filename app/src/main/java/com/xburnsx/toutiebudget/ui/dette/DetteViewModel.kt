@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.pow
+import com.xburnsx.toutiebudget.di.AppModule
 
 class DetteViewModel @Inject constructor(
     private val compteRepository: CompteRepository
@@ -82,6 +83,10 @@ class DetteViewModel @Inject constructor(
                 )
                 
                 compteRepository.mettreAJourCompte(aSauver)
+                
+                // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT AUTOMATIQUE DES COMPTES
+                val comptesViewModel = AppModule.provideComptesViewModel()
+                comptesViewModel.rafraichirComptes()
                 
                 _uiState.value = _uiState.value.copy(
                     dette = aSauver,
