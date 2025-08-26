@@ -16,6 +16,7 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.xburnsx.toutiebudget.utils.IdGenerator
 
 class PretPersonnelViewModel(
     private val pretPersonnelRepository: PretPersonnelRepository,
@@ -141,7 +142,7 @@ class PretPersonnelViewModel(
                     ?: throw Exception("Utilisateur non connecté")
                 transactionRepository.creerTransaction(
                     com.xburnsx.toutiebudget.data.modeles.Transaction(
-                        id = java.util.UUID.randomUUID().toString(),
+                        id = IdGenerator.generateId(),
                         utilisateurId = utilisateurId,
                         type = typeTx,
                         montant = montant,

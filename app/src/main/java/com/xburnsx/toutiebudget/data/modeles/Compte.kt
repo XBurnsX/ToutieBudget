@@ -2,6 +2,7 @@
 package com.xburnsx.toutiebudget.data.modeles
 
 import com.google.gson.annotations.SerializedName
+import com.xburnsx.toutiebudget.utils.IdGenerator
 
 sealed interface Compte {
     val id: String
@@ -36,7 +37,7 @@ data class CompteCheque(
 
 // Structure pour représenter un frais mensuel individuel
 data class FraisMensuel(
-    val id: String = java.util.UUID.randomUUID().toString(), // ID unique pour identifier précisément chaque frais
+    val id: String = IdGenerator.generateId(), // ID unique pour identifier précisément chaque frais
     val nom: String, // Nom du frais (ex: "Assurance", "AccordD")
     val montant: Double, // Montant du frais
     val description: String? = null, // Description optionnelle

@@ -5,10 +5,10 @@ import com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.entities.PretPersonnel as PretPersonnelEntity
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Implémentation Room-first du repository des prêts personnels.
@@ -51,7 +51,7 @@ class PretPersonnelRepositoryRoomImpl(
         try {
             // 1. Convertir le modèle en entité Room
             val pretEntity = PretPersonnelEntity(
-                id = pret.id.ifBlank { UUID.randomUUID().toString() },
+                id = pret.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = pret.utilisateurId.ifBlank { 
                     client.obtenirUtilisateurConnecte()?.id ?: "" 
                 },
@@ -70,7 +70,7 @@ class PretPersonnelRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "CREATE",
                 dataJson = com.google.gson.Gson().toJson(pretEntity),
@@ -108,7 +108,7 @@ class PretPersonnelRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(pretEntity),
@@ -132,7 +132,7 @@ class PretPersonnelRepositoryRoomImpl(
             
             // 2. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "DELETE",
                 dataJson = com.google.gson.Gson().toJson(mapOf("id" to id)),

@@ -5,6 +5,7 @@ import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle as AllocationMensuelleEntity
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -12,7 +13,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.UUID
 
 /**
  * Implémentation Room-first du repository des allocations mensuelles.
@@ -69,7 +69,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             // 4. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
@@ -115,7 +115,7 @@ class AllocationMensuelleRepositoryRoomImpl(
 
             // 4. Sauvegarder en Room
             val allocationEntity = AllocationMensuelleEntity(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 utilisateurId = utilisateurId,
                 enveloppeId = enveloppeId,
                 mois = moisStr,
@@ -130,7 +130,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             // 5. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
                 dataJson = com.google.gson.Gson().toJson(allocationEntity),
@@ -166,7 +166,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(allocationEntity),
@@ -200,7 +200,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             // 4. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(nouvelleAllocation),
@@ -217,7 +217,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         try {
             // 1. Convertir le modèle en entité Room
             val allocationEntity = AllocationMensuelleEntity(
-                id = allocation.id.ifBlank { UUID.randomUUID().toString() },
+                id = allocation.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = allocation.utilisateurId.ifBlank { 
                     client.obtenirUtilisateurConnecte()?.id ?: "" 
                 },
@@ -235,7 +235,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
                 dataJson = com.google.gson.Gson().toJson(allocationEntity),

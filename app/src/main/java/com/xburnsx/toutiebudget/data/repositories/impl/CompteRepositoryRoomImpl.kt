@@ -1,15 +1,17 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.room.daos.*
 import com.xburnsx.toutiebudget.data.room.entities.*
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import java.util.UUID
 import com.google.gson.JsonParser
 
 // Alias pour éviter les conflits de noms
@@ -27,6 +29,10 @@ class CompteRepositoryRoomImpl(
 ) : CompteRepository {
 
     private val client = PocketBaseClient
+    
+    private val gson: Gson = GsonBuilder()
+        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .create()
 
     override suspend fun recupererTousLesComptes(): Result<List<Compte>> = withContext(Dispatchers.IO) {
         try {
@@ -60,13 +66,13 @@ class CompteRepositoryRoomImpl(
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
                 ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
 
-            // Générer un ID unique si nécessaire
+            // Générer un ID unique à 15 caractères si nécessaire
             val compteAvecId = if (compte.id.isBlank()) {
                 when (compte) {
-                    is CompteCheque -> compte.copy(id = UUID.randomUUID().toString(), utilisateurId = utilisateurId)
-                    is CompteCredit -> compte.copy(id = UUID.randomUUID().toString(), utilisateurId = utilisateurId)
-                    is CompteDette -> compte.copy(id = UUID.randomUUID().toString(), utilisateurId = utilisateurId)
-                    is CompteInvestissement -> compte.copy(id = UUID.randomUUID().toString(), utilisateurId = utilisateurId)
+                    is CompteCheque -> compte.copy(id = IdGenerator.generateId(), utilisateurId = utilisateurId)
+                    is CompteCredit -> compte.copy(id = IdGenerator.generateId(), utilisateurId = utilisateurId)
+                    is CompteDette -> compte.copy(id = IdGenerator.generateId(), utilisateurId = utilisateurId)
+                    is CompteInvestissement -> compte.copy(id = IdGenerator.generateId(), utilisateurId = utilisateurId)
                     else -> throw IllegalArgumentException("Type de compte non supporté")
                 }
             } else {
@@ -102,10 +108,10 @@ class CompteRepositoryRoomImpl(
 
             // Créer un SyncJob pour la synchronisation
             val syncJob = SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "COMPTE",
                 action = "CREATE",
-                dataJson = "", // TODO: Ajouter les données JSON du compte
+                dataJson = gson.toJson(compteAvecId),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -153,10 +159,10 @@ class CompteRepositoryRoomImpl(
 
             // Créer un SyncJob pour la synchronisation
             val syncJob = SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "COMPTE",
                 action = "UPDATE",
-                dataJson = "", // TODO: Ajouter les données JSON du compte
+                dataJson = gson.toJson(compteAvecUtilisateurId),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -181,10 +187,10 @@ class CompteRepositoryRoomImpl(
 
             // Créer un SyncJob pour la synchronisation
             val syncJob = SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "COMPTE",
                 action = "DELETE",
-                dataJson = "", // TODO: Ajouter les données JSON du compte
+                dataJson = gson.toJson(mapOf("id" to compteId, "collection" to collection)),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

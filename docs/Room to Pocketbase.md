@@ -458,6 +458,49 @@ Il y a quatre pièces maîtresses qui font tout fonctionner en arrière-plan, sa
 
 ---
 
+## 🔐 **NOUVEAU : SYSTÈME D'ID UNIFORME À 15 CARACTÈRES**
+
+### ✅ **IdGenerator créé et déployé !**
+
+**🎯 Fonctionnalités :**
+- ✅ **Génération d'ID uniforme** : Tous les IDs font exactement 15 caractères
+- ✅ **Compatibilité Room/Pocketbase** : Même format pour les deux systèmes
+- ✅ **Génération alphanumérique** : Utilise UUID tronqué à 15 caractères
+- ✅ **Préfixes optionnels** : Possibilité d'ajouter des préfixes courts
+
+**🔧 Implémentation :**
+- ✅ **IdGenerator.kt** : Classe utilitaire avec méthodes `generateId()` et `generateIdWithPrefix()`
+- ✅ **Tous les repositories** : Utilisent maintenant `IdGenerator.generateId()` au lieu de `UUID.randomUUID()`
+- ✅ **Tous les ViewModels** : Génèrent des IDs à 15 caractères
+- ✅ **Tous les modèles** : Utilisent le nouveau système d'ID
+
+**📁 Fichiers modifiés :**
+- ✅ `IdGenerator.kt` : Nouveau fichier utilitaire
+- ✅ `CompteRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `CategorieRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `TransactionRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `EnveloppeRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `AllocationMensuelleRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `PretPersonnelRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `TiersRepositoryRoomImpl.kt` : IDs à 15 caractères
+- ✅ `ArgentServiceImpl.kt` : IDs à 15 caractères
+- ✅ `Compte.kt` : IDs à 15 caractères
+- ✅ `AjoutTransactionViewModel.kt` : IDs à 15 caractères
+- ✅ `FractionnementDialog.kt` : IDs à 15 caractères
+- ✅ `PretPersonnelViewModel.kt` : IDs à 15 caractères
+
+**🧪 Tests de compilation :**
+- ✅ `./gradlew compileDebugKotlin` : SUCCESS
+- ✅ `./gradlew assembleDebug` : SUCCESS
+
+**🎯 Avantages :**
+1. **Uniformité** : Tous les IDs ont la même longueur (15 caractères)
+2. **Compatibilité** : Room et Pocketbase peuvent partager les mêmes IDs
+3. **Performance** : Génération rapide et efficace
+4. **Maintenance** : Un seul endroit pour gérer la génération d'IDs
+
+---
+
 ### ÉTAPE 3 : Worker de synchronisation - [⏳ EN ATTENTE]
 
 #### 3.1 Créer le WorkManager de synchronisation

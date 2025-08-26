@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl
 import com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import java.util.*
 import javax.inject.Inject
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
@@ -70,7 +71,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // 5. Créer une transaction pour cette allocation
         val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = "", // À récupérer depuis un UserRepository ou une session
             type = TypeTransaction.Depense,
             montant = montant,
@@ -209,7 +210,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // 6. Créer et enregistrer la transaction
         val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = "", // À récupérer depuis un UserRepository ou une session
             type = typeTransaction,
             montant = montant,
@@ -267,7 +268,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // 4. Créer les transactions correspondantes
         val transactionSource = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = "", // À récupérer depuis un UserRepository ou une session
             type = TypeTransaction.Pret,
             montant = montant,
@@ -279,7 +280,7 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         val transactionDest = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = "", // À récupérer depuis un UserRepository ou une session
             type = TypeTransaction.Emprunt,
             montant = montant,
@@ -314,7 +315,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // Créer les transactions
         val transactionSource = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = compteSource.utilisateurId,
             type = TypeTransaction.Pret,
             montant = montant,
@@ -326,7 +327,7 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         val transactionDest = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = compteDestination.utilisateurId,
             type = TypeTransaction.Emprunt,
             montant = montant,
@@ -392,7 +393,7 @@ class ArgentServiceImpl @Inject constructor(
 
         // Créer la transaction
         val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = compte.utilisateurId,
             type = TypeTransaction.Depense,
             montant = montant,
@@ -457,7 +458,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // Créer la transaction
         val transaction = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = compte.utilisateurId,
             type = TypeTransaction.Revenu,
             montant = montant,
@@ -587,7 +588,7 @@ class ArgentServiceImpl @Inject constructor(
 
         // Créer les transactions pour tracer les virements
         val transactionSource = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = enveloppeSource.utilisateurId,
             type = TypeTransaction.Depense,
             montant = montant,
@@ -600,7 +601,7 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         val transactionDest = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = enveloppeDestination.utilisateurId,
             type = TypeTransaction.Revenu,
             montant = montant,
@@ -938,7 +939,7 @@ class ArgentServiceImpl @Inject constructor(
         // 7. Créer les transactions
         // 7.1 Une seule transaction sortante depuis le compte payeur pour le montant total
         val txSortanteCarte = Transaction(
-            id = UUID.randomUUID().toString(),
+            id = IdGenerator.generateId(),
             utilisateurId = compteQuiPaie.utilisateurId,
             type = TypeTransaction.PaiementEffectue,
             montant = montantPourCarte,
@@ -962,7 +963,7 @@ class ArgentServiceImpl @Inject constructor(
             }
             
             val txEntranteCarte = Transaction(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 utilisateurId = carteOuDette.utilisateurId,
                 type = typeTransactionCible,
                 montant = montantPourCarte,
@@ -978,7 +979,7 @@ class ArgentServiceImpl @Inject constructor(
 
         for ((dette, part) in remboursementsDettes) {
             val txEntranteDette = Transaction(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 utilisateurId = dette.utilisateurId,
                 type = TypeTransaction.Paiement, // Pour une dette, utiliser Paiement
                 montant = part,

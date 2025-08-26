@@ -5,6 +5,7 @@ import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.entities.Transaction as TransactionEntity
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -12,7 +13,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.UUID
 
 /**
  * Implémentation Room-first du repository des transactions.
@@ -40,7 +40,7 @@ class TransactionRepositoryRoomImpl(
         try {
             // 1. Convertir le modèle en entité Room
             val transactionEntity = TransactionEntity(
-                id = transaction.id.ifBlank { UUID.randomUUID().toString() },
+                id = transaction.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = transaction.utilisateurId.ifBlank { 
                     client.obtenirUtilisateurConnecte()?.id ?: "" 
                 },
@@ -63,7 +63,7 @@ class TransactionRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "CREATE",
                 dataJson = com.google.gson.Gson().toJson(transactionEntity),
@@ -195,7 +195,7 @@ class TransactionRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(transactionEntity),
@@ -219,7 +219,7 @@ class TransactionRepositoryRoomImpl(
             
             // 2. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TRANSACTION",
                 action = "DELETE",
                 dataJson = com.google.gson.Gson().toJson(mapOf("id" to transactionId)),

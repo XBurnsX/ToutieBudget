@@ -5,10 +5,10 @@ import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.entities.Tiers as TiersEntity
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Implémentation Room-first du repository des tiers.
@@ -51,7 +51,7 @@ class TiersRepositoryRoomImpl(
         try {
             // 1. Convertir le modèle en entité Room
             val tiersEntity = TiersEntity(
-                id = tiers.id.ifBlank { UUID.randomUUID().toString() },
+                id = tiers.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = tiers.utilisateur_id.ifBlank { 
                     client.obtenirUtilisateurConnecte()?.id ?: "" 
                 },
@@ -67,7 +67,7 @@ class TiersRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "CREATE",
                 dataJson = com.google.gson.Gson().toJson(tiersEntity),
@@ -121,7 +121,7 @@ class TiersRepositoryRoomImpl(
             
             // 3. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "UPDATE",
                 dataJson = com.google.gson.Gson().toJson(tiersEntity),
@@ -145,7 +145,7 @@ class TiersRepositoryRoomImpl(
             
             // 2. Ajouter à la liste de tâches pour synchronisation
             val syncJob = com.xburnsx.toutiebudget.data.room.entities.SyncJob(
-                id = UUID.randomUUID().toString(),
+                id = IdGenerator.generateId(),
                 type = "TIERS",
                 action = "DELETE",
                 dataJson = com.google.gson.Gson().toJson(mapOf("id" to tiersId)),

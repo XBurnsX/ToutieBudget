@@ -26,6 +26,7 @@ import java.util.Date
 import java.time.LocalDate
 import java.time.ZoneId
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.IdGenerator
 
 /**
  * ViewModel pour l'écran d'ajout de transactions.
@@ -616,7 +617,7 @@ class AjoutTransactionViewModel(
                         )
                         // persister la transaction pour historique
                         val transactionPret = Transaction(
-                            id = java.util.UUID.randomUUID().toString(),
+                            id = IdGenerator.generateId(),
                             utilisateurId = utilisateurId,
                             type = TypeTransaction.Pret,
                             montant = montantDollars,
@@ -662,7 +663,7 @@ class AjoutTransactionViewModel(
                             // Créer UNE transaction par portion appliquée à ce prêt
                             val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"}"
                             val transactionARendre = Transaction(
-                                id = java.util.UUID.randomUUID().toString(),
+                                id = IdGenerator.generateId(),
                                 utilisateurId = utilisateurId,
                                 type = TypeTransaction.RemboursementRecu,
                                 montant = aPayer,
@@ -723,7 +724,7 @@ class AjoutTransactionViewModel(
                         )
                         transactionRepository.creerTransaction(
                             Transaction(
-                                id = java.util.UUID.randomUUID().toString(),
+                                id = IdGenerator.generateId(),
                                 utilisateurId = utilisateurId,
                                 type = TypeTransaction.Emprunt,
                                 montant = montantDollars,
@@ -764,7 +765,7 @@ class AjoutTransactionViewModel(
                             val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
                             transactionRepository.creerTransaction(
                                 Transaction(
-                                    id = java.util.UUID.randomUUID().toString(),
+                                    id = IdGenerator.generateId(),
                                     utilisateurId = utilisateurId,
                                     type = TypeTransaction.RemboursementDonne,
                                     montant = aPayer,

@@ -29,7 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
-import java.util.UUID
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlin.math.abs
 
 /**
@@ -61,7 +61,7 @@ fun FractionnementDialog(
             } else {
                 listOf(
                     FractionTransaction(
-                        id = UUID.randomUUID().toString(),
+                        id = IdGenerator.generateId(),
                         montant = 0.0, // En centimes
                         enveloppeId = ""
                     )
@@ -169,7 +169,7 @@ fun FractionnementDialog(
                     // === BOUTON AJOUTER FRACTION ===
                     BoutonAjouterFraction {
                         val nouvelleFraction = FractionTransaction(
-                            id = UUID.randomUUID().toString(),
+                            id = IdGenerator.generateId(),
                             montant = 0.0, // En centimes
                             enveloppeId = ""
                         )
