@@ -72,6 +72,12 @@ interface SyncJobDao {
     suspend fun markSyncJobFailed(id: String)
     
     /**
+     * Met à jour le statut d'une tâche
+     */
+    @Query("UPDATE sync_jobs SET status = :status WHERE id = :id")
+    suspend fun updateSyncJobStatus(id: String, status: String)
+    
+    /**
      * Compte le nombre de tâches en attente
      */
     @Query("SELECT COUNT(*) FROM sync_jobs WHERE status = 'PENDING'")

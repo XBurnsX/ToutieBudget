@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Sync
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,20 +19,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.ui.settings.SyncJobViewModel
+import com.xburnsx.toutiebudget.workers.SyncWorkManager
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncJobScreen(
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val syncJobViewModel = remember { com.xburnsx.toutiebudget.di.AppModule.provideSyncJobViewModel() }
     val syncJobs by syncJobViewModel.syncJobs.collectAsState()
     val isLoading by syncJobViewModel.isLoading.collectAsState()
     val error by syncJobViewModel.error.collectAsState()
     
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // État de la synchronisation
+    var isSyncRunning by remember { mutableStateOf(false) }
+    var lastSyncStatus by remember { mutableStateOf<String?>(null) }
+    
+    // Vérifier le statut de la synchronisation toutes les 2 secondes
+    LaunchedEffect(Unit) {
+        while (true) {
+            isSyncRunning = SyncWorkManager.estSynchronisationEnCours(context)
+            lastSyncStatus = SyncWorkManager.getStatutDerniereSynchronisation(context)?.name
+            delay(2000)
+        }
+    }
     
     // Afficher les erreurs
     LaunchedEffect(error) {
@@ -137,6 +155,38 @@ fun SyncJobScreen(
                                 value = syncJobs.count { it.status == "FAILED" }.toString(),
                                 color = Color(0xFFF44336),
                                 modifier = Modifier.weight(1f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Indicateur de statut de synchronisation
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                if (isSyncRunning) Icons.Default.Sync else Icons.Default.Sync,
+                                contentDescription = null,
+                                tint = if (isSyncRunning) Color(0xFFFFA500) else Color(0xFF4CAF50),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isSyncRunning) "Synchronisation en cours..." else "Prêt à synchroniser",
+                                color = if (isSyncRunning) Color(0xFFFFA500) else Color(0xFF4CAF50),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        // Statut de la dernière synchronisation
+                        lastSyncStatus?.let { status ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Dernière sync: $status",
+                                color = Color.Gray,
+                                fontSize = 12.sp
                             )
                         }
                     }

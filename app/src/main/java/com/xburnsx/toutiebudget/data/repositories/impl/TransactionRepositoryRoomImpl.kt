@@ -10,6 +10,9 @@ import com.xburnsx.toutiebudget.data.room.entities.Transaction as TransactionEnt
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.workers.SyncWorkManager
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -67,7 +70,7 @@ class TransactionRepositoryRoomImpl(
             // 2. Sauvegarder en Room (PRIMARY)
             val id = transactionDao.insertTransaction(transactionEntity)
             
-            // 3. Ajouter à la liste de tâches pour synchronisation
+            // 3. Créer la tâche de synchronisation
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
@@ -76,9 +79,20 @@ class TransactionRepositoryRoomImpl(
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
-            syncJobDao.insertSyncJob(syncJob)
+            
+            // 4. Essayer la synchronisation IMMÉDIATE
+            val syncImmediate = essayerSynchronisationImmediate(syncJob)
+            
+            if (!syncImmediate) {
+                // 5. Si échec, ajouter à la liste de tâches pour synchronisation différée
+                syncJobDao.insertSyncJob(syncJob)
+                
+                // 6. DÉCLENCHER LA SYNCHRONISATION AUTOMATIQUE QUAND INTERNET REVIENT
+                // Le worker se déclenchera automatiquement dès que la connectivité est rétablie
+                declencherSynchronisationAutomatique()
+            }
 
-            // 4. Retourner le succès immédiatement (offline-first)
+            // 5. Retourner le succès immédiatement (offline-first)
             Result.success(transaction.copy(id = transactionEntity.id))
             
         } catch (e: Exception) {
@@ -199,7 +213,7 @@ class TransactionRepositoryRoomImpl(
             // 2. Mettre à jour en Room (PRIMARY)
             transactionDao.updateTransaction(transactionEntity)
             
-            // 3. Ajouter à la liste de tâches pour synchronisation
+            // 3. Créer la tâche de synchronisation
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
@@ -208,9 +222,19 @@ class TransactionRepositoryRoomImpl(
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
-            syncJobDao.insertSyncJob(syncJob)
+            
+            // 4. Essayer la synchronisation IMMÉDIATE
+            val syncImmediate = essayerSynchronisationImmediate(syncJob)
+            
+            if (!syncImmediate) {
+                // 5. Si échec, ajouter à la liste de tâches pour synchronisation différée
+                syncJobDao.insertSyncJob(syncJob)
+                
+                // 6. DÉCLENCHER LA SYNCHRONISATION AUTOMATIQUE QUAND INTERNET REVIENT
+                declencherSynchronisationAutomatique()
+            }
 
-            // 4. Retourner le succès immédiatement (offline-first)
+            // 6. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -223,7 +247,7 @@ class TransactionRepositoryRoomImpl(
             // 1. Supprimer de Room (PRIMARY)
             transactionDao.deleteTransactionById(transactionId)
             
-            // 2. Ajouter à la liste de tâches pour synchronisation
+            // 2. Créer la tâche de synchronisation
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "TRANSACTION",
@@ -232,9 +256,16 @@ class TransactionRepositoryRoomImpl(
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
-            syncJobDao.insertSyncJob(syncJob)
+            
+            // 3. Essayer la synchronisation IMMÉDIATE
+            val syncImmediate = essayerSynchronisationImmediate(syncJob)
+            
+            if (!syncImmediate) {
+                // 4. Si échec, ajouter à la liste de tâches pour synchronisation différée
+                syncJobDao.insertSyncJob(syncJob)
+            }
 
-            // 3. Retourner le succès immédiatement (offline-first)
+            // 5. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -262,5 +293,99 @@ class TransactionRepositoryRoomImpl(
             created = created?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } },
             updated = updated?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } }
         )
+    }
+    
+    /**
+     * Essaie la synchronisation IMMÉDIATE avec Pocketbase
+     * Retourne true si la synchronisation réussit, false sinon
+     */
+    private suspend fun essayerSynchronisationImmediate(syncJob: SyncJob): Boolean {
+        return try {
+            // Vérifier si on a internet et un token
+            val token = client.obtenirToken()
+            if (token == null) {
+                return false // Pas de token = pas de synchronisation
+            }
+            
+            // Vérifier la connectivité réseau (simplifié pour l'instant)
+            if (!estConnecteInternet()) {
+                return false // Pas d'internet = pas de synchronisation
+            }
+            
+            // Effectuer la synchronisation immédiate
+            val urlBase = com.xburnsx.toutiebudget.di.UrlResolver.obtenirUrlActive()
+            val collection = syncJob.type.lowercase()
+            
+            val success = when (syncJob.action) {
+                "CREATE" -> {
+                    val url = "$urlBase/api/collections/$collection/records"
+                    val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
+                    val request = okhttp3.Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .addHeader("Authorization", token)
+                        .build()
+                    
+                    val response = okhttp3.OkHttpClient().newCall(request).execute()
+                    response.isSuccessful
+                }
+                "UPDATE" -> {
+                    val url = "$urlBase/api/collections/$collection/records/${syncJob.id}"
+                    val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
+                    val request = okhttp3.Request.Builder()
+                        .url(url)
+                        .patch(requestBody)
+                        .addHeader("Authorization", token)
+                        .build()
+                    
+                    val response = okhttp3.OkHttpClient().newCall(request).execute()
+                    response.isSuccessful
+                }
+                "DELETE" -> {
+                    val url = "$urlBase/api/collections/$collection/records/${syncJob.id}"
+                    val request = okhttp3.Request.Builder()
+                        .url(url)
+                        .delete()
+                        .addHeader("Authorization", token)
+                        .build()
+                    
+                    val response = okhttp3.OkHttpClient().newCall(request).execute()
+                    response.isSuccessful
+                }
+                else -> false
+            }
+            
+            success
+        } catch (e: Exception) {
+            false // En cas d'erreur, on considère que la synchronisation a échoué
+        }
+    }
+    
+    /**
+     * Vérifie si l'appareil est connecté à internet
+     */
+    private fun estConnecteInternet(): Boolean {
+        // TODO: Implémenter une vraie vérification de connectivité
+        // Pour l'instant, on suppose qu'il y a internet
+        return true
+    }
+    
+    /**
+     * Déclenche la synchronisation automatique quand internet revient
+     * Le worker se déclenchera automatiquement dès que la connectivité est rétablie
+     */
+    private fun declencherSynchronisationAutomatique() {
+        // Utiliser un contexte global pour déclencher la synchronisation
+        // Le worker se déclenchera automatiquement quand internet revient
+        try {
+            // Créer un contexte d'application pour déclencher la synchronisation
+            val context = android.app.Application().createPackageContext(
+                "com.xburnsx.toutiebudget",
+                android.content.Context.CONTEXT_IGNORE_SECURITY
+            )
+            SyncWorkManager.declencherSynchronisationAutomatique(context)
+        } catch (e: Exception) {
+            // En cas d'erreur, on continue (la synchronisation se fera via le worker périodique)
+        }
     }
 }

@@ -73,12 +73,12 @@ import android.content.Context
              database.syncJobDao()
          )
      }
-     private val transactionRepository: TransactionRepository by lazy { 
-         TransactionRepositoryRoomImpl(
-             database.transactionDao(),
-             database.syncJobDao()
-         )
-     }
+           private val transactionRepository: TransactionRepository by lazy { 
+          TransactionRepositoryRoomImpl(
+              database.transactionDao(),
+              database.syncJobDao()
+          )
+      }
      private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { 
          AllocationMensuelleRepositoryRoomImpl(
@@ -247,6 +247,11 @@ import android.content.Context
     // Initialisation de cache supprimée
 
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
+     
+     fun provideSyncJobDao(context: Context): com.xburnsx.toutiebudget.data.room.daos.SyncJobDao {
+         initializeDatabase(context)
+         return database.syncJobDao()
+     }
     
     fun provideInitialImportService(): InitialImportService = initialImportService
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
