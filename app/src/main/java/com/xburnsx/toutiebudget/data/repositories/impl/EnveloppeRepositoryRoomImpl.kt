@@ -13,6 +13,7 @@ import com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle as Alloca
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -175,6 +176,9 @@ class EnveloppeRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(enveloppe.copy(id = enveloppeEntity.id))

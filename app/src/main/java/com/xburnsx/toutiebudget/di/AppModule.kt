@@ -165,9 +165,9 @@ import android.content.Context
          )
      }
      
-     private val cartesCreditViewModel: CartesCreditViewModel by lazy {
-         CartesCreditViewModel()
-     }
+         private val cartesCreditViewModel: CartesCreditViewModel by lazy {
+        CartesCreditViewModel(compteRepository)
+    }
 
      private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
          AjoutTransactionViewModel(

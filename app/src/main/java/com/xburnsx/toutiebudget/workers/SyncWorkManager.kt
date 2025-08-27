@@ -17,12 +17,25 @@ object SyncWorkManager {
      * Démarre la synchronisation immédiatement
      */
     fun demarrerSynchronisation(context: Context) {
-        val workRequest = creerWorkRequest()
+        android.util.Log.d("SyncWorkManager", "🚀 DÉMARRAGE de la synchronisation immédiate")
+        
+        // ✅ FORCER la synchronisation immédiate en annulant tout travail en cours
+        WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
+        
+        // Créer un work request SANS contraintes pour forcer l'exécution immédiate
+        val workRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(Constraints.Builder().build()) // ✅ AUCUNE contrainte pour forcer l'exécution
+            .addTag(SYNC_WORK_TAG)
+            .setInputData(workDataOf("triggered_by" to "immediate"))
+            .build()
+        
         WorkManager.getInstance(context).enqueueUniqueWork(
             SYNC_WORK_NAME,
             ExistingWorkPolicy.REPLACE,
             workRequest
         )
+        
+        android.util.Log.d("SyncWorkManager", "✅ Synchronisation immédiate planifiée (sans contraintes)")
     }
     
     /**
@@ -52,6 +65,10 @@ object SyncWorkManager {
      * Le worker se déclenchera automatiquement quand internet revient
      */
     fun declencherSynchronisationAutomatique(context: Context) {
+        // 🚀 DÉCLENCHER IMMÉDIATEMENT si on a internet !
+        demarrerSynchronisation(context)
+        
+        // Planifier aussi pour les futurs changements réseau
         planifierSynchronisationAutomatique(context)
     }
     

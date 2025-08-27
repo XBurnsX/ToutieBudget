@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.data.room.entities.PretPersonnel as PretPersonne
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -85,6 +86,9 @@ class PretPersonnelRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
 
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(pret.copy(id = pretEntity.id))
             
@@ -124,6 +128,9 @@ class PretPersonnelRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
 
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
@@ -148,6 +155,9 @@ class PretPersonnelRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)

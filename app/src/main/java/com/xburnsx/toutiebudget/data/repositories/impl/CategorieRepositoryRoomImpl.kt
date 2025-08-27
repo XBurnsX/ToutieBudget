@@ -81,6 +81,9 @@ class CategorieRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
 
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(categorie.copy(id = categorieEntity.id))
             
@@ -113,6 +116,9 @@ class CategorieRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
 
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(categorie)
             
@@ -136,6 +142,9 @@ class CategorieRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)

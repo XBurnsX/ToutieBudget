@@ -217,7 +217,40 @@ class SyncWorker(
             val url = "$urlBase/api/collections/$collection/records/$recordId"
             Log.d(logTag, "🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)")
             
-            val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
+            // 🚨 CORRECTION CRITIQUE : Pour les allocations, utiliser les opérateurs Pocketbase !
+            val requestBody = if (syncJob.type == "ALLOCATION_MENSUELLE") {
+                // 🎯 PROBLÈME IDENTIFIÉ : Room stocke les valeurs absolues, Pocketbase doit recevoir les modifications !
+                // SOLUTION : Utiliser les opérateurs d'incrémentation Pocketbase pour les montants
+                val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
+                val modifiedData = mutableMapOf<String, Any>()
+                
+                // Traiter chaque champ avec les opérateurs appropriés
+                dataMap.forEach { (key, value) ->
+                    when (key) {
+                        "solde", "depense", "alloue", "pretAPlacer" -> {
+                            // 🚨 CORRECTION : Utiliser l'opérateur d'incrémentation Pocketbase
+                            // Au lieu d'envoyer solde = 10$, on envoie solde = {"increment": 10}
+                            modifiedData[key.toString()] = mapOf("increment" to value)
+                        }
+                        else -> {
+                            // Garder les autres champs tels quels (ID, mois, etc.)
+                            if (value != null) {
+                                modifiedData[key.toString()] = value
+                            }
+                        }
+                    }
+                }
+                
+                val jsonData = gson.toJson(modifiedData)
+                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données originales Room = ${syncJob.dataJson}")
+                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données avec opérateurs Pocketbase = $jsonData")
+                
+                jsonData.toRequestBody("application/json".toMediaType())
+            } else {
+                // Pour les autres types, utiliser les données telles quelles
+                syncJob.dataJson.toRequestBody("application/json".toMediaType())
+            }
+            
             val request = Request.Builder()
                 .url(url)
                 .patch(requestBody)

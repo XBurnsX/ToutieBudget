@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.room.entities.*
 import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -107,24 +108,44 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
-            // Sérialiser l'entité Room au lieu du modèle pour éviter les problèmes avec les interfaces
-            val dataJson = when (compteAvecId) {
-                is CompteCheque -> gson.toJson(compteAvecId.toCompteChequeEntity())
-                is CompteCredit -> gson.toJson(compteAvecId.toCompteCreditEntity())
-                is CompteDette -> gson.toJson(compteAvecId.toCompteDetteEntity())
-                is CompteInvestissement -> gson.toJson(compteAvecId.toCompteInvestissementEntity())
-                else -> gson.toJson(compteAvecId)
+            // 🚨 CORRECTION : Spécifier le type exact et la collection !
+            val (syncJobType, dataJson, collectionName) = when (compteAvecId) {
+                is CompteCheque -> Triple(
+                    "COMPTE_CHEQUE",
+                    gson.toJson(compteAvecId.toCompteChequeEntity()),
+                    "comptes_cheques"
+                )
+                is CompteCredit -> Triple(
+                    "COMPTE_CREDIT",
+                    gson.toJson(compteAvecId.toCompteCreditEntity()),
+                    "comptes_credits"
+                )
+                is CompteDette -> Triple(
+                    "COMPTE_DETTE",
+                    gson.toJson(compteAvecId.toCompteDetteEntity()),
+                    "comptes_dettes"
+                )
+                is CompteInvestissement -> Triple(
+                    "COMPTE_INVESTISSEMENT",
+                    gson.toJson(compteAvecId.toCompteInvestissementEntity()),
+                    "comptes_investissement"
+                )
+                else -> throw IllegalArgumentException("Type de compte non supporté")
             }
             
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
-                type = "COMPTE",
+                type = syncJobType,
                 action = "CREATE",
                 dataJson = dataJson,
+                recordId = compteAvecId.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -167,24 +188,44 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
-            // Sérialiser l'entité Room au lieu du modèle pour éviter les problèmes avec les interfaces
-            val dataJson = when (compteAvecUtilisateurId) {
-                is CompteCheque -> gson.toJson(compteAvecUtilisateurId.toCompteChequeEntity())
-                is CompteCredit -> gson.toJson(compteAvecUtilisateurId.toCompteCreditEntity())
-                is CompteDette -> gson.toJson(compteAvecUtilisateurId.toCompteDetteEntity())
-                is CompteInvestissement -> gson.toJson(compteAvecUtilisateurId.toCompteInvestissementEntity())
-                else -> gson.toJson(compteAvecUtilisateurId)
+            // 🚨 CORRECTION : Spécifier le type exact et la collection !
+            val (syncJobType, dataJson, collectionName) = when (compteAvecUtilisateurId) {
+                is CompteCheque -> Triple(
+                    "COMPTE_CHEQUE",
+                    gson.toJson(compteAvecUtilisateurId.toCompteChequeEntity()),
+                    "comptes_cheques"
+                )
+                is CompteCredit -> Triple(
+                    "COMPTE_CREDIT",
+                    gson.toJson(compteAvecUtilisateurId.toCompteCreditEntity()),
+                    "comptes_credits"
+                )
+                is CompteDette -> Triple(
+                    "COMPTE_DETTE",
+                    gson.toJson(compteAvecUtilisateurId.toCompteDetteEntity()),
+                    "comptes_dettes"
+                )
+                is CompteInvestissement -> Triple(
+                    "COMPTE_INVESTISSEMENT",
+                    gson.toJson(compteAvecUtilisateurId.toCompteInvestissementEntity()),
+                    "comptes_investissement"
+                )
+                else -> throw IllegalArgumentException("Type de compte non supporté")
             }
             
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
-                type = "COMPTE",
+                type = syncJobType,
                 action = "UPDATE",
                 dataJson = dataJson,
+                recordId = compteAvecUtilisateurId.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -204,15 +245,28 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
+            // 🚨 CORRECTION : Spécifier le type exact selon la collection !
+            val syncJobType = when (collection) {
+                "comptes_cheques" -> "COMPTE_CHEQUE"
+                "comptes_credits" -> "COMPTE_CREDIT"
+                "comptes_dettes" -> "COMPTE_DETTE"
+                "comptes_investissement" -> "COMPTE_INVESTISSEMENT"
+                else -> throw IllegalArgumentException("Collection inconnue: $collection")
+            }
+            
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
-                type = "COMPTE",
+                type = syncJobType,
                 action = "DELETE",
                 dataJson = gson.toJson(mapOf("id" to compteId, "collection" to collection)),
+                recordId = compteId,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -286,7 +340,15 @@ class CompteRepositoryRoomImpl(
                 else -> throw IllegalArgumentException("Type de compte non supporté")
             }
 
-            mettreAJourCompte(compteMisAJour)
+            val resultat = mettreAJourCompte(compteMisAJour)
+            
+            // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+            // CRITIQUE : Sans ça, les suppressions de transactions ne sont pas synchronisées !
+            if (resultat.isSuccess) {
+                SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+            }
+            
+            resultat
         } catch (e: Exception) {
             Result.failure(e)
         }

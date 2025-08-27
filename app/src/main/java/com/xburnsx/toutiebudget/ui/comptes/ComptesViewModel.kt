@@ -14,6 +14,8 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,14 @@ class ComptesViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.comptesUpdated.collectLatest {
+                chargerComptes()
+            }
+        }
+        
+        // 🔄 RAFRAÎCHISSEMENT MANUEL : Écoute des événements de suppression/modification
+        viewModelScope.launch {
+            BudgetEvents.refreshBudget.collectLatest {
+                Log.d("ComptesViewModel", "🔄 Événement de rafraîchissement reçu - Mise à jour des comptes")
                 chargerComptes()
             }
         }

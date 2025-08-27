@@ -11,11 +11,14 @@ import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
+import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import java.text.SimpleDateFormat
@@ -53,6 +56,18 @@ class HistoriqueCompteViewModel(
             chargerTransactions(compteId, collectionCompte)
         } else {
             _uiState.update { it.copy(isLoading = false, erreur = "ID de compte manquant.") }
+        }
+        
+        // 🔄 RAFRAÎCHISSEMENT MANUEL : Écoute des événements de suppression/modification
+        viewModelScope.launch {
+            BudgetEvents.refreshBudget.collectLatest {
+                Log.d("HistoriqueCompteViewModel", "🔄 Événement de rafraîchissement reçu - Mise à jour des transactions")
+                val compteIdEvent: String? = savedStateHandle["compteId"]
+                val collectionCompteEvent: String? = savedStateHandle["collectionCompte"]
+                if (compteIdEvent != null && collectionCompteEvent != null) {
+                    chargerTransactions(compteIdEvent, collectionCompteEvent)
+                }
+            }
         }
     }
 

@@ -87,9 +87,8 @@ class TransactionRepositoryRoomImpl(
                 // 5. Si échec, ajouter à la liste de tâches pour synchronisation différée
                 syncJobDao.insertSyncJob(syncJob)
                 
-                // 6. DÉCLENCHER LA SYNCHRONISATION AUTOMATIQUE QUAND INTERNET REVIENT
-                // Le worker se déclenchera automatiquement dès que la connectivité est rétablie
-                declencherSynchronisationAutomatique()
+                // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+                com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
             }
 
             // 5. Retourner le succès immédiatement (offline-first)
@@ -231,8 +230,8 @@ class TransactionRepositoryRoomImpl(
                 // 5. Si échec, ajouter à la liste de tâches pour synchronisation différée
                 syncJobDao.insertSyncJob(syncJob)
                 
-                // 6. DÉCLENCHER LA SYNCHRONISATION AUTOMATIQUE QUAND INTERNET REVIENT
-                declencherSynchronisationAutomatique()
+                // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+                com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
             }
 
             // 6. Retourner le succès immédiatement (offline-first)
@@ -265,6 +264,9 @@ class TransactionRepositoryRoomImpl(
             if (!syncImmediate) {
                 // 4. Si échec, ajouter à la liste de tâches pour synchronisation différée
                 syncJobDao.insertSyncJob(syncJob)
+                
+                // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+                com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
             }
 
             // 5. Retourner le succès immédiatement (offline-first)

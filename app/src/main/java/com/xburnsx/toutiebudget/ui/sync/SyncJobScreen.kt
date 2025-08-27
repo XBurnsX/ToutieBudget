@@ -1,6 +1,8 @@
 package com.xburnsx.toutiebudget.ui.sync
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,12 +44,41 @@ fun SyncJobScreen(
     var isSyncRunning by remember { mutableStateOf(false) }
     var lastSyncStatus by remember { mutableStateOf<String?>(null) }
     
+    // 🆕 État de filtrage - par défaut afficher seulement les tâches en attente
+    var selectedFilter by remember { mutableStateOf("PENDING") }
+    
+    // 🆕 Liste filtrée des SyncJob
+    val filteredSyncJobs = remember(syncJobs, selectedFilter) {
+        when (selectedFilter) {
+            "PENDING" -> syncJobs.filter { it.status == "PENDING" }
+            "COMPLETED" -> syncJobs.filter { it.status == "COMPLETED" }
+            "FAILED" -> syncJobs.filter { it.status == "FAILED" }
+            else -> syncJobs // "ALL" - toutes les tâches
+        }
+    }
+    
     // Vérifier le statut de la synchronisation toutes les 2 secondes
     LaunchedEffect(Unit) {
         while (true) {
             isSyncRunning = SyncWorkManager.estSynchronisationEnCours(context)
             lastSyncStatus = SyncWorkManager.getStatutDerniereSynchronisation(context)?.name
             delay(2000)
+        }
+    }
+    
+    // 🚀 ÉCOUTEUR AUTOMATIQUE : Détecter les nouveaux SyncJob et déclencher la synchronisation immédiatement
+    LaunchedEffect(syncJobs) {
+        val pendingJobs = syncJobs.filter { it.status == "PENDING" }
+        if (pendingJobs.isNotEmpty()) {
+            android.util.Log.d("SyncJobScreen", "🚨 ${pendingJobs.size} SyncJob en attente détectés - DÉCLENCHEMENT IMMÉDIAT de la synchronisation")
+            
+            // DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION
+            try {
+                com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
+                android.util.Log.d("SyncJobScreen", "✅ Synchronisation déclenchée avec succès")
+            } catch (e: Exception) {
+                android.util.Log.e("SyncJobScreen", "❌ Erreur lors du déclenchement de la synchronisation", e)
+            }
         }
     }
     
@@ -132,28 +163,36 @@ fun SyncJobScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            StatCard(
+                            FilterButton(
                                 title = "Total",
                                 value = syncJobs.size.toString(),
                                 color = Color(0xFF2196F3),
+                                isSelected = selectedFilter == "ALL",
+                                onClick = { selectedFilter = "ALL" },
                                 modifier = Modifier.weight(1f)
                             )
-                            StatCard(
+                            FilterButton(
                                 title = "En attente",
                                 value = syncJobs.count { it.status == "PENDING" }.toString(),
                                 color = Color(0xFFFFA500),
+                                isSelected = selectedFilter == "PENDING",
+                                onClick = { selectedFilter = "PENDING" },
                                 modifier = Modifier.weight(1f)
                             )
-                            StatCard(
+                            FilterButton(
                                 title = "Terminées",
                                 value = syncJobs.count { it.status == "COMPLETED" }.toString(),
                                 color = Color(0xFF4CAF50),
+                                isSelected = selectedFilter == "COMPLETED",
+                                onClick = { selectedFilter = "COMPLETED" },
                                 modifier = Modifier.weight(1f)
                             )
-                            StatCard(
+                            FilterButton(
                                 title = "Échouées",
                                 value = syncJobs.count { it.status == "FAILED" }.toString(),
                                 color = Color(0xFFF44336),
+                                isSelected = selectedFilter == "FAILED",
+                                onClick = { selectedFilter = "FAILED" },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -202,7 +241,7 @@ fun SyncJobScreen(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-            } else if (syncJobs.isEmpty()) {
+            } else if (filteredSyncJobs.isEmpty()) {
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
@@ -221,21 +260,31 @@ fun SyncJobScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Aucune tâche de synchronisation",
-                                color = Color.Gray,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                text = "Les tâches apparaîtront ici quand vous modifierez des données",
-                                color = Color.Gray,
-                                fontSize = 14.sp
-                            )
+                                                    Text(
+                            text = when (selectedFilter) {
+                                "PENDING" -> "Aucune tâche en attente"
+                                "COMPLETED" -> "Aucune tâche terminée"
+                                "FAILED" -> "Aucune tâche échouée"
+                                else -> "Aucune tâche de synchronisation"
+                            },
+                            color = Color.Gray,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = when (selectedFilter) {
+                                "PENDING" -> "Les tâches en attente apparaîtront ici"
+                                "COMPLETED" -> "Les tâches terminées apparaîtront ici"
+                                "FAILED" -> "Les tâches échouées apparaîtront ici"
+                                else -> "Les tâches apparaîtront ici quand vous modifierez des données"
+                            },
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
                         }
                     }
                 }
             } else {
-                items(syncJobs) { syncJob ->
+                items(filteredSyncJobs) { syncJob ->
                     SyncJobCard(
                         syncJob = syncJob,
                         syncJobViewModel = syncJobViewModel
@@ -249,15 +298,27 @@ fun SyncJobScreen(
 }
 
 @Composable
-fun StatCard(
+fun FilterButton(
     title: String,
     value: String,
     color: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
-        modifier = modifier.padding(horizontal = 4.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) color.copy(alpha = 0.3f) else Color(0xFF2A2A2A)
+        ),
+        modifier = modifier
+            .padding(horizontal = 4.dp)
+            .clickable { onClick() }
+            .border(
+                width = if (isSelected) 2.dp else 0.dp,
+                color = if (isSelected) color else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            ),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
@@ -271,8 +332,9 @@ fun StatCard(
             )
             Text(
                 text = title,
-                color = Color.Gray,
-                fontSize = 12.sp
+                color = if (isSelected) color else Color.Gray,
+                fontSize = 12.sp,
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
             )
         }
     }

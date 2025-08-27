@@ -7,8 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
+import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.impl.CarteCreditRepositoryImpl
-import com.xburnsx.toutiebudget.data.repositories.impl.CompteRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,9 +24,11 @@ data class CalculsCalculateur(
     val interetsTotal: Double?
 )
 
-class CartesCreditViewModel : ViewModel() {
+class CartesCreditViewModel(
+    private val compteRepository: CompteRepository
+) : ViewModel() {
 
-    private val carteCreditRepository: CarteCreditRepository = CarteCreditRepositoryImpl(CompteRepositoryImpl())
+    private val carteCreditRepository: CarteCreditRepository = CarteCreditRepositoryImpl(compteRepository)
 
     private val _uiState = MutableStateFlow(CartesCreditUiState())
     val uiState: StateFlow<CartesCreditUiState> = _uiState.asStateFlow()
