@@ -18,6 +18,7 @@ class StatistiquesViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val tiersRepository: TiersRepository,
+    private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
@@ -105,8 +106,7 @@ class StatistiquesViewModel(
             val tiers = tiersResult.getOrNull().orEmpty()
 
             // Exclure les enveloppes de catégories "Dettes" et "Cartes de crédit" des Top 5
-            val categorieRepo = try { com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl() } catch (_: Exception) { null }
-            val categories = try { categorieRepo?.recupererToutesLesCategories()?.getOrNull().orEmpty() } catch (_: Exception) { emptyList() }
+            val categories = try { categorieRepository.recupererToutesLesCategories().getOrNull().orEmpty() } catch (_: Exception) { emptyList() }
             val categoriesExclues = categories.filter { it.nom.equals("Dettes", ignoreCase = true) || it.nom.equals("Cartes de crédit", ignoreCase = true) }
                 .map { it.id }
                 .toSet()

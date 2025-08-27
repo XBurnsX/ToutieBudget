@@ -6,8 +6,7 @@ import com.xburnsx.toutiebudget.data.repositories.AllocationMensuelleRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.ArgentService
-import com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl
-import com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl
+
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.IdGenerator
@@ -25,7 +24,8 @@ class ArgentServiceImpl @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val virementUseCase: VirementUseCase,
-    private val enveloppeRepository: com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+    private val enveloppeRepository: com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository,
+    private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 ) : ArgentService {
 
     /**
@@ -709,7 +709,7 @@ class ArgentServiceImpl @Inject constructor(
 
         // 5. Créer la transaction de sortie
         val transactionSortante = Transaction(
-            id = "",
+            id = IdGenerator.generateId(),
             utilisateurId = compteSource.utilisateurId,
             type = TypeTransaction.TransfertSortant, // ✅ Utiliser TransfertSortant pour les virements
             montant = montant,
@@ -728,7 +728,7 @@ class ArgentServiceImpl @Inject constructor(
 
         // 6. Créer la transaction d'entrée
         val transactionEntrante = Transaction(
-            id = "",
+            id = IdGenerator.generateId(),
             utilisateurId = compteDest.utilisateurId,
             type = TypeTransaction.TransfertEntrant, // ✅ Utiliser TransfertEntrant pour les virements
             montant = montant,
@@ -846,14 +846,13 @@ class ArgentServiceImpl @Inject constructor(
                     
                     // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
                     try {
-                        val enveloppeRepository = EnveloppeRepositoryImpl()
                         val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
                         
                         // Trouver l'enveloppe correspondante à la dette
                         val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(compteActuel.nom, ignoreCase = true) }
                         if (enveloppeDette != null) {
                             // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
-                            // Delay pour laisser le temps à l'allocation d'être créée dans PocketBase
+                            // Delay pour laisser le temps à l'allocation d'être créée dans Room
                             kotlinx.coroutines.delay(1000)
                             val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
                             if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
@@ -867,7 +866,6 @@ class ArgentServiceImpl @Inject constructor(
                                 
                                 // Si c'était la dernière dette, supprimer la catégorie "Dette"
                                 if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
-                                    val categorieRepository = CategorieRepositoryImpl()
                                     val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
                                     val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
                                     if (categorieDette != null) {
@@ -901,14 +899,13 @@ class ArgentServiceImpl @Inject constructor(
                     
                     // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
                     try {
-                        val enveloppeRepository = EnveloppeRepositoryImpl()
                         val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
                         
                         // Trouver l'enveloppe correspondante à la dette
                         val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(detteActuelle.nom, ignoreCase = true) }
                         if (enveloppeDette != null) {
                             // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
-                            // Delay pour laisser le temps à l'allocation d'être créée dans PocketBase
+                            // Delay pour laisser le temps à l'allocation d'être créée dans Room
                             kotlinx.coroutines.delay(1000)
                             val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
                             if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
@@ -922,7 +919,6 @@ class ArgentServiceImpl @Inject constructor(
                                 
                                 // Si c'était la dernière dette, supprimer la catégorie "Dette"
                                 if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
-                                    val categorieRepository = CategorieRepositoryImpl()
                                     val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
                                     val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
                                     if (categorieDette != null) {
@@ -996,7 +992,6 @@ class ArgentServiceImpl @Inject constructor(
         // 8. Si la cible est une dette OU une carte de crédit, incrémenter "dépense" sur l'allocation de l'enveloppe associée
         if (collectionCarteOuDette == "comptes_dettes" || collectionCarteOuDette == "comptes_credits") {
             try {
-                val enveloppeRepository = EnveloppeRepositoryImpl()
                 val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
                 // Associer la dette à une enveloppe par nom (même nom)
                 val enveloppeCible = toutesEnveloppes.firstOrNull { it.nom.equals(carteOuDette.nom, ignoreCase = true) }

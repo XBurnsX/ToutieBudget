@@ -152,13 +152,22 @@ class EnregistrerTransactionUseCase(
     private suspend fun obtenirOuCreerAllocationMensuelle(enveloppeId: String, premierJourMois: Date, compteId: String, collectionCompte: String): Result<String> {
         return try {
 
-            // Chercher l'allocation existante pour ce mois via EnveloppeRepository
-            val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
-            val allocationExistante = allocationsExistantes.getOrNull()?.find { allocation -> allocation.enveloppeId == enveloppeId }
+            // 🚨 CORRECTION : Utiliser directement le repository Room au lieu de Pocketbase !
+            // Cela évite les problèmes de synchronisation et assure que l'allocation est trouvée
+            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
-            if (allocationExistante != null) {
+            if (allocationExistante.id.isNotBlank()) {
+                // 🎯 Mettre à jour le compte source si pas déjà défini
+                if (allocationExistante.compteSourceId == null) {
+                    allocationMensuelleRepository.mettreAJourCompteSource(
+                        allocationExistante.id,
+                        compteId,
+                        collectionCompte
+                    )
+                }
                 Result.success(allocationExistante.id)
             } else {
+                // Fallback : créer une nouvelle allocation
                 creerNouvelleAllocation(enveloppeId, premierJourMois, compteId, collectionCompte)
             }
         } catch (e: Exception) {

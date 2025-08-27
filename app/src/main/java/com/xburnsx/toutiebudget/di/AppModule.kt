@@ -106,7 +106,7 @@ import android.content.Context
      private val virementUseCase: VirementUseCase by lazy {
          VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
      }
-     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository) }
+     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository, categorieRepository) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
     
     private val initialImportService: InitialImportService by lazy {
@@ -149,6 +149,7 @@ import android.content.Context
             enveloppeRepository = enveloppeRepository,
             categorieRepository = categorieRepository,
             allocationMensuelleRepository = allocationMensuelleRepository, // ← AJOUT
+            preferenceRepository = preferenceRepository,
             verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
             realtimeSyncService = realtimeSyncService,
             validationProvenanceService = validationProvenanceService,
@@ -165,8 +166,12 @@ import android.content.Context
          )
      }
      
+         private val cartesCreditRepository: CarteCreditRepository by lazy {
+             CarteCreditRepositoryImpl(compteRepository, transactionRepository)
+         }
+         
          private val cartesCreditViewModel: CartesCreditViewModel by lazy {
-        CartesCreditViewModel(compteRepository)
+        CartesCreditViewModel(cartesCreditRepository, realtimeSyncService)
     }
 
      private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
@@ -226,6 +231,7 @@ import android.content.Context
               transactionRepository = transactionRepository,
               enveloppeRepository = enveloppeRepository,
               tiersRepository = tiersRepository,
+              categorieRepository = categorieRepository,
               realtimeSyncService = realtimeSyncService
           )
       }

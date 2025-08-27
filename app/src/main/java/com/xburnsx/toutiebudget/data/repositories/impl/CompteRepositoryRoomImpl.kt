@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.*
@@ -32,7 +33,7 @@ class CompteRepositoryRoomImpl(
     private val client = PocketBaseClient
     
     private val gson: Gson = GsonBuilder()
-        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        .serializeNulls()
         .create()
 
     override suspend fun recupererTousLesComptes(): Result<List<Compte>> = withContext(Dispatchers.IO) {
@@ -146,6 +147,50 @@ class CompteRepositoryRoomImpl(
 
             // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
             SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * 🚨 NOUVELLE MÉTHODE : Mise à jour SANS SyncJob automatique
+     * Utilisée par mettreAJourPretAPlacerSeulement pour éviter les SyncJobs en double
+     */
+    private suspend fun mettreAJourCompteSansSyncJob(compte: Compte): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+
+            val compteAvecUtilisateurId = when (compte) {
+                is CompteCheque -> compte.copy(utilisateurId = utilisateurId)
+                is CompteCredit -> compte.copy(utilisateurId = utilisateurId)
+                is CompteDette -> compte.copy(utilisateurId = utilisateurId)
+                is CompteInvestissement -> compte.copy(utilisateurId = utilisateurId)
+                else -> throw IllegalArgumentException("Type de compte non supporté")
+            }
+
+            // Mettre à jour dans Room selon le type (SANS SyncJob)
+            when (compteAvecUtilisateurId) {
+                is CompteCheque -> {
+                    val entity = compteAvecUtilisateurId.toCompteChequeEntity()
+                    compteChequeDao.updateCompte(entity)
+                }
+                is CompteCredit -> {
+                    val entity = compteAvecUtilisateurId.toCompteCreditEntity()
+                    compteCreditDao.updateCompte(entity)
+                }
+                is CompteDette -> {
+                    val entity = compteAvecUtilisateurId.toCompteDetteEntity()
+                    compteDetteDao.updateCompte(entity)
+                }
+                is CompteInvestissement -> {
+                    val entity = compteAvecUtilisateurId.toCompteInvestissementEntity()
+                    compteInvestissementDao.updateCompte(entity)
+                }
+                else -> throw IllegalArgumentException("Type de compte non supporté")
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -402,7 +447,58 @@ class CompteRepositoryRoomImpl(
                 if (compte is CompteCheque) {
                     val nouveauPretAPlacer = compte.pretAPlacer + variationPretAPlacer
                     val compteMisAJour = compte.copy(pretAPlacerRaw = nouveauPretAPlacer)
-                    return@withContext mettreAJourCompte(compteMisAJour)
+                    
+                    // ✅ 1. Mettre à jour Room SANS créer de SyncJob automatique
+                    val resultRoom = mettreAJourCompteSansSyncJob(compteMisAJour)
+                    if (resultRoom.isFailure) {
+                        return@withContext resultRoom
+                    }
+                    
+                    // ✅ 2. RÉCUPÉRER LE COMPTE MIS À JOUR POUR AVOIR LE BON PRÊT À PLACER
+                    val compteMisAJourRecupere = getCompteById(compteId, collection)
+                    if (compteMisAJourRecupere == null) {
+                        return@withContext Result.failure(Exception("Impossible de récupérer le compte mis à jour"))
+                    }
+                    
+                    // ✅ 3. CRÉER UN SYNCJOB POUR POCKETBASE AVEC LE BON PRÊT À PLACER
+                    // 🚨 CORRECTION CRITIQUE : Créer directement l'entité Room avec le bon prêt à placer !
+                    if (compteMisAJourRecupere is CompteCheque) {
+                        val compteEntity = CompteChequeEntity(
+                            id = compteMisAJourRecupere.id,
+                            utilisateurId = compteMisAJourRecupere.utilisateurId,
+                            nom = compteMisAJourRecupere.nom,
+                            solde = compteMisAJourRecupere.solde,
+                            pretAPlacerRaw = compteMisAJourRecupere.pretAPlacerRaw,
+                            couleur = compteMisAJourRecupere.couleur,
+                            estArchive = compteMisAJourRecupere.estArchive,
+                            ordre = compteMisAJourRecupere.ordre,
+                            collection = compteMisAJourRecupere.collection
+                        )
+                        
+                        val syncJob = SyncJob(
+                            id = IdGenerator.generateId(),
+                            type = "COMPTE_CHEQUE",
+                            action = "UPDATE",
+                            dataJson = gson.toJson(compteEntity),
+                            recordId = compteId,
+                            createdAt = System.currentTimeMillis(),
+                            status = "PENDING"
+                        )
+                        syncJobDao.insertSyncJob(syncJob)
+                        
+                        // 🚨 DEBUG CRITIQUE : Vérifier que le SyncJob est bien créé
+                        Log.d("CompteRepository", "🚨 SYNCJOB CRÉÉ POUR PRÊT À PLACER:")
+                        Log.d("CompteRepository", "  ID: ${syncJob.id}")
+                        Log.d("CompteRepository", "  Type: ${syncJob.type}")
+                        Log.d("CompteRepository", "  Action: ${syncJob.action}")
+                        Log.d("CompteRepository", "  RecordId: ${syncJob.recordId}")
+                        Log.d("CompteRepository", "  DataJson: ${syncJob.dataJson}")
+                        
+                        // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
+                        SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+                        
+                        return@withContext Result.success(Unit)
+                    }
                 }
             }
             

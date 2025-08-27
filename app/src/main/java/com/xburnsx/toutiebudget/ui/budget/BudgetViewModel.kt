@@ -39,6 +39,7 @@ class BudgetViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository, // ← AJOUT
+    private val preferenceRepository: com.xburnsx.toutiebudget.data.repositories.PreferenceRepository,
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
     private val realtimeSyncService: RealtimeSyncService,
     private val validationProvenanceService: ValidationProvenanceService,
@@ -143,7 +144,7 @@ class BudgetViewModel(
                 // Utiliser le repository de préférences via AppModule
                 val repoField = com.xburnsx.toutiebudget.di.AppModule::class.java
                 // Simple: appeler directement l'impl si accessible (simulé)
-                com.xburnsx.toutiebudget.data.repositories.impl.PreferenceRepositoryImpl().setFigerPretAPlacer(enabled)
+                preferenceRepository.setFigerPretAPlacer(enabled)
             } catch (_: Exception) {}
         }
     }

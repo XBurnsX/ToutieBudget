@@ -10,7 +10,8 @@ import java.util.*
 import kotlin.math.*
 
 class CarteCreditRepositoryImpl(
-    private val compteRepository: CompteRepository
+    private val compteRepository: CompteRepository,
+    private val transactionRepository: com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 ) : CarteCreditRepository {
 
     override suspend fun recupererCartesCredit(): Result<List<CompteCredit>> = withContext(Dispatchers.IO) {
@@ -178,8 +179,7 @@ class CarteCreditRepositoryImpl(
     override suspend fun recupererHistoriqueTransactions(carteCreditId: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         try {
             // Récupérer les transactions du compte carte de crédit via la collection adéquate
-            val transactionsRepo = com.xburnsx.toutiebudget.data.repositories.impl.TransactionRepositoryImpl()
-            transactionsRepo.recupererTransactionsPourCompte(carteCreditId, "comptes_credits")
+            transactionRepository.recupererTransactionsPourCompte(carteCreditId, "comptes_credits")
         } catch (e: Exception) {
             Result.failure(e)
         }

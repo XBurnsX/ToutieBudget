@@ -232,8 +232,6 @@ class ComptesViewModel(
                     // Si dette archivée: supprimer enveloppe associée et nettoyer la catégorie si vide
                     try {
                         if (compte is CompteDette) {
-                            val categorieRepository = com.xburnsx.toutiebudget.data.repositories.impl.CategorieRepositoryImpl()
-                            val enveloppeRepository = com.xburnsx.toutiebudget.data.repositories.impl.EnveloppeRepositoryImpl()
                             // Trouver l'enveloppe portant le même nom dans la catégorie Dettes
                             val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
                             val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }

@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.data.room.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
+import com.google.gson.annotations.SerializedName
 
 /**
  * Entité Room pour les comptes chèques.
@@ -21,6 +22,7 @@ data class CompteCheque(
     val solde: Double = 0.0,
     
     @ColumnInfo(name = "pret_a_placer")
+    @SerializedName("pret_a_placer")
     val pretAPlacerRaw: Double? = null,
     
     val couleur: String = "",

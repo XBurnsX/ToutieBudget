@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
@@ -57,6 +58,24 @@ class AjoutTransactionViewModel(
 
     init {
         chargerDonneesInitiales()
+        
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase pour les comptes
+        viewModelScope.launch {
+            realtimeSyncService.comptesUpdated.collectLatest {
+                println("DEBUG: AjoutTransactionViewModel reçoit l'événement comptesUpdated")
+                // Recharger les comptes quand ils sont modifiés
+                chargerComptesSeulement()
+            }
+        }
+        
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase pour les enveloppes
+        viewModelScope.launch {
+            realtimeSyncService.budgetUpdated.collectLatest {
+                println("DEBUG: AjoutTransactionViewModel reçoit l'événement budgetUpdated")
+                // Recharger les enveloppes quand elles sont modifiées
+                chargerEnveloppesSeulement()
+            }
+        }
     }
 
     /**
@@ -157,6 +176,84 @@ class AjoutTransactionViewModel(
                     e.message?.contains("timeout", ignoreCase = true) == true) {
                     com.xburnsx.toutiebudget.di.UrlResolver.invaliderCache()
                 }
+            }
+        }
+    }
+
+    /**
+     * Charge seulement les comptes (pour les mises à jour temps réel).
+     */
+    private fun chargerComptesSeulement() {
+        viewModelScope.launch {
+            try {
+                val resultComptes = compteRepository.recupererTousLesComptes()
+                if (resultComptes.isSuccess) {
+                    allComptes = resultComptes.getOrNull() ?: emptyList()
+                    _uiState.update { state ->
+                        state.copy(
+                            comptesDisponibles = allComptes.filter { !it.estArchive }
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                println("Erreur lors du rechargement des comptes: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Charge seulement les enveloppes (pour les mises à jour temps réel).
+     */
+    private fun chargerEnveloppesSeulement() {
+        viewModelScope.launch {
+            try {
+                val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                val resultCategories = categorieRepository.recupererToutesLesCategories()
+                
+                // Calculer le mois actuel pour les allocations
+                val maintenant = Date()
+                val calendrier = Calendar.getInstance().apply {
+                    time = maintenant
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val premierJourMoisActuel = calendrier.time
+                
+                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourMoisActuel)
+                
+                if (resultEnveloppes.isSuccess && resultCategories.isSuccess) {
+                    allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
+                    allCategories = resultCategories.getOrNull() ?: emptyList()
+                    allAllocations = resultAllocations.getOrNull() ?: emptyList()
+                    
+                    // Construire les enveloppes UI
+                    val enveloppesUi = construireEnveloppesUi()
+                    
+                    // Utiliser OrganisationEnveloppesUtils pour assurer un ordre cohérent
+                    val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
+                    
+                    // Créer la map d'enveloppes filtrées en respectant l'ordre des catégories
+                    val enveloppesFiltrees = enveloppesGroupees.mapValues { (_, enveloppesCategorie) ->
+                        enveloppesUi.filter { enveloppeUi ->
+                            enveloppesCategorie.any { it.id == enveloppeUi.id }
+                        }.sortedBy { enveloppeUi ->
+                            // Trier selon l'ordre des enveloppes dans la catégorie
+                            enveloppesCategorie.indexOfFirst { it.id == enveloppeUi.id }
+                        }
+                    }
+                    
+                    _uiState.update { state ->
+                        state.copy(
+                            enveloppesDisponibles = enveloppesUi,
+                            enveloppesFiltrees = enveloppesFiltrees
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                println("Erreur lors du rechargement des enveloppes: ${e.message}")
             }
         }
     }

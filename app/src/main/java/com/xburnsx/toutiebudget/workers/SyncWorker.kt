@@ -115,6 +115,14 @@ class SyncWorker(
             
             Log.d(logTag, "🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs")
             
+            // 🧹 NETTOYAGE AUTOMATIQUE : Supprimer les SyncJobs terminés avec succès
+            try {
+                syncJobDao.deleteCompletedSyncJobs()
+                Log.d(logTag, "🧹 Nettoyage automatique des SyncJobs terminés effectué")
+            } catch (e: Exception) {
+                Log.w(logTag, "⚠️ Erreur lors du nettoyage automatique des SyncJobs", e)
+            }
+            
             // Si toutes les tâches ont réussi, on retourne success
             // Sinon, on retourne retry pour réessayer les tâches échouées
             return@withContext if (failureCount == 0) Result.success() else Result.retry()
@@ -217,20 +225,30 @@ class SyncWorker(
             val url = "$urlBase/api/collections/$collection/records/$recordId"
             Log.d(logTag, "🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)")
             
-            // 🚨 CORRECTION CRITIQUE : Pour les allocations, utiliser les opérateurs Pocketbase !
+            // 🚨 DEBUG CRITIQUE : Log détaillé pour les comptes chèques
+            if (syncJob.type == "COMPTE_CHEQUE") {
+                Log.d(logTag, "🚨 COMPTE_CHÈQUE DÉTECTÉ:")
+                Log.d(logTag, "  Action: ${syncJob.action}")
+                Log.d(logTag, "  RecordId: ${syncJob.recordId}")
+                Log.d(logTag, "  DataJson: ${syncJob.dataJson}")
+            }
+            
+            // 🚨 CORRECTION CRITIQUE : Pour les allocations, faire comme Room - REMPLACER les valeurs !
             val requestBody = if (syncJob.type == "ALLOCATION_MENSUELLE") {
-                // 🎯 PROBLÈME IDENTIFIÉ : Room stocke les valeurs absolues, Pocketbase doit recevoir les modifications !
-                // SOLUTION : Utiliser les opérateurs d'incrémentation Pocketbase pour les montants
+                // 🎯 PROBLÈME IDENTIFIÉ : Les opérateurs d'incrémentation causent des problèmes !
+                // SOLUTION : Faire comme Room - remplacer complètement avec les bonnes valeurs calculées
                 val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
                 val modifiedData = mutableMapOf<String, Any>()
                 
-                // Traiter chaque champ avec les opérateurs appropriés
+                // Traiter chaque champ - REMPLACER complètement comme Room
                 dataMap.forEach { (key, value) ->
                     when (key) {
                         "solde", "depense", "alloue", "pretAPlacer" -> {
-                            // 🚨 CORRECTION : Utiliser l'opérateur d'incrémentation Pocketbase
-                            // Au lieu d'envoyer solde = 10$, on envoie solde = {"increment": 10}
-                            modifiedData[key.toString()] = mapOf("increment" to value)
+                            // 🚨 CORRECTION : REMPLACER complètement au lieu d'incrémenter !
+                            // Room calcule déjà les bonnes valeurs, on les envoie telles quelles
+                            if (value != null) {
+                                modifiedData[key.toString()] = value
+                            }
                         }
                         else -> {
                             // Garder les autres champs tels quels (ID, mois, etc.)
@@ -243,7 +261,7 @@ class SyncWorker(
                 
                 val jsonData = gson.toJson(modifiedData)
                 Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données originales Room = ${syncJob.dataJson}")
-                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données avec opérateurs Pocketbase = $jsonData")
+                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données avec REMPLACEMENT complet = $jsonData")
                 
                 jsonData.toRequestBody("application/json".toMediaType())
             } else {
@@ -262,6 +280,12 @@ class SyncWorker(
             
             if (!success) {
                 Log.e(logTag, "❌ Échec HTTP ${response.code} pour UPDATE: ${response.body?.string()}")
+            } else {
+                // 🚨 DEBUG CRITIQUE : Log de succès pour les comptes chèques
+                if (syncJob.type == "COMPTE_CHEQUE") {
+                    Log.d(logTag, "✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !")
+                    Log.d(logTag, "  Réponse: ${response.body?.string()}")
+                }
             }
             
             return success

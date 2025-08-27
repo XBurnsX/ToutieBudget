@@ -9,9 +9,11 @@ import com.xburnsx.toutiebudget.data.modeles.FraisMensuel
 import com.xburnsx.toutiebudget.data.repositories.CarteCreditRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.impl.CarteCreditRepositoryImpl
+import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
@@ -25,10 +27,9 @@ data class CalculsCalculateur(
 )
 
 class CartesCreditViewModel(
-    private val compteRepository: CompteRepository
+    private val carteCreditRepository: CarteCreditRepository,
+    private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
-
-    private val carteCreditRepository: CarteCreditRepository = CarteCreditRepositoryImpl(compteRepository)
 
     private val _uiState = MutableStateFlow(CartesCreditUiState())
     val uiState: StateFlow<CartesCreditUiState> = _uiState.asStateFlow()
@@ -42,6 +43,13 @@ class CartesCreditViewModel(
 
     init {
         chargerCartesCredit()
+        
+        // 🚀 TEMPS RÉEL : Écoute des changements PocketBase pour les cartes de crédit
+        viewModelScope.launch {
+            realtimeSyncService.comptesUpdated.collectLatest {
+                chargerCartesCredit()
+            }
+        }
     }
 
     /**
@@ -249,6 +257,9 @@ class CartesCreditViewModel(
                     _uiState.value = _uiState.value.copy(afficherDialogModification = false)
                     // Recharger les cartes (la carte sélectionnée sera préservée automatiquement)
                     chargerCartesCredit()
+                    
+                    // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR LES COMPTES
+                    realtimeSyncService.declencherMiseAJourComptes()
                 }
                 .onFailure { erreur ->
                     _uiState.value = _uiState.value.copy(
@@ -481,6 +492,9 @@ class CartesCreditViewModel(
                         estEnChargement = false
                     )
                     chargerCartesCredit()
+                    
+                    // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR LES COMPTES
+                    realtimeSyncService.declencherMiseAJourComptes()
                 }
                 .onFailure { erreur ->
                     _uiState.value = _uiState.value.copy(
@@ -540,6 +554,9 @@ class CartesCreditViewModel(
                             },
                             estEnChargement = false
                         )
+                        
+                        // 🚀 DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR LES COMPTES
+                        realtimeSyncService.declencherMiseAJourComptes()
                     }
                     .onFailure { erreur ->
                         _uiState.value = _uiState.value.copy(
