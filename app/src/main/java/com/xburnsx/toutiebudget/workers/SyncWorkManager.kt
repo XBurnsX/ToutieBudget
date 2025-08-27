@@ -28,9 +28,11 @@ object SyncWorkManager {
     /**
      * Planifie la synchronisation automatique quand internet revient
      * Le worker se déclenche automatiquement dès que la connectivité est rétablie
+     * SUIVANT LE MD : Worker INTELLIGENT avec contraintes réseau
      */
     fun planifierSynchronisationAutomatique(context: Context) {
-        val workRequest = creerWorkRequestAutomatique()
+        // ✅ SUIVRE LE MD : Worker avec contraintes réseau qui se déclenche quand internet revient
+        val workRequest = creerWorkRequestReseau()
         WorkManager.getInstance(context).enqueueUniqueWork(
             SYNC_WORK_NAME,
             ExistingWorkPolicy.REPLACE,
@@ -75,10 +77,11 @@ object SyncWorkManager {
     }
     
     /**
-     * Crée une requête de travail automatique qui se déclenche quand internet revient
-     * Utilise les contraintes réseau d'Android pour détecter automatiquement la connectivité
+     * Crée une requête de travail avec contraintes réseau (SUIVANT LE MD)
+     * Le worker se déclenche AUTOMATIQUEMENT dès qu'internet revient
+     * Même si l'appli est fermée !
      */
-    private fun creerWorkRequestAutomatique(): OneTimeWorkRequest {
+    private fun creerWorkRequestReseau(): OneTimeWorkRequest {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED) // Se déclenche dès qu'internet revient
             .setRequiresBatteryNotLow(false) // Pas besoin de batterie pleine
@@ -87,11 +90,6 @@ object SyncWorkManager {
         return OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(constraints)
             .addTag(SYNC_WORK_TAG)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                15,
-                TimeUnit.MINUTES
-            )
             .setInputData(workDataOf("triggered_by" to "network_restored"))
             .build()
     }

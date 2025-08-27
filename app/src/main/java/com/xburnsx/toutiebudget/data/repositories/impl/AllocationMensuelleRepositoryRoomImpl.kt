@@ -78,6 +78,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(nouvelleAllocation),
+                recordId = nouvelleAllocation.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -175,6 +176,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(allocationEntity),
+                recordId = allocationEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -209,6 +211,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(nouvelleAllocation),
+                recordId = nouvelleAllocation.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

@@ -564,10 +564,11 @@ Le système de synchronisation fonctionne parfaitement en arrière-plan ! Vos mo
 Le système de synchronisation fonctionne parfaitement avec synchronisation **INSTANTANÉE** ! 
 
 **Comportement INTELLIGENT :**
-1. **Avec internet** : Synchronisation **INSTANTANÉE** lors des modifications
-2. **Sans internet** : Stockage dans la liste de tâches + synchronisation **AUTOMATIQUE** quand internet revient
-3. **Worker INTELLIGENT** : Se déclenche **AUTOMATIQUEMENT** dès que la connectivité revient
-4. **Même si l'app est fermée** : Le worker fonctionne en arrière-plan et se déclenche quand internet revient
+1. **Import initial INTELLIGENT** : Seulement si Room est complètement vide
+2. **Avec internet** : Synchronisation **INSTANTANÉE** lors des modifications
+3. **Sans internet** : Stockage dans la liste de tâches + synchronisation **AUTOMATIQUE** quand internet revient
+4. **Worker INTELLIGENT** : Se déclenche **AUTOMATIQUEMENT** dès que la connectivité revient
+5. **Même si l'app est fermée** : Le worker fonctionne en arrière-plan et se déclenche quand internet revient
 
 **🚀 L'application fonctionne maintenant en mode Room-first avec synchronisation INTELLIGENTE vers Pocketbase !**
 
@@ -625,6 +626,7 @@ Le système de synchronisation fonctionne parfaitement avec synchronisation **IN
 
 **🧪 Tests de compilation :**
 - ✅ `./gradlew compileDebugKotlin` : SUCCESS
+- ✅ `./gradlew assembleDebug` : SUCCESS
 
 **🎯 Avantages :**
 1. **Données complètes** : Plus de perte d'enveloppes lors de l'import
@@ -632,6 +634,31 @@ Le système de synchronisation fonctionne parfaitement avec synchronisation **IN
 3. **Robustesse** : Gestion automatique de la pagination
 4. **Logs clairs** : Suivi détaillé du processus d'import
 5. **Évolutivité** : Peut gérer des milliers d'éléments
+6. **Import INTELLIGENT** : Seulement si Room est vide (pas de duplication)
+
+---
+
+## 🧠 **NOUVEAU : IMPORT INITIAL INTELLIGENT**
+
+### ✅ **Comportement intelligent implémenté :**
+
+**🔍 Vérification automatique :**
+- ✅ **Méthode `roomContientDejaDesDonnees()`** : Vérifie si Room contient déjà des données
+- ✅ **Vérification des entités de base** : Comptes et catégories (minimum 2 entités)
+- ✅ **Logique intelligente** : Si Room n'est pas vide → Import ignoré
+
+**🎯 Avantages du comportement intelligent :**
+1. **Pas de duplication** : L'import ne se lance que si nécessaire
+2. **Performance optimisée** : Pas de re-import inutile des données existantes
+3. **Expérience utilisateur** : Démarrage rapide si les données sont déjà là
+4. **Économie de bande passante** : Pas de téléchargement inutile depuis Pocketbase
+5. **Robustesse** : En cas d'erreur de vérification → Import effectué (sécurisé)
+
+**🔧 Implémentation technique :**
+- ✅ **Vérification au début** : Avant tout import
+- ✅ **Comptage des entités** : Utilise les DAOs existants
+- ✅ **Seuil intelligent** : Minimum 2 entités de base pour considérer Room comme rempli
+- ✅ **Gestion d'erreur** : Fallback vers l'import si problème de vérification
 
 ---
 
@@ -739,16 +766,17 @@ Le système de synchronisation automatique fonctionne parfaitement en arrière-p
 - ✅ `./gradlew assembleDebug` : SUCCESS
 
 **🎯 Fonctionnalités opérationnelles :**
-1. **Synchronisation INSTANTANÉE** lors des modifications (si internet disponible)
-2. **Fallback intelligent** : Si pas d'internet, stockage dans la liste de tâches
-3. **Worker INTELLIGENT** : Se déclenche **AUTOMATIQUEMENT** quand internet revient
-4. **Même si l'app est fermée** : Le worker fonctionne en arrière-plan
-5. **Traitement en arrière-plan** des tâches `SyncJob` en attente
-6. **Gestion des erreurs** avec retry automatique
-7. **Contraintes réseau** (seulement avec internet)
-8. **Traitement des actions** : CREATE, UPDATE, DELETE vers Pocketbase
-9. **Interface temps réel** : Affichage du statut de synchronisation
-10. **Aucun contrôle manuel** : Tout fonctionne automatiquement
+1. **Import initial INTELLIGENT** : Seulement si Room est complètement vide
+2. **Synchronisation INSTANTANÉE** lors des modifications (si internet disponible)
+3. **Fallback intelligent** : Si pas d'internet, stockage dans la liste de tâches
+4. **Worker INTELLIGENT** : Se déclenche **AUTOMATIQUEMENT** quand internet revient
+5. **Même si l'app est fermée** : Le worker fonctionne en arrière-plan
+6. **Traitement en arrière-plan** des tâches `SyncJob` en attente
+7. **Gestion des erreurs** avec retry automatique
+8. **Contraintes réseau** (seulement avec internet)
+9. **Traitement des actions** : CREATE, UPDATE, DELETE vers Pocketbase
+10. **Interface temps réel** : Affichage du statut de synchronisation
+11. **Aucun contrôle manuel** : Tout fonctionne automatiquement
 
 **🚀 L'application fonctionne maintenant en mode Room-first avec synchronisation automatique vers Pocketbase !**
 

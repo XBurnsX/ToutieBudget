@@ -118,6 +118,7 @@ class PretPersonnelRepositoryRoomImpl(
                 type = "PRET_PERSONNEL",
                 action = "UPDATE",
                 dataJson = gson.toJson(pretEntity),
+                recordId = pretEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -142,6 +143,7 @@ class PretPersonnelRepositoryRoomImpl(
                 type = "PRET_PERSONNEL",
                 action = "DELETE",
                 dataJson = gson.toJson(mapOf("id" to id)),
+                recordId = id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement à supprimer
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

@@ -29,20 +29,23 @@ class RolloverServiceImpl(
                     try {
                         val allocationVerif = allocationMensuelleRepository.getAllocationById(allocationAncienne.id)
                         if (allocationVerif != null) {
-                            // Maintenant essayer de la mettre à jour
-                            val allocationMiseAJour = allocationVerif.copy(solde = 0.0)
-                            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                            // 1. ✅ Mettre à jour août : solde à 0 ET alloué déduit
+                            val allocationAoutMiseAJour = allocationVerif.copy(
+                                solde = 0.0, // Solde remis à zéro
+                                alloue = allocationVerif.alloue - montantATransferer // Alloué déduit du montant transféré
+                            )
+                            allocationMensuelleRepository.mettreAJourAllocation(allocationAoutMiseAJour)
                             
-                            // 2. ✅ CRÉER une allocation d'août avec l'argent transféré (rollover transparent)
-                            val nouvelleAllocationAout = allocationAncienne.copy(
-                                id = "", // Nouveau ID généré par PocketBase
-                                mois = nouveauMois, // Août au lieu de juillet
-                                solde = montantATransferer, // Montant transféré
-                                alloue = 0.0, // ← IMPORTANT: Pas d'allocation nouvelle ! C'est un rollover
-                                depense = 0.0 // Pas de dépense en août pour l'instant
+                            // 2. ✅ Créer septembre : solde ET alloué augmentés du montant transféré
+                            val nouvelleAllocationSeptembre = allocationAncienne.copy(
+                                id = "", // Nouveau ID généré
+                                mois = nouveauMois, // Septembre
+                                solde = montantATransferer, // Montant transféré d'août
+                                alloue = montantATransferer, // Montant transféré = alloué pour septembre
+                                depense = 0.0 // Pas de dépense en septembre pour l'instant
                             )
                             
-                            allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationAout)
+                            allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationSeptembre)
                             
                         } else {
                             continue // Passer à l'allocation suivante

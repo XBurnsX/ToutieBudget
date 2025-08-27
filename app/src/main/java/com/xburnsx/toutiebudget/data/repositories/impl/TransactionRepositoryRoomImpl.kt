@@ -219,6 +219,7 @@ class TransactionRepositoryRoomImpl(
                 type = "TRANSACTION",
                 action = "UPDATE",
                 dataJson = gson.toJson(transactionEntity),
+                recordId = transactionEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -253,6 +254,7 @@ class TransactionRepositoryRoomImpl(
                 type = "TRANSACTION",
                 action = "DELETE",
                 dataJson = gson.toJson(mapOf("id" to transactionId)),
+                recordId = transactionId, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement à supprimer
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -330,7 +332,7 @@ class TransactionRepositoryRoomImpl(
                     response.isSuccessful
                 }
                 "UPDATE" -> {
-                    val url = "$urlBase/api/collections/$collection/records/${syncJob.id}"
+                    val url = "$urlBase/api/collections/$collection/records/${syncJob.recordId}"
                     val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
                     val request = okhttp3.Request.Builder()
                         .url(url)
@@ -342,7 +344,7 @@ class TransactionRepositoryRoomImpl(
                     response.isSuccessful
                 }
                 "DELETE" -> {
-                    val url = "$urlBase/api/collections/$collection/records/${syncJob.id}"
+                    val url = "$urlBase/api/collections/$collection/records/${syncJob.recordId}"
                     val request = okhttp3.Request.Builder()
                         .url(url)
                         .delete()
@@ -365,9 +367,24 @@ class TransactionRepositoryRoomImpl(
      * Vérifie si l'appareil est connecté à internet
      */
     private fun estConnecteInternet(): Boolean {
-        // TODO: Implémenter une vraie vérification de connectivité
-        // Pour l'instant, on suppose qu'il y a internet
-        return true
+        // 🆕 VRAIE VÉRIFICATION DE LA CONNECTIVITÉ RÉSEAU
+        return try {
+            // Utiliser le contexte de l'application pour vérifier la connectivité
+            val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
+            if (context != null) {
+                val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val network = connectivityManager.activeNetwork
+                val capabilities = connectivityManager.getNetworkCapabilities(network)
+                
+                capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TransactionRepo", "❌ Erreur lors de la vérification réseau", e)
+            false
+        }
     }
     
     /**
@@ -375,17 +392,16 @@ class TransactionRepositoryRoomImpl(
      * Le worker se déclenchera automatiquement dès que la connectivité est rétablie
      */
     private fun declencherSynchronisationAutomatique() {
-        // Utiliser un contexte global pour déclencher la synchronisation
-        // Le worker se déclenchera automatiquement quand internet revient
+        // 🆕 DÉCLENCHER VRAIMENT LA SYNCHRONISATION VIA LE WORKMANAGER
+        // Utiliser le contexte de l'application pour accéder au WorkManager
         try {
-            // Créer un contexte d'application pour déclencher la synchronisation
-            val context = android.app.Application().createPackageContext(
-                "com.xburnsx.toutiebudget",
-                android.content.Context.CONTEXT_IGNORE_SECURITY
-            )
-            SyncWorkManager.declencherSynchronisationAutomatique(context)
+            val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
+            if (context != null) {
+                com.xburnsx.toutiebudget.workers.SyncWorkManager.declencherSynchronisationAutomatique(context)
+                android.util.Log.d("TransactionRepo", "🚀 Synchronisation automatique déclenchée après modification")
+            }
         } catch (e: Exception) {
-            // En cas d'erreur, on continue (la synchronisation se fera via le worker périodique)
+            android.util.Log.e("TransactionRepo", "❌ Erreur lors du déclenchement de la synchronisation", e)
         }
     }
 }

@@ -28,6 +28,12 @@ data class SyncJob(
     val dataJson: String,
     
     /**
+     * ID de l'enregistrement Pocketbase à modifier (pour UPDATE et DELETE)
+     * Vide pour CREATE
+     */
+    val recordId: String = "",
+    
+    /**
      * Timestamp de création de la tâche
      */
     val createdAt: Long = 0,

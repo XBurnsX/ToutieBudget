@@ -128,6 +128,7 @@ class EnveloppeRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(allocationEntity),
+                recordId = allocationEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -210,6 +211,7 @@ class EnveloppeRepositoryRoomImpl(
                 type = "ENVELOPPE",
                 action = "UPDATE",
                 dataJson = gson.toJson(enveloppeEntity),
+                recordId = enveloppeEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -234,6 +236,7 @@ class EnveloppeRepositoryRoomImpl(
                 type = "ENVELOPPE",
                 action = "DELETE",
                 dataJson = gson.toJson(mapOf("id" to id)),
+                recordId = id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement à supprimer
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -268,6 +271,7 @@ class EnveloppeRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(nouvelleAllocation),
+                recordId = nouvelleAllocation.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -302,6 +306,7 @@ class EnveloppeRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "UPDATE",
                 dataJson = gson.toJson(nouvelleAllocation),
+                recordId = nouvelleAllocation.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

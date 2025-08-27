@@ -24,6 +24,12 @@ interface SyncJobDao {
     suspend fun getPendingSyncJobs(): List<SyncJob>
     
     /**
+     * Récupère toutes les tâches en attente ET échouées pour retry
+     */
+    @Query("SELECT * FROM sync_jobs WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAt ASC")
+    suspend fun getPendingAndFailedSyncJobs(): List<SyncJob>
+    
+    /**
      * Récupère les tâches par type d'entité
      */
     @Query("SELECT * FROM sync_jobs WHERE type = :type ORDER BY createdAt ASC")

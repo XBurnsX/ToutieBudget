@@ -49,7 +49,16 @@ class InitialImportService(
      */
     suspend fun importerDonneesInitiales(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            Log.d(logTag, "🚀 DÉBUT DE L'IMPORT COMPLET DES DONNÉES AVEC RELATIONS")
+            Log.d(logTag, "🚀 VÉRIFICATION DES DONNÉES EXISTANTES DANS ROOM...")
+            
+            // ÉTAPE 0: VÉRIFIER SI ROOM EST DÉJÀ REMPLI
+            if (roomContientDejaDesDonnees()) {
+                Log.d(logTag, "✅ Room contient déjà des données, import initial ignoré")
+                onProgressUpdate?.invoke(7, "Données déjà synchronisées")
+                return@withContext Result.success(Unit)
+            }
+            
+            Log.d(logTag, "🚀 Room est vide, DÉBUT DE L'IMPORT COMPLET DES DONNÉES AVEC RELATIONS")
             
             // ÉTAPE 1: Vérification de la connexion
             onProgressUpdate?.invoke(1, "Vérification de la connexion...")
@@ -655,6 +664,38 @@ class InitialImportService(
                 Log.w(logTag, "⚠️ Erreur conversion prêt personnel: ${e.message}")
                 null
             }
+        }
+    }
+    
+    /**
+     * Vérifie si Room contient déjà des données
+     * Si oui, l'import initial n'est pas nécessaire
+     */
+    private suspend fun roomContientDejaDesDonnees(): Boolean {
+        return try {
+            // Récupérer l'utilisateur connecté pour vérifier ses données
+            val utilisateurConnecte = client.obtenirUtilisateurConnecte()
+            val utilisateurId = utilisateurConnecte?.id ?: return false
+            
+            // Vérifier si on a au moins des comptes (entité de base)
+            val comptesChequesCount = compteChequeDao.getComptesCount(utilisateurId)
+            val comptesCreditsCount = compteCreditDao.getComptesCount(utilisateurId)
+            val comptesDettesCount = compteDetteDao.getComptesCount(utilisateurId)
+            val comptesInvestissementCount = compteInvestissementDao.getComptesCount(utilisateurId)
+            val categoriesCount = categorieDao.getCategoriesCount(utilisateurId)
+            
+            // Si on a au moins des comptes et des catégories, Room n'est pas vide
+            val totalComptes = comptesChequesCount + comptesCreditsCount + comptesDettesCount + comptesInvestissementCount
+            val totalEntites = totalComptes + categoriesCount
+            
+            Log.d(logTag, "🔍 Vérification Room: $totalComptes comptes, $categoriesCount catégories")
+            
+            // Room est considéré comme rempli si on a au moins 2 entités de base
+            totalEntites >= 2
+            
+        } catch (e: Exception) {
+            Log.w(logTag, "⚠️ Erreur lors de la vérification des données Room", e)
+            false // En cas d'erreur, on fait l'import pour être sûr
         }
     }
 }

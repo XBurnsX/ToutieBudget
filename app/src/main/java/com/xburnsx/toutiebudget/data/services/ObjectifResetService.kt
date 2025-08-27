@@ -199,12 +199,11 @@ class ObjectifResetService(
             mois = moisNouveauCycle
         )
         
-        // Reset seulement l'alloué et les dépenses à 0 pour le nouveau cycle
-        // IMPORTANT : Garder le solde existant pour ne pas perdre l'argent
+        // Reset SEULEMENT l'alloué pour le nouveau cycle
+        // IMPORTANT : Préserver le solde ET les dépenses (statistiques)
         val allocationResetee = allocationExistante.copy(
-            solde = allocationExistante.solde,  // ← Conserver le solde existant
-            alloue = 0.0,
-            depense = 0.0
+            alloue = 0.0  // ← Reset pour nouveau cycle
+            // solde et depense restent inchangés (statistiques préservées)
         )
         
         // Mettre à jour l'allocation en base
@@ -248,12 +247,11 @@ class ObjectifResetService(
             mois = moisNouveauCycle
         )
         
-        // Reset le solde alloué ET les dépenses à 0 pour le nouveau cycle
-        // Important : reset aussi depense car les dépenses s'accumulent sur 12 mois
+        // Reset SEULEMENT l'alloué pour le nouveau cycle
+        // IMPORTANT : Préserver le solde ET les dépenses (statistiques)
         val allocationResetee = allocationExistante.copy(
-            solde = 0.0,
-            alloue = 0.0,
-            depense = 0.0
+            alloue = 0.0  // ← Reset pour nouveau cycle
+            // solde et depense restent inchangés (statistiques préservées)
         )
         
         // Mettre à jour l'allocation en base
@@ -303,10 +301,11 @@ class ObjectifResetService(
             mois = moisNouveauCycle
         )
         
-        // Reset SEULEMENT les dépenses à 0, garder le solde et l'alloué
+        // Reset SEULEMENT l'alloué pour le nouveau cycle
+        // IMPORTANT : Préserver le solde ET les dépenses (statistiques)
         val allocationResetee = allocationExistante.copy(
-            depense = 0.0
-            // solde et alloue restent inchangés
+            alloue = 0.0  // ← Reset pour nouveau cycle
+            // solde et depense restent inchangés (statistiques préservées)
         )
         
         // Mettre à jour l'allocation en base
