@@ -19,6 +19,9 @@ interface AllocationMensuelleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllocation(allocation: AllocationMensuelle): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(allocations: List<AllocationMensuelle>)
+    
     @Update
     suspend fun updateAllocation(allocation: AllocationMensuelle)
     

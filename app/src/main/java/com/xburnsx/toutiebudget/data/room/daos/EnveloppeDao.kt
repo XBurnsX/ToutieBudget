@@ -19,6 +19,9 @@ interface EnveloppeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEnveloppe(enveloppe: Enveloppe): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(enveloppes: List<Enveloppe>)
+    
     @Update
     suspend fun updateEnveloppe(enveloppe: Enveloppe)
     

@@ -36,6 +36,7 @@ import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
+import com.xburnsx.toutiebudget.ui.startup.PostLoginStartupScreen
 import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
 import com.xburnsx.toutiebudget.ui.sync.SyncJobScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
@@ -145,13 +146,25 @@ fun AppNavigation() {
                                 // ignorer en cas d'absence de record
                             }
 
-                            navController.navigate("main_flow") {
+                            navController.navigate("post_login_startup") {
                                 popUpTo("login_flow") { inclusive = true }
                             }
                         }
                     }
                 )
             }
+            
+            // Écran d'initialisation post-login avec animations
+            composable("post_login_startup") {
+                PostLoginStartupScreen(
+                    onInitializationComplete = {
+                        navController.navigate("main_flow") {
+                            popUpTo("post_login_startup") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            
             composable("main_flow") {
                 MainAppScaffold(navController, couleurTheme) { nouvelleCouleur ->
                     couleurTheme = nouvelleCouleur

@@ -19,6 +19,9 @@ interface CompteChequeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCompte(compte: CompteCheque): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(comptes: List<CompteCheque>)
+    
     @Update
     suspend fun updateCompte(compte: CompteCheque)
     

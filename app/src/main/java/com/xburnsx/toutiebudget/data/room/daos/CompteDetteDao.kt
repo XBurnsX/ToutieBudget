@@ -19,6 +19,9 @@ interface CompteDetteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCompte(compte: CompteDette): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(comptes: List<CompteDette>)
+    
     @Update
     suspend fun updateCompte(compte: CompteDette)
     

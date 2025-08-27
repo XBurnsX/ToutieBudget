@@ -8,6 +8,7 @@
  import com.xburnsx.toutiebudget.data.repositories.*
  import com.xburnsx.toutiebudget.data.repositories.impl.*
  import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+import com.xburnsx.toutiebudget.data.services.InitialImportService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
  import com.xburnsx.toutiebudget.domain.services.*
@@ -107,6 +108,21 @@ import android.content.Context
      }
      private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
+    
+    private val initialImportService: InitialImportService by lazy {
+        InitialImportService(
+            database.compteChequeDao(),
+            database.compteCreditDao(),
+            database.compteDetteDao(),
+            database.compteInvestissementDao(),
+            database.transactionDao(),
+            database.categorieDao(),
+            database.enveloppeDao(),
+            database.allocationMensuelleDao(),
+            database.tiersDao(),
+            database.pretPersonnelDao()
+        )
+    }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
      
@@ -231,6 +247,8 @@ import android.content.Context
     // Initialisation de cache supprimée
 
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
+    
+    fun provideInitialImportService(): InitialImportService = initialImportService
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel

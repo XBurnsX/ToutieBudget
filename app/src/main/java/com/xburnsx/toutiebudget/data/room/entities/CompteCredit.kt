@@ -38,7 +38,7 @@ data class CompteCredit(
     val paiementMinimum: Double? = null,
     
     @ColumnInfo(name = "frais_mensuels_json")
-    val fraisMensuelsJson: String? = null,
+    val fraisMensuelsJson: String? = null, // On garde String pour Room, on convertira en JSON
     
     val collection: String = "comptes_credits"
 )

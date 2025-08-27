@@ -19,6 +19,9 @@ interface CompteInvestissementDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCompte(compte: CompteInvestissement): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(comptes: List<CompteInvestissement>)
+    
     @Update
     suspend fun updateCompte(compte: CompteInvestissement)
     

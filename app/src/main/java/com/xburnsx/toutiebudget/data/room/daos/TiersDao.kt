@@ -19,6 +19,9 @@ interface TiersDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTiers(tiers: Tiers): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(tiersList: List<Tiers>)
+    
     @Update
     suspend fun updateTiers(tiers: Tiers)
     

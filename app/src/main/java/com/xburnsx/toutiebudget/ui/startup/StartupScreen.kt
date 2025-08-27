@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 
+
 /**
  * Écran de démarrage qui vérifie l'état du serveur et l'authentification
  * avant de rediriger vers la bonne destination

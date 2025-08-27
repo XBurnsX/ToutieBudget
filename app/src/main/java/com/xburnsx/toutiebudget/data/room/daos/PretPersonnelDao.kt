@@ -19,6 +19,9 @@ interface PretPersonnelDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPret(pret: PretPersonnel): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(pretsPersonnels: List<PretPersonnel>)
+    
     @Update
     suspend fun updatePret(pret: PretPersonnel)
     

@@ -27,7 +27,7 @@ class PreferenceRepositoryImpl : PreferenceRepository {
 
     override suspend fun sauvegarderCategoriesOuvertes(categoriesOuvertes: Map<String, Boolean>) {
         this.categoriesOuvertes = categoriesOuvertes
-        // TODO: Sauvegarder dans PocketBase via RealtimeSyncService
+        // TODO: Sauvegarder dans PocketBase via RealtimeSyncService ( Annuler on utilise plus ce systeme )
     }
 
     override suspend fun recupererCategoriesOuvertes(): Map<String, Boolean> {
