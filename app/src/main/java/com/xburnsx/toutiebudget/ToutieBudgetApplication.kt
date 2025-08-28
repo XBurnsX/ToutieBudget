@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 /**
  * Classe Application personnalisée pour ToutieBudget
  * Responsable de l'initialisation de la base de données Room
+ * 🆕 MODE HORS LIGNE : Surveillance automatique de la connectivité réseau
  */
 class ToutieBudgetApplication : Application() {
     
@@ -28,6 +29,10 @@ class ToutieBudgetApplication : Application() {
         // Initialiser la base de données Room
         AppModule.initializeDatabase(this)
         
+        // 🆕 NOUVEAU : Démarrer la surveillance de la connectivité réseau
+        // Cela permettra la synchronisation automatique quand internet revient
+        demarrerSurveillanceReseau()
+        
         // DÉMARRER LA SYNCHRONISATION AUTOMATIQUE QUAND INTERNET REVIENT
         // Le worker se déclenchera automatiquement dès que la connectivité est rétablie
         SyncWorkManager.planifierSynchronisationAutomatique(this)
@@ -35,6 +40,20 @@ class ToutieBudgetApplication : Application() {
         // 🆕 VÉRIFIER ET TRAITER LES SYNCJOB EXISTANTS À L'OUVERTURE
         // Si il y a des tâches en attente, on les traite immédiatement
         verifierEtTraiterSyncJobExistants()
+    }
+    
+    /**
+     * 🆕 NOUVEAU : Démarre la surveillance de la connectivité réseau
+     * Permet la synchronisation automatique dès qu'internet revient
+     */
+    private fun demarrerSurveillanceReseau() {
+        try {
+            val networkService = AppModule.provideNetworkConnectivityService(this)
+            networkService.startNetworkMonitoring()
+            android.util.Log.d("ToutieBudgetApp", "✅ Surveillance réseau démarrée")
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudgetApp", "❌ Erreur lors du démarrage de la surveillance réseau", e)
+        }
     }
     
     /**

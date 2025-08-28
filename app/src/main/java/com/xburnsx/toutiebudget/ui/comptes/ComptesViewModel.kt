@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import com.xburnsx.toutiebudget.utils.IdGenerator
 
 class ComptesViewModel(
@@ -40,6 +41,8 @@ class ComptesViewModel(
 
     init {
         chargerComptes()
+        // Démarrer le rafraîchissement automatique toutes les 2 secondes
+        demarrerRafraichissementAutomatique()
 
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
@@ -96,6 +99,56 @@ class ComptesViewModel(
     // 🔄 NOUVELLE MÉTHODE : Rafraîchir les comptes
     fun rafraichirComptes() {
         chargerComptes()
+    }
+
+    /**
+     * Démarre un rafraîchissement automatique des données toutes les 2 secondes.
+     * Cela permet de détecter les changements faits depuis d'autres écrans (virements, etc.).
+     */
+    private fun demarrerRafraichissementAutomatique() {
+        viewModelScope.launch {
+            while (true) {
+                delay(2000) // Attendre 2 secondes
+                try {
+                    // Recharger silencieusement les comptes
+                    val nouveauxComptes = compteRepository.recupererTousLesComptes()
+                        .getOrThrow()
+                    
+                    // Vérifier si les données ont changé (comparaison des soldes et prêts à placer)
+                    val comptesActuels = _uiState.value.comptesGroupes.values.flatten()
+                    var donneesOntChange = false
+                    
+                    // 🔍 DEBUG : Vérifier chaque compte individuellement
+                    nouveauxComptes.forEach { nouveauCompte ->
+                        val compteActuel = comptesActuels.find { it.id == nouveauCompte.id }
+                        if (compteActuel != null) {
+                            val soldeChange = compteActuel.solde != nouveauCompte.solde
+                            val pretAPlacerChange = if (compteActuel is CompteCheque && nouveauCompte is CompteCheque) {
+                                compteActuel.pretAPlacer != nouveauCompte.pretAPlacer
+                            } else false
+                            
+                            if (soldeChange || pretAPlacerChange) {
+                                Log.d("ComptesViewModel", "🔄 Changement détecté pour ${nouveauCompte.nom}:")
+                                if (soldeChange) Log.d("ComptesViewModel", "  Solde: ${compteActuel.solde} → ${nouveauCompte.solde}")
+                                if (pretAPlacerChange) Log.d("ComptesViewModel", "  Prêt à placer: ${(compteActuel as CompteCheque).pretAPlacer} → ${(nouveauCompte as CompteCheque).pretAPlacer}")
+                                donneesOntChange = true
+                            }
+                        } else {
+                            // Nouveau compte
+                            donneesOntChange = true
+                        }
+                    }
+                    
+                    if (donneesOntChange) {
+                        Log.d("ComptesViewModel", "🔄 Changements détectés - Mise à jour automatique des comptes")
+                        chargerComptes()
+                    }
+                } catch (e: Exception) {
+                    // Gérer l'erreur silencieusement
+                    Log.d("ComptesViewModel", "Erreur lors du rafraîchissement automatique: ${e.message}")
+                }
+            }
+        }
     }
 
     fun onCompteLongPress(compte: Compte) {

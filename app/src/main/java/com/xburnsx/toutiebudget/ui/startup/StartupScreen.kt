@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,13 +47,15 @@ import com.xburnsx.toutiebudget.di.PocketBaseClient
 /**
  * Écran de démarrage qui vérifie l'état du serveur et l'authentification
  * avant de rediriger vers la bonne destination
+ * 🆕 SUPPORT HORS LIGNE : Gère la navigation vers le mode hors ligne
  */
 @Composable
 fun StartupScreen(
     viewModel: StartupViewModel,
     onNavigateToLogin: () -> Unit,
     onNavigateToBudget: () -> Unit,
-    onShowServerError: () -> Unit
+    onShowServerError: () -> Unit,
+    onNavigateToOfflineMode: () -> Unit = {} // 🆕 NOUVEAU : Callback pour le mode hors ligne
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
@@ -72,6 +76,10 @@ fun StartupScreen(
             }
             is StartupState.ServerError -> {
                 onShowServerError()
+            }
+            is StartupState.OfflineMode -> {
+                // 🆕 NOUVEAU : Navigation vers le mode hors ligne
+                onNavigateToOfflineMode()
             }
             is StartupState.Loading -> {
                 // Rester sur l'écran de chargement
@@ -220,6 +228,88 @@ fun StartupScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
+                        )
+                    }
+                }
+
+                // 🆕 NOUVEAU : Gestion du mode hors ligne
+                is StartupState.OfflineMode -> {
+                    // Logo en version normale pour le mode hors ligne
+                    Image(
+                        painter = painterResource(id = R.drawable.splash),
+                        contentDescription = "Logo ToutieBudget",
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "📱 Mode hors ligne",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary, // 🎨 COULEUR DU THÈME au lieu du turquoise fixe
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "L'application s'ouvre en mode hors ligne",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Vos données locales sont disponibles. La synchronisation se fera automatiquement quand internet reviendra.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Bouton pour continuer en mode hors ligne
+                    Button(
+                        onClick = { 
+                            // 🆕 NOUVEAU : Navigation vers le mode hors ligne
+                            onNavigateToOfflineMode()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary // 🎨 COULEUR DU THÈME au lieu du turquoise fixe
+                        ),
+                        modifier = Modifier.padding(horizontal = 48.dp)
+                    ) {
+                        Text(
+                            text = "Continuer hors ligne",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Bouton pour réessayer la connexion
+                    Button(
+                        onClick = { viewModel.retry(context) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        modifier = Modifier.padding(horizontal = 48.dp)
+                    ) {
+                        Text(
+                            text = "Réessayer la connexion",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
                         )
                     }
                 }

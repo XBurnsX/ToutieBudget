@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.Calendar
 
@@ -41,7 +42,7 @@ class VirerArgentViewModel(
     private val _uiState = MutableStateFlow(VirerArgentUiState())
     val uiState: StateFlow<VirerArgentUiState> = _uiState.asStateFlow()
 
-    // Données mises en cache
+    // Données mises en cache avec rafraîchissement automatique
     private var allComptes: List<Compte> = emptyList()
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
@@ -49,13 +50,62 @@ class VirerArgentViewModel(
 
     init {
         chargerDonneesInitiales()
+        // Démarrer le rafraîchissement automatique toutes les 2 secondes
+        demarrerRafraichissementAutomatique()
     }
 
     /**
-     * Recharge les données depuis les repositories.
-     * À appeler quand l'écran redevient visible ou après des modifications.
+     * Démarre un rafraîchissement automatique des données toutes les 2 secondes.
+     * Cela permet de détecter les changements faits depuis d'autres écrans.
+     */
+    private fun demarrerRafraichissementAutomatique() {
+        viewModelScope.launch {
+            while (true) {
+                delay(2000) // Attendre 2 secondes
+                try {
+                    // Recharger silencieusement les données
+                    val nouveauxComptes = compteRepository.recupererTousLesComptes()
+                        .getOrThrow()
+                        .filter { !it.estArchive }
+                    
+                    val nouvellesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                        .getOrThrow()
+                        .filter { !it.estArchive }
+                    
+                    val nouvellesAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
+                        .getOrThrow()
+                    
+                    val nouvellesCategories = categorieRepository.recupererToutesLesCategories()
+                        .getOrThrow()
+                    
+                    // Vérifier si les données ont changé
+                    if (nouveauxComptes != allComptes || 
+                        nouvellesEnveloppes != allEnveloppes || 
+                        nouvellesAllocations != allAllocations ||
+                        nouvellesCategories != allCategories) {
+                        
+                        // Mettre à jour les données
+                        allComptes = nouveauxComptes
+                        allEnveloppes = nouvellesEnveloppes
+                        allAllocations = nouvellesAllocations
+                        allCategories = nouvellesCategories
+                        
+                        // Reconfigurer l'UI
+                        configurerSourcesEtDestinationsPourMode()
+                    }
+                } catch (e: Exception) {
+                    // Gérer l'erreur silencieusement
+                }
+            }
+        }
+    }
+
+    /**
+     * Force le rafraîchissement des données.
+     * Utile quand on veut s'assurer que les données sont à jour.
      */
     fun rechargerDonnees() {
+        // Forcer la mise à jour en relançant le chargement
         chargerDonneesInitiales()
     }
 
@@ -81,13 +131,11 @@ class VirerArgentViewModel(
     // ===== CHARGEMENT DES DONNÉES =====
 
     /**
-     * Charge toutes les données nécessaires depuis les repositories une seule fois.
+     * Charge toutes les données nécessaires depuis les repositories.
      */
-    private fun chargerDonneesInitiales(): kotlinx.coroutines.Job {
-        return viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+    private fun chargerDonneesInitiales() {
+        viewModelScope.launch {
             try {
-
                 allComptes = compteRepository.recupererTousLesComptes()
                     .getOrThrow()
                     .filter { !it.estArchive }
@@ -104,16 +152,8 @@ class VirerArgentViewModel(
 
                 // Configurer les sources et destinations pour le mode initial
                 configurerSourcesEtDestinationsPourMode()
-
             } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        erreur = "Erreur de chargement: ${e.message}"
-                    )
-                }
-            } finally {
-                _uiState.update { it.copy(isLoading = false) }
+                // Gérer l'erreur silencieusement
             }
         }
     }
@@ -446,10 +486,10 @@ class VirerArgentViewModel(
 
                     // Compte vers Enveloppe (Prêt à placer vers enveloppe) - VIREMENT INTERNE (pas de transaction)
                     source is ItemVirement.CompteItem && destination is ItemVirement.EnveloppeItem -> {
-                        val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
-                        if (enveloppeDestination == null) {
-                            Result.failure(Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(destination.enveloppe.nom)))
-                        } else {
+                                                 val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
+                         if (enveloppeDestination == null) {
+                             Result.failure(Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(destination.enveloppe.nom)))
+                         } else {
                             val result = argentService.allouerArgentEnveloppeSansTransaction(
                                 enveloppeId = destination.enveloppe.id,
                                 compteSourceId = source.compte.id,
@@ -495,7 +535,7 @@ class VirerArgentViewModel(
                         if (estPretAPlacer(source.enveloppe)) {
                             // 🎯 SOURCE EST UN PRÊT À PLACER - VIREMENT COMPTE VERS ENVELOPPE
                             val compteSourceId = extraireCompteIdDepuisPretAPlacer(source.enveloppe.id)
-                            val compteSource = allComptes.find { it.id == compteSourceId }
+                                                         val compteSource = allComptes.find { it.id == compteSourceId }
                             
                             if (compteSource == null) {
                                 Result.failure(Exception("Compte source introuvable pour le prêt à placer"))
@@ -556,7 +596,7 @@ class VirerArgentViewModel(
                         } else if (estPretAPlacer(destination.enveloppe)) {
                             // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
                             val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
-                            val compteDestination = allComptes.find { it.id == compteId }
+                                                         val compteDestination = allComptes.find { it.id == compteId }
                             if (compteDestination == null) {
                                 Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.COMPTE_DESTINATION_INTROUVABLE))
                             } else {
@@ -576,8 +616,8 @@ class VirerArgentViewModel(
                             }
                         } else {
                             // Cas normal: Enveloppe vers Enveloppe
-                            val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
-                            val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
+                                                         val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
+                             val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
 
                             when {
                                 enveloppeSource == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_INTROUVABLE))
@@ -654,11 +694,11 @@ class VirerArgentViewModel(
                 // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (EN PARALLÈLE, non-bloquant)
                 launch {
                     println("DEBUG: Virement réussi, rechargement des données...")
-                    chargerDonneesInitiales().join()
+                    chargerDonneesInitiales()
                     
                     // ⏱️ Délai plus long pour s'assurer que les données sont bien sauvegardées
                     println("DEBUG: Attente de 1 seconde avant mise à jour du budget...")
-                    kotlinx.coroutines.delay(1000)
+                    delay(1000)
                     
                     println("DEBUG: Déclenchement de la mise à jour du budget...")
                     realtimeSyncService.declencherMiseAJourBudget()
@@ -778,7 +818,7 @@ class VirerArgentViewModel(
                 if (estPretAPlacer(item.enveloppe)) {
                     // Extraire l'ID du compte et récupérer le montant prêt à placer
                     val compteId = extraireCompteIdDepuisPretAPlacer(item.enveloppe.id)
-                    val compte = allComptes.find { it.id == compteId }
+                                         val compte = allComptes.find { it.id == compteId }
                     if (compte is CompteCheque) {
                         compte.pretAPlacer
                     } else {

@@ -55,21 +55,26 @@ object PocketBaseClient {
 
     /**
      * Initialise le client en résolvant l'URL active
+     * 🆕 MODE HORS LIGNE : Ne lance plus d'exception en cas d'erreur de connexion
      */
-    suspend fun initialiser() {
-        try {
+    suspend fun initialiser(): Boolean {
+        return try {
             val urlActive = UrlResolver.obtenirUrlActive()
             
-            // Test de connectivité
+            // Test de connectivité (ne lance plus d'exception)
             testerConnectivite(urlActive)
             
+            true // ✅ Initialisation réussie
         } catch (e: Exception) {
-            throw e
+            // 🆕 MODE HORS LIGNE : Log de l'erreur mais pas d'exception
+            android.util.Log.w("PocketBaseClient", "⚠️ Erreur lors de l'initialisation (mode hors ligne autorisé): ${e.message}")
+            false // ❌ Initialisation échouée mais app peut continuer
         }
     }
 
     /**
      * Teste la connectivité vers PocketBase
+     * 🆕 MODE HORS LIGNE : Ne lance plus d'exception
      */
     private suspend fun testerConnectivite(urlBase: String) {
         try {
@@ -83,10 +88,12 @@ object PocketBaseClient {
             }
             
             if (!reponse.isSuccessful) {
-                // Log silencieux pour les erreurs de connectivité
+                android.util.Log.w("PocketBaseClient", "⚠️ Serveur PocketBase non accessible (code: ${reponse.code})")
+            } else {
+                android.util.Log.d("PocketBaseClient", "✅ Serveur PocketBase accessible")
             }
-        } catch (_: Exception) {
-            // Log silencieux pour les erreurs de connectivité
+        } catch (e: Exception) {
+            android.util.Log.w("PocketBaseClient", "⚠️ Erreur de connectivité vers PocketBase: ${e.message}")
         }
     }
 

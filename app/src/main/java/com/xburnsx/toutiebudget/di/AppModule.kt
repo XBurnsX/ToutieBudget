@@ -288,4 +288,14 @@ import android.content.Context
              context = context
          )
      }
+     
+     // 🆕 NOUVEAU : Fournit le SyncWorkManager pour la planification de la synchronisation
+     fun provideSyncWorkManager(context: Context): com.xburnsx.toutiebudget.workers.SyncWorkManager {
+         return com.xburnsx.toutiebudget.workers.SyncWorkManager
+     }
+     
+     // 🆕 NOUVEAU : Fournit le service de surveillance de la connectivité réseau
+     fun provideNetworkConnectivityService(context: Context): com.xburnsx.toutiebudget.data.services.NetworkConnectivityService {
+         return com.xburnsx.toutiebudget.data.services.NetworkConnectivityService(context)
+     }
  }

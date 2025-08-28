@@ -106,6 +106,12 @@ fun AppNavigation() {
                     },
                     onShowServerError = {
                         // Reste sur l'écran de démarrage qui affiche l'erreur avec bouton "Réessayer"
+                    },
+                    onNavigateToOfflineMode = {
+                        // 🆕 NOUVEAU : Navigation vers le mode hors ligne
+                        navController.navigate("main_flow") {
+                            popUpTo("startup_check") { inclusive = true }
+                        }
                     }
                 )
             }
