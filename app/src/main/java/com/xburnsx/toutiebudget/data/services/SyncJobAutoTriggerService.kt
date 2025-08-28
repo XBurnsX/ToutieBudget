@@ -49,10 +49,14 @@ object SyncJobAutoTriggerService {
      */
     private fun getApplicationContext(): Context? {
         return try {
-            val applicationClass = Class.forName("com.xburnsx.toutiebudget.ToutieBudgetApplication")
-            val getInstanceMethod = applicationClass.getMethod("getInstance")
-            val application = getInstanceMethod.invoke(null) as? com.xburnsx.toutiebudget.ToutieBudgetApplication
-            application
+            val application = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
+            application?.let { 
+                Log.d(TAG, "✅ Context de l'application récupéré avec succès")
+                it
+            } ?: run {
+                Log.w(TAG, "⚠️ Application instance est null")
+                null
+            }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Erreur lors de la récupération du Context", e)
             null

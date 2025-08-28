@@ -77,6 +77,39 @@ class SyncJobViewModel(
         }
     }
     
+    /**
+     * Retente toutes les tâches échouées en les remettant en statut PENDING
+     */
+    fun retryFailedJobs() {
+        viewModelScope.launch {
+            try {
+                val failedJobs = syncJobs.value.filter { it.status == "FAILED" }
+                failedJobs.forEach { job ->
+                    syncJobDao.updateSyncJobStatus(job.id, "PENDING")
+                }
+                loadSyncJobs() // Recharger la liste
+                
+            } catch (e: Exception) {
+                _error.value = "Erreur lors de la tentative de retry: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Retente une tâche échouée spécifique en la remettant en statut PENDING
+     */
+    fun retrySingleFailedJob(jobId: String) {
+        viewModelScope.launch {
+            try {
+                syncJobDao.updateSyncJobStatus(jobId, "PENDING")
+                loadSyncJobs() // Recharger la liste
+                
+            } catch (e: Exception) {
+                _error.value = "Erreur lors de la tentative de retry: ${e.message}"
+            }
+        }
+    }
+    
     fun formatDate(timestamp: Long): String {
         return dateFormatter.format(Date(timestamp))
     }

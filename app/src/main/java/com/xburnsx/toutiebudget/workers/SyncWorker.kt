@@ -44,13 +44,16 @@ class SyncWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            Log.d(logTag, "🚀 DÉBUT DE LA SYNCHRONISATION")
+            Log.i(logTag, "🚀 DÉBUT DE LA SYNCHRONISATION")
             
             // Vérifier la connexion réseau
             if (!isNetworkAvailable()) {
                 Log.w(logTag, "⚠️ Pas de connexion réseau - synchronisation reportée")
                 return@withContext Result.retry()
             }
+            
+            // 🚨 DEBUG : Afficher les informations de base
+            Log.i(logTag, "🔧 Vérification de la connectivité et de l'authentification...")
             
             // 🆕 CHARGER L'AUTHENTIFICATION SAUVEGARDÉE AVANT D'OBTENIR LE TOKEN
             // C'est crucial pour que le worker puisse accéder au token sauvegardé
@@ -63,18 +66,18 @@ class SyncWorker(
                 return@withContext Result.retry()
             }
             
-            Log.d(logTag, "✅ Token d'authentification récupéré avec succès")
+            Log.i(logTag, "✅ Token d'authentification récupéré avec succès")
             
             val urlBase = UrlResolver.obtenirUrlActive()
             
             // Récupérer tous les SyncJob en attente ET les échecs pour retry
             val syncJobs = syncJobDao.getPendingAndFailedSyncJobs()
             if (syncJobs.isEmpty()) {
-                Log.d(logTag, "✅ Aucune tâche de synchronisation en attente ou à retenter")
+                Log.i(logTag, "✅ Aucune tâche de synchronisation en attente ou à retenter")
                 return@withContext Result.success()
             }
             
-            Log.d(logTag, "📋 ${syncJobs.size} tâches de synchronisation à traiter")
+            Log.i(logTag, "📋 ${syncJobs.size} tâches de synchronisation à traiter")
             
             var successCount = 0
             var failureCount = 0
@@ -82,7 +85,7 @@ class SyncWorker(
             // Traiter chaque tâche de synchronisation
             for (syncJob in syncJobs) {
                 try {
-                    Log.d(logTag, "🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}")
+                    Log.i(logTag, "🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}")
                     
                     val success = when (syncJob.action) {
                         "CREATE" -> traiterCreation(syncJob, urlBase, token)
@@ -98,7 +101,7 @@ class SyncWorker(
                         // Marquer la tâche comme terminée
                         syncJobDao.updateSyncJobStatus(syncJob.id, "COMPLETED")
                         successCount++
-                        Log.d(logTag, "✅ Tâche ${syncJob.id} synchronisée avec succès")
+                        Log.i(logTag, "✅ Tâche ${syncJob.id} synchronisée avec succès")
                     } else {
                         // Marquer la tâche comme échouée
                         syncJobDao.updateSyncJobStatus(syncJob.id, "FAILED")
@@ -113,15 +116,11 @@ class SyncWorker(
                 }
             }
             
-            Log.d(logTag, "🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs")
+            Log.i(logTag, "🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs")
             
-            // 🧹 NETTOYAGE AUTOMATIQUE : Supprimer les SyncJobs terminés avec succès
-            try {
-                syncJobDao.deleteCompletedSyncJobs()
-                Log.d(logTag, "🧹 Nettoyage automatique des SyncJobs terminés effectué")
-            } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur lors du nettoyage automatique des SyncJobs", e)
-            }
+            // 🚫 SUPPRESSION DU NETTOYAGE AUTOMATIQUE : L'utilisateur gère manuellement les tâches
+            // Les tâches restent visibles dans l'interface avec les onglets par statut
+            Log.i(logTag, "📋 Tâches conservées pour gestion manuelle par l'utilisateur")
             
             // Si toutes les tâches ont réussi, on retourne success
             // Sinon, on retourne retry pour réessayer les tâches échouées
@@ -138,24 +137,28 @@ class SyncWorker(
      */
     private suspend fun traiterCreation(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🆕 CORRECTION COMPLÈTE : Mapper TOUS les types vers les VRAIS noms de collections Pocketbase
+            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
             val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions" // ✅ VRAI nom
-                "COMPTE" -> "comptes_cheques" // ✅ VRAI nom (collection par défaut)
-                "COMPTE_CHEQUE" -> "comptes_cheques" // ✅ VRAI nom
-                "COMPTE_CREDIT" -> "comptes_credits" // ✅ VRAI nom
-                "COMPTE_DETTE" -> "comptes_dettes" // ✅ VRAI nom
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // ✅ VRAI nom
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles" // ✅ VRAI nom (pluriel !)
-                "PRET_PERSONNEL" -> "pret_personnel" // ✅ VRAI nom
-                "ENVELOPPE" -> "enveloppes" // ✅ VRAI nom
-                "CATEGORIE" -> "categories" // ✅ VRAI nom
-                "TIERS" -> "tiers" // ✅ VRAI nom
+                "TRANSACTION" -> "transactions"
+                "COMPTE" -> "comptes_cheques" // Collection par défaut
+                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
+                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
+                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
+                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
+                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
+                "PRET_PERSONNEL" -> "pret_personnel"
+                "ENVELOPPE" -> "enveloppes"
+                "CATEGORIE" -> "categories"
+                "TIERS" -> "tiers"
                 else -> syncJob.type.lowercase()
             }
             
             val url = "$urlBase/api/collections/$collection/records"
-            Log.d(logTag, "🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)")
+            Log.i(logTag, "🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)")
+            
+            // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
+            Log.i(logTag, "📤 DONNÉES JSON ENVOYÉES POUR CRÉATION:")
+            Log.i(logTag, "  ${syncJob.dataJson}")
             
             val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
@@ -165,10 +168,16 @@ class SyncWorker(
                 .build()
             
             val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour CREATE: ${response.body?.string()}")
+                Log.e(logTag, "❌ Échec HTTP ${response.code} pour CREATE:")
+                Log.e(logTag, "  Réponse du serveur: $responseBody")
+                Log.e(logTag, "  Headers de réponse: ${response.headers}")
+            } else {
+                Log.i(logTag, "✅ Création réussie:")
+                Log.i(logTag, "  Réponse du serveur: $responseBody")
             }
             
             return success
@@ -184,19 +193,19 @@ class SyncWorker(
      */
     private suspend fun traiterMiseAJour(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🆕 CORRECTION COMPLÈTE : Mapper TOUS les types vers les VRAIS noms de collections Pocketbase
+            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
             val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions" // ✅ VRAI nom
-                "COMPTE" -> "comptes_cheques" // ✅ VRAI nom (collection par défaut)
-                "COMPTE_CHEQUE" -> "comptes_cheques" // ✅ VRAI nom
-                "COMPTE_CREDIT" -> "comptes_credits" // ✅ VRAI nom
-                "COMPTE_DETTE" -> "comptes_dettes" // ✅ VRAI nom
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // ✅ VRAI nom
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles" // ✅ VRAI nom (pluriel !)
-                "PRET_PERSONNEL" -> "pret_personnel" // ✅ VRAI nom
-                "ENVELOPPE" -> "enveloppes" // ✅ VRAI nom
-                "CATEGORIE" -> "categories" // ✅ VRAI nom
-                "TIERS" -> "tiers" // ✅ VRAI nom
+                "TRANSACTION" -> "transactions"
+                "COMPTE" -> "comptes_cheques" // Collection par défaut
+                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
+                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
+                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
+                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
+                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
+                "PRET_PERSONNEL" -> "pret_personnel"
+                "ENVELOPPE" -> "enveloppes"
+                "CATEGORIE" -> "categories"
+                "TIERS" -> "tiers"
                 else -> syncJob.type.lowercase()
             }
             
@@ -225,12 +234,15 @@ class SyncWorker(
             val url = "$urlBase/api/collections/$collection/records/$recordId"
             Log.d(logTag, "🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)")
             
+            // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
+            Log.i(logTag, "📤 DONNÉES JSON ENVOYÉES POUR MISE À JOUR:")
+            Log.i(logTag, "  ${syncJob.dataJson}")
+            
             // 🚨 DEBUG CRITIQUE : Log détaillé pour les comptes chèques
             if (syncJob.type == "COMPTE_CHEQUE") {
                 Log.d(logTag, "🚨 COMPTE_CHÈQUE DÉTECTÉ:")
                 Log.d(logTag, "  Action: ${syncJob.action}")
                 Log.d(logTag, "  RecordId: ${syncJob.recordId}")
-                Log.d(logTag, "  DataJson: ${syncJob.dataJson}")
             }
             
             // 🚨 CORRECTION CRITIQUE : Pour les allocations, faire comme Room - REMPLACER les valeurs !
@@ -276,15 +288,19 @@ class SyncWorker(
                 .build()
             
             val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour UPDATE: ${response.body?.string()}")
+                Log.e(logTag, "❌ Échec HTTP ${response.code} pour UPDATE:")
+                Log.e(logTag, "  Réponse du serveur: $responseBody")
+                Log.e(logTag, "  Headers de réponse: ${response.headers}")
             } else {
+                Log.i(logTag, "✅ Mise à jour réussie:")
+                Log.i(logTag, "  Réponse du serveur: $responseBody")
                 // 🚨 DEBUG CRITIQUE : Log de succès pour les comptes chèques
                 if (syncJob.type == "COMPTE_CHEQUE") {
-                    Log.d(logTag, "✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !")
-                    Log.d(logTag, "  Réponse: ${response.body?.string()}")
+                    Log.i(logTag, "✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !")
                 }
             }
             
@@ -301,19 +317,19 @@ class SyncWorker(
      */
     private suspend fun traiterSuppression(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🆕 CORRECTION COMPLÈTE : Mapper TOUS les types vers les VRAIS noms de collections Pocketbase
+            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
             val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions" // ✅ VRAI nom
-                "COMPTE" -> "comptes_cheques" // ✅ VRAI nom (collection par défaut)
-                "COMPTE_CHEQUE" -> "comptes_cheques" // ✅ VRAI nom
-                "COMPTE_CREDIT" -> "comptes_credits" // ✅ VRAI nom
-                "COMPTE_DETTE" -> "comptes_dettes" // ✅ VRAI nom
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // ✅ VRAI nom
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles" // ✅ VRAI nom (pluriel !)
-                "PRET_PERSONNEL" -> "pret_personnel" // ✅ VRAI nom
-                "ENVELOPPE" -> "enveloppes" // ✅ VRAI nom
-                "CATEGORIE" -> "categories" // ✅ VRAI nom
-                "TIERS" -> "tiers" // ✅ VRAI nom
+                "TRANSACTION" -> "transactions"
+                "COMPTE" -> "comptes_cheques" // Collection par défaut
+                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
+                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
+                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
+                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
+                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
+                "PRET_PERSONNEL" -> "pret_personnel"
+                "ENVELOPPE" -> "enveloppes"
+                "CATEGORIE" -> "categories"
+                "TIERS" -> "tiers"
                 else -> syncJob.type.lowercase()
             }
             
@@ -349,10 +365,16 @@ class SyncWorker(
                 .build()
             
             val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour DELETE: ${response.body?.string()}")
+                Log.e(logTag, "❌ Échec HTTP ${response.code} pour DELETE:")
+                Log.e(logTag, "  Réponse du serveur: $responseBody")
+                Log.e(logTag, "  Headers de réponse: ${response.headers}")
+            } else {
+                Log.i(logTag, "✅ Suppression réussie:")
+                Log.i(logTag, "  Réponse du serveur: $responseBody")
             }
             
             return success

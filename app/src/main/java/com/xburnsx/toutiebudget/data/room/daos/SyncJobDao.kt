@@ -60,10 +60,16 @@ interface SyncJobDao {
     suspend fun deleteSyncJob(syncJob: SyncJob)
     
     /**
-     * Supprime toutes les tâches terminées (COMPLETED ou FAILED)
+     * Supprime uniquement les tâches terminées avec succès (COMPLETED uniquement)
+     */
+    @Query("DELETE FROM sync_jobs WHERE status = 'COMPLETED'")
+    suspend fun deleteCompletedSyncJobs()
+    
+    /**
+     * Supprime toutes les tâches terminées (COMPLETED ET FAILED)
      */
     @Query("DELETE FROM sync_jobs WHERE status IN ('COMPLETED', 'FAILED')")
-    suspend fun deleteCompletedSyncJobs()
+    suspend fun deleteAllCompletedAndFailedJobs()
     
     /**
      * Marque une tâche comme terminée avec succès

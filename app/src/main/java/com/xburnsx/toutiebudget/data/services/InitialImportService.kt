@@ -41,6 +41,20 @@ class InitialImportService(
     private val gson = GsonBuilder().create()
     private val logTag = "InitialImport"
     
+    /**
+     * Convertit une string Pocketbase en TypeObjectif
+     */
+    private fun stringVersTypeObjectif(typeString: String?): com.xburnsx.toutiebudget.data.modeles.TypeObjectif {
+        return when (typeString?.trim()) {
+            "Aucun" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun
+            "Mensuel" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
+            "Bihebdomadaire" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire
+            "Echeance" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance
+            "Annuel" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel
+            else -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun
+        }
+    }
+    
     // Callback pour la progression
     var onProgressUpdate: ((step: Int, message: String) -> Unit)? = null
     
@@ -479,24 +493,43 @@ class InitialImportService(
                 try {
                     // LOG DÉTAILLÉ POUR DÉBOGGER !
                     Log.d(logTag, "🔍 Enveloppe ${item.id}: categorie_id = '${item.categorie_id}'")
+                    Log.d(logTag, "🔍 Enveloppe ${item.id}: frequence_objectif = '${item.frequence_objectif}'")
+                    Log.d(logTag, "🔍 Enveloppe ${item.id}: montant_objectif = '${item.montant_objectif}'")
+                    Log.d(logTag, "🔍 Enveloppe ${item.id}: date_objectif = '${item.date_objectif}'")
+                    Log.d(logTag, "🔍 Enveloppe ${item.id}: date_debut_objectif = '${item.date_debut_objectif}'")
                     
                     // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
                     val categorieId = item.categorie_id ?: ""
                     
-                    Enveloppe(
+                    // 🎯 CORRECTION : Gérer correctement les dates des objectifs
+                    val dateObjectif = item.date_objectif
+                    val dateDebutObjectif = item.date_debut_objectif
+                    
+                    val enveloppe = Enveloppe(
                         id = item.id, // GARDER L'ID POCKETBASE !
                         utilisateurId = item.utilisateur_id ?: "",
                         nom = item.nom ?: "",
                         categorieId = categorieId ?: "",
                         estArchive = item.est_archive ?: false,
                         ordre = item.ordre ?: 0,
-                        typeObjectif = item.frequence_objectif ?: com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                        typeObjectif = stringVersTypeObjectif(item.frequence_objectif),
                         objectifMontant = item.montant_objectif?.toDoubleOrNull() ?: 0.0,
-                        dateObjectif = item.date_objectif,
-                        dateDebutObjectif = item.date_debut_objectif,
+                        dateObjectif = dateObjectif, // 🎯 GARDER LA DATE EN STRING POUR ROOM
+                        dateDebutObjectif = dateDebutObjectif, // 🎯 GARDER LA DATE EN STRING POUR ROOM
                         objectifJour = item.objectif_jour?.toIntOrNull(),
                         resetApresEcheance = item.reset_apres_echeance ?: false
                     )
+                    
+                    // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LES OBJECTIFS !
+                    Log.d(logTag, "🎯 ENVELOPPE CRÉÉE: ${enveloppe.nom}")
+                    Log.d(logTag, "  - Type objectif: ${enveloppe.typeObjectif}")
+                    Log.d(logTag, "  - Montant objectif: ${enveloppe.objectifMontant}")
+                    Log.d(logTag, "  - Date objectif: ${enveloppe.dateObjectif}")
+                    Log.d(logTag, "  - Date début: ${enveloppe.dateDebutObjectif}")
+                    Log.d(logTag, "  - Objectif jour: ${enveloppe.objectifJour}")
+                    Log.d(logTag, "  - Reset après échéance: ${enveloppe.resetApresEcheance}")
+                    
+                    enveloppe
                 } catch (e: Exception) {
                     Log.w(logTag, "⚠️ Erreur conversion enveloppe: ${e.message}")
                     null
@@ -677,24 +710,18 @@ class InitialImportService(
             val utilisateurConnecte = client.obtenirUtilisateurConnecte()
             val utilisateurId = utilisateurConnecte?.id ?: return false
             
-            // Vérifier si on a au moins des comptes (entité de base)
-            val comptesChequesCount = compteChequeDao.getComptesCount(utilisateurId)
-            val comptesCreditsCount = compteCreditDao.getComptesCount(utilisateurId)
-            val comptesDettesCount = compteDetteDao.getComptesCount(utilisateurId)
-            val comptesInvestissementCount = compteInvestissementDao.getComptesCount(utilisateurId)
-            val categoriesCount = categorieDao.getCategoriesCount(utilisateurId)
+            // 🎯 VÉRIFIER UNIQUEMENT LES TRANSACTIONS !
+            // Les transactions sont l'élément principal de l'application
+            val transactionsCount = transactionDao.getTransactionsCount(utilisateurId)
             
-            // Si on a au moins des comptes et des catégories, Room n'est pas vide
-            val totalComptes = comptesChequesCount + comptesCreditsCount + comptesDettesCount + comptesInvestissementCount
-            val totalEntites = totalComptes + categoriesCount
+            Log.d(logTag, "🔍 Vérification Room: $transactionsCount transactions")
             
-            Log.d(logTag, "🔍 Vérification Room: $totalComptes comptes, $categoriesCount catégories")
-            
-            // Room est considéré comme rempli si on a au moins 2 entités de base
-            totalEntites >= 2
+            // Room est considéré comme rempli SEULEMENT si on a des transactions
+            // Cela évite l'import à chaque ouverture tout en s'assurant que les données principales sont là
+            transactionsCount > 0
             
         } catch (e: Exception) {
-            Log.w(logTag, "⚠️ Erreur lors de la vérification des données Room", e)
+            Log.w(logTag, "⚠️ Erreur lors de la vérification des transactions", e)
             false // En cas d'erreur, on fait l'import pour être sûr
         }
     }
@@ -736,12 +763,12 @@ data class ItemPocketBase(
     val collection_compte: String?,
     val allocation_mensuelle_id: String?,
     val est_fractionnee: Boolean?,
-    val sous_items: List<Any>?,
+    val sous_items: Any?, // 🎯 CORRECTION : Peut être List<*> ou un objet JSON
     val tiers_utiliser: String?,
     val created: String?,
     val updated: String?,
     val categorie_id: String?,
-    val frequence_objectif: com.xburnsx.toutiebudget.data.modeles.TypeObjectif?,
+    val frequence_objectif: String?,
     val montant_objectif: String?,
     val date_objectif: String?,
     val date_debut_objectif: String?,

@@ -80,7 +80,7 @@ class PretPersonnelRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "CREATE",
-                dataJson = gson.toJson(pretEntity),
+                dataJson = genererJsonPretPersonnelManuel(pretEntity),
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -121,7 +121,7 @@ class PretPersonnelRepositoryRoomImpl(
                 id = IdGenerator.generateId(),
                 type = "PRET_PERSONNEL",
                 action = "UPDATE",
-                dataJson = gson.toJson(pretEntity),
+                dataJson = genererJsonPretPersonnelManuel(pretEntity),
                 recordId = pretEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
@@ -165,6 +165,25 @@ class PretPersonnelRepositoryRoomImpl(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * Génère manuellement le JSON pour un prêt personnel avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonPretPersonnelManuel(entity: PretPersonnelEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom_tiers" to entity.nomTiers,
+            "montant_initial" to entity.montantInitial,
+            "solde" to entity.solde,
+            "type" to entity.type,
+            "archive" to entity.estArchive,  // ← ✅ Maintenant ça va devenir "archive" !
+            "date_creation" to entity.dateCreation,
+            "created" to entity.created,
+            "updated" to entity.updated
+        )
+        return gson.toJson(data)
     }
 
     /**

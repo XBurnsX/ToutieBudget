@@ -21,6 +21,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import android.util.Log
 
 /**
  * Implémentation Room-first du repository des enveloppes.
@@ -40,8 +41,28 @@ class EnveloppeRepositoryRoomImpl(
     private val client = PocketBaseClient
     
     private val gson: Gson = GsonBuilder()
-        .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-        .create()
+        .create() // 🎯 CORRECTION : Supprimer la politique snake_case pour éviter les conflits avec @ColumnInfo
+    
+    /**
+     * Génère manuellement le JSON pour une enveloppe avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonEnveloppeManuel(entity: EnveloppeEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom" to entity.nom,
+            "categorie_id" to entity.categorieId,
+            "est_archive" to entity.estArchive,
+            "ordre" to entity.ordre,
+            "frequence_objectif" to entity.typeObjectif.toString(),
+            "montant_objectif" to entity.objectifMontant,
+            "date_objectif" to entity.dateObjectif,
+            "date_debut_objectif" to entity.dateDebutObjectif,
+            "objectif_jour" to entity.objectifJour,
+            "reset_apres_echeance" to entity.resetApresEcheance
+        )
+        return gson.toJson(data)
+    }
 
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -167,11 +188,16 @@ class EnveloppeRepositoryRoomImpl(
             val id = enveloppeDao.insertEnveloppe(enveloppeEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
+            // 🎯 CORRECTION : Utiliser la génération manuelle du JSON pour les bons noms de champs !
+            val dataJson = genererJsonEnveloppeManuel(enveloppeEntity)
+            Log.d("EnveloppeRepository", "🚨 ENVELOPPE CREATE - JSON MANUEL GÉNÉRÉ:")
+            Log.d("EnveloppeRepository", "  $dataJson")
+            
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ENVELOPPE",
                 action = "CREATE",
-                dataJson = gson.toJson(enveloppeEntity),
+                dataJson = dataJson,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -210,11 +236,16 @@ class EnveloppeRepositoryRoomImpl(
             enveloppeDao.updateEnveloppe(enveloppeEntity)
             
             // 3. Ajouter à la liste de tâches pour synchronisation
+            // 🎯 CORRECTION : Utiliser la génération manuelle du JSON pour les bons noms de champs !
+            val dataJson = genererJsonEnveloppeManuel(enveloppeEntity)
+            Log.d("EnveloppeRepository", "🚨 ENVELOPPE UPDATE - JSON MANUEL GÉNÉRÉ:")
+            Log.d("EnveloppeRepository", "  $dataJson")
+            
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
                 type = "ENVELOPPE",
                 action = "UPDATE",
-                dataJson = gson.toJson(enveloppeEntity),
+                dataJson = dataJson,
                 recordId = enveloppeEntity.id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
@@ -424,7 +455,7 @@ class EnveloppeRepositoryRoomImpl(
      * Extension function pour convertir une entité Room en modèle Enveloppe
      */
     private fun EnveloppeEntity.toEnveloppeModel(): Enveloppe {
-        return Enveloppe(
+        val enveloppe = Enveloppe(
             id = id,
             utilisateurId = utilisateurId,
             nom = nom,
@@ -438,6 +469,17 @@ class EnveloppeRepositoryRoomImpl(
             objectifJour = objectifJour,
             resetApresEcheance = resetApresEcheance
         )
+        
+        // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LA CONVERSION ROOM → MODÈLE !
+        Log.d("EnveloppeRepository", "🎯 CONVERSION ROOM → MODÈLE: ${enveloppe.nom}")
+        Log.d("EnveloppeRepository", "  - Type objectif: ${enveloppe.typeObjectif}")
+        Log.d("EnveloppeRepository", "  - Montant objectif: ${enveloppe.objectifMontant}")
+        Log.d("EnveloppeRepository", "  - Date objectif: ${enveloppe.dateObjectif}")
+        Log.d("EnveloppeRepository", "  - Date début: ${enveloppe.dateDebutObjectif}")
+        Log.d("EnveloppeRepository", "  - Objectif jour: ${enveloppe.objectifJour}")
+        Log.d("EnveloppeRepository", "  - Reset après échéance: ${enveloppe.resetApresEcheance}")
+        
+        return enveloppe
     }
 
     /**

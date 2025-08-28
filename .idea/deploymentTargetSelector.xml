@@ -10,10 +10,10 @@
       </SelectionState>
       <SelectionState runConfigName="Toutie_Budget.app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-08-27T18:01:10.226141500Z">
+        <DropdownSelection timestamp="2025-08-28T00:25:31.608250900Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\XBurnsX\.android\avd\Pixel_9_Pro_XL.avd" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\XBurnsX\.android\avd\Pixel_8_Pro.avd" />
             </handle>
           </Target>
         </DropdownSelection>

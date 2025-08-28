@@ -111,26 +111,38 @@ class CompteRepositoryRoomImpl(
             // Créer un SyncJob pour la synchronisation
             // 🚨 CORRECTION : Spécifier le type exact et la collection !
             val (syncJobType, dataJson, collectionName) = when (compteAvecId) {
-                is CompteCheque -> Triple(
-                    "COMPTE_CHEQUE",
-                    gson.toJson(compteAvecId.toCompteChequeEntity()),
-                    "comptes_cheques"
-                )
-                is CompteCredit -> Triple(
-                    "COMPTE_CREDIT",
-                    gson.toJson(compteAvecId.toCompteCreditEntity()),
-                    "comptes_credits"
-                )
-                is CompteDette -> Triple(
-                    "COMPTE_DETTE",
-                    gson.toJson(compteAvecId.toCompteDetteEntity()),
-                    "comptes_dettes"
-                )
-                is CompteInvestissement -> Triple(
-                    "COMPTE_INVESTISSEMENT",
-                    gson.toJson(compteAvecId.toCompteInvestissementEntity()),
-                    "comptes_investissement"
-                )
+                is CompteCheque -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_CHÈQUE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecId.toCompteChequeEntity()
+                    val json = genererJsonCompteChequeManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_CHEQUE", json, "comptes_cheques")
+                }
+                is CompteCredit -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_CRÉDIT DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecId.toCompteCreditEntity()
+                    val json = genererJsonCompteCreditManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_CREDIT", json, "comptes_credits")
+                }
+                is CompteDette -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_DETTE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecId.toCompteDetteEntity()
+                    val json = genererJsonCompteDetteManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_DETTE", json, "comptes_dettes")
+                }
+                is CompteInvestissement -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_INVESTISSEMENT DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecId.toCompteInvestissementEntity()
+                    val json = genererJsonCompteInvestissementManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_INVESTISSEMENT", json, "comptes_investissement")
+                }
                 else -> throw IllegalArgumentException("Type de compte non supporté")
             }
             
@@ -233,28 +245,40 @@ class CompteRepositoryRoomImpl(
             }
 
             // Créer un SyncJob pour la synchronisation
-            // 🚨 CORRECTION : Spécifier le type exact et la collection !
+            // 🚨 CORRECTION : Utiliser les méthodes manuelles pour le JSON snake_case !
             val (syncJobType, dataJson, collectionName) = when (compteAvecUtilisateurId) {
-                is CompteCheque -> Triple(
-                    "COMPTE_CHEQUE",
-                    gson.toJson(compteAvecUtilisateurId.toCompteChequeEntity()),
-                    "comptes_cheques"
-                )
-                is CompteCredit -> Triple(
-                    "COMPTE_CREDIT",
-                    gson.toJson(compteAvecUtilisateurId.toCompteCreditEntity()),
-                    "comptes_credits"
-                )
-                is CompteDette -> Triple(
-                    "COMPTE_DETTE",
-                    gson.toJson(compteAvecUtilisateurId.toCompteDetteEntity()),
-                    "comptes_dettes"
-                )
-                is CompteInvestissement -> Triple(
-                    "COMPTE_INVESTISSEMENT",
-                    gson.toJson(compteAvecUtilisateurId.toCompteInvestissementEntity()),
-                    "comptes_investissement"
-                )
+                is CompteCheque -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_CHÈQUE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecUtilisateurId.toCompteChequeEntity()
+                    val json = genererJsonCompteChequeManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_CHEQUE", json, "comptes_cheques")
+                }
+                is CompteCredit -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_CRÉDIT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecUtilisateurId.toCompteCreditEntity()
+                    val json = genererJsonCompteCreditManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_CREDIT", json, "comptes_credits")
+                }
+                is CompteDette -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_DETTE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecUtilisateurId.toCompteDetteEntity()
+                    val json = genererJsonCompteDetteManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_DETTE", json, "comptes_dettes")
+                }
+                is CompteInvestissement -> {
+                    Log.d("CompteRepository", "🚨 COMPTE_INVESTISSEMENT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    val entity = compteAvecUtilisateurId.toCompteInvestissementEntity()
+                    val json = genererJsonCompteInvestissementManuel(entity)
+                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
+                    Log.d("CompteRepository", "  $json")
+                    Triple("COMPTE_INVESTISSEMENT", json, "comptes_investissement")
+                }
                 else -> throw IllegalArgumentException("Type de compte non supporté")
             }
             
@@ -673,5 +697,83 @@ class CompteRepositoryRoomImpl(
             ordre = this.ordre,
             collection = this.collection
         )
+    }
+    
+    /**
+     * Génère manuellement le JSON pour un compte chèque avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonCompteChequeManuel(entity: CompteChequeEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom" to entity.nom,
+            "solde" to entity.solde,
+            "pret_a_placer" to entity.pretAPlacerRaw,
+            "couleur" to entity.couleur,
+            "archive" to entity.estArchive,
+            "ordre" to entity.ordre,
+            "collection" to entity.collection
+        )
+        return gson.toJson(data)
+    }
+    
+    /**
+     * Génère manuellement le JSON pour un compte crédit avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonCompteCreditManuel(entity: CompteCreditEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom" to entity.nom,
+            "solde_utilise" to entity.soldeUtilise,
+            "couleur" to entity.couleur,
+            "archive" to entity.estArchive,
+            "ordre" to entity.ordre,
+            "limite_credit" to entity.limiteCredit,
+            "taux_interet" to entity.tauxInteret,
+            "paiement_minimum" to entity.paiementMinimum,
+            "frais_mensuels_json" to entity.fraisMensuelsJson,
+            "collection" to entity.collection
+        )
+        return gson.toJson(data)
+    }
+    
+    /**
+     * Génère manuellement le JSON pour un compte dette avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonCompteDetteManuel(entity: CompteDetteEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom" to entity.nom,
+            "solde_dette" to entity.soldeDette,
+            "archive" to entity.estArchive,
+            "ordre" to entity.ordre,
+            "montant_initial" to entity.montantInitial,
+            "taux_interet" to entity.tauxInteret,
+            "paiement_minimum" to entity.paiementMinimum,
+            "duree_mois_pret" to entity.dureeMoisPret,
+            "paiement_effectue" to entity.paiementEffectue,
+            "prix_total" to entity.prixTotal,
+            "collection" to entity.collection
+        )
+        return gson.toJson(data)
+    }
+    
+    /**
+     * Génère manuellement le JSON pour un compte investissement avec les bons noms de champs (snake_case)
+     */
+    private fun genererJsonCompteInvestissementManuel(entity: CompteInvestissementEntity): String {
+        val data = mapOf(
+            "id" to entity.id,
+            "utilisateur_id" to entity.utilisateurId,
+            "nom" to entity.nom,
+            "solde" to entity.solde,
+            "couleur" to entity.couleur,
+            "archive" to entity.estArchive,
+            "ordre" to entity.ordre,
+            "collection" to entity.collection
+        )
+        return gson.toJson(data)
     }
 }
