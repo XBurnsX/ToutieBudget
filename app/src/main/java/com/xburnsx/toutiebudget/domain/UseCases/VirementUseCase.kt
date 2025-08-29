@@ -177,6 +177,10 @@ class VirementUseCase @Inject constructor(
             val premierJourMois = calendrier.time
 
             // 3. ✅ RÉCUPÉRER l'allocation fusionnée AVANT de vérifier le solde !
+            println("🔥 DIAGNOSTIC - AVANT d'appeler recupererOuCreerAllocation")
+            println("🔥 DIAGNOSTIC - enveloppeId: $enveloppeId")
+            println("🔥 DIAGNOSTIC - premierJourMois: $premierJourMois")
+            
             val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
             // 4. ✅ Vérifier le solde de l'allocation fusionnée (plus fiable !)

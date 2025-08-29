@@ -95,14 +95,28 @@ class AllocationMensuelleRepositoryRoomImpl(
                 ?: throw Exception("Utilisateur non connecté")
 
             val moisStr = dateFormatter.format(mois)
+            
+            // 🔥 DIAGNOSTIC : Log des paramètres d'entrée
+            println("🔥 DIAGNOSTIC - recupererOuCreerAllocation appelé avec:")
+            println("🔥 DIAGNOSTIC - enveloppeId: $enveloppeId")
+            println("🔥 DIAGNOSTIC - mois demandé: $moisStr")
+            println("🔥 DIAGNOSTIC - mois Date object: $mois")
 
             // 1. 🔥 FUSION RÉELLE : Récupérer TOUTES les allocations pour cette enveloppe et ce mois
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
+            
+            // 🔥 DIAGNOSTIC : Log de toutes les allocations trouvées
+            println("🔥 DIAGNOSTIC - Toutes les allocations de l'utilisateur: ${allocationsEntities.size}")
+            allocationsEntities.filter { it.enveloppeId == enveloppeId }.forEach { entity ->
+                println("🔥 DIAGNOSTIC - Allocation trouvée pour cette enveloppe: id=${entity.id}, mois=${entity.mois}, solde=${entity.solde}, alloue=${entity.alloue}")
+            }
             
             // 🔥 CORRECTION : Fusionner par MOIS complet, pas par date exacte !
             val moisCalendrier = Calendar.getInstance().apply { time = mois }
             val annee = moisCalendrier.get(Calendar.YEAR)
             val moisNumero = moisCalendrier.get(Calendar.MONTH)
+            
+            println("🔥 DIAGNOSTIC - Recherche pour année: $annee, mois: $moisNumero")
             
             val allocationsPourEnveloppeEtMois = allocationsEntities.filter { entity -> 
                 try {
@@ -111,14 +125,26 @@ class AllocationMensuelleRepositoryRoomImpl(
                     val anneeEntity = calendrierEntity.get(Calendar.YEAR)
                     val moisEntity = calendrierEntity.get(Calendar.MONTH)
                     
-                    entity.enveloppeId == enveloppeId && 
+                    val match = entity.enveloppeId == enveloppeId && 
                     anneeEntity == annee && 
                     moisEntity == moisNumero
+                    
+                    if (entity.enveloppeId == enveloppeId) {
+                        println("🔥 DIAGNOSTIC - Vérification allocation: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois} -> anneeEntity=$anneeEntity, moisEntity=$moisEntity, match=$match")
+                    }
+                    
+                    match
                 } catch (e: Exception) {
                     // Fallback : comparaison exacte si parsing échoue
-                    entity.enveloppeId == enveloppeId && entity.mois == moisStr
+                    val match = entity.enveloppeId == enveloppeId && entity.mois == moisStr
+                    if (entity.enveloppeId == enveloppeId) {
+                        println("🔥 DIAGNOSTIC - Fallback parsing: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois}, match=$match")
+                    }
+                    match
                 }
             }
+            
+            println("🔥 DIAGNOSTIC - Allocations trouvées pour ce mois: ${allocationsPourEnveloppeEtMois.size}")
 
             when {
                 // Cas 1: Aucune allocation trouvée -> Créer une nouvelle

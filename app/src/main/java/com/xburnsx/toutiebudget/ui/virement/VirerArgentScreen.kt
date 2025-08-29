@@ -24,6 +24,7 @@ import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurCompteVirement
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
+import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -72,6 +73,16 @@ fun VirerArgentScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Retour",
                             tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    // Sélecteur de mois - SEULEMENT pour le mode enveloppes
+                    if (uiState.mode == VirementMode.ENVELOPPES) {
+                        SelecteurMoisAnnee(
+                            moisSelectionne = uiState.moisSelectionne,
+                            onMoisChange = { viewModel.changerMois(it) },
+                            modifier = Modifier.width(140.dp)
                         )
                     }
                 },

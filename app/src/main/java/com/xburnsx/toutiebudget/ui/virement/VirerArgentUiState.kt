@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.ui.virement
 
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import java.util.Date
 
 sealed class ItemVirement {
     abstract val nom: String
@@ -33,5 +34,6 @@ data class VirerArgentUiState(
     val erreur: String? = null,
     val selecteurOuvert: SelecteurOuvert = SelecteurOuvert.AUCUN,
     val isVirementButtonEnabled: Boolean = false,
-    val mode: VirementMode = VirementMode.ENVELOPPES
+    val mode: VirementMode = VirementMode.ENVELOPPES,
+    val moisSelectionne: Date = Date() // ← NOUVEAU : Mois sélectionné pour les virements
 )

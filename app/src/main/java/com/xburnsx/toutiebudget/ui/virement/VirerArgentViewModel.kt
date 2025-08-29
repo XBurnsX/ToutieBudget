@@ -128,6 +128,22 @@ class VirerArgentViewModel(
         configurerSourcesEtDestinationsPourMode()
     }
 
+    /**
+     * Change le mois sélectionné pour les virements.
+     */
+    fun changerMois(nouveauMois: Date) {
+        _uiState.update {
+            it.copy(
+                moisSelectionne = nouveauMois,
+                sourceSelectionnee = null,
+                destinationSelectionnee = null,
+                erreur = null
+            )
+        }
+        // Recharger les données pour le nouveau mois
+        chargerDonneesPourMois(nouveauMois)
+    }
+
     // ===== CHARGEMENT DES DONNÉES =====
 
     /**
@@ -151,6 +167,23 @@ class VirerArgentViewModel(
                     .getOrThrow()
 
                 // Configurer les sources et destinations pour le mode initial
+                configurerSourcesEtDestinationsPourMode()
+            } catch (e: Exception) {
+                // Gérer l'erreur silencieusement
+            }
+        }
+    }
+
+    /**
+     * Charge les données pour un mois spécifique.
+     */
+    private fun chargerDonneesPourMois(mois: Date) {
+        viewModelScope.launch {
+            try {
+                allAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
+                    .getOrThrow()
+                
+                // Reconfigurer les sources et destinations avec les nouvelles allocations
                 configurerSourcesEtDestinationsPourMode()
             } catch (e: Exception) {
                 // Gérer l'erreur silencieusement
@@ -498,12 +531,12 @@ class VirerArgentViewModel(
                                 compteSourceId = source.compte.id,
                                 collectionCompteSource = source.compte.collection,
                                 montant = montantEnDollars,
-                                mois = Date()
+                                mois = _uiState.value.moisSelectionne
                             )
                             // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                            val moisActuel = Date()
+                            val moisAVirer = _uiState.value.moisSelectionne
                             try {
-                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
                             } catch (_: Exception) {
                                 // Erreur silencieuse
                             }
@@ -522,13 +555,13 @@ class VirerArgentViewModel(
                                 compte = destination.compte,
                                 montant = montantEnDollars
                             )
-                            // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                            val moisActuel = Date()
-                            try {
-                                allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisActuel)
-                            } catch (_: Exception) {
-                                // Erreur silencieuse
-                            }
+                                                            // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                                val moisAVirer = _uiState.value.moisSelectionne
+                                try {
+                                    allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, moisAVirer)
+                                } catch (_: Exception) {
+                                    // Erreur silencieuse
+                                }
                             result
                         }
                     }
@@ -573,7 +606,7 @@ class VirerArgentViewModel(
                                     val premierJourMois = calendrier.time
 
                                     // ✅ Récupérer ou créer l'allocation pour ce mois
-                                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
+                                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
                                     
                                     // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
                                     val allocationMiseAJour = allocationExistante.copy(
@@ -589,7 +622,7 @@ class VirerArgentViewModel(
                                     try {
                                         allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
                                         // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
-                                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, premierJourMois)
+                                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
                                         Result.success(Unit)
                                     } catch (e: Exception) {
                                         Result.failure<Unit>(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
@@ -597,8 +630,8 @@ class VirerArgentViewModel(
                                 }
                             }
                         } else if (estPretAPlacer(destination.enveloppe)) {
-                            // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
-                            val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
+                                                                // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
+                                    val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
                                                          val compteDestination = allComptes.find { it.id == compteId }
                             if (compteDestination == null) {
                                 Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.COMPTE_DESTINATION_INTROUVABLE))
@@ -609,9 +642,9 @@ class VirerArgentViewModel(
                                     montant = montantEnDollars
                                 )
                                 // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                                val moisActuel = Date()
+                                val moisAVirer = _uiState.value.moisSelectionne
                                 try {
-                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
                                 } catch (_: Exception) {
                                     // Erreur silencieuse
                                 }
@@ -627,10 +660,10 @@ class VirerArgentViewModel(
                                 enveloppeDestination == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_DESTINATION_INTROUVABLE))
                                 else -> {
                                     // 🎯 VIREMENT ENVELOPPE VERS ENVELOPPE AVEC RESPECT DE LA PROVENANCE
-                                    val moisActuel = Date()
+                                    val moisAVirer = _uiState.value.moisSelectionne
                                     
                                     // 1. Récupérer l'allocation de l'enveloppe source pour connaître la provenance
-                                    val allocationSourceResult = enveloppeRepository.recupererAllocationMensuelle(source.enveloppe.id, moisActuel)
+                                    val allocationSourceResult = enveloppeRepository.recupererAllocationMensuelle(source.enveloppe.id, moisAVirer)
                                     
                                     if (allocationSourceResult.isFailure) {
                                         Result.failure(Exception("Impossible de récupérer l'allocation de l'enveloppe source"))
@@ -650,10 +683,10 @@ class VirerArgentViewModel(
                                             try {
                                                 allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
                                                 // 🔥 FORCER LA RE-FUSION SOURCE APRÈS MODIFICATION !
-                                                allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                                                allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
                                                 
                                                 // 3. ✅ Récupérer ou créer l'allocation pour la destination
-                                                val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                                                val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
                                                 
                                                 // ✅ FUSIONNER : Mettre à jour l'allocation DESTINATION (augmente solde + alloué)
                                                 val allocationDestMiseAJour = allocationDestExistante.copy(
@@ -665,7 +698,7 @@ class VirerArgentViewModel(
                                                 
                                                 allocationMensuelleRepository.mettreAJourAllocation(allocationDestMiseAJour)
                                                 // 🔥 FORCER LA RE-FUSION DESTINATION APRÈS MODIFICATION !
-                                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
                                                 Result.success(Unit)
                                             } catch (e: Exception) {
                                                 Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
@@ -701,13 +734,13 @@ class VirerArgentViewModel(
                     
                     // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
                     try {
-                        val moisActuel = Date()
+                        val moisAVirer = _uiState.value.moisSelectionne
                         // Fusionner les allocations de toutes les enveloppes impliquées
                         if (source is ItemVirement.EnveloppeItem) {
-                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
                         }
                         if (destination is ItemVirement.EnveloppeItem) {
-                            allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                            allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
                         }
                         println("DEBUG: Fusion automatique des allocations effectuée")
                     } catch (e: Exception) {
@@ -742,7 +775,7 @@ class VirerArgentViewModel(
      * Valide la provenance selon le type de virement
      */
     private suspend fun validerProvenanceVirement(source: ItemVirement, destination: ItemVirement): Result<Unit> {
-        val mois = Date()
+        val mois = _uiState.value.moisSelectionne
 
         return when {
             // Compte vers Compte - AUCUNE VALIDATION NÉCESSAIRE
