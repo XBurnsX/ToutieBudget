@@ -608,8 +608,9 @@ class VirerArgentViewModel(
                                     Result.failure(Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}"))
                                 } else {
                                     // 2. ✅ CRÉER une allocation additive (évite les doublons)
+                                    // 🔥 CORRECTION : Utiliser le mois sélectionné au lieu de Date()
                                     val calendrier = Calendar.getInstance().apply {
-                                        time = Date()
+                                        time = _uiState.value.moisSelectionne
                                         set(Calendar.DAY_OF_MONTH, 1)
                                         set(Calendar.HOUR_OF_DAY, 0)
                                         set(Calendar.MINUTE, 0)
@@ -657,19 +658,82 @@ class VirerArgentViewModel(
                             if (compteDestination == null) {
                                 Result.failure(Exception(VirementErrorMessages.EnveloppeVersPretAPlacer.COMPTE_DESTINATION_INTROUVABLE))
                             } else {
-                                val result = argentService.effectuerVirementEnveloppeVersPretAPlacer(
-                                    enveloppeId = source.enveloppe.id,
-                                    compteId = compteDestination.id,
-                                    montant = montantEnDollars
-                                )
-                                // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                                val moisAVirer = _uiState.value.moisSelectionne
-                                try {
-                                    allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
-                                } catch (_: Exception) {
-                                    // Erreur silencieuse
+                                // 🔥 CORRECTION : Utiliser EXACTEMENT LA MÊME LOGIQUE que Prêt à placer → Enveloppe !
+                                // 1. Retirer de l'enveloppe source (diminue solde + alloué)
+                                val allocationSource = allAllocations.find { it.enveloppeId == source.enveloppe.id }
+                                if (allocationSource == null) {
+                                    Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
+                                } else {
+                                    // Mettre à jour l'allocation source (diminue solde + alloué)
+                                    val allocationSourceMiseAJour = allocationSource.copy(
+                                        solde = allocationSource.solde - montantEnDollars,
+                                        alloue = allocationSource.alloue - montantEnDollars
+                                    )
+                                    
+                                    try {
+                                        allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
+                                        
+                                        // 2. ✅ CRÉER une allocation additive (évite les doublons) - MÊME LOGIQUE QUE PRÊT À PLACER → ENVELOPPE !
+                                        // 🔥 CORRECTION : Utiliser le mois sélectionné au lieu de Date()
+                                        val calendrier = Calendar.getInstance().apply {
+                                            time = _uiState.value.moisSelectionne
+                                            set(Calendar.DAY_OF_MONTH, 1)
+                                            set(Calendar.HOUR_OF_DAY, 0)
+                                            set(Calendar.MINUTE, 0)
+                                            set(Calendar.SECOND, 0)
+                                            set(Calendar.MILLISECOND, 0)
+                                        }
+                                        val premierJourMois = calendrier.time
+
+                                        // ✅ Récupérer ou créer l'allocation pour ce mois
+                                        // 🚨 CORRECTION : Ne pas créer d'allocation pour les "prêt à placer" virtuels
+                                        if (estPretAPlacer(destination.enveloppe)) {
+                                            // Destination est un "prêt à placer" virtuel - METTRE À JOUR LE COMPTE !
+                                            val compteDestination = allComptes.find { it.id == extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id) }
+                                            if (compteDestination is CompteCheque) {
+                                                val ancienPretAPlacer = compteDestination.pretAPlacer
+                                                val nouveauPretAPlacer = ancienPretAPlacer + montantEnDollars
+                                                
+                                                val compteModifie = compteDestination.copy(
+                                                    pretAPlacerRaw = nouveauPretAPlacer,
+                                                    collection = compteDestination.collection
+                                                )
+                                                
+                                                try {
+                                                    compteRepository.mettreAJourCompte(compteModifie)
+                                                    Result.success(Unit)
+                                                } catch (e: Exception) {
+                                                    Result.failure<Unit>(Exception("Erreur lors de la mise à jour du prêt à placer: ${e.message}"))
+                                                }
+                                            } else {
+                                                Result.failure<Unit>(Exception("Compte prêt à placer introuvable"))
+                                            }
+                                        } else {
+                                            // Destination est une vraie enveloppe - créer l'allocation
+                                            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
+                                            
+                                            // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
+                                            val allocationMiseAJour = allocationExistante.copy(
+                                                solde = allocationExistante.solde + montantEnDollars,
+                                                alloue = allocationExistante.alloue + montantEnDollars,
+                                                // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
+                                                compteSourceId = if (allocationExistante.solde <= 0.01) allocationSource.compteSourceId else allocationExistante.compteSourceId,
+                                                collectionCompteSource = if (allocationExistante.solde <= 0.01) allocationSource.collectionCompteSource else allocationExistante.collectionCompteSource
+                                            )
+                                            
+                                            try {
+                                                allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                                                // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
+                                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
+                                                Result.success(Unit)
+                                            } catch (e: Exception) {
+                                                Result.failure<Unit>(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
+                                    }
                                 }
-                                result
                             }
                                                  } else {
                              // 🔥 CORRECTION: Enveloppe vers Enveloppe - UTILISER LE MÊME SYSTÈME QUE PRÊT À PLACER -> ENVELOPPE !
