@@ -317,8 +317,13 @@ class VirerArgentViewModel(
             val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
             
             // 🎨 RÉCUPÉRER LA VRAIE COULEUR DU COMPTE SOURCE (comme dans AjoutTransactionViewModel)
-            val compteSource = allocation?.compteSourceId?.let { compteId ->
-                allComptes.find { it.id == compteId }
+            // 🎨 CORRECTION : Reset la couleur de provenance quand solde = 0
+            val compteSource = if ((allocation?.solde ?: 0.0) > 0.001) {
+                allocation?.compteSourceId?.let { compteId ->
+                    allComptes.find { it.id == compteId }
+                }
+            } else {
+                null // Reset la couleur quand solde = 0
             }
             
             EnveloppeUi(

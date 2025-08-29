@@ -251,8 +251,8 @@ private fun ItemEnveloppeVirement(
             }
             
             // 🎨 AFFICHAGE DU MONTANT AVEC COULEUR DE PROVENANCE
-            if (enveloppe.couleurProvenance != null) {
-                // Bulle colorée bien ronde avec texte plus petit
+            if (enveloppe.couleurProvenance != null && enveloppe.solde > 0.001) {
+                // Bulle colorée bien ronde avec texte plus petit - SEULEMENT si solde > 0
                 Box(
                     modifier = Modifier
                         .background(

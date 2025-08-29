@@ -332,8 +332,13 @@ class BudgetViewModel(
             )
 
             // Pour la couleur, on se base sur la provenance de la dernière allocation (la plus récente)
+            // 🎨 CORRECTION : Reset la couleur de provenance quand solde = 0
             val derniereAllocation = allocationsDeLEnveloppe.lastOrNull()
-            val compteSource = derniereAllocation?.compteSourceId?.let { mapComptes[it] }
+            val compteSource = if (soldeTotal > 0.001) {
+                derniereAllocation?.compteSourceId?.let { mapComptes[it] }
+            } else {
+                null // Reset la couleur quand solde = 0
+            }
 
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
