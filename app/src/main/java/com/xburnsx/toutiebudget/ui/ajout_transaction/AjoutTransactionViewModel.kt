@@ -1143,117 +1143,130 @@ class AjoutTransactionViewModel(
                             is CompteInvestissement -> "comptes_investissements"
                             else -> "comptes_cheques"
                         }
-                        if (typeTransaction == TypeTransaction.Revenu && nomTiers.isNotBlank()) {
-                            val prets = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                                .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
-                                .sortedBy { it.created ?: "" }
-                            if (prets.isNotEmpty()) {
-                                // Créditer une fois
-                                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                                    compteId = compte.id,
-                                    collectionCompte = collectionCompte,
-                                    variationSolde = montantDollars,
-                                    mettreAJourPretAPlacer = true
-                                )
-                                var restant = montantDollars
-                                for (pret in prets) {
-                                    if (restant <= 0) break
-                                    val aPayer = kotlin.math.min(restant, pret.solde)
-                                    val nouveauSolde = kotlin.math.max(0.0, pret.solde - aPayer)
-                                    val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                                    pretPersonnelRepository.mettreAJour(pret.copy(solde = nouveauSolde, estArchive = archiver))
-                                    val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"" + "}"
-                                    transactionRepository.creerTransaction(
-                                        Transaction(
-                                            type = TypeTransaction.RemboursementRecu,
-                                            montant = aPayer,
-                                            date = dateTransaction,
-                                            compteId = compte.id,
-                                            collectionCompte = collectionCompte,
-                                            note = state.note.takeIf { it.isNotBlank() },
-                                            tiersUtiliser = nomTiers,
-                                            sousItems = sous
-                                        )
-                                    )
-                                    restant -= aPayer
-                                }
-                                _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
-                                BudgetEvents.refreshBudget.tryEmit(Unit)
-                                realtimeSyncService.declencherMiseAJourBudget()
-                                val lastMessage = _uiState.value.messageConfirmation
-                                _uiState.update {
-                                    AjoutTransactionUiState(
-                                        isLoading = false,
-                                        comptesDisponibles = state.comptesDisponibles,
-                                        enveloppesDisponibles = state.enveloppesDisponibles,
-                                        messageConfirmation = lastMessage
-                                    ).calculerValidite()
-                                }
-                                chargerDonneesInitiales()
-                                return@launch
-                            }
-                        }
-                        if (typeTransaction == TypeTransaction.Depense && nomTiers.isNotBlank()) {
-                            val dettes = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                                .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
-                                .sortedBy { it.created ?: "" }
-                            if (dettes.isNotEmpty()) {
-                                // Débiter une fois
-                                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                                    compteId = compte.id,
-                                    collectionCompte = collectionCompte,
-                                    variationSolde = -montantDollars,
-                                    mettreAJourPretAPlacer = true
-                                )
-                                var restant = montantDollars
-                                for (det in dettes) {
-                                    if (restant <= 0) break
-                                    val besoin = kotlin.math.abs(det.solde)
-                                    val aPayer = kotlin.math.min(restant, besoin)
-                                    val nouveauSolde = -(kotlin.math.max(0.0, besoin - aPayer))
-                                    val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                                    pretPersonnelRepository.mettreAJour(det.copy(solde = nouveauSolde, estArchive = archiver))
-                                    val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
-                                    transactionRepository.creerTransaction(
-                                        Transaction(
-                                            type = TypeTransaction.RemboursementDonne,
-                                            montant = aPayer,
-                                            date = dateTransaction,
-                                            compteId = compte.id,
-                                            collectionCompte = collectionCompte,
-                                            note = state.note.takeIf { it.isNotBlank() },
-                                            tiersUtiliser = nomTiers,
-                                            sousItems = sous
-                                        )
-                                    )
-                                    restant -= aPayer
-                                }
-                                _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
-                                BudgetEvents.refreshBudget.tryEmit(Unit)
-                                realtimeSyncService.declencherMiseAJourBudget()
-                                val lastMessage = _uiState.value.messageConfirmation
-                                _uiState.update {
-                                    AjoutTransactionUiState(
-                                        isLoading = false,
-                                        comptesDisponibles = state.comptesDisponibles,
-                                        enveloppesDisponibles = state.enveloppesDisponibles,
-                                        messageConfirmation = lastMessage
-                                    ).calculerValidite()
-                                }
-                                chargerDonneesInitiales()
-                                return@launch
-                            }
-                        }
+                        // 🚨 DÉSACTIVÉ : Cette logique auto-liage transforme les REVENUS en REMBOURSEMENTRECU !
+                        // if (typeTransaction == TypeTransaction.Revenu && nomTiers.isNotBlank()) {
+                        //     val prets = pretPersonnelRepository.lister().getOrElse { emptyList() }
+                        //         .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
+                        //         .sortedBy { it.created ?: "" }
+                        //     if (prets.isNotEmpty()) {
+                        //         // Créditer une fois
+                        //         compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                        //             compteId = compte.id,
+                        //             collectionCompte = collectionCompte,
+                        //             variationSolde = montantDollars,
+                        //             mettreAJourPretAPlacer = true
+                        //         )
+                        //         var restant = montantDollars
+                        //         for (pret in prets) {
+                        //             if (restant <= 0) break
+                        //             val aPayer = kotlin.math.min(restant, pret.solde)
+                        //             val nouveauSolde = kotlin.math.max(0.0, pret.solde - aPayer)
+                        //             val archiver = kotlin.math.abs(nouveauSolde) < 0.005
+                        //             pretPersonnelRepository.mettreAJour(pret.copy(solde = nouveauSolde, estArchive = archiver))
+                        //         val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"" + "}"
+                        //         transactionRepository.creerTransaction(
+                        //             Transaction(
+                        //                 type = TypeTransaction.RemboursementRecu,
+                        //                 montant = aPayer,
+                        //                 date = dateTransaction,
+                        //                 compteId = compte.id,
+                        //                 collectionCompte = collectionCompte,
+                        //                 note = state.note.takeIf { it.isNotBlank() },
+                        //                 tiersUtiliser = nomTiers,
+                        //                 sousItems = sous
+                        //             )
+                        //         )
+                        //         restant -= aPayer
+                        //     }
+                        //     _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
+                        //     BudgetEvents.refreshBudget.tryEmit(Unit)
+                        //     realtimeSyncService.declencherMiseAJourBudget()
+                        //     val lastMessage = _uiState.value.messageConfirmation
+                        //     _uiState.update {
+                        //         AjoutTransactionUiState(
+                        //             isLoading = false,
+                        //             comptesDisponibles = state.comptesDisponibles,
+                        //             enveloppesDisponibles = state.enveloppesDisponibles,
+                        //             messageConfirmation = lastMessage
+                        //         ).calculerValidite()
+                        //     }
+                        //     chargerDonneesInitiales()
+                        //     return@launch
+                        // }
+                        // }
+                        // 🚨 DÉSACTIVÉ : Cette logique auto-liage transforme les DÉPENSES en REMBOURSEMENTDONNE !
+                        // if (typeTransaction == TypeTransaction.Depense && nomTiers.isNotBlank()) {
+                        //     val dettes = pretPersonnelRepository.lister().getOrElse { emptyList() }
+                        //         .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
+                        //         .sortedBy { it.created ?: "" }
+                            // 🚨 DÉSACTIVÉ : Cette logique auto-liage transforme les DÉPENSES en REMBOURSEMENTDONNE !
+                            // if (dettes.isNotEmpty()) {
+                            //     // Débiter une fois
+                            //     compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            //         compteId = compte.id,
+                            //         collectionCompte = collectionCompte,
+                            //         variationSolde = -montantDollars,
+                            //         mettreAJourPretAPlacer = true
+                            //     )
+                            //     var restant = montantDollars
+                            //     for (det in dettes) {
+                            //         if (restant <= 0) break
+                            //         val besoin = kotlin.math.abs(det.solde)
+                            //         val aPayer = kotlin.math.min(restant, besoin)
+                            //         val nouveauSolde = -(kotlin.math.max(0.0, besoin - aPayer))
+                            //         val archiver = kotlin.math.abs(nouveauSolde) < 0.005
+                            //         pretPersonnelRepository.mettreAJour(det.copy(solde = nouveauSolde, estArchive = archiver))
+                            //         val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
+                            //         transactionRepository.creerTransaction(
+                            //             Transaction(
+                            //                 type = TypeTransaction.RemboursementDonne,
+                            //                 montant = aPayer,
+                            //                 date = dateTransaction,
+                            //                 compteId = compte.id,
+                            //                 collectionCompte = collectionCompte,
+                            //                 note = state.note.takeIf { it.isNotBlank() },
+                            //                 tiersUtiliser = nomTiers,
+                            //                 sousItems = sous
+                            //             )
+                            //         )
+                            //         restant -= aPayer
+                            //     }
+                            //     _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
+                            //     BudgetEvents.refreshBudget.tryEmit(Unit)
+                            //     realtimeSyncService.declencherMiseAJourBudget()
+                            //     val lastMessage = _uiState.value.messageConfirmation
+                            //     _uiState.update {
+                            //         AjoutTransactionUiState(
+                            //             isLoading = false,
+                            //             comptesDisponibles = state.comptesDisponibles,
+                            //             enveloppesDisponibles = state.enveloppesDisponibles,
+                            //             messageConfirmation = lastMessage
+                            //         ).calculerValidite()
+                            //     }
+                            //     chargerDonneesInitiales()
+                            //     return@launch
+                            // }
+                        // }
                     }
 
                     // Pour les dépenses standard: vérifier enveloppe
                     val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
                         val enveloppeSelectionnee = state.enveloppeSelectionnee
+                        // 🔍 LOG DEBUG : Tracer l'enveloppe sélectionnée
+                        println("🔍 DEBUG - Type de transaction: ${state.typeTransaction}")
+                        println("🔍 DEBUG - Enveloppe sélectionnée: ${enveloppeSelectionnee?.nom} (ID: ${enveloppeSelectionnee?.id})")
+                        println("🔍 DEBUG - Solde de l'enveloppe: ${enveloppeSelectionnee?.solde}")
+                        
                         enveloppeSelectionnee?.id
                             ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
                     } else {
                         null
                     }
+
+                    // 🔍 LOG DEBUG : Tracer les paramètres de la transaction
+                    println("🔍 DEBUG - Montant de la transaction: ${state.montant} centimes (${state.montant.toDoubleOrNull()?.div(100.0)} dollars)")
+                    println("🔍 DEBUG - Compte sélectionné: ${compte.nom} (ID: ${compte.id})")
+                    println("🔍 DEBUG - Collection du compte: ${when (compte) { is CompteCheque -> "comptes_cheques"; is CompteCredit -> "comptes_credits"; is CompteDette -> "comptes_dettes"; is CompteInvestissement -> "comptes_investissements"; else -> "comptes_cheques" }})")
 
                     // Enregistrer la transaction standard
                     val result = enregistrerTransactionUseCase.executer(
@@ -1272,6 +1285,13 @@ class AjoutTransactionViewModel(
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction
                     )
+
+                    // 🔍 LOG DEBUG : Tracer le résultat de la création
+                    if (result.isSuccess) {
+                        println("🔍 DEBUG - Transaction créée avec succès!")
+                    } else {
+                        println("🔍 DEBUG - Erreur lors de la création de la transaction: ${result.exceptionOrNull()?.message}")
+                    }
 
                     if (result.isSuccess) {
                         val message = when (typeTransaction) {

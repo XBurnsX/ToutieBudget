@@ -606,26 +606,34 @@ class VirerArgentViewModel(
                                     val premierJourMois = calendrier.time
 
                                     // ✅ Récupérer ou créer l'allocation pour ce mois
-                                    val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
-                                    
-                                    // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
-                                    val allocationMiseAJour = allocationExistante.copy(
-                                        solde = allocationExistante.solde + montantEnDollars,
-                                        alloue = allocationExistante.alloue + montantEnDollars,
-                                        // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
-                                        compteSourceId = if (allocationExistante.solde <= 0.01) compteSource.id else allocationExistante.compteSourceId,
-                                        collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
-                                    )
-                                    
-                                    // Logique de provenance
-                                    
-                                    try {
-                                        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
-                                        // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
-                                        allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
+                                    // 🚨 CORRECTION : Ne pas créer d'allocation pour les "prêt à placer" virtuels
+                                    if (estPretAPlacer(destination.enveloppe)) {
+                                        // Destination est un "prêt à placer" virtuel - pas d'allocation nécessaire
+                                        // Juste mettre à jour le compte source
                                         Result.success(Unit)
-                                    } catch (e: Exception) {
-                                        Result.failure<Unit>(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
+                                    } else {
+                                        // Destination est une vraie enveloppe - créer l'allocation
+                                        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
+                                        
+                                        // ✅ FUSIONNER : Mettre à jour l'allocation existante au lieu de créer un doublon
+                                        val allocationMiseAJour = allocationExistante.copy(
+                                            solde = allocationExistante.solde + montantEnDollars,
+                                            alloue = allocationExistante.alloue + montantEnDollars,
+                                            // ✅ PROVENANCE : TOUJOURS changer quand le solde était à 0 (nouveau départ)
+                                            compteSourceId = if (allocationExistante.solde <= 0.01) compteSource.id else allocationExistante.compteSourceId,
+                                            collectionCompteSource = if (allocationExistante.solde <= 0.01) compteSource.collection else allocationExistante.collectionCompteSource
+                                        )
+                                        
+                                        // Logique de provenance
+                                        
+                                        try {
+                                            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+                                            // 🔥 FORCER LA RE-FUSION APRÈS MODIFICATION POUR ÉVITER LES DOUBLONS !
+                                            allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, _uiState.value.moisSelectionne)
+                                            Result.success(Unit)
+                                        } catch (e: Exception) {
+                                            Result.failure<Unit>(Exception("Erreur lors de la mise à jour de l'allocation: ${e.message}"))
+                                        }
                                     }
                                 }
                             }

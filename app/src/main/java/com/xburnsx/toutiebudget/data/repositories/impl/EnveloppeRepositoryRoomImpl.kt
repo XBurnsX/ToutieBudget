@@ -287,9 +287,19 @@ class EnveloppeRepositoryRoomImpl(
 
     override suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            println("🔍 DEBUG - ajouterDepenseAllocation appelé avec:")
+            println("🔍 DEBUG - allocationMensuelleId: $allocationMensuelleId")
+            println("🔍 DEBUG - montantDepense: $montantDepense")
+
             // 1. Récupérer l'allocation depuis Room
             val allocationEntity = allocationMensuelleDao.getAllocationById(allocationMensuelleId)
                 ?: return@withContext Result.failure(Exception("Allocation non trouvée"))
+
+            println("🔍 DEBUG - Allocation trouvée en Room:")
+            println("🔍 DEBUG - ID: ${allocationEntity.id}")
+            println("🔍 DEBUG - EnveloppeId: ${allocationEntity.enveloppeId}")
+            println("🔍 DEBUG - Ancien solde: ${allocationEntity.solde}")
+            println("🔍 DEBUG - Ancienne depense: ${allocationEntity.depense}")
 
             // 2. Mettre à jour les montants
             val nouvelleAllocation = allocationEntity.copy(
@@ -297,8 +307,13 @@ class EnveloppeRepositoryRoomImpl(
                 depense = allocationEntity.depense + montantDepense
             )
 
+            println("🔍 DEBUG - Nouvelle allocation calculée:")
+            println("🔍 DEBUG - Nouveau solde: ${nouvelleAllocation.solde}")
+            println("🔍 DEBUG - Nouvelle depense: ${nouvelleAllocation.depense}")
+
             // 3. Sauvegarder en Room
             allocationMensuelleDao.updateAllocation(nouvelleAllocation)
+            println("🔍 DEBUG - Allocation mise à jour en Room avec succès")
             
             // 4. Ajouter à la liste de tâches pour synchronisation
             val syncJob = SyncJob(
@@ -311,11 +326,13 @@ class EnveloppeRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+            println("🔍 DEBUG - SyncJob créé pour la synchronisation")
 
             // 5. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
         } catch (e: Exception) {
+            println("🔍 DEBUG - Erreur dans ajouterDepenseAllocation: ${e.message}")
             Result.failure(e)
         }
     }

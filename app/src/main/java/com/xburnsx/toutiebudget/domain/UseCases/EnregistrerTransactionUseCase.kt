@@ -260,21 +260,39 @@ class EnregistrerTransactionUseCase(
         collectionCompte: String
     ): Result<Unit> {
         return try {
+            println("🔍 DEBUG - mettreAJourSoldeEnveloppe appelé avec:")
+            println("🔍 DEBUG - allocationMensuelleId: $allocationMensuelleId")
+            println("🔍 DEBUG - montant: $montant")
+            println("🔍 DEBUG - collectionCompte: $collectionCompte")
+
             if (collectionCompte == "comptes_credits") {
                 // Carte de crédit: ne PAS toucher au solde d'allocation, seulement depense et alloue
+                println("🔍 DEBUG - Compte de crédit détecté, mise à jour spéciale")
                 val allocation = enveloppeRepository.recupererAllocationParId(allocationMensuelleId).getOrThrow()
                 val allocationMaj = allocation.copy(
                     depense = MoneyFormatter.roundAmount(allocation.depense + montant),
                     alloue = MoneyFormatter.roundAmount(allocation.alloue + montant),
                     solde = MoneyFormatter.roundAmount(allocation.solde)
                 )
+                println("🔍 DEBUG - Allocation carte de crédit mise à jour:")
+                println("🔍 DEBUG - Ancienne depense: ${allocation.depense} -> Nouvelle: ${allocationMaj.depense}")
+                println("🔍 DEBUG - Ancien alloue: ${allocation.alloue} -> Nouveau: ${allocationMaj.alloue}")
+                println("🔍 DEBUG - Solde inchangé: ${allocationMaj.solde}")
+                
                 allocationMensuelleRepository.mettreAJourAllocation(allocationMaj)
                 Result.success(Unit)
             } else {
                 // Comportement normal: depense += montant et solde -= montant
-                enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
+                println("🔍 DEBUG - Compte normal, appel de ajouterDepenseAllocation")
+                val result = enveloppeRepository.ajouterDepenseAllocation(allocationMensuelleId, montant)
+                if (result.isSuccess) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(result.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour de l'allocation"))
+                }
             }
         } catch (e: Exception) {
+            println("🔍 DEBUG - Erreur dans mettreAJourSoldeEnveloppe: ${e.message}")
             Result.failure(e)
         }
     }

@@ -96,19 +96,17 @@ class AllocationMensuelleRepositoryRoomImpl(
 
             val moisStr = dateFormatter.format(mois)
             
-            // 🔥 DIAGNOSTIC : Log des paramètres d'entrée
-            println("🔥 DIAGNOSTIC - recupererOuCreerAllocation appelé avec:")
-            println("🔥 DIAGNOSTIC - enveloppeId: $enveloppeId")
-            println("🔥 DIAGNOSTIC - mois demandé: $moisStr")
-            println("🔥 DIAGNOSTIC - mois Date object: $mois")
+            println("🔍 DEBUG - recupererOuCreerAllocation appelé avec:")
+            println("🔍 DEBUG - enveloppeId: $enveloppeId")
+            println("🔍 DEBUG - mois demandé: $moisStr")
+            println("🔍 DEBUG - mois Date object: $mois")
 
             // 1. 🔥 FUSION RÉELLE : Récupérer TOUTES les allocations pour cette enveloppe et ce mois
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
             
-            // 🔥 DIAGNOSTIC : Log de toutes les allocations trouvées
-            println("🔥 DIAGNOSTIC - Toutes les allocations de l'utilisateur: ${allocationsEntities.size}")
+            println("🔍 DEBUG - Toutes les allocations de l'utilisateur: ${allocationsEntities.size}")
             allocationsEntities.filter { it.enveloppeId == enveloppeId }.forEach { entity ->
-                println("🔥 DIAGNOSTIC - Allocation trouvée pour cette enveloppe: id=${entity.id}, mois=${entity.mois}, solde=${entity.solde}, alloue=${entity.alloue}")
+                println("🔍 DEBUG - Allocation trouvée pour cette enveloppe: id=${entity.id}, mois=${entity.mois}, solde=${entity.solde}, alloue=${entity.alloue}")
             }
             
             // 🔥 CORRECTION : Fusionner par MOIS complet, pas par date exacte !
@@ -116,7 +114,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             val annee = moisCalendrier.get(Calendar.YEAR)
             val moisNumero = moisCalendrier.get(Calendar.MONTH)
             
-            println("🔥 DIAGNOSTIC - Recherche pour année: $annee, mois: $moisNumero")
+            println("🔍 DEBUG - Recherche pour année: $annee, mois: $moisNumero")
             
             val allocationsPourEnveloppeEtMois = allocationsEntities.filter { entity -> 
                 try {
@@ -130,7 +128,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                     moisEntity == moisNumero
                     
                     if (entity.enveloppeId == enveloppeId) {
-                        println("🔥 DIAGNOSTIC - Vérification allocation: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois} -> anneeEntity=$anneeEntity, moisEntity=$moisEntity, match=$match")
+                        println("🔍 DEBUG - Vérification allocation: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois} -> anneeEntity=$anneeEntity, moisEntity=$moisEntity, match=$match")
                     }
                     
                     match
@@ -138,17 +136,18 @@ class AllocationMensuelleRepositoryRoomImpl(
                     // Fallback : comparaison exacte si parsing échoue
                     val match = entity.enveloppeId == enveloppeId && entity.mois == moisStr
                     if (entity.enveloppeId == enveloppeId) {
-                        println("🔥 DIAGNOSTIC - Fallback parsing: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois}, match=$match")
+                        println("🔍 DEBUG - Fallback parsing: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois}, match=$match")
                     }
                     match
                 }
             }
             
-            println("🔥 DIAGNOSTIC - Allocations trouvées pour ce mois: ${allocationsPourEnveloppeEtMois.size}")
+            println("🔍 DEBUG - Allocations trouvées pour ce mois: ${allocationsPourEnveloppeEtMois.size}")
 
             when {
                 // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
                 allocationsPourEnveloppeEtMois.isEmpty() -> {
+                    println("🔍 DEBUG - Aucune allocation trouvée, création d'une nouvelle")
                     // 🔥 CORRECTION : Vérifier s'il y a déjà une allocation pour ce mois (peu importe la date exacte)
                     val allocationsPourEnveloppeEtMoisComplet = allocationsEntities.filter { entity -> 
                         try {
@@ -167,10 +166,11 @@ class AllocationMensuelleRepositoryRoomImpl(
                     
                     if (allocationsPourEnveloppeEtMoisComplet.isNotEmpty()) {
                         // 🔥 CORRECTION : Il y a déjà une allocation pour ce mois, la retourner au lieu d'en créer une nouvelle
-                        println("🔥 CORRECTION : Allocation existante trouvée pour ce mois, pas de création de doublon")
+                        println("🔍 DEBUG - Allocation existante trouvée pour ce mois, pas de création de doublon")
                         allocationsPourEnveloppeEtMoisComplet.first().toAllocationMensuelleModel()
                     } else {
                         // Vraiment aucune allocation pour ce mois, créer une nouvelle
+                        println("🔍 DEBUG - Création d'une nouvelle allocation")
                         val nouvelleAllocation = AllocationMensuelle(
                             id = "",
                             utilisateurId = utilisateurId,
