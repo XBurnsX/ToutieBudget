@@ -86,13 +86,23 @@ class ValidationProvenanceService @Inject constructor(
         mois: Date
     ): Result<Unit> = runCatching {
 
-        // Récupérer les allocations des deux enveloppes
-        val allocationSource = enveloppeRepository.recupererAllocationMensuelle(enveloppeSourceId, mois)
-            .getOrNull()
-        val allocationCible = enveloppeRepository.recupererAllocationMensuelle(enveloppeCibleId, mois)
-            .getOrNull()
+        // 🔥 CORRECTION: Utiliser le mois passé en paramètre au lieu de Date()
+        println("🔥 DEBUG VALIDATION: Date reçue: $mois")
+        println("🔥 DEBUG VALIDATION: Date utilisée (corrigée): $mois")
+
+        // 🔥 CORRECTION: Utiliser le mois passé en paramètre
+        val toutesAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
+            .getOrNull() ?: emptyList()
+        
+        val allocationSource = toutesAllocations.find { it.enveloppeId == enveloppeSourceId }
+        val allocationCible = toutesAllocations.find { it.enveloppeId == enveloppeCibleId }
+
+        println("🔥 DEBUG VALIDATION: Toutes allocations trouvées: ${toutesAllocations.size}")
+        println("🔥 DEBUG VALIDATION: Allocation source trouvée: $allocationSource")
+        println("🔥 DEBUG VALIDATION: Solde source: ${allocationSource?.solde}")
 
         if (allocationSource == null || allocationSource.solde <= 0) {
+            println("🔥 DEBUG VALIDATION: ÉCHEC - Source null: ${allocationSource == null}, Solde <= 0: ${allocationSource?.solde ?: 0}")
             throw IllegalArgumentException(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_VIDE)
         }
 

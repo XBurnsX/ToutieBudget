@@ -60,6 +60,7 @@ class StatistiquesViewModel(
     }
 
     fun chargerPeriode(debut: Date, fin: Date, label: String) {
+        println("DEBUG ViewModel: 🚀 chargerPeriode appelé avec début: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(debut)}, fin: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(fin)}, label: $label")
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val periode = Periode(debut, fin, label)
@@ -101,6 +102,15 @@ class StatistiquesViewModel(
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             
+            // DEBUG: Vérifier les transactions chargées
+            println("DEBUG: Transactions 6 mois total: ${transactions6Mois.size}")
+            println("DEBUG: Transactions pour la période: ${transactions.size}")
+            if (transactions.isNotEmpty()) {
+                transactions.take(3).forEach { tx ->
+                    println("DEBUG: Transaction exemple - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}")
+                }
+            }
+
             val enveloppes = enveloppesResult.getOrNull().orEmpty()
             val allocations = allocationsToutes
             val tiers = tiersResult.getOrNull().orEmpty()
@@ -139,17 +149,33 @@ class StatistiquesViewModel(
             // 1) Agréger les transactions simples (non fractionnées) par enveloppe via allocation -> enveloppe
             val depenseParEnveloppeSimple: MutableMap<String, Double> = mutableMapOf()
             depenses.filter { !it.estFractionnee }.forEach { tx ->
-                val envId = if (tx.type == TypeTransaction.PaiementEffectue) {
-                    // Pour les PaiementEffectue, utiliser un ID spécial pour les identifier
-                    "__PAIEMENT_EFFECTUE__"
-                } else {
-                    tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] } ?: ID_SANS_ENVELOPPE
+                val envId = when (tx.type) {
+                    TypeTransaction.PaiementEffectue -> {
+                        // Pour les PaiementEffectue, utiliser un ID spécial pour les identifier
+                        "__PAIEMENT_EFFECTUE__"
+                    }
+                    TypeTransaction.RemboursementDonne, 
+                    TypeTransaction.TransfertSortant,
+                    TypeTransaction.Pret,
+                    TypeTransaction.Emprunt -> {
+                        // Ces types n'ont pas d'enveloppe par design - les ignorer des statistiques d'enveloppes
+                        null
+                    }
+                    else -> {
+                        // Pour les vraies dépenses, essayer de récupérer l'enveloppe
+                        tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
+                    }
                 }
-                if (envId != ID_SANS_ENVELOPPE && envId != "__PAIEMENT_EFFECTUE__" && envId in enveloppeIdsExclus) {
-                    // ignorer les dépenses sur Dettes/Cartes de crédit
-                } else {
-                    depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
+                
+                // Ne traiter que si on a un envId valide
+                if (envId != null) {
+                    if (envId != "__PAIEMENT_EFFECTUE__" && envId in enveloppeIdsExclus) {
+                        // ignorer les dépenses sur Dettes/Cartes de crédit
+                    } else {
+                        depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
+                    }
                 }
+                // Si envId est null, on ignore complètement la transaction (pas de "Sans enveloppe")
             }
 
             // 2) Agréger les sous-items des transactions fractionnées par enveloppeId
@@ -161,6 +187,7 @@ class StatistiquesViewModel(
                         val obj = elem.asJsonObject
                         val envId = obj.get("enveloppeId")?.asString
                         val montant = obj.get("montant")?.asDouble ?: 0.0
+                        // Ne traiter que si on a un enveloppeId valide et qu'il n'est pas exclu
                         if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
                             depenseParEnveloppeFractions[envId] = (depenseParEnveloppeFractions[envId] ?: 0.0) + montant
                         }
@@ -175,13 +202,12 @@ class StatistiquesViewModel(
                         (depenseParEnveloppeSimple[envId] ?: 0.0) + (depenseParEnveloppeFractions[envId] ?: 0.0)
                     }
 
-            // 4) Construire le Top 5 par enveloppe
+            // 4) Construire le Top 5 par enveloppe (maintenant sans "Sans enveloppe")
             val top5Enveloppes = depenseParEnveloppe.entries
                 .map { (envId, montant) ->
                     val label = when (envId) {
-                        ID_SANS_ENVELOPPE -> com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
                         "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
-                        else -> enveloppeIdParNom[envId] ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                        else -> enveloppeIdParNom[envId] ?: "Enveloppe inconnue"
                     }
                     TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
                 }
@@ -290,6 +316,10 @@ class StatistiquesViewModel(
                 calJour.add(Calendar.DAY_OF_MONTH, 1)
             }
 
+            // DEBUG: Vérifier le nombre total de transactions
+            println("DEBUG ViewModel: Transactions 6 mois total: ${transactions6Mois.size}")
+            println("DEBUG ViewModel: Transactions pour la période: ${transactions.size}")
+            
             // Net par jour
             val netParJour = jours.map { jour ->
                 val start = Calendar.getInstance().apply {
@@ -300,21 +330,35 @@ class StatistiquesViewModel(
                     time = jour
                     set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
                 }.time
-                            val revenusJour = transactions.filter { 
-                (it.type == TypeTransaction.Revenu || 
-                 it.type == TypeTransaction.Emprunt || 
-                 it.type == TypeTransaction.RemboursementRecu) && 
-                it.date >= start && it.date <= end 
-                // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
-            }.sumOf { it.montant }
-            val depensesJour = transactions.filter { 
-                (it.type == TypeTransaction.Depense || 
-                 it.type == TypeTransaction.Pret || 
-                 it.type == TypeTransaction.RemboursementDonne || 
-                 it.type == TypeTransaction.PaiementEffectue) && 
-                it.date >= start && it.date <= end 
-            }.sumOf { it.montant }
-                revenusJour - depensesJour
+
+                // DEBUG: Vérifier les transactions pour ce jour
+                val transactionsJour = transactions.filter {
+                    it.date >= start && it.date <= end
+                }
+                println("DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Transactions trouvées: ${transactionsJour.size}")
+                if (transactionsJour.isNotEmpty()) {
+                    transactionsJour.forEach { tx ->
+                        println("DEBUG: Transaction ${tx.id} - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}")
+                    }
+                }
+
+                val revenusJour = transactionsJour.filter { 
+                    (it.type == TypeTransaction.Revenu || 
+                     it.type == TypeTransaction.Emprunt || 
+                     it.type == TypeTransaction.RemboursementRecu) && 
+                    it.date >= start && it.date <= end 
+                    // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
+                }.sumOf { it.montant }
+                val depensesJour = transactionsJour.filter { 
+                    (it.type == TypeTransaction.Depense || 
+                     it.type == TypeTransaction.Pret || 
+                     it.type == TypeTransaction.RemboursementDonne || 
+                     it.type == TypeTransaction.PaiementEffectue) && 
+                    it.date >= start && it.date <= end 
+                }.sumOf { it.montant }
+                val net = revenusJour - depensesJour
+                println("DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Revenus: $revenusJour, Dépenses: $depensesJour, Net: $net")
+                net
             }
 
             // Cumul
@@ -330,6 +374,11 @@ class StatistiquesViewModel(
                 val sousListe = netParJour.subList(debutIdx, i + 1)
                 sousListe.average()
             }
+
+            // DEBUG: Afficher les valeurs calculées
+            println("DEBUG ViewModel: netParJour=$netParJour")
+            println("DEBUG ViewModel: cumulMensuel=$cumulMensuel")
+            println("DEBUG ViewModel: mm7=$mm7")
 
             val labelsJours = jours.map { java.text.SimpleDateFormat("d", java.util.Locale.FRENCH).format(it) }
 

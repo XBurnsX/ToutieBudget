@@ -72,7 +72,7 @@ class VirerArgentViewModel(
                         .getOrThrow()
                         .filter { !it.estArchive }
                     
-                    val nouvellesAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
+                    val nouvellesAllocations = enveloppeRepository.recupererAllocationsPourMois(_uiState.value.moisSelectionne)
                         .getOrThrow()
                     
                     val nouvellesCategories = categorieRepository.recupererToutesLesCategories()
@@ -132,6 +132,7 @@ class VirerArgentViewModel(
      * Change le mois sélectionné pour les virements.
      */
     fun changerMois(nouveauMois: Date) {
+        println("🔥 DEBUG: Changement de mois vers: $nouveauMois")
         _uiState.update {
             it.copy(
                 moisSelectionne = nouveauMois,
@@ -160,7 +161,8 @@ class VirerArgentViewModel(
                     .getOrThrow()
                     .filter { !it.estArchive }
 
-                allAllocations = enveloppeRepository.recupererAllocationsPourMois(Date())
+                // 🔥 CORRECTION : Utiliser le mois sélectionné au lieu de Date()
+                allAllocations = enveloppeRepository.recupererAllocationsPourMois(_uiState.value.moisSelectionne)
                     .getOrThrow()
 
                 allCategories = categorieRepository.recupererToutesLesCategories()
@@ -178,14 +180,17 @@ class VirerArgentViewModel(
      * Charge les données pour un mois spécifique.
      */
     private fun chargerDonneesPourMois(mois: Date) {
+        println("🔥 DEBUG: Chargement des données pour le mois: $mois")
         viewModelScope.launch {
             try {
                 allAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
                     .getOrThrow()
+                println("🔥 DEBUG: Allocations chargées pour le mois $mois: ${allAllocations.size}")
                 
                 // Reconfigurer les sources et destinations avec les nouvelles allocations
                 configurerSourcesEtDestinationsPourMode()
             } catch (e: Exception) {
+                println("🔥 DEBUG: Erreur lors du chargement des données pour le mois $mois: ${e.message}")
                 // Gérer l'erreur silencieusement
             }
         }
@@ -494,10 +499,16 @@ class VirerArgentViewModel(
                 loggerAllocationsEnveloppes("AVANT VIREMENT - État initial des allocations")
 
                 // VALIDATION DE PROVENANCE SELON LE TYPE DE VIREMENT
+                println("🔥 DEBUG: Début de la validation de provenance")
+                println("🔥 DEBUG: Source: ${source.javaClass.simpleName} - ${if (source is ItemVirement.EnveloppeItem) source.enveloppe.nom else "Compte"}")
+                println("🔥 DEBUG: Destination: ${destination.javaClass.simpleName} - ${if (destination is ItemVirement.EnveloppeItem) destination.enveloppe.nom else "Compte"}")
+                println("🔥 DEBUG: Montant: $montantEnDollars")
+                
                 val validationResult = validerProvenanceVirement(source, destination)
 
                 if (validationResult.isFailure) {
                     val messageErreur = validationResult.exceptionOrNull()?.message ?: "Erreur de validation inconnue"
+                    println("🔥 DEBUG: Validation échouée: $messageErreur")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -506,6 +517,8 @@ class VirerArgentViewModel(
                     }
                     return@launch
                 }
+                
+                println("🔥 DEBUG: Validation réussie")
 
                 // Effectuer le virement selon les types source/destination
                 val virementResult = when {
@@ -658,64 +671,61 @@ class VirerArgentViewModel(
                                 }
                                 result
                             }
-                        } else {
-                            // Cas normal: Enveloppe vers Enveloppe
-                                                         val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
+                                                 } else {
+                             // 🔥 CORRECTION: Enveloppe vers Enveloppe - UTILISER LE MÊME SYSTÈME QUE PRÊT À PLACER -> ENVELOPPE !
+                             val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
                              val enveloppeDestination = allEnveloppes.find { it.id == destination.enveloppe.id }
-
-                            when {
-                                enveloppeSource == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_INTROUVABLE))
-                                enveloppeDestination == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_DESTINATION_INTROUVABLE))
-                                else -> {
-                                    // 🎯 VIREMENT ENVELOPPE VERS ENVELOPPE AVEC RESPECT DE LA PROVENANCE
-                                    val moisAVirer = _uiState.value.moisSelectionne
-                                    
-                                    // 1. Récupérer l'allocation de l'enveloppe source pour connaître la provenance
-                                    val allocationSourceResult = enveloppeRepository.recupererAllocationMensuelle(source.enveloppe.id, moisAVirer)
-                                    
-                                    if (allocationSourceResult.isFailure) {
-                                        Result.failure(Exception("Impossible de récupérer l'allocation de l'enveloppe source"))
-                                    } else {
-                                        val allocationSource = allocationSourceResult.getOrNull()
-                                        if (allocationSource == null) {
-                                            Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
-                                        } else {
-                                            // 2. ✅ S'assurer qu'une allocation de base existe pour la source
-
-                                            // ✅ FUSIONNER : Mettre à jour l'allocation SOURCE (diminue solde + alloué)
-                                            val allocationSourceMiseAJour = allocationSource.copy(
-                                                solde = allocationSource.solde - montantEnDollars,        // ← RETIRE du solde
-                                                alloue = allocationSource.alloue - montantEnDollars       // ← RETIRE de l'allocation
-                                            )
-                                            
-                                            try {
-                                                allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
-                                                // 🔥 FORCER LA RE-FUSION SOURCE APRÈS MODIFICATION !
-                                                allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
-                                                
-                                                // 3. ✅ Récupérer ou créer l'allocation pour la destination
-                                                val allocationDestExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
-                                                
-                                                // ✅ FUSIONNER : Mettre à jour l'allocation DESTINATION (augmente solde + alloué)
-                                                val allocationDestMiseAJour = allocationDestExistante.copy(
-                                                    solde = allocationDestExistante.solde + montantEnDollars,        // ← AJOUTE au solde
-                                                    alloue = allocationDestExistante.alloue + montantEnDollars,       // ← AJOUTE à l'allocation
-                                                    compteSourceId = allocationSource.compteSourceId, // ← MÊME PROVENANCE
-                                                    collectionCompteSource = allocationSource.collectionCompteSource
-                                                )
-                                                
-                                                allocationMensuelleRepository.mettreAJourAllocation(allocationDestMiseAJour)
-                                                // 🔥 FORCER LA RE-FUSION DESTINATION APRÈS MODIFICATION !
-                                                allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
-                                                Result.success(Unit)
-                                            } catch (e: Exception) {
-                                                Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                             
+                             when {
+                                 enveloppeSource == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_INTROUVABLE))
+                                 enveloppeDestination == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_DESTINATION_INTROUVABLE))
+                                 else -> {
+                                     // 🎯 UTILISER LA MÊME LOGIQUE QUE PRÊT À PLACER -> ENVELOPPE !
+                                     // 1. Retirer de l'enveloppe source (comme retirer du prêt à placer)
+                                     val allocationSource = allAllocations.find { it.enveloppeId == source.enveloppe.id }
+                                     if (allocationSource == null) {
+                                         Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
+                                     } else {
+                                         // Mettre à jour l'allocation source (diminue solde + alloué)
+                                         val allocationSourceMiseAJour = allocationSource.copy(
+                                             solde = allocationSource.solde - montantEnDollars,
+                                             alloue = allocationSource.alloue - montantEnDollars
+                                         )
+                                         
+                                         try {
+                                             allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
+                                             
+                                             // 2. Ajouter à l'enveloppe destination (comme ajouter à l'enveloppe)
+                                             // 🔥 CORRECTION : Vérifier que les champs ne sont pas null
+                                             val result = if (allocationSource.compteSourceId == null || allocationSource.collectionCompteSource == null) {
+                                                 Result.failure<Unit>(Exception("Données de provenance manquantes pour l'enveloppe source"))
+                                             } else {
+                                                 argentService.allouerArgentEnveloppeSansTransaction(
+                                                     enveloppeId = destination.enveloppe.id,
+                                                     compteSourceId = allocationSource.compteSourceId!!,
+                                                     collectionCompteSource = allocationSource.collectionCompteSource!!,
+                                                     montant = montantEnDollars,
+                                                     mois = _uiState.value.moisSelectionne
+                                                 )
+                                             }
+                                             
+                                             // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                                             val moisAVirer = _uiState.value.moisSelectionne
+                                             try {
+                                                 allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
+                                                 allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
+                                             } catch (_: Exception) {
+                                                 // Erreur silencieuse
+                                             }
+                                             
+                                             result
+                                         } catch (e: Exception) {
+                                             Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
+                                         }
+                                     }
+                                 }
+                             }
+                         }
                     }
 
                     else -> {
@@ -845,12 +855,14 @@ class VirerArgentViewModel(
                         mois = mois
                     )
                 } else {
-                    // Enveloppe normale vers Enveloppe normale
-                    validationProvenanceService.validerTransfertEntreEnveloppes(
-                        enveloppeSourceId = source.enveloppe.id,
-                        enveloppeCibleId = destination.enveloppe.id,
-                        mois = mois
-                    )
+                                         // Enveloppe normale vers Enveloppe normale
+                     // 🔥 CORRECTION: Passer le mois du virement, pas le mois de l'UI
+                     val moisAVirer = _uiState.value.moisSelectionne
+                     validationProvenanceService.validerTransfertEntreEnveloppes(
+                         enveloppeSourceId = source.enveloppe.id,
+                         enveloppeCibleId = destination.enveloppe.id,
+                         mois = moisAVirer
+                     )
                 }
             }
 

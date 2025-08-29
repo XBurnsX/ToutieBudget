@@ -100,6 +100,7 @@ import kotlinx.coroutines.delay
 import java.util.Calendar
 import java.util.Date
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -568,16 +569,20 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
             val cumulAll = uiState.cashflowCumulMensuel.map { it.second }
             val mm7All = uiState.moyenneMobile7Jours.map { it.second }
             val n = minOf(labelsAll.size, cumulAll.size, mm7All.size)
-            val labels = labelsAll.take(n)
-            val cumul = cumulAll.take(n)
-            val mm7 = mm7All.take(n)
+            val labels = labelsAll
+            val cumul = cumulAll
+            val mm7 = mm7All
             val allValues = cumul + mm7
             val minVal = (allValues.minOrNull() ?: 0.0)
             val maxVal = (allValues.maxOrNull() ?: 0.0)
-            val paddingRatio = 0.1
+            
+            // CORRECTION: Forcer l'échelle à inclure 0.0 pour que le début du mois soit visible
+            val paddingRatio = 0.15
             val range = (maxVal - minVal).coerceAtLeast(0.01)
-            val minY = minVal - range * paddingRatio
-            val maxY = maxVal + range * paddingRatio
+            
+            // Forcer l'échelle à inclure 0.0 pour que le début du mois soit visible
+            val minY = if (maxVal <= 0) minVal * 1.2 else 0.0
+            val maxY = if (minVal >= 0) maxVal * 1.2 else 0.0 + range * paddingRatio
 
             Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
                 // Légende + valeurs instantanées
@@ -606,6 +611,22 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
 
                 Spacer(Modifier.height(6.dp))
 
+                // DEBUG: Afficher les vraies valeurs pour diagnostiquer
+                Text(
+                    "Debug: minY=${"%.2f".format(minY)}, maxY=${"%.2f".format(maxY)}, Cumul=${cumul.firstOrNull()?.let { "%.2f".format(it) } ?: "N/A"}, MM7=${mm7.firstOrNull()?.let { "%.2f".format(it) } ?: "N/A"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp
+                )
+                
+                // DEBUG: Afficher les positions calculées
+                Text(
+                    "Positions: Cumul=${cumul.firstOrNull()?.let { "%.2f".format(it) } ?: "N/A"} -> ${cumul.firstOrNull()?.let { ((it - minY) / (maxY - minY) * 100).toInt() } ?: 0}%, MM7=${mm7.firstOrNull()?.let { "%.2f".format(it) } ?: "N/A"} -> ${mm7.firstOrNull()?.let { ((it - minY) / (maxY - minY) * 100).toInt() } ?: 0}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp
+                )
+
                 // Pré-calcul des couleurs
                 val outlineCol = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
                 val cumulCol = MaterialTheme.colorScheme.error
@@ -623,20 +644,41 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
                         Text(MoneyFormatter.formatAmount(minY), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
                     }
 
-                    Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                     val w = size.width
                     val h = size.height
                     val n = cumul.size.coerceAtLeast(1)
                     val stepX = if (n > 1) w / (n - 1) else 0f
 
-                    fun mapY(v: Double): Float {
-                        val ratio = ((v - minY) / (maxY - minY)).coerceIn(0.0, 1.0)
-                        return (h * (1f - ratio.toFloat()))
+                    // DEBUG: Vérifier que le Canvas a une taille
+                    println("DEBUG Canvas: w=$w, h=$h, n=$n")
+
+                    fun mapY(v: Double, isMM7: Boolean = false): Float {
+                        // Éviter la division par zéro
+                        if (maxY == minY) return h / 2f
+                        
+                        // Calculer le ratio normalisé sans contrainte
+                        val ratio = (v - minY) / (maxY - minY)
+                        
+                        // Inverser l'axe Y (0 = haut, 1 = bas) et gérer les valeurs hors limites
+                        val normalizedRatio = when {
+                            ratio < 0.0 -> 0.0
+                            ratio > 1.0 -> 1.0
+                            else -> ratio
+                        }
+                        
+                        // DEBUG: Afficher les calculs pour diagnostiquer
+                        if (v == 0.0 || v == -68.0) {
+                            println("DEBUG mapY: v=$v, minY=$minY, maxY=$maxY, ratio=$ratio, normalizedRatio=$normalizedRatio, h=$h")
+                        }
+                        
+                        // Positionnement SIMPLE : négatifs en bas, positifs en haut
+                        return h * (1f - normalizedRatio.toFloat())
                     }
 
                     // Axe zéro
                     if (minY < 0 && maxY > 0) {
-                        val y0 = mapY(0.0)
+                        val y0 = mapY(0.0, false)
                         drawLine(
                             color = outlineCol,
                             start = Offset(0f, y0),
@@ -648,9 +690,9 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
                     // Tracer cumul (rouge)
                     if (n >= 1) {
                         val path = Path()
-                        path.moveTo(0f, mapY(cumul.first()))
+                        path.moveTo(0f, mapY(cumul.first(), false))
                         for (i in 1 until n) {
-                            path.lineTo(i * stepX, mapY(cumul[i]))
+                            path.lineTo(i * stepX, mapY(cumul[i], false))
                         }
                         drawPath(
                             path = path,
@@ -662,9 +704,9 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
                     // Tracer MM7 (orange)
                     if (n >= 1) {
                         val path = Path()
-                        path.moveTo(0f, mapY(mm7.first()))
+                        path.moveTo(0f, mapY(mm7.first(), true))
                         for (i in 1 until n) {
-                            path.lineTo(i * stepX, mapY(mm7[i]))
+                            path.lineTo(i * stepX, mapY(mm7[i], true))
                         }
                         drawPath(
                             path = path,

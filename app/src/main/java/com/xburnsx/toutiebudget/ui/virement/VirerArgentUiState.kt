@@ -35,5 +35,5 @@ data class VirerArgentUiState(
     val selecteurOuvert: SelecteurOuvert = SelecteurOuvert.AUCUN,
     val isVirementButtonEnabled: Boolean = false,
     val mode: VirementMode = VirementMode.ENVELOPPES,
-    val moisSelectionne: Date = Date() // ← NOUVEAU : Mois sélectionné pour les virements
+    val moisSelectionne: Date = Date() // ← DÉFAUT : Mois actuel, mais sera changé par l'UI
 )
