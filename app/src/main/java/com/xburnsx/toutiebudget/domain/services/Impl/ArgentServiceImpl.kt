@@ -50,20 +50,16 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalStateException("Solde insuffisant sur le compte source.")
         }
         
-        // 3. CRÉER une nouvelle allocation mensuelle (pas de récupération)
-        val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
-            id = "",
-            utilisateurId = "",
-            enveloppeId = enveloppeId,
-            mois = mois,
-            solde = montant,
-            alloue = montant,
-            depense = 0.0,
-            compteSourceId = compteSourceId,
-            collectionCompteSource = collectionCompteSource
+        // 3. RÉCUPÉRER ou créer l'allocation mensuelle (évite les doublons)
+        val allocation = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, mois)
+        
+        // Mettre à jour le montant alloué
+        val allocationMiseAJour = allocation.copy(
+            alloue = allocation.alloue + montant,
+            solde = allocation.solde + montant
         )
-
-        val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+        
+        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
 
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
@@ -78,7 +74,7 @@ class ArgentServiceImpl @Inject constructor(
             date = Date(), // Utilise l'heure locale actuelle du téléphone
             compteId = compteSourceId,
             collectionCompte = collectionCompteSource,
-            allocationMensuelleId = allocationCreee.id,
+            allocationMensuelleId = allocationMiseAJour.id,
             note = "Allocation vers enveloppe #$enveloppeId"
         )
         
@@ -107,20 +103,16 @@ class ArgentServiceImpl @Inject constructor(
             throw IllegalStateException("Solde insuffisant sur le compte source.")
         }
         
-        // 3. CRÉER une nouvelle allocation mensuelle (pas de récupération)
-        val nouvelleAllocation = com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle(
-            id = "",
-            utilisateurId = "",
-            enveloppeId = enveloppeId,
-            mois = mois,
-            solde = montant,
-            alloue = montant,
-            depense = 0.0,
-            compteSourceId = compteSourceId,
-            collectionCompteSource = collectionCompteSource
+        // 3. RÉCUPÉRER ou créer l'allocation mensuelle (évite les doublons)
+        val allocation = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, mois)
+        
+        // Mettre à jour le montant alloué
+        val allocationMiseAJour = allocation.copy(
+            alloue = allocation.alloue + montant,
+            solde = allocation.solde + montant
         )
-
-        allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+        
+        allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
 
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
@@ -405,6 +397,14 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         transactionRepository.creerTransaction(transaction)
+
+        // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+        try {
+            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
+        } catch (e: Exception) {
+            // Erreur silencieuse de fusion - ne pas faire échouer le virement
+            println("⚠️ Erreur lors de la fusion des allocations après virement compte->enveloppe: ${e.message}")
+        }
     }
 
     override suspend fun effectuerVirementEnveloppeVersCompte(
@@ -521,6 +521,14 @@ class ArgentServiceImpl @Inject constructor(
         )
         allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
         
+        // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+        try {
+            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
+        } catch (e: Exception) {
+            // Erreur silencieuse de fusion - ne pas faire échouer le virement
+            println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->compte: ${e.message}")
+        }
+        
         // PAS DE TRANSACTION - C'est un virement interne !
     }
 
@@ -615,6 +623,18 @@ class ArgentServiceImpl @Inject constructor(
 
         transactionRepository.creerTransaction(transactionSource)
         transactionRepository.creerTransaction(transactionDest)
+
+        // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+        try {
+            // Fusionner les allocations de l'enveloppe source
+            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeSource.id, premierJourMois)
+            
+            // Fusionner les allocations de l'enveloppe destination
+            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, premierJourMois)
+        } catch (e: Exception) {
+            // Erreur silencieuse de fusion - ne pas faire échouer le virement
+            println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->enveloppe: ${e.message}")
+        }
     }
 
     override suspend fun effectuerVirementPretAPlacerVersEnveloppe(
@@ -817,7 +837,7 @@ class ArgentServiceImpl @Inject constructor(
         // 5. Mettre à jour le solde de la cible (carte OU dette)
         // Paiement d'une dette doit AJOUTER le montant (rapprocher de zéro)
         // Paiement d'une carte de crédit doit AJOUTER le montant (augmenter le solde disponible)
-        val deltaCible = if (collectionCarteOuDette == "comptes_credits" || collectionCarteOuDette == "comptes_dettes") {
+        val deltaCible = if (collectionCarteOuDette == "comptes_dettes" || collectionCarteOuDette == "comptes_credits") {
             montantPourCarte  // AJOUTER le montant pour rapprocher de zéro
         } else {
             montantPourCarte

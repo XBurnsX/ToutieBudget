@@ -23,7 +23,7 @@ enum class VirementMode {
 }
 
 data class VirerArgentUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val montant: String = "",
     val sourcesDisponibles: Map<String, List<ItemVirement>> = emptyMap(),
     val destinationsDisponibles: Map<String, List<ItemVirement>> = emptyMap(),

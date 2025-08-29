@@ -127,6 +127,14 @@ class VirementUseCase @Inject constructor(
                 // Erreur silencieuse
             }
 
+            // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+            try {
+                allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
+            } catch (e: Exception) {
+                // Erreur silencieuse de fusion - ne pas faire échouer le virement
+                println("⚠️ Erreur lors de la fusion des allocations après virement prêt->enveloppe: ${e.message}")
+            }
+
         }
     }
 
@@ -168,35 +176,27 @@ class VirementUseCase @Inject constructor(
             }
             val premierJourMois = calendrier.time
 
-            // 3. ✅ UTILISER recupererOuCreerAllocation pour obtenir/créer l'allocation
+            // 3. ✅ RÉCUPÉRER l'allocation fusionnée AVANT de vérifier le solde !
+            val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
-            // 4. Vérifier le solde actuel de l'enveloppe
-            val allocationsExistantes = enveloppeRepository.recupererAllocationsPourMois(premierJourMois)
-                .getOrElse { emptyList() }
-
-            val soldeActuelEnveloppe = allocationsExistantes
-                .filter { it.enveloppeId == enveloppeId }
-                .sumOf { it.solde }
-
-            if (soldeActuelEnveloppe < montant) {
-                throw IllegalArgumentException("Solde d'enveloppe insuffisant (${soldeActuelEnveloppe}$ disponible, ${montant}$ demandé)")
+            // 4. ✅ Vérifier le solde de l'allocation fusionnée (plus fiable !)
+            if (allocationExistante.solde < montant) {
+                throw IllegalArgumentException("Solde d'enveloppe insuffisant (${allocationExistante.solde}$ disponible, ${montant}$ demandé)")
             }
 
-            // 5. ✅ CRÉER une allocation négative pour le virement (addition automatique)
-            val allocationVirement = AllocationMensuelle(
-                id = "",
-                utilisateurId = compte.utilisateurId,
-                enveloppeId = enveloppeId,
-                mois = premierJourMois,
-                solde = -montant, // Négatif car on retire de l'enveloppe
-                alloue = -montant, // Alloué négatif pour virement sortant
-                depense = 0.0, // PAS de dépense - c'est un VIREMENT pas une transaction !
-                compteSourceId = compteId,
-                collectionCompteSource = compte.collection
+            // 5. ✅ MODIFIER l'allocation existante (déjà récupérée plus haut !)
+            
+            // ✅ Mettre à jour l'allocation existante (addition automatique)
+            val allocationMiseAJour = allocationExistante.copy(
+                solde = allocationExistante.solde - montant, // Retirer de l'enveloppe
+                alloue = allocationExistante.alloue - montant, // Alloué négatif pour virement sortant
+                // ✅ PROVENANCE : Changer seulement si solde était à 0
+                compteSourceId = if (allocationExistante.solde <= 0.01) compteId else allocationExistante.compteSourceId,
+                collectionCompteSource = if (allocationExistante.solde <= 0.01) compte.collection else allocationExistante.collectionCompteSource
             )
-
-            // Créer l'allocation négative (s'additionne à l'existante)
-            val allocationCree = allocationMensuelleRepository.creerNouvelleAllocation(allocationVirement)
+            
+            // ✅ Mettre à jour l'allocation existante
+            allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
 
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
@@ -219,6 +219,14 @@ class VirementUseCase @Inject constructor(
 
             // 7. ✅ PAS DE TRANSACTION - C'est un virement interne !
             // L'argent reste dans les fonds de l'utilisateur, pas besoin de transaction
+
+            // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+            try {
+                allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
+            } catch (e: Exception) {
+                // Erreur silencieuse de fusion - ne pas faire échouer le virement
+                println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->prêt: ${e.message}")
+            }
 
         }
     }

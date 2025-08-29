@@ -50,8 +50,8 @@ class VirerArgentViewModel(
 
     init {
         chargerDonneesInitiales()
-        // Démarrer le rafraîchissement automatique toutes les 2 secondes
-        demarrerRafraichissementAutomatique()
+        // 🔥 RAFRAÎCHISSEMENT AUTOMATIQUE DÉSACTIVÉ pour éviter le spam de logs
+        // demarrerRafraichissementAutomatique()
     }
 
     /**
@@ -457,6 +457,9 @@ class VirerArgentViewModel(
             try {
                 _uiState.update { it.copy(isLoading = true, erreur = null) }
 
+                // 🔥 DIAGNOSTIC AVANT VIREMENT : Logger toutes les allocations
+                loggerAllocationsEnveloppes("AVANT VIREMENT - État initial des allocations")
+
                 // VALIDATION DE PROVENANCE SELON LE TYPE DE VIREMENT
                 val validationResult = validerProvenanceVirement(source, destination)
 
@@ -696,9 +699,27 @@ class VirerArgentViewModel(
                     println("DEBUG: Virement réussi, rechargement des données...")
                     chargerDonneesInitiales()
                     
+                    // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
+                    try {
+                        val moisActuel = Date()
+                        // Fusionner les allocations de toutes les enveloppes impliquées
+                        if (source is ItemVirement.EnveloppeItem) {
+                            allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisActuel)
+                        }
+                        if (destination is ItemVirement.EnveloppeItem) {
+                            allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisActuel)
+                        }
+                        println("DEBUG: Fusion automatique des allocations effectuée")
+                    } catch (e: Exception) {
+                        println("⚠️ Erreur lors de la fusion automatique des allocations: ${e.message}")
+                    }
+                    
                     // ⏱️ Délai plus long pour s'assurer que les données sont bien sauvegardées
                     println("DEBUG: Attente de 1 seconde avant mise à jour du budget...")
                     delay(1000)
+                    
+                    // 🔥 DIAGNOSTIC APRÈS VIREMENT : Logger toutes les allocations après fusion
+                    loggerAllocationsEnveloppes("APRÈS VIREMENT - État final des allocations après fusion automatique")
                     
                     println("DEBUG: Déclenchement de la mise à jour du budget...")
                     realtimeSyncService.declencherMiseAJourBudget()
@@ -884,5 +905,51 @@ class VirerArgentViewModel(
     }
 
     // ===== VALIDATION =====
+
+    /**
+     * 🔥 LOG DÉTAILLÉ : Affiche toutes les allocations des enveloppes pour diagnostic
+     */
+    private suspend fun loggerAllocationsEnveloppes(message: String) {
+        try {
+            println("🔥 DIAGNOSTIC - $message")
+            println("🔥 DIAGNOSTIC - Enveloppes trouvées: ${allEnveloppes.size}")
+            
+            // Utiliser les allocations déjà chargées dans le ViewModel
+            println("🔥 DIAGNOSTIC - Allocations chargées: ${allAllocations.size}")
+            
+            // Grouper par enveloppe
+            val allocationsParEnveloppe = allAllocations.groupBy { it.enveloppeId }
+            
+            allEnveloppes.forEach { enveloppe ->
+                val allocationsEnveloppe = allocationsParEnveloppe[enveloppe.id] ?: emptyList()
+                
+                if (allocationsEnveloppe.isNotEmpty()) {
+                    println("🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}):")
+                    
+                    allocationsEnveloppe.forEach { allocation ->
+                        println("🔥 DIAGNOSTIC -   Allocation: enveloppeId=${allocation.enveloppeId}, solde=${allocation.solde}, alloue=${allocation.alloue}, depense=${allocation.depense}, compteSource=${allocation.compteSourceId}")
+                    }
+                    
+                    // Calculer le total
+                    val totalSolde = allocationsEnveloppe.sumOf { it.solde }
+                    val totalAlloue = allocationsEnveloppe.sumOf { it.alloue }
+                    val totalDepense = allocationsEnveloppe.sumOf { it.depense }
+                    
+                    println("🔥 DIAGNOSTIC -   TOTAL: solde=$totalSolde, alloue=$totalAlloue, depense=$totalDepense")
+                } else {
+                    println("🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}): AUCUNE ALLOCATION")
+                }
+            }
+            
+            println("🔥 DIAGNOSTIC - Fin du diagnostic")
+            println("=".repeat(80))
+        } catch (e: Exception) {
+            println("🔥 DIAGNOSTIC - Erreur lors du diagnostic: ${e.message}")
+        }
+    }
+
+    /**
+     * Effectue un virement selon les paramètres sélectionnés.
+     */
 
 }

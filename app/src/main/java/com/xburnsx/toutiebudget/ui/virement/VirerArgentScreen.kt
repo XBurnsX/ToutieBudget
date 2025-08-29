@@ -123,6 +123,8 @@ fun VirerArgentScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            
+
             // Bouton de virement
             Button(
                 onClick = { viewModel.onVirementExecute() },
@@ -130,19 +132,36 @@ fun VirerArgentScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
-                enabled = uiState.sourceSelectionnee != null &&
+                enabled = !uiState.isLoading && 
+                        uiState.sourceSelectionnee != null &&
                         uiState.destinationSelectionnee != null &&
                         (uiState.montant.toLongOrNull() ?: 0L) > 0
             ) {
-                Icon(
-                    imageVector = Icons.Default.SwapHoriz,
-                    contentDescription = null
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Effectuer le virement",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                if (uiState.isLoading) {
+                    // 🔥 Affichage pendant le virement
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Virement en cours...",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
+                    )
+                } else {
+                    // Affichage normal
+                    Icon(
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Effectuer le virement",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
             }
 
             // Affichage d'erreur avec dialogue pour les erreurs de provenance
