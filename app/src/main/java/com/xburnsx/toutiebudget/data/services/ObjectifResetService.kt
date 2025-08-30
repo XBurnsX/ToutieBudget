@@ -169,9 +169,9 @@ class ObjectifResetService(
 
     /**
      * Reset un objectif bihebdomadaire selon la logique :
-     * - date_debut_objectif = ancienne date_objectif + 1 jour (le jour SUIVANT la fin)
-     * - date_objectif = prochain jour de la semaine correspondant (ex: prochain vendredi)
-     * - Reset le solde alloué à 0 pour le nouveau cycle
+     * - date_debut_objectif = ancienne date_objectif (même date)
+     * - date_objectif = nouvelle date_debut + 14 jours exactement
+     * - Reset le solde alloué selon VOTRE logique (garder le surplus)
      */
     private suspend fun resetterObjectifBihebdomadaire(enveloppe: Enveloppe): Enveloppe {
         val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
@@ -191,8 +191,8 @@ class ObjectifResetService(
             set(Calendar.MILLISECOND, 0)
         }.time
 
-        // 🆕 RESET DU SOLDE ALLOUÉ : Créer une nouvelle allocation avec solde = 0
-        // pour le nouveau cycle (mois de la nouvelle date de début)
+        // 🆕 RESET DU SOLDE ALLOUÉ : Supprimer SEULEMENT le montant de l'objectif
+        // Garder le surplus pour le prochain cycle
         val moisNouveauCycle = obtenirPremierJourDuMois(nouvelleDateDebut)
         
         // Récupérer l'allocation existante pour ce mois ou en créer une nouvelle
@@ -201,10 +201,15 @@ class ObjectifResetService(
             mois = moisNouveauCycle
         )
         
-        // Reset SEULEMENT l'alloué pour le nouveau cycle
-        // IMPORTANT : Préserver le solde ET les dépenses (statistiques)
+        // 🆕 CORRECTION : Reset = alloue - objectifMontant (garder le surplus !)
+        val montantAReset = enveloppe.objectifMontant
+        val nouveauAlloue = allocationExistante.alloue - montantAReset
+        
+        // Si le nouveau alloué est négatif, le mettre à 0
+        val alloueFinal = if (nouveauAlloue < 0.0) 0.0 else nouveauAlloue
+        
         val allocationResetee = allocationExistante.copy(
-            alloue = 0.0  // ← Reset pour nouveau cycle
+            alloue = alloueFinal  // ← Garde le surplus du cycle précédent !
             // solde et depense restent inchangés (statistiques préservées)
         )
         
