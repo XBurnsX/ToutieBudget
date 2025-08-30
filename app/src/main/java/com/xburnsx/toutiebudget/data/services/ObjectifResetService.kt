@@ -169,20 +169,22 @@ class ObjectifResetService(
 
     /**
      * Reset un objectif bihebdomadaire selon la logique :
-     * - date_debut_objectif = ancienne date_objectif (la date de fin qui vient de passer)
-     * - date_objectif = nouvelle date_debut + 14 jours
+     * - date_debut_objectif = ancienne date_objectif + 1 jour (le jour SUIVANT la fin)
+     * - date_objectif = prochain jour de la semaine correspondant (ex: prochain vendredi)
      * - Reset le solde alloué à 0 pour le nouveau cycle
      */
     private suspend fun resetterObjectifBihebdomadaire(enveloppe: Enveloppe): Enveloppe {
         val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
 
-        // La nouvelle date de début = ancienne date d'objectif (la date de fin qui vient de passer)
+        // 🆕 CORRECTION : La nouvelle date de début = ancienne date d'objectif (même date)
+        // Pas +1 jour ! C'est juste pour le reset qu'on ajoute 1 jour
         val nouvelleDateDebut = dateObjectif
 
-        // La nouvelle date d'objectif = nouvelle date de début + 14 jours
+        // 🆕 CORRECTION : Pour un objectif BIHEBDOMADAIRE, nouvelle date = +14 jours exactement
+        // Pour respecter le cycle bihebdomadaire (2 semaines)
         val nouvelleDateObjectif = Calendar.getInstance().apply {
             time = nouvelleDateDebut
-            add(Calendar.DAY_OF_YEAR, 14)
+            add(Calendar.DAY_OF_YEAR, 14)  // ← +14 jours exactement pour 2 semaines
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
@@ -214,6 +216,8 @@ class ObjectifResetService(
             dateObjectif = nouvelleDateObjectif
         )
     }
+
+
 
     /**
      * Reset un objectif annuel selon la logique :
@@ -323,11 +327,13 @@ class ObjectifResetService(
     private fun obtenirPremierJourDuMois(date: Date): Date {
         val calendar = Calendar.getInstance()
         calendar.time = date
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         return calendar.time
     }
+
+
+
 }

@@ -398,7 +398,15 @@ fun MainAppScaffold(
                     },
                     onBack = { bottomBarNavController.popBackStack() },
                     onNavigateToArchives = { bottomBarNavController.navigate("archives") },
-                    onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") }
+                    onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") },
+                    onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") }
+                )
+            }
+
+            // Route pour la gestion de la base de données
+            composable("database_manager") {
+                com.xburnsx.toutiebudget.ui.settings.DatabaseManagerScreen(
+                    onBack = { bottomBarNavController.popBackStack() }
                 )
             }
             

@@ -115,7 +115,8 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onBack: () -> Unit,
     onNavigateToArchives: () -> Unit = {},
-    onNavigateToSyncJobs: () -> Unit = {}
+    onNavigateToSyncJobs: () -> Unit = {},
+    onNavigateToDatabaseManager: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -368,6 +369,20 @@ fun SettingsScreen(
                         titre = "Liste de tâches de synchronisation",
                         description = "Voir les tâches en attente de synchronisation",
                         onClick = onNavigateToSyncJobs,
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                    )
+                }
+            }
+
+            // Section Base de données
+            item { SectionHeader(titre = "Base de données", icone = Icons.Default.Info) }
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Info,
+                        titre = "Gestion de la base de données",
+                        description = "Ajouter, modifier et supprimer des éléments de la base locale",
+                        onClick = onNavigateToDatabaseManager,
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
                     )
                 }
