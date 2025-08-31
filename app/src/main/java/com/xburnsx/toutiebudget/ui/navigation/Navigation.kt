@@ -31,6 +31,7 @@ import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionScreen
 import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionScreen
 import com.xburnsx.toutiebudget.ui.budget.BudgetScreen
+import com.xburnsx.toutiebudget.ui.budget.GererSoldeNegatifScreen
 import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesScreen
 import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
@@ -47,6 +48,8 @@ import com.xburnsx.toutiebudget.ui.cartes_credit.GestionCarteCreditScreen
 import com.xburnsx.toutiebudget.ui.dette.DetteScreen
 import com.xburnsx.toutiebudget.ui.archives.ArchivesScreen
 import kotlinx.coroutines.launch
+import java.util.Date
+import java.util.Calendar
 
 // --- Définition des écrans ---
 sealed class Screen(
@@ -382,6 +385,26 @@ fun MainAppScaffold(
                     },
                     onPretPersonnelClick = {
                         bottomBarNavController.navigate("pret_personnel")
+                    },
+                    onGererSoldeNegatifClick = {
+                        bottomBarNavController.navigate("gerer_solde_negatif")
+                    }
+                )
+            }
+
+            // Route pour la gestion des soldes négatifs
+            composable("gerer_solde_negatif") {
+                val viewModel = AppModule.provideBudgetViewModel()
+                GererSoldeNegatifScreen(
+                    viewModel = viewModel,
+                    onRetour = {
+                        bottomBarNavController.popBackStack()
+                    },
+                    onVirementClick = { enveloppeId, montantNegatif, mois ->
+                        // Naviguer vers le virement avec paramètres pré-remplis
+                        val moisInt = mois.month + 1 // +1 car month commence à 0
+                        val anneeInt = mois.year + 1900 // +1900 car year commence à 1900
+                        bottomBarNavController.navigate("virer_argent_pre_rempli/$enveloppeId/$montantNegatif/$moisInt/$anneeInt")
                     }
                 )
             }
@@ -470,12 +493,38 @@ fun MainAppScaffold(
                     onNavigateBack = {
                         // Le temps réel va automatiquement actualiser les données !
                         // Plus besoin d'appeler manuellement rafraichirDonnees()
-                        bottomBarNavController.navigate(Screen.Budget.route) {
-                            popUpTo(Screen.Budget.route) { inclusive = true }
-                        }
+                        bottomBarNavController.popBackStack()
                     }
                 )
             }
+
+            // Route pour virement avec paramètres pré-remplis
+            composable("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}") { backStackEntry ->
+                val enveloppeId = backStackEntry.arguments?.getString("enveloppeId") ?: ""
+                val montantNegatif = backStackEntry.arguments?.getString("montantNegatif") ?: "0"
+                val moisInt = backStackEntry.arguments?.getString("moisInt") ?: "1"
+                val anneeInt = backStackEntry.arguments?.getString("anneeInt") ?: "2024"
+                
+                // Créer une date valide
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.YEAR, anneeInt.toInt())
+                calendar.set(Calendar.MONTH, moisInt.toInt() - 1) // -1 car Calendar.MONTH commence à 0
+                calendar.set(Calendar.DAY_OF_MONTH, 1) // Premier jour du mois
+                val dateMois = calendar.time
+                
+                val viewModel = AppModule.provideVirerArgentViewModel()
+                VirerArgentScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = {
+                        bottomBarNavController.popBackStack()
+                    },
+                    enveloppePreselectionnee = enveloppeId,
+                    montantPreselectionne = montantNegatif.toDoubleOrNull() ?: 0.0,
+                    moisPreselectionne = dateMois
+                )
+            }
+            
+
             // Écran Prêt personnel
             composable("pret_personnel") {
                 val viewModel = AppModule.providePretPersonnelViewModel()

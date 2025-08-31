@@ -7,6 +7,7 @@ package com.xburnsx.toutiebudget.ui.budget
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -22,10 +23,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -76,7 +77,8 @@ fun BudgetScreen(
     onCategoriesClick: (() -> Unit)? = null,
     onVirementClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null,
-    onPretPersonnelClick: (() -> Unit)? = null
+    onPretPersonnelClick: (() -> Unit)? = null,
+    onGererSoldeNegatifClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var moisSelectionne by remember { mutableStateOf(Date()) }
@@ -210,6 +212,47 @@ fun BudgetScreen(
                         montant = bandeau.montant,
                         couleurCompte = bandeau.couleurCompte
                     )
+                }
+            }
+
+            // 🚨 CARTE D'ALERTE POUR ENVELOPPES NÉGATIVES
+            val enveloppesNegatives = uiState.categoriesEnveloppes
+                .flatMap { it.enveloppes }
+                .filter { it.solde < -0.001 }
+                .count()
+            
+            if (enveloppesNegatives > 0) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFDC2626) // Rouge vif pour l'alerte
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clickable { onGererSoldeNegatifClick?.invoke() }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Attention",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "$enveloppesNegatives enveloppe${if (enveloppesNegatives > 1) "s" else ""} ont besoin d'attention !",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
                 }
             }
 

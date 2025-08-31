@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import java.util.Date
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurCompteVirement
 import com.xburnsx.toutiebudget.ui.virement.composants.SelecteurEnveloppeVirement
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
@@ -30,15 +31,69 @@ import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 @Composable
 fun VirerArgentScreen(
     viewModel: VirerArgentViewModel,
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    enveloppePreselectionnee: String? = null,
+    montantPreselectionne: Double? = null,
+    moisPreselectionne: Date? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-
-         // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
+    // Configuration automatique des paramètres pré-remplis
+    LaunchedEffect(enveloppePreselectionnee, montantPreselectionne, moisPreselectionne) {
+        if (enveloppePreselectionnee != null && montantPreselectionne != null && moisPreselectionne != null) {
+            // Forcer le mode enveloppes pour les virements depuis GererSoldeNegatif
+            viewModel.changerMode(VirementMode.ENVELOPPES)
+            
+            // Configurer le mois
+            viewModel.changerMois(moisPreselectionne)
+            
+            // Configurer le montant (convertir en centimes)
+            val montantCentimes = (montantPreselectionne * 100).toLong()
+            viewModel.onMontantChange(montantCentimes.toString())
+        }
+    }
+    
+    // Recharger les données quand l'écran s'ouvre pour s'assurer d'avoir les dernières données
     LaunchedEffect(Unit) {
         viewModel.rechargerDonnees()
+    }
+    
+    // Présélectionner l'enveloppe destination APRÈS le rechargement des données
+    LaunchedEffect(uiState.destinationsDisponibles) {
+        if (enveloppePreselectionnee != null && uiState.destinationsDisponibles.isNotEmpty()) {
+            // Chercher l'enveloppe dans les destinations disponibles
+            val enveloppeDestination = uiState.destinationsDisponibles
+                .flatMap { (_, items) -> items }
+                .filterIsInstance<ItemVirement.EnveloppeItem>()
+                .find { it.enveloppe.id == enveloppePreselectionnee }
+                ?.enveloppe
+            
+            // Présélectionner l'enveloppe destination
+            enveloppeDestination?.let { enveloppe ->
+                viewModel.onEnveloppeSelected(enveloppe, isSource = false)
+            }
+        }
+    }
+    
+    // Maintenir la présélection de l'enveloppe destination
+    LaunchedEffect(uiState.destinationSelectionnee) {
+        if (enveloppePreselectionnee != null && uiState.destinationsDisponibles.isNotEmpty()) {
+            // Vérifier si l'enveloppe est toujours sélectionnée
+            val destinationActuelle = uiState.destinationSelectionnee as? ItemVirement.EnveloppeItem
+            if (destinationActuelle?.enveloppe?.id != enveloppePreselectionnee) {
+                // Re-présélectionner si elle a été désélectionnée
+                val enveloppeDestination = uiState.destinationsDisponibles
+                    .flatMap { (_, items) -> items }
+                    .filterIsInstance<ItemVirement.EnveloppeItem>()
+                    .find { it.enveloppe.id == enveloppePreselectionnee }
+                    ?.enveloppe
+                
+                enveloppeDestination?.let { enveloppe ->
+                    viewModel.onEnveloppeSelected(enveloppe, isSource = false)
+                }
+            }
+        }
     }
 
     // 🚀 NAVIGATION **INSTANTANÉE** - ZÉRO DÉLAI
