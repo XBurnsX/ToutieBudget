@@ -4,6 +4,7 @@ package com.xburnsx.toutiebudget.ui.historique
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -22,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
@@ -49,7 +53,7 @@ fun HistoriqueCompteScreen(
     val uiState by viewModel.uiState.collectAsState()
     val navigationEvents by viewModel.navigationEvents.collectAsState()
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = uiState.scrollPosition)
-    
+
     // Observer les événements de navigation
     LaunchedEffect(navigationEvents) {
         navigationEvents?.let { event ->
@@ -60,6 +64,7 @@ fun HistoriqueCompteScreen(
                     onModifierTransaction(event.transactionId)
                     viewModel.effacerNavigationEvent()
                 }
+
                 is HistoriqueNavigationEvent.TransactionModifiee -> {
                     // Recharger les transactions quand une transaction est modifiée
                     viewModel.rechargerTransactions()
@@ -98,77 +103,121 @@ fun HistoriqueCompteScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
+                .padding(paddingValues)
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else if (uiState.erreur != null) {
-                Text(
-                    uiState.erreur!!,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
+            // Barre de recherche
+            TextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.mettreAJourRecherche(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Rechercher dans les transactions...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Rechercher")
+                },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.mettreAJourRecherche("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Effacer")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                    unfocusedIndicatorColor = MaterialTheme.colorScheme.outline
                 )
-            } else if (uiState.transactionsGroupees.isEmpty()) {
-                Text(
-                    "Aucune transaction pour ce compte.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // Convertir en liste ordonnée pour garantir l'ordre
-                    val datesList = uiState.transactionsGroupees.toList()
+            )
 
-                    datesList.forEach { (dateString, transactionsPourDate) ->
-                        // Séparateur de date
-                        stickyHeader(key = "header_$dateString") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.background)
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                            ) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
-                                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    tonalElevation = 6.dp,
-                                    shape = RoundedCornerShape(12.dp)
+            // Contenu principal
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator()
+                } else if (uiState.erreur != null) {
+                    Text(
+                        uiState.erreur!!,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                } else if (uiState.transactionsGroupees.isEmpty()) {
+                    Text(
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            "Aucune transaction trouvée pour \"${uiState.searchQuery}\""
+                        } else {
+                            "Aucune transaction pour ce compte."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // Convertir en liste ordonnée pour garantir l'ordre
+                        val datesList = uiState.transactionsGroupees.toList()
+
+                        datesList.forEach { (dateString, transactionsPourDate) ->
+                            // Séparateur de date
+                            stickyHeader(key = "header_$dateString") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
                                 ) {
-                                    Text(
-                                        text = dateString,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier
-                                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                        tonalElevation = 6.dp,
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            text = dateString,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        // Transactions pour cette date
-                        items(transactionsPourDate, key = { "transaction_${it.id}" }) { transactionUi ->
-                            HistoriqueItem(
-                                transaction = transactionUi,
-                                onLongPress = { transaction ->
-                                    // Le menu s'ouvre automatiquement maintenant
-                                },
-                                onModifier = { transaction ->
-                                    // Naviguer vers l'écran de modification
-                                    viewModel.naviguerVersModification(transaction.id)
-                                },
-                                onSupprimer = { transaction ->
-                                    // Supprimer la transaction
-                                    viewModel.supprimerTransaction(transaction.id)
-                                }
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                            // Transactions pour cette date
+                            items(
+                                transactionsPourDate,
+                                key = { "transaction_${it.id}" }) { transactionUi ->
+                                HistoriqueItem(
+                                    transaction = transactionUi,
+                                    onLongPress = { transaction ->
+                                        // Le menu s'ouvre automatiquement maintenant
+                                    },
+                                    onModifier = { transaction ->
+                                        // Naviguer vers l'écran de modification
+                                        viewModel.naviguerVersModification(transaction.id)
+                                    },
+                                    onSupprimer = { transaction ->
+                                        // Supprimer la transaction
+                                        viewModel.supprimerTransaction(transaction.id)
+                                    }
+                                )
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                        alpha = 0.3f
+                                    )
+                                )
+                            }
                         }
                     }
                 }

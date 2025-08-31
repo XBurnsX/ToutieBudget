@@ -115,6 +115,73 @@ class HistoriqueEnveloppeViewModel(
     }
 
     /**
+     * Met à jour la requête de recherche et filtre les transactions.
+     */
+    fun mettreAJourRecherche(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        filtrerTransactions()
+    }
+
+    /**
+     * Filtre les transactions selon la requête de recherche.
+     */
+    private fun filtrerTransactions() {
+        val query = _uiState.value.searchQuery.trim().lowercase()
+        val allTransactions = _uiState.value.transactions
+
+        if (query.isEmpty()) {
+            // Si la recherche est vide, afficher toutes les transactions
+            val transactionsGroupees = grouperTransactionsParDate(allTransactions)
+            _uiState.update { 
+                it.copy(transactionsGroupees = transactionsGroupees)
+            }
+        } else {
+            // Filtrer les transactions selon la requête
+            val transactionsFiltrees = allTransactions.filter { transaction ->
+                // Rechercher dans le tiers/utilisateur
+                transaction.tiersUtiliser.lowercase().contains(query) ||
+                // Rechercher dans la note
+                (transaction.note?.lowercase()?.contains(query) == true) ||
+                // Rechercher dans le nom de l'enveloppe
+                (transaction.nomEnveloppe?.lowercase()?.contains(query) == true) ||
+                // Rechercher dans les enveloppes fractionnées
+                transaction.nomsEnveloppesFractions.any { it.lowercase().contains(query) } ||
+                // Rechercher dans le montant (convertir en string)
+                transaction.montant.toString().contains(query) ||
+                // Rechercher dans le type de transaction
+                transaction.type.name.lowercase().contains(query)
+            }
+
+            val transactionsGroupees = grouperTransactionsParDate(transactionsFiltrees)
+            _uiState.update { 
+                it.copy(transactionsGroupees = transactionsGroupees)
+            }
+        }
+    }
+
+    /**
+     * Groupe les transactions par date avec format français.
+     */
+    private fun grouperTransactionsParDate(transactions: List<TransactionUi>): Map<String, List<TransactionUi>> {
+        val formateurDate = SimpleDateFormat("d MMMM yyyy", Locale.FRENCH).apply {
+            timeZone = TimeZone.getDefault()
+        }
+
+        return transactions
+            .groupBy { transaction -> formateurDate.format(transaction.date) }
+            .map { (dateString, transactionsDeLaDate) ->
+                val dateParsee = try {
+                    formateurDate.parse(dateString) ?: Date(0)
+                } catch (_: Exception) {
+                    Date(0)
+                }
+                Triple(dateString, dateParsee, transactionsDeLaDate.sortedByDescending { it.date })
+            }
+            .sortedByDescending { it.second }
+            .associate { it.first to it.third }
+    }
+
+    /**
      * Charge les transactions pour une enveloppe spécifique.
      */
     private fun chargerTransactionsEnveloppe(enveloppeId: String) {
@@ -211,14 +278,8 @@ class HistoriqueEnveloppeViewModel(
                     )
                 }
 
-                // Grouper par date
-                val transactionsGroupees = transactionsUi
-                    .sortedByDescending { it.date }
-                    .groupBy { transaction ->
-                        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        formatter.timeZone = TimeZone.getDefault()
-                        formatter.format(transaction.date)
-                    }
+                // Utiliser la nouvelle méthode de groupement
+                val transactionsGroupees = grouperTransactionsParDate(transactionsUi)
 
                 _uiState.update { 
                     it.copy(
@@ -227,6 +288,11 @@ class HistoriqueEnveloppeViewModel(
                         transactionsGroupees = transactionsGroupees,
                         erreur = null
                     )
+                }
+                
+                // Appliquer le filtrage si une recherche est active
+                if (_uiState.value.searchQuery.isNotEmpty()) {
+                    filtrerTransactions()
                 }
 
             } catch (e: Exception) {
