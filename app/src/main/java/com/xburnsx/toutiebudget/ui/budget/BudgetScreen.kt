@@ -78,7 +78,8 @@ fun BudgetScreen(
     onVirementClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null,
     onPretPersonnelClick: (() -> Unit)? = null,
-    onGererSoldeNegatifClick: (() -> Unit)? = null
+    onGererSoldeNegatifClick: (() -> Unit)? = null,
+    onVoirHistoriqueEnveloppe: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var moisSelectionne by remember { mutableStateOf(Date()) }
@@ -341,6 +342,11 @@ fun BudgetScreen(
                 // NE PAS fermer le clavier ici - on attend le résultat dans LaunchedEffect
             },
             onFermer = {
+                showClavierEnveloppe = false
+                enveloppeSelectionnee = null
+            },
+            onVoirHistorique = { enveloppeId, nomEnveloppe ->
+                onVoirHistoriqueEnveloppe(enveloppeId, nomEnveloppe)
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
             }

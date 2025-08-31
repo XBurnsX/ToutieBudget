@@ -35,6 +35,7 @@ import com.xburnsx.toutiebudget.ui.budget.GererSoldeNegatifScreen
 import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesScreen
 import com.xburnsx.toutiebudget.ui.comptes.ComptesScreen
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteScreen
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueEnveloppeScreen
 import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
 import com.xburnsx.toutiebudget.ui.startup.PostLoginStartupScreen
@@ -63,6 +64,7 @@ sealed class Screen(
     object Categories : Screen("categories", "Catégories", { Icons.Default.Category })
     object Statistiques : Screen("statistiques", "Stats", { Icons.Default.BarChart })
     object HistoriqueCompte : Screen("historique_compte/{compteId}/{collectionCompte}/{nomCompte}", "Historique", { Icons.Default.History })
+    object HistoriqueEnveloppe : Screen("historique_enveloppe/{enveloppeId}/{nomEnveloppe}", "Historique Enveloppe", { Icons.Default.History })
     object VirerArgent : Screen("virer_argent", "Virement", { ImageVector.vectorResource(R.drawable.transfert_argent) })
     object Settings : Screen("settings", "Paramètres", { Icons.Default.Settings })
 
@@ -209,6 +211,35 @@ fun AppNavigation() {
                     onModifierTransaction = { transactionId ->
                         // ✅ Naviguer vers l'écran de modification avec les paramètres de retour
                         navController.navigate("modifier_transaction/$transactionId/$compteId/$collectionCompte/$nomCompte")
+                    }
+                )
+            }
+            
+            // Route pour l'historique des enveloppes
+            composable(
+                route = Screen.HistoriqueEnveloppe.route,
+                arguments = listOf(
+                    navArgument("enveloppeId") { type = NavType.StringType },
+                    navArgument("nomEnveloppe") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val enveloppeId = backStackEntry.arguments?.getString("enveloppeId") ?: ""
+                val nomEnveloppe = backStackEntry.arguments?.getString("nomEnveloppe") ?: ""
+
+                // Créer le SavedStateHandle avec les arguments
+                val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
+                    set("enveloppeId", enveloppeId)
+                    set("nomEnveloppe", nomEnveloppe)
+                }
+
+                val viewModel = AppModule.provideHistoriqueEnveloppeViewModel(savedStateHandle)
+
+                HistoriqueEnveloppeScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() },
+                    onModifierTransaction = { transactionId ->
+                        // Naviguer vers l'écran de modification
+                        navController.navigate("modifier_transaction/$transactionId")
                     }
                 )
             }
@@ -388,6 +419,9 @@ fun MainAppScaffold(
                     },
                     onGererSoldeNegatifClick = {
                         bottomBarNavController.navigate("gerer_solde_negatif")
+                    },
+                    onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
+                        mainNavController.navigate("historique_enveloppe/$enveloppeId/$nomEnveloppe")
                     }
                 )
             }

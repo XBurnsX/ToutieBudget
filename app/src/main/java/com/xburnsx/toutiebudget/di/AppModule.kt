@@ -24,6 +24,7 @@ import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewMode
  import com.xburnsx.toutiebudget.ui.cartes_credit.CartesCreditViewModel
 import com.xburnsx.toutiebudget.ui.dette.DetteViewModel
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueEnveloppeViewModel
 import com.xburnsx.toutiebudget.ui.login.LoginViewModel
 import com.xburnsx.toutiebudget.ui.startup.StartupViewModel
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentViewModel
@@ -282,6 +283,16 @@ import android.content.Context
       fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {
          return HistoriqueCompteViewModel(
+             transactionRepository = transactionRepository,
+             enveloppeRepository = enveloppeRepository,
+             tiersRepository = tiersRepository,
+             supprimerTransactionUseCase = supprimerTransactionUseCase,
+             savedStateHandle = savedStateHandle
+         )
+     }
+     
+     fun provideHistoriqueEnveloppeViewModel(savedStateHandle: SavedStateHandle): HistoriqueEnveloppeViewModel {
+         return HistoriqueEnveloppeViewModel(
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
              tiersRepository = tiersRepository,

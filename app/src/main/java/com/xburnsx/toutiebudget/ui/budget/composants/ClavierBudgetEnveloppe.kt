@@ -87,7 +87,8 @@ fun ClavierBudgetEnveloppe(
     comptesDisponibles: List<CompteBudget>,
     comptePreselectionne: CompteBudget? = null,
     onAssigner: (montantCentimes: Long, compteSourceId: String) -> Unit,
-    onFermer: () -> Unit
+    onFermer: () -> Unit,
+    onVoirHistorique: (String, String) -> Unit = { _, _ -> }
 ) {
     var montantCentimes by remember { mutableLongStateOf(0L) }
     var compteSelectionne by remember { mutableStateOf(comptePreselectionne) }
@@ -345,8 +346,7 @@ fun ClavierBudgetEnveloppe(
                 // Bouton Détails
                 OutlinedButton(
                     onClick = {
-                        // TODO: Ouvrir la page de détails de l'enveloppe
-                        // ou afficher un dialog avec les détails complets
+                        onVoirHistorique(enveloppe.id, enveloppe.nom)
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
