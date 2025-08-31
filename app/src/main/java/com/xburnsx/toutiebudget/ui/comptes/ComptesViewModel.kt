@@ -13,6 +13,9 @@ import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 // import android.util.Log
@@ -30,7 +33,8 @@ class ComptesViewModel(
     private val compteRepository: CompteRepository,
     private val realtimeSyncService: RealtimeSyncService,
     private val categorieRepository: CategorieRepository,
-    private val enveloppeRepository: EnveloppeRepository
+    private val enveloppeRepository: EnveloppeRepository,
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     // Callback pour notifier les autres ViewModels des changements
@@ -172,10 +176,42 @@ class ComptesViewModel(
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
+                // Calculer la différence de solde
+                val difference = when (compte) {
+                    is CompteCheque -> nouveauSolde - compte.solde
+                    is CompteCredit -> nouveauSolde - compte.soldeUtilise
+                    is CompteDette -> nouveauSolde - compte.soldeDette
+                    is CompteInvestissement -> nouveauSolde - compte.solde
+                    else -> 0.0
+                }
+
+                // Créer une transaction de réconciliation si il y a une différence
+                if (difference != 0.0) {
+                    val typeTransaction = if (difference > 0) TypeTransaction.Revenu else TypeTransaction.Depense
+                    val montantTransaction = kotlin.math.abs(difference)
+                    
+                    val transactionReconciliation = Transaction(
+                        type = typeTransaction,
+                        montant = montantTransaction,
+                        date = java.util.Date(),
+                        compteId = compte.id,
+                        collectionCompte = when (compte) {
+                            is CompteCheque -> "comptes_cheques"
+                            is CompteCredit -> "comptes_credits"
+                            is CompteDette -> "comptes_dettes"
+                            is CompteInvestissement -> "comptes_investissements"
+                            else -> "comptes_cheques"
+                        },
+                        tiersUtiliser = "Mise à jour : ${compte.nom}"
+                    )
+
+                    // Créer la transaction
+                    transactionRepository.creerTransaction(transactionReconciliation)
+                }
+
                 when (compte) {
                     is CompteCheque -> {
                         // CALCUL CORRECT : Si solde augmente de 100$, prêt à placer augmente de 100$
-                        val difference = nouveauSolde - compte.solde
                         val nouveauPretAPlacer = compte.pretAPlacer + difference
 
                         val compteReconcilie = CompteCheque(

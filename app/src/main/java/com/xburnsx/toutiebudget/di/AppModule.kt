@@ -163,7 +163,8 @@ import android.content.Context
              compteRepository = compteRepository,
              realtimeSyncService = realtimeSyncService,
              categorieRepository = categorieRepository,
-             enveloppeRepository = enveloppeRepository
+             enveloppeRepository = enveloppeRepository,
+             transactionRepository = transactionRepository
          )
      }
      
