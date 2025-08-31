@@ -82,61 +82,81 @@ fun CompteItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
     ) {
-        Row(
-            modifier = Modifier.height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
+            // Contenu principal
+            Row(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .width(60.dp)
-                    .background(couleurFinale),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconePourCompte(compte = compte, tint = Color.White)
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                // Icône sur le fond de la carte (pas de bande colorée)
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(60.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = compte.nom,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = Color.White,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Column(
-                        horizontalAlignment = Alignment.End
+                    IconePourCompte(compte = compte, tint = couleurFinale)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = MoneyFormatter.formatAmount(compte.solde),
+                            text = compte.nom,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
+                            color = Color.White,
+                            modifier = Modifier.weight(1f)
                         )
-                        if (compte is CompteCheque) {
+                        Column(
+                            horizontalAlignment = Alignment.End
+                        ) {
                             Text(
-                                text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
-                                fontSize = 13.sp,
-                                color = if (compte.pretAPlacer >= 0) Color(0xFF66BB6A) else MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.offset(y = 12.dp) // Déplace le texte vers le bas
+                                text = MoneyFormatter.formatAmount(compte.solde),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
                             )
+                            if (compte is CompteCheque) {
+                                Text(
+                                    text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
+                                    fontSize = 13.sp,
+                                    color = if (compte.pretAPlacer >= 0) Color(0xFF66BB6A) else MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.offset(y = 12.dp) // Déplace le texte vers le bas
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                if (compte !is CompteCheque) {
-                    InfoSecondaireCompte(compte = compte)
+                    if (compte !is CompteCheque) {
+                        InfoSecondaireCompte(compte = compte)
+                    }
                 }
+            }
+
+            // Mini colonne de 8 pixels juste à droite de l'icône
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = 52.dp) // Rapprocher du logo (au lieu de 60dp)
+                    .width(6.dp)
+                    .height(40.dp) // Moitié de la hauteur (environ 80dp / 2)
+                    .clip(RoundedCornerShape(4.dp)) // Arrondir les bords
+                    .background(couleurFinale)
+            ) {
+                // Pas d'icône ici, juste la colonne colorée
             }
         }
     }
