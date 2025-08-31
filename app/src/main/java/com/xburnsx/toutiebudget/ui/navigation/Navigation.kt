@@ -406,7 +406,8 @@ fun MainAppScaffold(
             // Route pour la gestion de la base de données
             composable("database_manager") {
                 com.xburnsx.toutiebudget.ui.settings.DatabaseManagerScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.popBackStack() },
+                    couleurTheme = couleurTheme
                 )
             }
             

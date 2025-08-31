@@ -697,7 +697,7 @@ fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(transaction.note ?: "Sans note", color = Color.White, fontWeight = FontWeight.Medium)
+                Text(transaction.tiersUtiliser ?: "Sans tiers", color = Color.White, fontWeight = FontWeight.Medium)
                 Text("Montant: ${transaction.montant}€ | Date: ${transaction.date}", color = Color.Gray, fontSize = 12.sp)
             }
             Row {
@@ -716,6 +716,7 @@ fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -
 @Composable
 fun AllocationsTab(couleurTheme: CouleurTheme) {
     var allocations by remember { mutableStateOf<List<AllocationMensuelle>>(emptyList()) }
+    var enveloppes by remember { mutableStateOf<List<Enveloppe>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAllocation by remember { mutableStateOf<AllocationMensuelle?>(null) }
     
@@ -729,6 +730,7 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                 if (utilisateurId.isNotEmpty()) {
                     allocations = database.allocationMensuelleDao().getAllocationsByUtilisateur(utilisateurId).first()
+                    enveloppes = database.enveloppeDao().getEnveloppesByUtilisateur(utilisateurId).first()
                 }
             } catch (e: Exception) {
                 // Gérer l'erreur
@@ -770,7 +772,8 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
                         }
                     }
                 },
-                couleurTheme = couleurTheme
+                couleurTheme = couleurTheme,
+                enveloppes = enveloppes
             )
         }
     }
@@ -821,7 +824,7 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
 }
 
 @Composable
-fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
+fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme, enveloppes: List<Enveloppe>) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -833,6 +836,7 @@ fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Allocation ${allocation.mois}", color = Color.White, fontWeight = FontWeight.Medium)
+                Text("Enveloppe: ${enveloppes.find { it.id == allocation.enveloppeId }?.nom ?: "Inconnue"}", color = Color.Gray, fontSize = 12.sp)
                 Text("Solde: ${allocation.solde}€ | Alloué: ${allocation.alloue}€ | Dépense: ${allocation.depense}€", color = Color.Gray, fontSize = 12.sp)
             }
             Row {
