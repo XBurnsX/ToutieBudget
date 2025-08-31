@@ -132,11 +132,15 @@ fun BudgetScreen(
                     // Menu hamburger (à droite, le plus à gauche des icônes)
                     var menuExpanded by remember { mutableStateOf(false) }
                     Box {
-                        IconButton(onClick = { menuExpanded = true }) {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.size(48.dp) // Zone de clic plus grande
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Menu",
-                                tint = Color.White
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp) // Icône plus grande
                             )
                         }
                         DropdownMenu(
@@ -144,14 +148,26 @@ fun BudgetScreen(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Prêt personnel") },
+                                text = { 
+                                    Text(
+                                        "Prêt personnel",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ) 
+                                },
                                 onClick = {
                                     menuExpanded = false
                                     onPretPersonnelClick?.invoke()
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Virer argent") },
+                                text = { 
+                                    Text(
+                                        "Virer argent",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ) 
+                                },
                                 onClick = {
                                     menuExpanded = false
                                     onVirementClick?.invoke()
