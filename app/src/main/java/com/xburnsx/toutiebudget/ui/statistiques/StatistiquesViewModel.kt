@@ -290,100 +290,7 @@ class StatistiquesViewModel(
                 sixMoisLabels[idx] to total
             }
 
-            // Courbe cumulée du mois (cashflow net) et MM7
-            // Construire la liste de tous les jours du mois sélectionné
-            val jours = mutableListOf<Date>()
-            val calDebut = Calendar.getInstance().apply { time = debut }
-            val calFin = Calendar.getInstance().apply { time = fin }
-            // Si le mois sélectionné est le mois courant, ne pas dépasser aujourd'hui
-            run {
-                val now = Date()
-                val calNow = Calendar.getInstance().apply { time = now }
-                val memeMois = calDebut.get(Calendar.YEAR) == calNow.get(Calendar.YEAR) &&
-                        calDebut.get(Calendar.MONTH) == calNow.get(Calendar.MONTH)
-                if (memeMois) {
-                    // Fin effective = aujourd'hui 23:59:59
-                    calFin.time = calNow.time
-                    calFin.set(Calendar.HOUR_OF_DAY, 23)
-                    calFin.set(Calendar.MINUTE, 59)
-                    calFin.set(Calendar.SECOND, 59)
-                    calFin.set(Calendar.MILLISECOND, 999)
-                }
-            }
-            val calJour = calDebut
-            while (calJour.time <= calFin.time) {
-                jours += calJour.time
-                calJour.add(Calendar.DAY_OF_MONTH, 1)
-            }
 
-            // DEBUG: Vérifier le nombre total de transactions
-            // DEBUG ViewModel: Transactions 6 mois total: ${transactions6Mois.size}
-            // DEBUG ViewModel: Transactions pour la période: ${transactions.size}
-            
-            // Net par jour
-            val netParJour = jours.map { jour ->
-                val start = Calendar.getInstance().apply {
-                    time = jour
-                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                }.time
-                val end = Calendar.getInstance().apply {
-                    time = jour
-                    set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
-                }.time
-
-                // DEBUG: Vérifier les transactions pour ce jour
-                val transactionsJour = transactions.filter {
-                    it.date >= start && it.date <= end
-                }
-                // DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Transactions trouvées: ${transactionsJour.size}
-                if (transactionsJour.isNotEmpty()) {
-                    transactionsJour.forEach { tx ->
-                        // DEBUG: Transaction ${tx.id} - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}
-                    }
-                }
-
-                val revenusJour = transactionsJour.filter { 
-                    (it.type == TypeTransaction.Revenu || 
-                     it.type == TypeTransaction.Emprunt || 
-                     it.type == TypeTransaction.RemboursementRecu) && 
-                    it.date >= start && it.date <= end 
-                    // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
-                }.sumOf { it.montant }
-                val depensesJour = transactionsJour.filter { 
-                    (it.type == TypeTransaction.Depense || 
-                     it.type == TypeTransaction.Pret || 
-                     it.type == TypeTransaction.RemboursementDonne || 
-                     it.type == TypeTransaction.PaiementEffectue) && 
-                    it.date >= start && it.date <= end 
-                }.sumOf { it.montant }
-                val net = revenusJour - depensesJour
-                // DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Revenus: $revenusJour, Dépenses: $depensesJour, Net: $net
-                net
-            }
-
-            // Cumul
-            var cumul = 0.0
-            val cumulMensuel = netParJour.map { net ->
-                cumul += net
-                cumul
-            }
-
-            // MM7 sur net quotidien
-            val mm7 = netParJour.indices.map { i ->
-                val debutIdx = maxOf(0, i - 6)
-                val sousListe = netParJour.subList(debutIdx, i + 1)
-                sousListe.average()
-            }
-
-            // DEBUG: Afficher les valeurs calculées
-            // DEBUG ViewModel: netParJour=$netParJour
-            // DEBUG ViewModel: cumulMensuel=$cumulMensuel
-            // DEBUG ViewModel: mm7=$mm7
-
-            val labelsJours = jours.map { java.text.SimpleDateFormat("d", java.util.Locale.FRENCH).format(it) }
-
-            val cashflowCumulMensuel = labelsJours.zip(cumulMensuel)
-            val moyenneMobile7Jours = labelsJours.zip(mm7)
 
             _uiState.value = StatistiquesUiState(
                 isLoading = false,
@@ -398,8 +305,7 @@ class StatistiquesViewModel(
                 depenses6DerniersMois = depenses6DerniersMois,
                 revenus6DerniersMois = revenus6DerniersMois,
                 tiersToNom = tiersToNom,
-                cashflowCumulMensuel = cashflowCumulMensuel,
-                moyenneMobile7Jours = moyenneMobile7Jours
+
             )
         }
     }
