@@ -5,10 +5,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,14 +28,17 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.entities.*
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
-import com.xburnsx.toutiebudget.ui.theme.ToutiePink
+import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DatabaseManagerScreen(onBack: () -> Unit) {
+fun DatabaseManagerScreen(
+    onBack: () -> Unit,
+    couleurTheme: CouleurTheme = CouleurTheme.PINK
+) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Comptes", "Transactions", "Allocations", "Catégories", "Enveloppes", "Tiers", "Prêts")
     
@@ -66,13 +71,13 @@ fun DatabaseManagerScreen(onBack: () -> Unit) {
             }
             
             when (selectedTabIndex) {
-                0 -> ComptesTab()
-                1 -> TransactionsTab()
-                2 -> AllocationsTab()
-                3 -> CategoriesTab()
-                4 -> EnveloppesTab()
-                5 -> TiersTab()
-                6 -> PretsTab()
+                0 -> ComptesTab(couleurTheme = couleurTheme)
+                1 -> TransactionsTab(couleurTheme = couleurTheme)
+                2 -> AllocationsTab(couleurTheme = couleurTheme)
+                3 -> CategoriesTab(couleurTheme = couleurTheme)
+                4 -> EnveloppesTab(couleurTheme = couleurTheme)
+                5 -> TiersTab(couleurTheme = couleurTheme)
+                6 -> PretsTab(couleurTheme = couleurTheme)
             }
         }
     }
@@ -80,7 +85,7 @@ fun DatabaseManagerScreen(onBack: () -> Unit) {
 
 // ==================== ONGLET COMPTES ====================
 @Composable
-fun ComptesTab() {
+fun ComptesTab(couleurTheme: CouleurTheme) {
     var comptesCheque by remember { mutableStateOf<List<CompteCheque>>(emptyList()) }
     var comptesCredit by remember { mutableStateOf<List<CompteCredit>>(emptyList()) }
     var comptesDette by remember { mutableStateOf<List<CompteDette>>(emptyList()) }
@@ -121,7 +126,8 @@ fun ComptesTab() {
                 title = "Comptes Chèques (${comptesCheque.size})",
                 isExpanded = expandedSection == "cheque",
                 onToggle = { expandedSection = if (expandedSection == "cheque") null else "cheque" },
-                onAdd = { showAddDialog = "cheque" }
+                onAdd = { showAddDialog = "cheque" },
+                couleurTheme = couleurTheme
             ) {
                 comptesCheque.forEach { compte ->
                     CompteChequeItem(
@@ -139,7 +145,8 @@ fun ComptesTab() {
                                     // Gérer l'erreur
                                 }
                             }
-                        }
+                        },
+                        couleurTheme = couleurTheme
                     )
                 }
             }
@@ -151,7 +158,8 @@ fun ComptesTab() {
                 title = "Comptes Crédit (${comptesCredit.size})",
                 isExpanded = expandedSection == "credit",
                 onToggle = { expandedSection = if (expandedSection == "credit") null else "credit" },
-                onAdd = { showAddDialog = "credit" }
+                onAdd = { showAddDialog = "credit" },
+                couleurTheme = couleurTheme
             ) {
                 comptesCredit.forEach { compte ->
                     CompteCreditItem(
@@ -169,7 +177,8 @@ fun ComptesTab() {
                                     // Gérer l'erreur
                                 }
                             }
-                        }
+                        },
+                        couleurTheme = couleurTheme
                     )
                 }
             }
@@ -181,7 +190,8 @@ fun ComptesTab() {
                 title = "Comptes Dette (${comptesDette.size})",
                 isExpanded = expandedSection == "dette",
                 onToggle = { expandedSection = if (expandedSection == "dette") null else "dette" },
-                onAdd = { showAddDialog = "dette" }
+                onAdd = { showAddDialog = "dette" },
+                couleurTheme = couleurTheme
             ) {
                 comptesDette.forEach { compte ->
                     CompteDetteItem(
@@ -199,7 +209,8 @@ fun ComptesTab() {
                                     // Gérer l'erreur
                                 }
                             }
-                        }
+                        },
+                        couleurTheme = couleurTheme
                     )
                 }
             }
@@ -211,7 +222,8 @@ fun ComptesTab() {
                 title = "Comptes Investissement (${comptesInvestissement.size})",
                 isExpanded = expandedSection == "investissement",
                 onToggle = { expandedSection = if (expandedSection == "investissement") null else "investissement" },
-                onAdd = { showAddDialog = "investissement" }
+                onAdd = { showAddDialog = "investissement" },
+                couleurTheme = couleurTheme
             ) {
                 comptesInvestissement.forEach { compte ->
                     CompteInvestissementItem(
@@ -229,7 +241,8 @@ fun ComptesTab() {
                                     // Gérer l'erreur
                                 }
                             }
-                        }
+                        },
+                        couleurTheme = couleurTheme
                     )
                 }
             }
@@ -255,6 +268,26 @@ fun ComptesTab() {
                 showAddDialog = null
             },
             onDismiss = { showAddDialog = null }
+        )
+        
+        // 🆕 DIALOGS DE MODIFICATION DES COMPTES
+        editingItem is CompteCheque -> AddEditCompteChequeDialog(
+            compte = editingItem as CompteCheque,
+            onSave = { compte ->
+                scope.launch {
+                    try {
+                        val database = ToutieBudgetDatabase.getDatabase(context)
+                        database.compteChequeDao().updateCompte(compte)
+                        comptesCheque = database.compteChequeDao().getComptesByUtilisateur(
+                            PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
+                        ).first()
+                        editingItem = null
+                    } catch (e: Exception) {
+                        // Gérer l'erreur
+                    }
+                }
+            },
+            onDismiss = { editingItem = null }
         )
         showAddDialog == "credit" -> AddEditCompteCreditDialog(
             compte = null,
@@ -395,6 +428,7 @@ fun CompteSection(
     isExpanded: Boolean,
     onToggle: () -> Unit,
     onAdd: () -> Unit,
+    couleurTheme: CouleurTheme,
     content: @Composable () -> Unit
 ) {
     Card(
@@ -410,7 +444,7 @@ fun CompteSection(
                 Text(title, color = Color.White, fontWeight = FontWeight.Medium)
                 Row {
                     IconButton(onClick = onAdd) {
-                        Icon(Icons.Default.Add, "Ajouter", tint = ToutiePink)
+                        Icon(Icons.Default.Add, "Ajouter", tint = couleurTheme.couleur)
                     }
                     Icon(
                         if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -434,7 +468,7 @@ fun CompteSection(
 }
 
 @Composable
-fun CompteChequeItem(compte: CompteCheque, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun CompteChequeItem(compte: CompteCheque, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -450,7 +484,7 @@ fun CompteChequeItem(compte: CompteCheque, onEdit: () -> Unit, onDelete: () -> U
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -461,7 +495,7 @@ fun CompteChequeItem(compte: CompteCheque, onEdit: () -> Unit, onDelete: () -> U
 }
 
 @Composable
-fun CompteCreditItem(compte: CompteCredit, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun CompteCreditItem(compte: CompteCredit, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -478,7 +512,7 @@ fun CompteCreditItem(compte: CompteCredit, onEdit: () -> Unit, onDelete: () -> U
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -489,7 +523,7 @@ fun CompteCreditItem(compte: CompteCredit, onEdit: () -> Unit, onDelete: () -> U
 }
 
 @Composable
-fun CompteDetteItem(compte: CompteDette, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun CompteDetteItem(compte: CompteDette, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -506,7 +540,7 @@ fun CompteDetteItem(compte: CompteDette, onEdit: () -> Unit, onDelete: () -> Uni
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -517,7 +551,7 @@ fun CompteDetteItem(compte: CompteDette, onEdit: () -> Unit, onDelete: () -> Uni
 }
 
 @Composable
-fun CompteInvestissementItem(compte: CompteInvestissement, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun CompteInvestissementItem(compte: CompteInvestissement, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -533,7 +567,7 @@ fun CompteInvestissementItem(compte: CompteInvestissement, onEdit: () -> Unit, o
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -545,7 +579,7 @@ fun CompteInvestissementItem(compte: CompteInvestissement, onEdit: () -> Unit, o
 
 // ==================== ONGLET TRANSACTIONS ====================
 @Composable
-fun TransactionsTab() {
+fun TransactionsTab(couleurTheme: CouleurTheme) {
     var transactions by remember { mutableStateOf<List<Transaction>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
@@ -575,13 +609,11 @@ fun TransactionsTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Transactions", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouvelle Transaction")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -602,7 +634,8 @@ fun TransactionsTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -653,7 +686,7 @@ fun TransactionsTab() {
 }
 
 @Composable
-fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -669,7 +702,7 @@ fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -681,7 +714,7 @@ fun TransactionItem(transaction: Transaction, onEdit: () -> Unit, onDelete: () -
 
 // ==================== ONGLET ALLOCATIONS ====================
 @Composable
-fun AllocationsTab() {
+fun AllocationsTab(couleurTheme: CouleurTheme) {
     var allocations by remember { mutableStateOf<List<AllocationMensuelle>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAllocation by remember { mutableStateOf<AllocationMensuelle?>(null) }
@@ -711,13 +744,11 @@ fun AllocationsTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Allocations Mensuelles", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouvelle Allocation")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -738,7 +769,8 @@ fun AllocationsTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -789,7 +821,7 @@ fun AllocationsTab() {
 }
 
 @Composable
-fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -805,7 +837,7 @@ fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -817,7 +849,7 @@ fun AllocationItem(allocation: AllocationMensuelle, onEdit: () -> Unit, onDelete
 
 // ==================== ONGLET CATÉGORIES ====================
 @Composable
-fun CategoriesTab() {
+fun CategoriesTab(couleurTheme: CouleurTheme) {
     var categories by remember { mutableStateOf<List<Categorie>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingCategorie by remember { mutableStateOf<Categorie?>(null) }
@@ -847,13 +879,11 @@ fun CategoriesTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Catégories", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouvelle Catégorie")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -874,7 +904,8 @@ fun CategoriesTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -925,7 +956,7 @@ fun CategoriesTab() {
 }
 
 @Composable
-fun CategorieItem(categorie: Categorie, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun CategorieItem(categorie: Categorie, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -941,7 +972,7 @@ fun CategorieItem(categorie: Categorie, onEdit: () -> Unit, onDelete: () -> Unit
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -953,7 +984,7 @@ fun CategorieItem(categorie: Categorie, onEdit: () -> Unit, onDelete: () -> Unit
 
 // ==================== ONGLET ENVELOPPES ====================
 @Composable
-fun EnveloppesTab() {
+fun EnveloppesTab(couleurTheme: CouleurTheme) {
     var enveloppes by remember { mutableStateOf<List<Enveloppe>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingEnveloppe by remember { mutableStateOf<Enveloppe?>(null) }
@@ -983,13 +1014,11 @@ fun EnveloppesTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Enveloppes", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouvelle Enveloppe")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -1010,7 +1039,8 @@ fun EnveloppesTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -1061,7 +1091,7 @@ fun EnveloppesTab() {
 }
 
 @Composable
-fun EnveloppeItem(enveloppe: Enveloppe, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun EnveloppeItem(enveloppe: Enveloppe, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -1077,7 +1107,7 @@ fun EnveloppeItem(enveloppe: Enveloppe, onEdit: () -> Unit, onDelete: () -> Unit
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -1089,7 +1119,7 @@ fun EnveloppeItem(enveloppe: Enveloppe, onEdit: () -> Unit, onDelete: () -> Unit
 
 // ==================== ONGLET TIERS ====================
 @Composable
-fun TiersTab() {
+fun TiersTab(couleurTheme: CouleurTheme) {
     var tiers by remember { mutableStateOf<List<Tiers>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTiers by remember { mutableStateOf<Tiers?>(null) }
@@ -1119,13 +1149,11 @@ fun TiersTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Tiers", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouveau Tiers")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -1146,7 +1174,8 @@ fun TiersTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -1197,7 +1226,7 @@ fun TiersTab() {
 }
 
 @Composable
-fun TiersItem(tiers: Tiers, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun TiersItem(tiers: Tiers, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -1213,7 +1242,7 @@ fun TiersItem(tiers: Tiers, onEdit: () -> Unit, onDelete: () -> Unit) {
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)
@@ -1225,7 +1254,7 @@ fun TiersItem(tiers: Tiers, onEdit: () -> Unit, onDelete: () -> Unit) {
 
 // ==================== ONGLET PRÊTS ====================
 @Composable
-fun PretsTab() {
+fun PretsTab(couleurTheme: CouleurTheme) {
     var prets by remember { mutableStateOf<List<PretPersonnel>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPret by remember { mutableStateOf<PretPersonnel?>(null) }
@@ -1255,13 +1284,11 @@ fun PretsTab() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Gestion des Prêts Personnels", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Button(
+                IconButton(
                     onClick = { showAddDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ToutiePink)
+                    modifier = Modifier.background(couleurTheme.couleur, CircleShape)
                 ) {
-                    Icon(Icons.Default.Add, "Ajouter")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nouveau Prêt")
+                    Icon(Icons.Default.Add, "Ajouter", tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -1282,7 +1309,8 @@ fun PretsTab() {
                             // Gérer l'erreur
                         }
                     }
-                }
+                },
+                couleurTheme = couleurTheme
             )
         }
     }
@@ -1333,7 +1361,7 @@ fun PretsTab() {
 }
 
 @Composable
-fun PretItem(pret: PretPersonnel, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun PretItem(pret: PretPersonnel, onEdit: () -> Unit, onDelete: () -> Unit, couleurTheme: CouleurTheme) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
@@ -1349,7 +1377,7 @@ fun PretItem(pret: PretPersonnel, onEdit: () -> Unit, onDelete: () -> Unit) {
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, "Modifier", tint = ToutiePink)
+                    Icon(Icons.Default.Edit, "Modifier", tint = couleurTheme.couleur)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, "Supprimer", tint = Color.Red)

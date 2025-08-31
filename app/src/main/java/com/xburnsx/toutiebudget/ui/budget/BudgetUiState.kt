@@ -13,7 +13,8 @@ data class EnveloppeUi(
     val alloue: Double, // Total alloué ce mois
     val alloueCumulatif: Double, // ← NOUVEAU : Total alloué depuis le début de l'objectif (pour barres de progression)
     val objectif: Double,
-    val couleurProvenance: String?,
+    val couleurProvenance: String?, // Pour la bulle (reset à null si solde = 0)
+    val couleurObjectif: String? = null, // ← NOUVEAU : Pour les barres (toujours garder couleur du compte)
     val statutObjectif: StatutObjectif,
     val dateObjectif: String? = null, // Date choisie lors de la création de l'objectif
     val versementRecommande: Double = 0.0,

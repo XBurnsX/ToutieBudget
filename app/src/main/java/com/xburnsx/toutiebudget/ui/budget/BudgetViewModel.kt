@@ -331,17 +331,50 @@ class BudgetViewModel(
                 moisCible
             )
 
-            // Pour la couleur, on se base sur la provenance de la dernière allocation (la plus récente)
-            // 🎨 CORRECTION : Reset la couleur de provenance quand solde = 0
+            // 🎨 LOGIQUE SÉPARÉE POUR LES COULEURS :
+            // 1. couleurProvenance : pour la bulle (reset à null si solde = 0)
+            // 2. couleurObjectif : pour les barres (toujours garder couleur du compte si objectif atteint par dépense)
             val derniereAllocation = allocationsDeLEnveloppe.lastOrNull()
-            val compteSource = if (soldeTotal > 0.001) {
-                derniereAllocation?.compteSourceId?.let { mapComptes[it] }
-            } else {
-                null // Reset la couleur quand solde = 0
-            }
-
+            
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
+            
+            // LOGS POUR DÉBOGUER LA COULEUR DE PROVENANCE
+            android.util.Log.d("ObjectifColor", "=== BUDGET VIEWMODEL - COULEUR PROVENANCE ===")
+            android.util.Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
+            android.util.Log.d("ObjectifColor", "Solde total: $soldeTotal")
+            android.util.Log.d("ObjectifColor", "Dépense totale: $depenseTotale")
+            android.util.Log.d("ObjectifColor", "Objectif: $objectif")
+            android.util.Log.d("ObjectifColor", "Type objectif: ${enveloppe.typeObjectif}")
+            android.util.Log.d("ObjectifColor", "Dernière allocation compte source ID: ${derniereAllocation?.compteSourceId}")
+            android.util.Log.d("ObjectifColor", "Compte source trouvé: ${derniereAllocation?.compteSourceId?.let { mapComptes[it] }}")
+            
+            // 1. COULEUR POUR LA BULLE : reset à null si solde = 0
+            val compteSource = if (soldeTotal > 0.001) {
+                // Solde positif : utiliser la couleur du compte source
+                android.util.Log.d("ObjectifColor", "Solde positif - Utiliser couleur du compte source pour bulle")
+                derniereAllocation?.compteSourceId?.let { mapComptes[it] }
+            } else {
+                // Solde = 0 : pas de couleur pour la bulle (devient grise)
+                android.util.Log.d("ObjectifColor", "Solde = 0 - Pas de couleur pour bulle (devient grise)")
+                null
+            }
+            
+            // 2. COULEUR POUR LES BARRES : toujours garder couleur du compte si objectif atteint par dépense
+            val compteSourcePourBarres = if (derniereAllocation?.compteSourceId != null) {
+                // Il y a un compte source : l'utiliser pour les barres
+                android.util.Log.d("ObjectifColor", "Compte source trouvé - Utiliser pour les barres")
+                mapComptes[derniereAllocation.compteSourceId]
+            } else {
+                // Pas de compte source : pas de couleur pour les barres
+                android.util.Log.d("ObjectifColor", "Pas de compte source - Pas de couleur pour les barres")
+                null
+            }
+            
+            android.util.Log.d("ObjectifColor", "Compte source pour bulle: $compteSource")
+            android.util.Log.d("ObjectifColor", "Compte source trouvé - Utiliser pour les barres")
+            android.util.Log.d("ObjectifColor", "Couleur bulle: ${compteSource?.couleur}")
+            android.util.Log.d("ObjectifColor", "Couleur barres: ${compteSourcePourBarres?.couleur}")
 
             // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher le solde réel (alloué - dépenses)
             val nomCategorie = nomCategorieParId[enveloppe.categorieId]
@@ -397,7 +430,8 @@ class BudgetViewModel(
                 alloue = alloueTotal, // Total alloué ce mois
                 alloueCumulatif = alloueCumulatif, // ← NOUVEAU : Total alloué depuis le début (pour barres de progression)
                 objectif = objectif,
-                couleurProvenance = compteSource?.couleur,
+                couleurProvenance = compteSource?.couleur, // Pour la bulle (reset à null si solde = 0)
+                couleurObjectif = compteSourcePourBarres?.couleur, // ← NOUVEAU : Pour les barres (toujours garder couleur du compte)
                 statutObjectif = statut,
                 dateObjectif = dateObjectifStr, // déjà une chaîne formatée ou un jour simple
                 versementRecommande = versementRecommande,
