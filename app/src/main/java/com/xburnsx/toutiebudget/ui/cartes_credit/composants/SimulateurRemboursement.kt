@@ -483,7 +483,7 @@ fun SimulateurRemboursementPreview() {
     
     // Test du calcul des intérêts
     val testInterets = calculerInteretsTotal(carteCredit, 500.0, 6)
-    println("Test intérêts pour 500€/mois sur 6 mois: $testInterets")
+    // Test intérêts pour 500€/mois sur 6 mois: $testInterets
     
     val statistiques = StatistiquesCarteCredit(
         creditDisponible = 7500.0,

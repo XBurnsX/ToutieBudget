@@ -403,7 +403,7 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
         } catch (e: Exception) {
             // Erreur silencieuse de fusion - ne pas faire échouer le virement
-            println("⚠️ Erreur lors de la fusion des allocations après virement compte->enveloppe: ${e.message}")
+            // ⚠️ Erreur lors de la fusion des allocations après virement compte->enveloppe: ${e.message}
         }
     }
 
@@ -526,7 +526,7 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, premierJourMois)
         } catch (e: Exception) {
             // Erreur silencieuse de fusion - ne pas faire échouer le virement
-            println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->compte: ${e.message}")
+            // ⚠️ Erreur lors de la fusion des allocations après virement enveloppe->compte: ${e.message}
         }
         
         // PAS DE TRANSACTION - C'est un virement interne !
@@ -633,7 +633,7 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDestination.id, premierJourMois)
         } catch (e: Exception) {
             // Erreur silencieuse de fusion - ne pas faire échouer le virement
-            println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->enveloppe: ${e.message}")
+            // ⚠️ Erreur lors de la fusion des allocations après virement enveloppe->enveloppe: ${e.message}
         }
     }
 

@@ -36,10 +36,10 @@ class PretPersonnelViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val result = pretPersonnelRepository.lister()
             result.onSuccess { entries ->
-                println("DEBUG: Total entries: ${entries.size}")
-                println("DEBUG: Entries avec estArchive=true: ${entries.count { it.estArchive }}")
+                // DEBUG: Total entries: ${entries.size}
+                // DEBUG: Entries avec estArchive=true: ${entries.count { it.estArchive }}
                 entries.filter { it.estArchive }.forEach { 
-                    println("DEBUG: Archive trouvé: ${it.nomTiers} - Solde: ${it.solde} - Type: ${it.type}")
+                    // DEBUG: Archive trouvé: ${it.nomTiers} - Solde: ${it.solde} - Type: ${it.type}
                 }
                 
                 val itemsPret = entries
@@ -52,7 +52,7 @@ class PretPersonnelViewModel(
                     .filter { it.estArchive }
                     .map { it.toItem() }
                 
-                println("DEBUG: itemsArchives count: ${itemsArchives.size}")
+                // DEBUG: itemsArchives count: ${itemsArchives.size}
                 
                 _uiState.value = PretPersonnelUiState(
                     isLoading = false,
@@ -177,7 +177,7 @@ class PretPersonnelViewModel(
                 // 4) Rafraîchir l'historique
                 chargerHistoriquePourPret(pretId, nomTiers)
             } catch (e: Exception) { 
-                println("Erreur lors de l'enregistrement du remboursement: ${e.message}")
+                // Erreur lors de l'enregistrement du remboursement: ${e.message}
                 e.printStackTrace()
             }
         }

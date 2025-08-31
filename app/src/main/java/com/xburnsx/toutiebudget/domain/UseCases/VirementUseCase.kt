@@ -132,7 +132,7 @@ class VirementUseCase @Inject constructor(
                 allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
             } catch (e: Exception) {
                 // Erreur silencieuse de fusion - ne pas faire échouer le virement
-                println("⚠️ Erreur lors de la fusion des allocations après virement prêt->enveloppe: ${e.message}")
+                // ⚠️ Erreur lors de la fusion des allocations après virement prêt->enveloppe: ${e.message}
             }
 
         }
@@ -177,9 +177,9 @@ class VirementUseCase @Inject constructor(
             val premierJourMois = calendrier.time
 
             // 3. ✅ RÉCUPÉRER l'allocation fusionnée AVANT de vérifier le solde !
-            println("🔥 DIAGNOSTIC - AVANT d'appeler recupererOuCreerAllocation")
-            println("🔥 DIAGNOSTIC - enveloppeId: $enveloppeId")
-            println("🔥 DIAGNOSTIC - premierJourMois: $premierJourMois")
+            // 🔥 DIAGNOSTIC - AVANT d'appeler recupererOuCreerAllocation
+            // 🔥 DIAGNOSTIC - enveloppeId: $enveloppeId
+            // 🔥 DIAGNOSTIC - premierJourMois: $premierJourMois
             
             val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
@@ -229,7 +229,7 @@ class VirementUseCase @Inject constructor(
                 allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
             } catch (e: Exception) {
                 // Erreur silencieuse de fusion - ne pas faire échouer le virement
-                println("⚠️ Erreur lors de la fusion des allocations après virement enveloppe->prêt: ${e.message}")
+                // ⚠️ Erreur lors de la fusion des allocations après virement enveloppe->prêt: ${e.message}
             }
 
         }

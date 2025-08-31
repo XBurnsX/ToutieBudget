@@ -225,13 +225,13 @@ class CompteRepositoryImpl : CompteRepository {
             val donneesUpdate = mapOf(nomChamp to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
 
-            println("🔍 DEBUG MISE À JOUR SOLDE:")
-            println("  URL: $urlBase/api/collections/$collection/records/$compteId")
-            println("  Collection: $collection")
-            println("  ID Compte: $compteId")
-            println("  Champ mis à jour: $nomChamp")
-            println("  Nouvelle valeur: $soldeArrondi")
-            println("  Corps de la requête (JSON): $corpsRequete")
+            // 🔍 DEBUG MISE À JOUR SOLDE:
+            //   URL: $urlBase/api/collections/$collection/records/$compteId
+            //   Collection: $collection
+            //   ID Compte: $compteId
+            //   Champ mis à jour: $nomChamp
+            //   Nouvelle valeur: $soldeArrondi
+            //   Corps de la requête (JSON): $corpsRequete
 
             val requete = Request.Builder()
                 .url("$urlBase/api/collections/$collection/records/$compteId")
@@ -241,10 +241,10 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             httpClient.newCall(requete).execute().use { reponse ->
-                println("  Code de réponse: ${reponse.code}")
+                // Code de réponse: ${reponse.code}
                 if (!reponse.isSuccessful) {
                     val erreurBody = reponse.body?.string()
-                    println("  Corps de l'erreur: $erreurBody")
+                    // Corps de l'erreur: $erreurBody
                     throw Exception("Erreur lors de la mise à jour: ${reponse.code} - $erreurBody")
                 }
             }
@@ -297,13 +297,13 @@ class CompteRepositoryImpl : CompteRepository {
             val donneesUpdate = mapOf(nomChamp to soldeArrondi)
             val corpsRequete = gson.toJson(donneesUpdate)
 
-            println("🔍 DEBUG MISE À JOUR SOLDE AVEC VARIATION:")
-            println("  URL: $urlBase/api/collections/$collectionCompte/records/$compteId")
-            println("  Collection: $collectionCompte")
-            println("  ID Compte: $compteId")
-            println("  Champ mis à jour: $nomChamp")
-            println("  Nouvelle valeur: $soldeArrondi")
-            println("  Corps de la requête (JSON): $corpsRequete")
+            // 🔍 DEBUG MISE À JOUR SOLDE AVEC VARIATION:
+            //   URL: $urlBase/api/collections/$collectionCompte/records/$compteId
+            //   Collection: $collectionCompte
+            //   ID Compte: $compteId
+            //   Champ mis à jour: $nomChamp
+            //   Nouvelle valeur: $soldeArrondi
+            //   Corps de la requête (JSON): $corpsRequete
 
             val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
 
@@ -315,10 +315,10 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
-            println("  Code de réponse: ${reponse.code}")
+            // Code de réponse: ${reponse.code}
             if (!reponse.isSuccessful) {
                 val erreurBody = reponse.body?.string()
-                println("  Corps de l'erreur: $erreurBody")
+                // Corps de l'erreur: $erreurBody
                 throw Exception("Erreur lors de la mise à jour du solde: ${reponse.code} - $erreurBody")
             }
 
@@ -429,11 +429,11 @@ class CompteRepositoryImpl : CompteRepository {
         variationSolde: Double,
         mettreAJourPretAPlacer: Boolean
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        println("🔍 DEBUG mettreAJourSoldeAvecVariationEtPretAPlacer:")
-        println("  CompteId: $compteId")
-        println("  Collection: $collectionCompte")
-        println("  Variation: $variationSolde")
-        println("  MettreAJourPretAPlacer: $mettreAJourPretAPlacer")
+        // 🔍 DEBUG mettreAJourSoldeAvecVariationEtPretAPlacer:
+        //   CompteId: $compteId
+        //   Collection: $collectionCompte
+        //   Variation: $variationSolde
+        //   MettreAJourPretAPlacer: $mettreAJourPretAPlacer
         
         if (!client.estConnecte()) {
             return@withContext Result.failure(Exception("Utilisateur non connecté"))
@@ -458,14 +458,14 @@ class CompteRepositoryImpl : CompteRepository {
                 throw Exception("Compte non trouvé")
             }
 
-            println("  Compte trouvé: ${compte.nom}")
-            println("  Solde actuel: ${compte.solde}")
+            // Compte trouvé: ${compte.nom}
+            // Solde actuel: ${compte.solde}
 
             // 2. Calculer le nouveau solde
             val nouveauSoldeBrut = compte.solde + variationSolde
             // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU SOLDE
             val nouveauSolde = MoneyFormatter.roundAmount(nouveauSoldeBrut)
-            println("  Nouveau solde calculé: $nouveauSolde (${compte.solde} + $variationSolde)")
+            // Nouveau solde calculé: $nouveauSolde (${compte.solde} + $variationSolde)
 
             // 3. Préparer les données de mise à jour
             val champSolde = when (collectionCompte) {
@@ -473,7 +473,7 @@ class CompteRepositoryImpl : CompteRepository {
                 Collections.DETTE -> "solde_dette"
                 else -> "solde"
             }
-            println("  Champ solde utilisé: '$champSolde'")
+            // Champ solde utilisé: '$champSolde'
 
             val donneesUpdate = if (mettreAJourPretAPlacer && collectionCompte == Collections.CHEQUE && compte is CompteCheque) {
                 // Pour les comptes chèque, mettre à jour aussi pret_a_placer si demandé
@@ -486,11 +486,11 @@ class CompteRepositoryImpl : CompteRepository {
                 // Sinon, mettre à jour seulement le solde (avec champ adapté au type)
                 mapOf(champSolde to nouveauSolde)
             }
-            println("  Données de mise à jour: $donneesUpdate")
+            // Données de mise à jour: $donneesUpdate
             val corpsRequete = gson.toJson(donneesUpdate)
 
             val url = "$urlBase/api/collections/$collectionCompte/records/$compteId"
-            println("  URL de mise à jour: $url")
+            // URL de mise à jour: $url
 
             val requete = Request.Builder()
                 .url(url)
@@ -500,14 +500,14 @@ class CompteRepositoryImpl : CompteRepository {
                 .build()
 
             val reponse = httpClient.newCall(requete).execute()
-            println("  Réponse HTTP: ${reponse.code}")
+            // Réponse HTTP: ${reponse.code}
 
             if (!reponse.isSuccessful) {
                 val messageErreur = reponse.body?.string() ?: "Erreur inconnue"
                 throw Exception("Erreur lors de la mise à jour: ${reponse.code} $messageErreur")
             }
 
-            println("  ✅ Mise à jour réussie dans PocketBase")
+            // ✅ Mise à jour réussie dans PocketBase
 
             // 🔄 DÉCLENCHER LES ÉVÉNEMENTS DE RAFRAÎCHISSEMENT
             BudgetEvents.onCompteUpdated()
@@ -518,7 +518,7 @@ class CompteRepositoryImpl : CompteRepository {
 
             Result.success(Unit)
         } catch (e: Exception) {
-            println("  ❌ Erreur: ${e.message}")
+            // ❌ Erreur: ${e.message}
             Result.failure(e)
         }
     }

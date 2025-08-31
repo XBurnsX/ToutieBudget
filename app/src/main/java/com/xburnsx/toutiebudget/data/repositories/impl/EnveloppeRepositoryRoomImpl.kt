@@ -21,7 +21,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import android.util.Log
+// import android.util.Log
 
 /**
  * Implémentation Room-first du repository des enveloppes.
@@ -95,16 +95,16 @@ class EnveloppeRepositoryRoomImpl(
             val moisStr = dateFormatter.format(mois)
 
             // 🔍 LOGS DEBUG : Vérifier les dates
-            println("DEBUG: recupererAllocationsPourMois - mois demandé = $mois")
-            println("DEBUG: recupererAllocationsPourMois - moisStr formaté = $moisStr")
+            // DEBUG: recupererAllocationsPourMois - mois demandé = $mois
+            // DEBUG: recupererAllocationsPourMois - moisStr formaté = $moisStr
 
             // Récupérer depuis Room (PRIMARY)
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
             
             // 🔍 LOGS DEBUG : Vérifier les allocations trouvées
-            println("DEBUG: recupererAllocationsPourMois - nombre d'allocations trouvées = ${allocationsEntities.size}")
+            // DEBUG: recupererAllocationsPourMois - nombre d'allocations trouvées = ${allocationsEntities.size}
             allocationsEntities.forEach { entity ->
-                println("DEBUG: recupererAllocationsPourMois - allocation ${entity.id} - mois = ${entity.mois}")
+                // DEBUG: recupererAllocationsPourMois - allocation ${entity.id} - mois = ${entity.mois}
             }
             
             // Filtrer par mois et convertir (seulement mois et année, pas la date complète)
@@ -118,7 +118,7 @@ class EnveloppeRepositoryRoomImpl(
                 .map { entity -> entity.toAllocationMensuelleModel() }
             
             // 🔍 LOGS DEBUG : Vérifier le filtrage
-            println("DEBUG: recupererAllocationsPourMois - allocations après filtrage = ${allocations.size}")
+            // DEBUG: recupererAllocationsPourMois - allocations après filtrage = ${allocations.size}
             
             Result.success(allocations)
         } catch (e: Exception) {
@@ -190,8 +190,8 @@ class EnveloppeRepositoryRoomImpl(
             // 3. Ajouter à la liste de tâches pour synchronisation
             // 🎯 CORRECTION : Utiliser la génération manuelle du JSON pour les bons noms de champs !
             val dataJson = genererJsonEnveloppeManuel(enveloppeEntity)
-            Log.d("EnveloppeRepository", "🚨 ENVELOPPE CREATE - JSON MANUEL GÉNÉRÉ:")
-            Log.d("EnveloppeRepository", "  $dataJson")
+            // 🚨 ENVELOPPE CREATE - JSON MANUEL GÉNÉRÉ:
+            //   $dataJson
             
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
@@ -238,8 +238,8 @@ class EnveloppeRepositoryRoomImpl(
             // 3. Ajouter à la liste de tâches pour synchronisation
             // 🎯 CORRECTION : Utiliser la génération manuelle du JSON pour les bons noms de champs !
             val dataJson = genererJsonEnveloppeManuel(enveloppeEntity)
-            Log.d("EnveloppeRepository", "🚨 ENVELOPPE UPDATE - JSON MANUEL GÉNÉRÉ:")
-            Log.d("EnveloppeRepository", "  $dataJson")
+            // 🚨 ENVELOPPE UPDATE - JSON MANUEL GÉNÉRÉ:
+            //   $dataJson
             
             val syncJob = SyncJob(
                 id = IdGenerator.generateId(),
@@ -287,19 +287,19 @@ class EnveloppeRepositoryRoomImpl(
 
     override suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            println("🔍 DEBUG - ajouterDepenseAllocation appelé avec:")
-            println("🔍 DEBUG - allocationMensuelleId: $allocationMensuelleId")
-            println("🔍 DEBUG - montantDepense: $montantDepense")
+            // 🔍 DEBUG - ajouterDepenseAllocation appelé avec:
+            // 🔍 DEBUG - allocationMensuelleId: $allocationMensuelleId
+            // 🔍 DEBUG - montantDepense: $montantDepense
 
             // 1. Récupérer l'allocation depuis Room
             val allocationEntity = allocationMensuelleDao.getAllocationById(allocationMensuelleId)
                 ?: return@withContext Result.failure(Exception("Allocation non trouvée"))
 
-            println("🔍 DEBUG - Allocation trouvée en Room:")
-            println("🔍 DEBUG - ID: ${allocationEntity.id}")
-            println("🔍 DEBUG - EnveloppeId: ${allocationEntity.enveloppeId}")
-            println("🔍 DEBUG - Ancien solde: ${allocationEntity.solde}")
-            println("🔍 DEBUG - Ancienne depense: ${allocationEntity.depense}")
+            // 🔍 DEBUG - Allocation trouvée en Room:
+            // 🔍 DEBUG - ID: ${allocationEntity.id}
+            // 🔍 DEBUG - EnveloppeId: ${allocationEntity.enveloppeId}
+            // 🔍 DEBUG - Ancien solde: ${allocationEntity.solde}
+            // 🔍 DEBUG - Ancienne depense: ${allocationEntity.depense}
 
             // 2. Mettre à jour les montants
             val nouvelleAllocation = allocationEntity.copy(
@@ -307,13 +307,13 @@ class EnveloppeRepositoryRoomImpl(
                 depense = allocationEntity.depense + montantDepense
             )
 
-            println("🔍 DEBUG - Nouvelle allocation calculée:")
-            println("🔍 DEBUG - Nouveau solde: ${nouvelleAllocation.solde}")
-            println("🔍 DEBUG - Nouvelle depense: ${nouvelleAllocation.depense}")
+            // 🔍 DEBUG - Nouvelle allocation calculée:
+            // 🔍 DEBUG - Nouveau solde: ${nouvelleAllocation.solde}
+            // 🔍 DEBUG - Nouvelle depense: ${nouvelleAllocation.depense}
 
             // 3. Sauvegarder en Room
             allocationMensuelleDao.updateAllocation(nouvelleAllocation)
-            println("🔍 DEBUG - Allocation mise à jour en Room avec succès")
+            // 🔍 DEBUG - Allocation mise à jour en Room avec succès
             
             // 4. Ajouter à la liste de tâches pour synchronisation
             val syncJob = SyncJob(
@@ -326,13 +326,13 @@ class EnveloppeRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
-            println("🔍 DEBUG - SyncJob créé pour la synchronisation")
+            // 🔍 DEBUG - SyncJob créé pour la synchronisation
 
             // 5. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
         } catch (e: Exception) {
-            println("🔍 DEBUG - Erreur dans ajouterDepenseAllocation: ${e.message}")
+            // 🔍 DEBUG - Erreur dans ajouterDepenseAllocation: ${e.message}
             Result.failure(e)
         }
     }
@@ -488,13 +488,13 @@ class EnveloppeRepositoryRoomImpl(
         )
         
         // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LA CONVERSION ROOM → MODÈLE !
-        Log.d("EnveloppeRepository", "🎯 CONVERSION ROOM → MODÈLE: ${enveloppe.nom}")
-        Log.d("EnveloppeRepository", "  - Type objectif: ${enveloppe.typeObjectif}")
-        Log.d("EnveloppeRepository", "  - Montant objectif: ${enveloppe.objectifMontant}")
-        Log.d("EnveloppeRepository", "  - Date objectif: ${enveloppe.dateObjectif}")
-        Log.d("EnveloppeRepository", "  - Date début: ${enveloppe.dateDebutObjectif}")
-        Log.d("EnveloppeRepository", "  - Objectif jour: ${enveloppe.objectifJour}")
-        Log.d("EnveloppeRepository", "  - Reset après échéance: ${enveloppe.resetApresEcheance}")
+        // 🎯 CONVERSION ROOM → MODÈLE: ${enveloppe.nom}
+        //   - Type objectif: ${enveloppe.typeObjectif}
+        //   - Montant objectif: ${enveloppe.objectifMontant}
+        //   - Date objectif: ${enveloppe.dateObjectif}
+        //   - Date début: ${enveloppe.dateDebutObjectif}
+        //   - Objectif jour: ${enveloppe.objectifJour}
+        //   - Reset après échéance: ${enveloppe.resetApresEcheance}
         
         return enveloppe
     }

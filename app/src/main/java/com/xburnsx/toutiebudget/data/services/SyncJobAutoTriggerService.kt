@@ -1,7 +1,7 @@
 package com.xburnsx.toutiebudget.data.services
 
 import android.content.Context
-import android.util.Log
+// import android.util.Log
 import com.xburnsx.toutiebudget.workers.SyncWorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +22,7 @@ object SyncJobAutoTriggerService {
      * Cette fonction doit être appelée APRÈS chaque insertSyncJob() dans TOUS les repositories
      */
     fun declencherSynchronisationImmediate(context: Context) {
-        Log.d(TAG, "🚀 DÉCLENCHEMENT IMMÉDIAT de la synchronisation")
+        // 🚀 DÉCLENCHEMENT IMMÉDIAT de la synchronisation
         
         // Démarrer la synchronisation IMMÉDIATEMENT (avec contraintes réseau)
         SyncWorkManager.demarrerSynchronisation(context)
@@ -40,7 +40,7 @@ object SyncJobAutoTriggerService {
         if (context != null) {
             declencherSynchronisationImmediate(context)
         } else {
-            Log.w(TAG, "⚠️ Impossible de déclencher la synchronisation - Context non disponible")
+            // ⚠️ Impossible de déclencher la synchronisation - Context non disponible
         }
     }
     
@@ -51,14 +51,14 @@ object SyncJobAutoTriggerService {
         return try {
             val application = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
             application?.let { 
-                Log.d(TAG, "✅ Context de l'application récupéré avec succès")
+                // ✅ Context de l'application récupéré avec succès
                 it
             } ?: run {
-                Log.w(TAG, "⚠️ Application instance est null")
+                // ⚠️ Application instance est null
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erreur lors de la récupération du Context", e)
+            // ❌ Erreur lors de la récupération du Context
             null
         }
     }

@@ -15,7 +15,7 @@ import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
-import android.util.Log
+// import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +54,7 @@ class ComptesViewModel(
         // 🔄 RAFRAÎCHISSEMENT MANUEL : Écoute des événements de suppression/modification
         viewModelScope.launch {
             BudgetEvents.refreshBudget.collectLatest {
-                Log.d("ComptesViewModel", "🔄 Événement de rafraîchissement reçu - Mise à jour des comptes")
+                // 🔄 Événement de rafraîchissement reçu - Mise à jour des comptes
                 chargerComptes()
             }
         }
@@ -128,9 +128,9 @@ class ComptesViewModel(
                             } else false
                             
                             if (soldeChange || pretAPlacerChange) {
-                                Log.d("ComptesViewModel", "🔄 Changement détecté pour ${nouveauCompte.nom}:")
-                                if (soldeChange) Log.d("ComptesViewModel", "  Solde: ${compteActuel.solde} → ${nouveauCompte.solde}")
-                                if (pretAPlacerChange) Log.d("ComptesViewModel", "  Prêt à placer: ${(compteActuel as CompteCheque).pretAPlacer} → ${(nouveauCompte as CompteCheque).pretAPlacer}")
+                                // 🔄 Changement détecté pour ${nouveauCompte.nom}:
+                                //   Solde: ${compteActuel.solde} → ${nouveauCompte.solde}
+                                //   Prêt à placer: ${(compteActuel as CompteCheque).pretAPlacer} → ${(nouveauCompte as CompteCheque).pretAPlacer}
                                 donneesOntChange = true
                             }
                         } else {
@@ -140,12 +140,12 @@ class ComptesViewModel(
                     }
                     
                     if (donneesOntChange) {
-                        Log.d("ComptesViewModel", "🔄 Changements détectés - Mise à jour automatique des comptes")
+                        // 🔄 Changements détectés - Mise à jour automatique des comptes
                         chargerComptes()
                     }
                 } catch (e: Exception) {
                     // Gérer l'erreur silencieusement
-                    Log.d("ComptesViewModel", "Erreur lors du rafraîchissement automatique: ${e.message}")
+                    // Erreur lors du rafraîchissement automatique: ${e.message}
                 }
             }
         }

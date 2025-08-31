@@ -384,7 +384,7 @@ class TransactionRepositoryRoomImpl(
                 false
             }
         } catch (e: Exception) {
-            android.util.Log.e("TransactionRepo", "❌ Erreur lors de la vérification réseau", e)
+            // ❌ Erreur lors de la vérification réseau
             false
         }
     }
@@ -400,10 +400,10 @@ class TransactionRepositoryRoomImpl(
             val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
             if (context != null) {
                 com.xburnsx.toutiebudget.workers.SyncWorkManager.declencherSynchronisationAutomatique(context)
-                android.util.Log.d("TransactionRepo", "🚀 Synchronisation automatique déclenchée après modification")
+                // 🚀 Synchronisation automatique déclenchée après modification
             }
         } catch (e: Exception) {
-            android.util.Log.e("TransactionRepo", "❌ Erreur lors du déclenchement de la synchronisation", e)
+            // ❌ Erreur lors du déclenchement de la synchronisation
         }
     }
 }

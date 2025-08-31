@@ -98,7 +98,7 @@ class TransactionRepositoryImpl : TransactionRepository {
                 Result.success(transactionCreee)
             } else {
                 // ✅ Retourner un succès avec la transaction originale si désérialisation échoue
-                println("WARNING: Désérialisation échouée mais transaction créée dans PocketBase")
+                // WARNING: Désérialisation échouée mais transaction créée dans PocketBase
                 Result.success(transaction)
             }
         } catch (e: Exception) {
@@ -412,8 +412,8 @@ class TransactionRepositoryImpl : TransactionRepository {
             
             transactionBase.copy(sousItems = sousItemsString)
         } catch (e: Exception) {
-            println("Erreur de désérialisation: ${e.message}")
-            println("JSON reçu: $json")
+            // Erreur de désérialisation: ${e.message}
+            // JSON reçu: $json
             null
         }
     }

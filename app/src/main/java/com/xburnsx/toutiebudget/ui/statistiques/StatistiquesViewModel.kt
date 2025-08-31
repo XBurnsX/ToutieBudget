@@ -60,7 +60,7 @@ class StatistiquesViewModel(
     }
 
     fun chargerPeriode(debut: Date, fin: Date, label: String) {
-        println("DEBUG ViewModel: 🚀 chargerPeriode appelé avec début: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(debut)}, fin: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(fin)}, label: $label")
+        // DEBUG ViewModel: 🚀 chargerPeriode appelé avec début: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(debut)}, fin: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(fin)}, label: $label
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val periode = Periode(debut, fin, label)
@@ -103,11 +103,11 @@ class StatistiquesViewModel(
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             
             // DEBUG: Vérifier les transactions chargées
-            println("DEBUG: Transactions 6 mois total: ${transactions6Mois.size}")
-            println("DEBUG: Transactions pour la période: ${transactions.size}")
+            // DEBUG: Transactions 6 mois total: ${transactions6Mois.size}
+            // DEBUG: Transactions pour la période: ${transactions.size}
             if (transactions.isNotEmpty()) {
                 transactions.take(3).forEach { tx ->
-                    println("DEBUG: Transaction exemple - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}")
+                    // DEBUG: Transaction exemple - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}
                 }
             }
 
@@ -317,8 +317,8 @@ class StatistiquesViewModel(
             }
 
             // DEBUG: Vérifier le nombre total de transactions
-            println("DEBUG ViewModel: Transactions 6 mois total: ${transactions6Mois.size}")
-            println("DEBUG ViewModel: Transactions pour la période: ${transactions.size}")
+            // DEBUG ViewModel: Transactions 6 mois total: ${transactions6Mois.size}
+            // DEBUG ViewModel: Transactions pour la période: ${transactions.size}
             
             // Net par jour
             val netParJour = jours.map { jour ->
@@ -335,10 +335,10 @@ class StatistiquesViewModel(
                 val transactionsJour = transactions.filter {
                     it.date >= start && it.date <= end
                 }
-                println("DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Transactions trouvées: ${transactionsJour.size}")
+                // DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Transactions trouvées: ${transactionsJour.size}
                 if (transactionsJour.isNotEmpty()) {
                     transactionsJour.forEach { tx ->
-                        println("DEBUG: Transaction ${tx.id} - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}")
+                        // DEBUG: Transaction ${tx.id} - Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.FRENCH).format(tx.date)} - Type: ${tx.type} - Montant: ${tx.montant}
                     }
                 }
 
@@ -357,7 +357,7 @@ class StatistiquesViewModel(
                     it.date >= start && it.date <= end 
                 }.sumOf { it.montant }
                 val net = revenusJour - depensesJour
-                println("DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Revenus: $revenusJour, Dépenses: $depensesJour, Net: $net")
+                // DEBUG: Jour ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(jour)} - Revenus: $revenusJour, Dépenses: $depensesJour, Net: $net
                 net
             }
 
@@ -376,9 +376,9 @@ class StatistiquesViewModel(
             }
 
             // DEBUG: Afficher les valeurs calculées
-            println("DEBUG ViewModel: netParJour=$netParJour")
-            println("DEBUG ViewModel: cumulMensuel=$cumulMensuel")
-            println("DEBUG ViewModel: mm7=$mm7")
+            // DEBUG ViewModel: netParJour=$netParJour
+            // DEBUG ViewModel: cumulMensuel=$cumulMensuel
+            // DEBUG ViewModel: mm7=$mm7
 
             val labelsJours = jours.map { java.text.SimpleDateFormat("d", java.util.Locale.FRENCH).format(it) }
 

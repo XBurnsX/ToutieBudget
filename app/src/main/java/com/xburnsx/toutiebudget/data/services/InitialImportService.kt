@@ -1,6 +1,6 @@
 package com.xburnsx.toutiebudget.data.services
 
-import android.util.Log
+// import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
@@ -63,35 +63,35 @@ class InitialImportService(
      */
     suspend fun importerDonneesInitiales(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            Log.d(logTag, "🚀 VÉRIFICATION DES DONNÉES EXISTANTES DANS ROOM...")
+            // 🚀 VÉRIFICATION DES DONNÉES EXISTANTES DANS ROOM...
             
             // ÉTAPE 0: VÉRIFIER SI ROOM EST DÉJÀ REMPLI
             if (roomContientDejaDesDonnees()) {
-                Log.d(logTag, "✅ Room contient déjà des données, import initial ignoré")
+                // ✅ Room contient déjà des données, import initial ignoré
                 onProgressUpdate?.invoke(7, "Données déjà synchronisées")
                 return@withContext Result.success(Unit)
             }
             
-            Log.d(logTag, "🚀 Room est vide, DÉBUT DE L'IMPORT COMPLET DES DONNÉES AVEC RELATIONS")
+            // 🚀 Room est vide, DÉBUT DE L'IMPORT COMPLET DES DONNÉES AVEC RELATIONS
             
             // ÉTAPE 1: Vérification de la connexion
             onProgressUpdate?.invoke(1, "Vérification de la connexion...")
-            Log.d(logTag, "🔍 Tentative de récupération de l'utilisateur connecté...")
+            // 🔍 Tentative de récupération de l'utilisateur connecté...
             val utilisateurConnecte = client.obtenirUtilisateurConnecte()
-            Log.d(logTag, "👤 Utilisateur connecté: $utilisateurConnecte")
+            // 👤 Utilisateur connecté: $utilisateurConnecte
             
             val utilisateurId = utilisateurConnecte?.id
                 ?: return@withContext Result.failure(Exception("Utilisateur non connecté"))
             
-            Log.d(logTag, "🔍 Tentative de récupération de l'URL base...")
+            // 🔍 Tentative de récupération de l'URL base...
             val urlBase = UrlResolver.obtenirUrlActive()
-            Log.d(logTag, "🔍 Tentative de récupération du token...")
+            // 🔍 Tentative de récupération du token...
             val token = client.obtenirToken()
                 ?: return@withContext Result.failure(Exception("Token manquant"))
             
-            Log.d(logTag, "✅ Utilisateur connecté: $utilisateurId")
-            Log.d(logTag, "🔗 URL Base: $urlBase")
-            Log.d(logTag, "🔑 Token: ${token.take(20)}...")
+            // ✅ Utilisateur connecté: $utilisateurId
+            // 🔗 URL Base: $urlBase
+            // 🔑 Token: ${token.take(20)}...
             
             // ÉTAPE 2: Import des ENTITÉS DE BASE (sans relations)
             onProgressUpdate?.invoke(2, "Import des entités de base...")
@@ -109,27 +109,27 @@ class InitialImportService(
             if (comptesCheques.isNotEmpty()) {
                 compteChequeDao.insertAll(comptesCheques)
                 val comptesChequesDansRoom = compteChequeDao.getComptesCount(utilisateurId)
-                Log.d(logTag, "✅ ${comptesCheques.size} comptes chèques importés → ${comptesChequesDansRoom} dans Room")
+                // ✅ ${comptesCheques.size} comptes chèques importés → ${comptesChequesDansRoom} dans Room
             }
             if (comptesCredits.isNotEmpty()) {
                 compteCreditDao.insertAll(comptesCredits)
                 val comptesCreditsDansRoom = compteCreditDao.getComptesCount(utilisateurId)
-                Log.d(logTag, "✅ ${comptesCredits.size} comptes crédits importés → ${comptesCreditsDansRoom} dans Room")
+                // ✅ ${comptesCredits.size} comptes crédits importés → ${comptesCreditsDansRoom} dans Room
             }
             if (comptesDettes.isNotEmpty()) {
                 compteDetteDao.insertAll(comptesDettes)
                 val comptesDettesDansRoom = compteDetteDao.getComptesCount(utilisateurId)
-                Log.d(logTag, "✅ ${comptesDettes.size} comptes dettes importés → ${comptesDettesDansRoom} dans Room")
+                // ✅ ${comptesDettes.size} comptes dettes importés → ${comptesCreditsDansRoom} dans Room
             }
             if (comptesInvestissement.isNotEmpty()) {
                 compteInvestissementDao.insertAll(comptesInvestissement)
                 val comptesInvestissementDansRoom = compteInvestissementDao.getComptesCount(utilisateurId)
-                Log.d(logTag, "✅ ${comptesInvestissement.size} comptes investissement importés → ${comptesInvestissementDansRoom} dans Room")
+                // ✅ ${comptesInvestissement.size} comptes investissement importés → ${comptesInvestissementDansRoom} dans Room
             }
             if (categories.isNotEmpty()) {
                 categorieDao.insertAll(categories)
                 val categoriesDansRoom = categorieDao.getCategoriesCount(utilisateurId)
-                Log.d(logTag, "✅ ${categories.size} catégories importées → ${categoriesDansRoom} dans Room")
+                // ✅ ${categories.size} catégories importées → ${categoriesDansRoom} dans Room
             }
             
             // ÉTAPE 3: Import des ENVELOPPES (dépendent des catégories)
@@ -138,7 +138,7 @@ class InitialImportService(
             if (enveloppes.isNotEmpty()) {
                 enveloppeDao.insertAll(enveloppes)
                 val enveloppesDansRoom = enveloppeDao.getEnveloppesCount(utilisateurId)
-                Log.d(logTag, "✅ ${enveloppes.size} enveloppes importées → ${enveloppesDansRoom} dans Room")
+                // ✅ ${enveloppes.size} enveloppes importées → ${enveloppesDansRoom} dans Room
             }
             
             // ÉTAPE 4: Import des ALLOCATIONS MENSUELLES (dépendent des enveloppes)
@@ -147,7 +147,7 @@ class InitialImportService(
             if (allocations.isNotEmpty()) {
                 allocationMensuelleDao.insertAll(allocations)
                 val allocationsDansRoom = allocationMensuelleDao.getAllocationsCount(utilisateurId)
-                Log.d(logTag, "✅ ${allocations.size} allocations mensuelles importées → ${allocationsDansRoom} dans Room")
+                // ✅ ${allocations.size} allocations mensuelles importées → ${allocationsDansRoom} dans Room
             }
             
             // ÉTAPE 5: Import des PRÊTS PERSONNELS (pas de dépendances)
@@ -155,7 +155,7 @@ class InitialImportService(
             val prets = importerPretsPersonnels(urlBase, token, utilisateurId)
             if (prets.isNotEmpty()) {
                 pretPersonnelDao.insertAll(prets)
-                Log.d(logTag, "✅ ${prets.size} prêts personnels importés")
+                // ✅ ${prets.size} prêts personnels importés
             }
             
             // ÉTAPE 6: Import des TIERS (pas de dépendances)
@@ -163,7 +163,7 @@ class InitialImportService(
             val tiers = importerTiers(urlBase, token, utilisateurId)
             if (tiers.isNotEmpty()) {
                 tiersDao.insertAll(tiers)
-                Log.d(logTag, "✅ ${tiers.size} tiers importés")
+                // ✅ ${tiers.size} tiers importés
             }
             
             // ÉTAPE 7: Import des TRANSACTIONS (dépendent des allocations mensuelles)
@@ -172,14 +172,14 @@ class InitialImportService(
             if (transactions.isNotEmpty()) {
                 transactionDao.insertAll(transactions)
                 val transactionsDansRoom = transactionDao.getTransactionsCount(utilisateurId)
-                Log.d(logTag, "✅ ${transactions.size} transactions importées → ${transactionsDansRoom} dans Room")
+                // ✅ ${transactions.size} transactions importées → ${transactionsDansRoom} dans Room
             }
             
-            Log.d(logTag, "🎉 IMPORT COMPLET AVEC RELATIONS TERMINÉ AVEC SUCCÈS!")
+            // 🎉 IMPORT COMPLET AVEC RELATIONS TERMINÉ AVEC SUCCÈS!
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(logTag, "❌ Erreur lors de l'import complet", e)
+            // ❌ Erreur lors de l'import complet
             Result.failure(e)
         }
     }
@@ -196,7 +196,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes chèques")
+            // ⚠️ Erreur HTTP ${response.code} pour comptes chèques
             return emptyList()
         }
         
@@ -217,7 +217,7 @@ class InitialImportService(
                      collection = item.collection ?: "comptes_cheques"
                  )
             } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion compte chèque: ${e.message}")
+                // ⚠️ Erreur conversion compte chèque: ${e.message}
                 null
             }
         }
@@ -235,7 +235,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes crédits")
+            // ⚠️ Erreur HTTP ${response.code} pour comptes crédits
             return emptyList()
         }
         
@@ -259,7 +259,7 @@ class InitialImportService(
                     collection = item.collection ?: "comptes_credits"
                 )
             } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion compte crédit: ${e.message}")
+                // ⚠️ Erreur conversion compte crédit: ${e.message}
                 null
             }
         }
@@ -277,7 +277,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes dettes")
+            // ⚠️ Erreur HTTP ${response.code} pour comptes dettes
             return emptyList()
         }
         
@@ -302,7 +302,7 @@ class InitialImportService(
                     collection = item.collection ?: "comptes_dettes"
                 )
             } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion compte dette: ${e.message}")
+                // ⚠️ Erreur conversion compte dette: ${e.message}
                 null
             }
         }
@@ -320,7 +320,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes investissement")
+            // ⚠️ Erreur HTTP ${response.code} pour comptes investissement
             return emptyList()
         }
         
@@ -340,7 +340,7 @@ class InitialImportService(
                     collection = item.collection ?: "comptes_investissement"
                 )
             } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion compte investissement: ${e.message}")
+                // ⚠️ Erreur conversion compte investissement: ${e.message}
                 null
             }
         }
@@ -358,7 +358,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour catégories")
+            // ⚠️ Erreur HTTP ${response.code} pour catégories
             return emptyList()
         }
         
@@ -373,10 +373,10 @@ class InitialImportService(
                     nom = item.nom ?: "",
                     ordre = item.ordre ?: 0
                 )
-            } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion catégorie: ${e.message}")
-                null
-            }
+                    } catch (e: Exception) {
+            // ⚠️ Erreur conversion catégorie: ${e.message}
+            null
+        }
         }
     }
     
@@ -398,7 +398,7 @@ class InitialImportService(
             
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour transactions page $page")
+                // ⚠️ Erreur HTTP ${response.code} pour transactions page $page
                 break
             }
             
@@ -406,16 +406,16 @@ class InitialImportService(
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
             
             if (listeResultats.items.isEmpty()) {
-                Log.d(logTag, "✅ Plus de transactions à charger après la page $page")
+                // ✅ Plus de transactions à charger après la page $page
                 break
             }
             
-            Log.d(logTag, "📄 Page $page: ${listeResultats.items.size} transactions trouvées")
+            // 📄 Page $page: ${listeResultats.items.size} transactions trouvées
             
             val transactionsPage = listeResultats.items.mapNotNull { item ->
                 try {
                     // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    Log.d(logTag, "🔍 Transaction ${item.id}: allocation_mensuelle_id = '${item.allocation_mensuelle_id}'")
+                    // 🔍 Transaction ${item.id}: allocation_mensuelle_id = '${item.allocation_mensuelle_id}'
                     
                     // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
                     val allocationId = item.allocation_mensuelle_id ?: ""
@@ -437,7 +437,7 @@ class InitialImportService(
                         updated = item.updated
                     )
                 } catch (e: Exception) {
-                    Log.w(logTag, "⚠️ Erreur conversion transaction: ${e.message}")
+                    // ⚠️ Erreur conversion transaction: ${e.message}
                     null
                 }
             }
@@ -446,14 +446,14 @@ class InitialImportService(
             
             // Si on a moins d'éléments que demandés, c'est la dernière page
             if (listeResultats.items.size < perPage) {
-                Log.d(logTag, "✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)")
+                // ✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)
                 break
             }
             
             page++
         }
         
-        Log.d(logTag, "🔍 TOTAL TRANSACTIONS RÉCUPÉRÉES: ${transactions.size}")
+        // 🔍 TOTAL TRANSACTIONS RÉCUPÉRÉES: ${transactions.size}
         return transactions
     }
     
@@ -475,7 +475,7 @@ class InitialImportService(
             
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour enveloppes page $page")
+                // ⚠️ Erreur HTTP ${response.code} pour enveloppes page $page
                 break
             }
             
@@ -483,20 +483,20 @@ class InitialImportService(
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
             
             if (listeResultats.items.isEmpty()) {
-                Log.d(logTag, "✅ Plus d'enveloppes à charger après la page $page")
+                // ✅ Plus d'enveloppes à charger après la page $page
                 break
             }
             
-            Log.d(logTag, "📄 Page $page: ${listeResultats.items.size} enveloppes trouvées")
+            // 📄 Page $page: ${listeResultats.items.size} enveloppes trouvées
             
             val enveloppesPage = listeResultats.items.mapNotNull { item ->
                 try {
                     // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    Log.d(logTag, "🔍 Enveloppe ${item.id}: categorie_id = '${item.categorie_id}'")
-                    Log.d(logTag, "🔍 Enveloppe ${item.id}: frequence_objectif = '${item.frequence_objectif}'")
-                    Log.d(logTag, "🔍 Enveloppe ${item.id}: montant_objectif = '${item.montant_objectif}'")
-                    Log.d(logTag, "🔍 Enveloppe ${item.id}: date_objectif = '${item.date_objectif}'")
-                    Log.d(logTag, "🔍 Enveloppe ${item.id}: date_debut_objectif = '${item.date_debut_objectif}'")
+                    // 🔍 Enveloppe ${item.id}: categorie_id = '${item.categorie_id}'
+                    // 🔍 Enveloppe ${item.id}: frequence_objectif = '${item.frequence_objectif}'
+                    // 🔍 Enveloppe ${item.id}: montant_objectif = '${item.montant_objectif}'
+                    // 🔍 Enveloppe ${item.id}: date_objectif = '${item.date_objectif}'
+                    // 🔍 Enveloppe ${item.id}: date_debut_objectif = '${item.date_debut_objectif}'
                     
                     // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
                     val categorieId = item.categorie_id ?: ""
@@ -521,17 +521,17 @@ class InitialImportService(
                     )
                     
                     // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LES OBJECTIFS !
-                    Log.d(logTag, "🎯 ENVELOPPE CRÉÉE: ${enveloppe.nom}")
-                    Log.d(logTag, "  - Type objectif: ${enveloppe.typeObjectif}")
-                    Log.d(logTag, "  - Montant objectif: ${enveloppe.objectifMontant}")
-                    Log.d(logTag, "  - Date objectif: ${enveloppe.dateObjectif}")
-                    Log.d(logTag, "  - Date début: ${enveloppe.dateDebutObjectif}")
-                    Log.d(logTag, "  - Objectif jour: ${enveloppe.objectifJour}")
-                    Log.d(logTag, "  - Reset après échéance: ${enveloppe.resetApresEcheance}")
+                    // 🎯 ENVELOPPE CRÉÉE: ${enveloppe.nom}
+                    //   - Type objectif: ${enveloppe.typeObjectif}
+                    //   - Montant objectif: ${enveloppe.objectifMontant}
+                    //   - Date objectif: ${enveloppe.dateObjectif}
+                    //   - Date début: ${enveloppe.dateDebutObjectif}
+                    //   - Objectif jour: ${enveloppe.objectifJour}
+                    //   - Reset après échéance: ${enveloppe.resetApresEcheance}
                     
                     enveloppe
                 } catch (e: Exception) {
-                    Log.w(logTag, "⚠️ Erreur conversion enveloppe: ${e.message}")
+                    // ⚠️ Erreur conversion enveloppe: ${e.message}
                     null
                 }
             }
@@ -540,14 +540,14 @@ class InitialImportService(
             
             // Si on a moins d'éléments que demandés, c'est la dernière page
             if (listeResultats.items.size < perPage) {
-                Log.d(logTag, "✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)")
+                // ✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)
                 break
             }
             
             page++
         }
         
-        Log.d(logTag, "🔍 TOTAL ENVELOPPES RÉCUPÉRÉES: ${enveloppes.size}")
+        // 🔍 TOTAL ENVELOPPES RÉCUPÉRÉES: ${enveloppes.size}
         return enveloppes
     }
     
@@ -569,7 +569,7 @@ class InitialImportService(
             
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour allocations mensuelles page $page")
+                // ⚠️ Erreur HTTP ${response.code} pour allocations mensuelles page $page
                 break
             }
             
@@ -577,16 +577,16 @@ class InitialImportService(
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
             
             if (listeResultats.items.isEmpty()) {
-                Log.d(logTag, "✅ Plus d'allocations à charger après la page $page")
+                // ✅ Plus d'allocations à charger après la page $page
                 break
             }
             
-            Log.d(logTag, "📄 Page $page: ${listeResultats.items.size} allocations trouvées")
+            // 📄 Page $page: ${listeResultats.items.size} allocations trouvées
             
             val allocationsPage = listeResultats.items.mapNotNull { item ->
                 try {
                     // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    Log.d(logTag, "🔍 Allocation ${item.id}: enveloppe_id = '${item.enveloppe_id}'")
+                    // 🔍 Allocation ${item.id}: enveloppe_id = '${item.enveloppe_id}'
                     
                     // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
                     val enveloppeId = item.enveloppe_id ?: ""
@@ -603,7 +603,7 @@ class InitialImportService(
                         collectionCompteSource = item.collection_compte_source
                     )
                 } catch (e: Exception) {
-                    Log.w(logTag, "⚠️ Erreur conversion allocation mensuelle: ${e.message}")
+                    // ⚠️ Erreur conversion allocation mensuelle: ${e.message}
                     null
                 }
             }
@@ -612,14 +612,14 @@ class InitialImportService(
             
             // Si on a moins d'éléments que demandés, c'est la dernière page
             if (listeResultats.items.size < perPage) {
-                Log.d(logTag, "✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)")
+                // ✅ Dernière page atteinte (${listeResultats.items.size} < $perPage)
                 break
             }
             
             page++
         }
         
-        Log.d(logTag, "🔍 TOTAL ALLOCATIONS RÉCUPÉRÉES: ${allocations.size}")
+        // 🔍 TOTAL ALLOCATIONS RÉCUPÉRÉES: ${allocations.size}
         return allocations
     }
     
@@ -635,7 +635,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour tiers")
+            // ⚠️ Erreur HTTP ${response.code} pour tiers
             return emptyList()
         }
         
@@ -653,10 +653,10 @@ class InitialImportService(
                     collectionId = item.collectionId ?: "",
                     collectionName = item.collectionName ?: ""
                 )
-            } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion tiers: ${e.message}")
-                null
-            }
+                    } catch (e: Exception) {
+            // ⚠️ Erreur conversion tiers: ${e.message}
+            null
+        }
         }
     }
     
@@ -672,7 +672,7 @@ class InitialImportService(
         
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
-            Log.w(logTag, "⚠️ Erreur HTTP ${response.code} pour prêts personnels")
+            // ⚠️ Erreur HTTP ${response.code} pour prêts personnels
             return emptyList()
         }
         
@@ -694,7 +694,7 @@ class InitialImportService(
                     updated = item.updated
                 )
             } catch (e: Exception) {
-                Log.w(logTag, "⚠️ Erreur conversion prêt personnel: ${e.message}")
+                // ⚠️ Erreur conversion prêt personnel: ${e.message}
                 null
             }
         }
@@ -714,14 +714,14 @@ class InitialImportService(
             // Les transactions sont l'élément principal de l'application
             val transactionsCount = transactionDao.getTransactionsCount(utilisateurId)
             
-            Log.d(logTag, "🔍 Vérification Room: $transactionsCount transactions")
+            // 🔍 Vérification Room: $transactionsCount transactions
             
             // Room est considéré comme rempli SEULEMENT si on a des transactions
             // Cela évite l'import à chaque ouverture tout en s'assurant que les données principales sont là
             transactionsCount > 0
             
         } catch (e: Exception) {
-            Log.w(logTag, "⚠️ Erreur lors de la vérification des transactions", e)
+            // ⚠️ Erreur lors de la vérification des transactions
             false // En cas d'erreur, on fait l'import pour être sûr
         }
     }

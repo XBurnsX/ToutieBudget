@@ -1,7 +1,7 @@
 package com.xburnsx.toutiebudget.workers
 
 import android.content.Context
-import android.util.Log
+// import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.gson.Gson
@@ -44,16 +44,15 @@ class SyncWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            Log.i(logTag, "🚀 DÉBUT DE LA SYNCHRONISATION")
+            // 🚀 DÉBUT DE LA SYNCHRONISATION
             
             // Vérifier la connexion réseau
             if (!isNetworkAvailable()) {
-                Log.w(logTag, "⚠️ Pas de connexion réseau - synchronisation reportée")
+                // ⚠️ Pas de connexion réseau - synchronisation reportée
                 return@withContext Result.retry()
             }
             
             // 🚨 DEBUG : Afficher les informations de base
-            Log.i(logTag, "🔧 Vérification de la connectivité et de l'authentification...")
             
             // 🆕 CHARGER L'AUTHENTIFICATION SAUVEGARDÉE AVANT D'OBTENIR LE TOKEN
             // C'est crucial pour que le worker puisse accéder au token sauvegardé
@@ -62,22 +61,22 @@ class SyncWorker(
             // Vérifier l'authentification
             val token = client.obtenirToken()
             if (token == null) {
-                Log.w(logTag, "⚠️ Pas de token d'authentification - synchronisation reportée")
+                // ⚠️ Pas de token d'authentification - synchronisation reportée
                 return@withContext Result.retry()
             }
             
-            Log.i(logTag, "✅ Token d'authentification récupéré avec succès")
+            // ✅ Token d'authentification récupéré avec succès
             
             val urlBase = UrlResolver.obtenirUrlActive()
             
             // Récupérer tous les SyncJob en attente ET les échecs pour retry
             val syncJobs = syncJobDao.getPendingAndFailedSyncJobs()
             if (syncJobs.isEmpty()) {
-                Log.i(logTag, "✅ Aucune tâche de synchronisation en attente ou à retenter")
+                // ✅ Aucune tâche de synchronisation en attente ou à retenter
                 return@withContext Result.success()
             }
             
-            Log.i(logTag, "📋 ${syncJobs.size} tâches de synchronisation à traiter")
+            // 📋 ${syncJobs.size} tâches de synchronisation à traiter
             
             var successCount = 0
             var failureCount = 0
@@ -85,14 +84,14 @@ class SyncWorker(
             // Traiter chaque tâche de synchronisation
             for (syncJob in syncJobs) {
                 try {
-                    Log.i(logTag, "🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}")
+                    // 🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}
                     
                     val success = when (syncJob.action) {
                         "CREATE" -> traiterCreation(syncJob, urlBase, token)
                         "UPDATE" -> traiterMiseAJour(syncJob, urlBase, token)
                         "DELETE" -> traiterSuppression(syncJob, urlBase, token)
                         else -> {
-                            Log.w(logTag, "⚠️ Action non reconnue: ${syncJob.action}")
+                            // ⚠️ Action non reconnue: ${syncJob.action}
                             false
                         }
                     }
@@ -101,33 +100,33 @@ class SyncWorker(
                         // Marquer la tâche comme terminée
                         syncJobDao.updateSyncJobStatus(syncJob.id, "COMPLETED")
                         successCount++
-                        Log.i(logTag, "✅ Tâche ${syncJob.id} synchronisée avec succès")
+                        // ✅ Tâche ${syncJob.id} synchronisée avec succès
                     } else {
                         // Marquer la tâche comme échouée
                         syncJobDao.updateSyncJobStatus(syncJob.id, "FAILED")
                         failureCount++
-                        Log.e(logTag, "❌ Échec de la synchronisation de la tâche ${syncJob.id}")
+                        // ❌ Échec de la synchronisation de la tâche ${syncJob.id}
                     }
                     
                 } catch (e: Exception) {
-                    Log.e(logTag, "❌ Erreur lors du traitement de la tâche ${syncJob.id}", e)
+                    // ❌ Erreur lors du traitement de la tâche ${syncJob.id}
                     syncJobDao.updateSyncJobStatus(syncJob.id, "FAILED")
                     failureCount++
                 }
             }
             
-            Log.i(logTag, "🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs")
+            // 🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs
             
             // 🚫 SUPPRESSION DU NETTOYAGE AUTOMATIQUE : L'utilisateur gère manuellement les tâches
             // Les tâches restent visibles dans l'interface avec les onglets par statut
-            Log.i(logTag, "📋 Tâches conservées pour gestion manuelle par l'utilisateur")
+            // 📋 Tâches conservées pour gestion manuelle par l'utilisateur
             
             // Si toutes les tâches ont réussi, on retourne success
             // Sinon, on retourne retry pour réessayer les tâches échouées
             return@withContext if (failureCount == 0) Result.success() else Result.retry()
             
         } catch (e: Exception) {
-            Log.e(logTag, "❌ Erreur fatale lors de la synchronisation", e)
+            // ❌ Erreur fatale lors de la synchronisation
             return@withContext Result.failure()
         }
     }
@@ -154,11 +153,9 @@ class SyncWorker(
             }
             
             val url = "$urlBase/api/collections/$collection/records"
-            Log.i(logTag, "🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)")
+            // 🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)
             
             // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
-            Log.i(logTag, "📤 DONNÉES JSON ENVOYÉES POUR CRÉATION:")
-            Log.i(logTag, "  ${syncJob.dataJson}")
             
             val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
@@ -172,18 +169,18 @@ class SyncWorker(
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour CREATE:")
-                Log.e(logTag, "  Réponse du serveur: $responseBody")
-                Log.e(logTag, "  Headers de réponse: ${response.headers}")
+                // ❌ Échec HTTP ${response.code} pour CREATE:
+                //   Réponse du serveur: $responseBody
+                //   Headers de réponse: ${response.headers}
             } else {
-                Log.i(logTag, "✅ Création réussie:")
-                Log.i(logTag, "  Réponse du serveur: $responseBody")
+                // ✅ Création réussie:
+                //   Réponse du serveur: $responseBody
             }
             
             return success
             
         } catch (e: Exception) {
-            Log.e(logTag, "❌ Erreur lors de la création", e)
+            // ❌ Erreur lors de la création
             return false
         }
     }
@@ -217,14 +214,14 @@ class SyncWorker(
                     val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
                     val idFromJson = dataMap["id"] as? String
                     if (!idFromJson.isNullOrBlank()) {
-                        Log.w(logTag, "⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson")
+                        // ⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson
                         idFromJson
                     } else {
-                        Log.e(logTag, "❌ RecordId manquant ET ID non trouvé dans le JSON pour UPDATE ${syncJob.id}")
+                        // ❌ RecordId manquant ET ID non trouvé dans le JSON pour UPDATE ${syncJob.id}
                         return false
                     }
                 } catch (e: Exception) {
-                    Log.e(logTag, "❌ Erreur lors de l'extraction de l'ID du JSON", e)
+                    // ❌ Erreur lors de l'extraction de l'ID du JSON
                     return false
                 }
             } else {
@@ -232,17 +229,15 @@ class SyncWorker(
             }
             
             val url = "$urlBase/api/collections/$collection/records/$recordId"
-            Log.d(logTag, "🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)")
+            // 🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)
             
             // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
-            Log.i(logTag, "📤 DONNÉES JSON ENVOYÉES POUR MISE À JOUR:")
-            Log.i(logTag, "  ${syncJob.dataJson}")
             
             // 🚨 DEBUG CRITIQUE : Log détaillé pour les comptes chèques
             if (syncJob.type == "COMPTE_CHEQUE") {
-                Log.d(logTag, "🚨 COMPTE_CHÈQUE DÉTECTÉ:")
-                Log.d(logTag, "  Action: ${syncJob.action}")
-                Log.d(logTag, "  RecordId: ${syncJob.recordId}")
+                // 🚨 COMPTE_CHÈQUE DÉTECTÉ:
+                //   Action: ${syncJob.action}
+                //   RecordId: ${syncJob.recordId}
             }
             
             // 🚨 CORRECTION CRITIQUE : Pour les allocations, faire comme Room - REMPLACER les valeurs !
@@ -272,8 +267,8 @@ class SyncWorker(
                 }
                 
                 val jsonData = gson.toJson(modifiedData)
-                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données originales Room = ${syncJob.dataJson}")
-                Log.d(logTag, "🚨 ALLOCATION MODIFIÉE : Données avec REMPLACEMENT complet = $jsonData")
+                // 🚨 ALLOCATION MODIFIÉE : Données originales Room = ${syncJob.dataJson}
+                // 🚨 ALLOCATION MODIFIÉE : Données avec REMPLACEMENT complet = $jsonData
                 
                 jsonData.toRequestBody("application/json".toMediaType())
             } else {
@@ -292,22 +287,22 @@ class SyncWorker(
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour UPDATE:")
-                Log.e(logTag, "  Réponse du serveur: $responseBody")
-                Log.e(logTag, "  Headers de réponse: ${response.headers}")
+                // ❌ Échec HTTP ${response.code} pour UPDATE:
+                //   Réponse du serveur: $responseBody
+                //   Headers de réponse: ${response.headers}
             } else {
-                Log.i(logTag, "✅ Mise à jour réussie:")
-                Log.i(logTag, "  Réponse du serveur: $responseBody")
+                // ✅ Mise à jour réussie:
+                //   Réponse du serveur: $responseBody
                 // 🚨 DEBUG CRITIQUE : Log de succès pour les comptes chèques
                 if (syncJob.type == "COMPTE_CHEQUE") {
-                    Log.i(logTag, "✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !")
+                    // ✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !
                 }
             }
             
             return success
             
         } catch (e: Exception) {
-            Log.e(logTag, "❌ Erreur lors de la mise à jour", e)
+            // ❌ Erreur lors de la mise à jour
             return false
         }
     }
@@ -341,14 +336,14 @@ class SyncWorker(
                     val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
                     val idFromJson = dataMap["id"] as? String
                     if (!idFromJson.isNullOrBlank()) {
-                        Log.w(logTag, "⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson")
+                        // ⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson
                         idFromJson
                     } else {
-                        Log.e(logTag, "❌ RecordId manquant ET ID non trouvé dans le JSON pour DELETE ${syncJob.id}")
+                        // ❌ RecordId manquant ET ID non trouvé dans le JSON pour DELETE ${syncJob.id}
                         return false
                     }
                 } catch (e: Exception) {
-                    Log.e(logTag, "❌ Erreur lors de l'extraction de l'ID du JSON", e)
+                    // ❌ Erreur lors de l'extraction de l'ID du JSON
                     return false
                 }
             } else {
@@ -356,7 +351,7 @@ class SyncWorker(
             }
             
             val url = "$urlBase/api/collections/$collection/records/$recordId"
-            Log.d(logTag, "🔄 URL de suppression: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)")
+            // 🔄 URL de suppression: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)
             
             val request = Request.Builder()
                 .url(url)
@@ -369,18 +364,18 @@ class SyncWorker(
             val success = response.isSuccessful
             
             if (!success) {
-                Log.e(logTag, "❌ Échec HTTP ${response.code} pour DELETE:")
-                Log.e(logTag, "  Réponse du serveur: $responseBody")
-                Log.e(logTag, "  Headers de réponse: ${response.headers}")
+                // ❌ Échec HTTP ${response.code} pour DELETE:
+                //   Réponse du serveur: $responseBody
+                //   Headers de réponse: ${response.headers}
             } else {
-                Log.i(logTag, "✅ Suppression réussie:")
-                Log.i(logTag, "  Réponse du serveur: $responseBody")
+                // ✅ Suppression réussie:
+                //   Réponse du serveur: $responseBody
             }
             
             return success
             
         } catch (e: Exception) {
-            Log.e(logTag, "❌ Erreur lors de la suppression", e)
+            // ❌ Erreur lors de la suppression
             return false
         }
     }
@@ -398,7 +393,7 @@ class SyncWorker(
             capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
             capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         } catch (e: Exception) {
-            android.util.Log.e(logTag, "❌ Erreur lors de la vérification réseau", e)
+            // ❌ Erreur lors de la vérification réseau
             false
         }
     }

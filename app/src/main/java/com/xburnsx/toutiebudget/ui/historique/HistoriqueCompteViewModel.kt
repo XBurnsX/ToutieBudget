@@ -12,7 +12,7 @@ import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
-import android.util.Log
+// import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +61,7 @@ class HistoriqueCompteViewModel(
         // 🔄 RAFRAÎCHISSEMENT MANUEL : Écoute des événements de suppression/modification
         viewModelScope.launch {
             BudgetEvents.refreshBudget.collectLatest {
-                Log.d("HistoriqueCompteViewModel", "🔄 Événement de rafraîchissement reçu - Mise à jour des transactions")
+                // 🔄 Événement de rafraîchissement reçu - Mise à jour des transactions
                 val compteIdEvent: String? = savedStateHandle["compteId"]
                 val collectionCompteEvent: String? = savedStateHandle["collectionCompte"]
                 if (compteIdEvent != null && collectionCompteEvent != null) {
@@ -163,17 +163,17 @@ class HistoriqueCompteViewModel(
                 val allocations = resultAllocations.getOrNull() ?: emptyList()
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
-                println("DEBUG: resultAllocations.isSuccess = ${resultAllocations.isSuccess}")
-                println("DEBUG: resultAllocations.isFailure = ${resultAllocations.isFailure}")
-                println("DEBUG: allocations.size = ${allocations.size}")
+                // DEBUG: resultAllocations.isSuccess = ${resultAllocations.isSuccess}
+                // DEBUG: resultAllocations.isFailure = ${resultAllocations.isFailure}
+                // DEBUG: allocations.size = ${allocations.size}
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
                 val enveloppesMap = enveloppes.associateBy { it.id }
                 val allocationsMap = allocations.associateBy { it.id }
                 
                 // 🔍 LOGS DEBUG : Vérifier les maps
-                println("DEBUG: enveloppesMap.size = ${enveloppesMap.size}")
-                println("DEBUG: allocationsMap.size = ${allocationsMap.size}")
+                // DEBUG: enveloppesMap.size = ${enveloppesMap.size}
+                // DEBUG: allocationsMap.size = ${allocationsMap.size}
 
                 // Transformer en TransactionUi directement à partir des données de transactions
                 val transactionsUi = transactions.map { transaction ->

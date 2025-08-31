@@ -62,7 +62,7 @@ class AjoutTransactionViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase pour les comptes
         viewModelScope.launch {
             realtimeSyncService.comptesUpdated.collectLatest {
-                println("DEBUG: AjoutTransactionViewModel reçoit l'événement comptesUpdated")
+                // DEBUG: AjoutTransactionViewModel reçoit l'événement comptesUpdated
                 // Recharger les comptes quand ils sont modifiés
                 chargerComptesSeulement()
             }
@@ -71,7 +71,7 @@ class AjoutTransactionViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase pour les enveloppes
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
-                println("DEBUG: AjoutTransactionViewModel reçoit l'événement budgetUpdated")
+                // DEBUG: AjoutTransactionViewModel reçoit l'événement budgetUpdated
                 // Recharger les enveloppes quand elles sont modifiées
                 chargerEnveloppesSeulement()
             }
@@ -196,7 +196,7 @@ class AjoutTransactionViewModel(
                     }
                 }
             } catch (e: Exception) {
-                println("Erreur lors du rechargement des comptes: ${e.message}")
+                // Erreur lors du rechargement des comptes: ${e.message}
             }
         }
     }
@@ -253,7 +253,7 @@ class AjoutTransactionViewModel(
                     }
                 }
             } catch (e: Exception) {
-                println("Erreur lors du rechargement des enveloppes: ${e.message}")
+                // Erreur lors du rechargement des enveloppes: ${e.message}
             }
         }
     }
@@ -594,7 +594,7 @@ class AjoutTransactionViewModel(
                         ?: throw Exception("Aucune carte de crédit ou dette sélectionnée pour le paiement")
                     
                     // Effectuer le paiement de carte/dette
-                    println("DEBUG: Début paiement carte/dette - Compte: ${compte.nom}, Carte: ${comptePaiement.nom}, Montant: ${montant / 100.0}")
+                    // DEBUG: Début paiement carte/dette - Compte: ${compte.nom}, Carte: ${comptePaiement.nom}, Montant: ${montant / 100.0}
                     
                     val result = argentService.effectuerPaiementCarteOuDette(
                         compteQuiPaieId = compte.id,
@@ -617,7 +617,7 @@ class AjoutTransactionViewModel(
                         note = comptePaiement.nom // Passer le nom de la dette/carte comme tiers
                     )
                     
-                    println("DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}")
+                    // DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}
                     
                     if (result.isSuccess) {
                         // Vérifier si la dette/carte est soldée après paiement
@@ -730,13 +730,13 @@ class AjoutTransactionViewModel(
                             tiersUtiliser = nomTiers,
                             sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                         )
-                        println("DEBUG: Tentative de création de transaction PRET: ${transactionPret}")
+                        // DEBUG: Tentative de création de transaction PRET: ${transactionPret}
                         val resultTransaction = transactionRepository.creerTransaction(transactionPret)
                         if (resultTransaction.isFailure) {
-                            println("ERREUR: Échec création transaction PRET: ${resultTransaction.exceptionOrNull()?.message}")
+                            // ERREUR: Échec création transaction PRET: ${resultTransaction.exceptionOrNull()?.message}
                             throw resultTransaction.exceptionOrNull() ?: Exception("Échec création transaction PRET")
                         }
-                        println("DEBUG: Transaction PRET créée avec succès: ${resultTransaction.getOrNull()}")
+                        // DEBUG: Transaction PRET créée avec succès: ${resultTransaction.getOrNull()}
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Prêt enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
@@ -776,13 +776,13 @@ class AjoutTransactionViewModel(
                                 tiersUtiliser = nomTiers,
                                 sousItems = sous
                             )
-                            println("DEBUG: Tentative de création de transaction: ${transactionARendre}")
+                            // DEBUG: Tentative de création de transaction: ${transactionARendre}
                             val resultTransaction = transactionRepository.creerTransaction(transactionARendre)
                             if (resultTransaction.isFailure) {
-                                println("ERREUR: Échec création transaction: ${resultTransaction.exceptionOrNull()?.message}")
+                                // ERREUR: Échec création transaction: ${resultTransaction.exceptionOrNull()?.message}
                                 throw resultTransaction.exceptionOrNull() ?: Exception("Échec création transaction")
                             }
-                            println("DEBUG: Transaction créée avec succès: ${resultTransaction.getOrNull()}")
+                            // DEBUG: Transaction créée avec succès: ${resultTransaction.getOrNull()}
                             restant -= aPayer
                         }
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
@@ -1258,9 +1258,9 @@ class AjoutTransactionViewModel(
                     val enveloppeId = if (state.typeTransaction == TypeTransaction.Depense) {
                         val enveloppeSelectionnee = state.enveloppeSelectionnee
                         // 🔍 LOG DEBUG : Tracer l'enveloppe sélectionnée
-                        println("🔍 DEBUG - Type de transaction: ${state.typeTransaction}")
-                        println("🔍 DEBUG - Enveloppe sélectionnée: ${enveloppeSelectionnee?.nom} (ID: ${enveloppeSelectionnee?.id})")
-                        println("🔍 DEBUG - Solde de l'enveloppe: ${enveloppeSelectionnee?.solde}")
+                                // 🔍 DEBUG - Type de transaction: ${state.typeTransaction}
+        // 🔍 DEBUG - Enveloppe sélectionnée: ${enveloppeSelectionnee?.nom} (ID: ${enveloppeSelectionnee?.id})
+        // 🔍 DEBUG - Solde de l'enveloppe: ${enveloppeSelectionnee?.solde}
                         
                         enveloppeSelectionnee?.id
                             ?: throw Exception("Aucune enveloppe sélectionnée pour la dépense")
@@ -1269,9 +1269,9 @@ class AjoutTransactionViewModel(
                     }
 
                     // 🔍 LOG DEBUG : Tracer les paramètres de la transaction
-                    println("🔍 DEBUG - Montant de la transaction: ${state.montant} centimes (${state.montant.toDoubleOrNull()?.div(100.0)} dollars)")
-                    println("🔍 DEBUG - Compte sélectionné: ${compte.nom} (ID: ${compte.id})")
-                    println("🔍 DEBUG - Collection du compte: ${when (compte) { is CompteCheque -> "comptes_cheques"; is CompteCredit -> "comptes_credits"; is CompteDette -> "comptes_dettes"; is CompteInvestissement -> "comptes_investissements"; else -> "comptes_cheques" }})")
+                    // 🔍 DEBUG - Montant de la transaction: ${state.montant} centimes (${state.montant.toDoubleOrNull()?.div(100.0)} dollars)
+                    // 🔍 DEBUG - Compte sélectionné: ${compte.nom} (ID: ${compte.id})
+                    // 🔍 DEBUG - Collection du compte: ${when (compte) { is CompteCheque -> "comptes_cheques"; is CompteCredit -> "comptes_credits"; is CompteDette -> "comptes_dettes"; is CompteInvestissement -> "comptes_investissements"; else -> "comptes_cheques" }}
 
                     // Enregistrer la transaction standard
                     val result = enregistrerTransactionUseCase.executer(
@@ -1293,9 +1293,9 @@ class AjoutTransactionViewModel(
 
                     // 🔍 LOG DEBUG : Tracer le résultat de la création
                     if (result.isSuccess) {
-                        println("🔍 DEBUG - Transaction créée avec succès!")
+                        // 🔍 DEBUG - Transaction créée avec succès!
                     } else {
-                        println("🔍 DEBUG - Erreur lors de la création de la transaction: ${result.exceptionOrNull()?.message}")
+                        // 🔍 DEBUG - Erreur lors de la création de la transaction: ${result.exceptionOrNull()?.message}
                     }
 
                     if (result.isSuccess) {

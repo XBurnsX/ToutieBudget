@@ -35,7 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import androidx.core.graphics.toColorInt
-import android.util.Log
+// import android.util.Log
 
 /**
  * Fonction d'extension pour la classe String.
@@ -74,11 +74,6 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     val couleurCompteSource = enveloppe.couleurObjectif ?: "#4CAF50" // Couleur par défaut si pas de couleur objectif
     
     // LOGS POUR DÉBOGUER LA COULEUR DU COMPTE SOURCE
-    Log.d("ObjectifColor", "=== COULEUR COMPTE SOURCE ===")
-    Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-    Log.d("ObjectifColor", "Couleur provenance (bulle): ${enveloppe.couleurProvenance}")
-    Log.d("ObjectifColor", "Couleur objectif (barres): ${enveloppe.couleurObjectif}")
-    Log.d("ObjectifColor", "Couleur compte source finale: $couleurCompteSource")
 
     // --- LOGIQUE POUR DÉTERMINER SI L'OBJECTIF EST ATTEINT ---
     val estObjectifAtteint = when (enveloppe.typeObjectif) {
@@ -89,14 +84,6 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
     }
     
     // LOGS POUR DÉBOGUER LA DÉTECTION DE L'OBJECTIF
-    Log.d("ObjectifColor", "=== DÉTECTION OBJECTIF ===")
-    Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-    Log.d("ObjectifColor", "Type objectif: ${enveloppe.typeObjectif}")
-    Log.d("ObjectifColor", "Dépense: ${enveloppe.depense}")
-    Log.d("ObjectifColor", "Alloue cumulatif: ${enveloppe.alloueCumulatif}")
-    Log.d("ObjectifColor", "Objectif: $objectif")
-    Log.d("ObjectifColor", "Est objectif atteint: $estObjectifAtteint")
-    Log.d("ObjectifColor", "Couleur provenance: ${enveloppe.couleurProvenance}")
 
     // --- LOGIQUE POUR LA BULLE DE MONTANT ---
     // Détermine la couleur de fond de la bulle qui affiche le solde.
@@ -129,23 +116,15 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
             when (enveloppe.typeObjectif) {
                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                     // LOGS POUR DÉBOGUER LA COULEUR DU COMPTE
-                    Log.d("ObjectifColor", "=== BARRE VERTICALE - OBJECTIF MENSUEL ATTEINT ===")
-                    Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-                    Log.d("ObjectifColor", "Dépense: ${enveloppe.depense}, Objectif: $objectif")
-                    Log.d("ObjectifColor", "Couleur provenance brute: ${enveloppe.couleurProvenance}")
-                    Log.d("ObjectifColor", "Type objectif: ${enveloppe.typeObjectif}")
                     
                     if (enveloppe.depense >= objectif) {
                         val couleurCompte = couleurCompteSource.toColor()
-                        Log.d("ObjectifColor", "Objectif atteint par DÉPENSE - Couleur du compte: $couleurCompte")
                         couleurCompte
                     } else {
-                        Log.d("ObjectifColor", "Objectif atteint par ALLOCATION - Couleur verte")
                         Color(0xFF4CAF50) // Vert si atteint par allocation
                     }
                 }
                 else -> {
-                    Log.d("ObjectifColor", "Objectif d'épargne atteint - Couleur verte")
                     Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
                 }
             }
@@ -363,22 +342,16 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                  when (enveloppe.typeObjectif) {
                                      com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                          // LOGS POUR DÉBOGUER LA COULEUR DE LA BARRE DE PROGRESSION
-                                         Log.d("ObjectifColor", "=== BARRE PROGRESSION - OBJECTIF MENSUEL ATTEINT ===")
-                                         Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-                                         Log.d("ObjectifColor", "Dépense: ${enveloppe.depense}, Objectif: $objectif")
-                                         Log.d("ObjectifColor", "Couleur provenance brute: ${enveloppe.couleurProvenance}")
                                          
                                          if (enveloppe.depense >= objectif) {
                                              val couleurCompte = couleurCompteSource.toColor()
-                                             Log.d("ObjectifColor", "Objectif atteint par DÉPENSE - Couleur du compte: $couleurCompte")
                                              couleurCompte
                                          } else {
-                                             Log.d("ObjectifColor", "Objectif atteint par ALLOCATION - Couleur verte")
                                              Color(0xFF4CAF50) // Vert si atteint par allocation
                                          }
                                      }
                                      else -> {
-                                         Log.d("ObjectifColor", "Barre progression - Objectif d'épargne atteint - Couleur verte")
+                                         // Barre progression - Objectif d'épargne atteint - Couleur verte
                                          Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
                                      }
                                  }
@@ -444,22 +417,15 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                               when (enveloppe.typeObjectif) {
                                   com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                       // LOGS POUR DÉBOGUER LA COULEUR DE LA BARRE PRINCIPALE
-                                      Log.d("ObjectifColor", "=== BARRE PRINCIPALE - OBJECTIF MENSUEL ATTEINT ===")
-                                      Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-                                      Log.d("ObjectifColor", "Dépense: ${enveloppe.depense}, Objectif: $objectif")
-                                      Log.d("ObjectifColor", "Couleur provenance brute: ${enveloppe.couleurProvenance}")
                                       
                                       if (enveloppe.depense >= objectif) {
                                           val couleurCompte = couleurCompteSource.toColor()
-                                          Log.d("ObjectifColor", "Objectif atteint par DÉPENSE - Couleur du compte: $couleurCompte")
                                           couleurCompte
                                       } else {
-                                          Log.d("ObjectifColor", "Objectif atteint par ALLOCATION - Couleur verte")
                                           Color(0xFF4CAF50) // Vert si atteint par allocation
                                       }
                                   }
                                   else -> {
-                                      Log.d("ObjectifColor", "Barre principale - Objectif d'épargne atteint - Couleur verte")
                                       Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
                                   }
                               }

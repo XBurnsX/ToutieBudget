@@ -67,7 +67,7 @@ object PocketBaseClient {
             true // ✅ Initialisation réussie
         } catch (e: Exception) {
             // 🆕 MODE HORS LIGNE : Log de l'erreur mais pas d'exception
-            android.util.Log.w("PocketBaseClient", "⚠️ Erreur lors de l'initialisation (mode hors ligne autorisé): ${e.message}")
+            // ⚠️ Erreur lors de l'initialisation (mode hors ligne autorisé): ${e.message}
             false // ❌ Initialisation échouée mais app peut continuer
         }
     }
@@ -88,12 +88,12 @@ object PocketBaseClient {
             }
             
             if (!reponse.isSuccessful) {
-                android.util.Log.w("PocketBaseClient", "⚠️ Serveur PocketBase non accessible (code: ${reponse.code})")
+                // ⚠️ Serveur PocketBase non accessible (code: ${reponse.code})
             } else {
-                android.util.Log.d("PocketBaseClient", "✅ Serveur PocketBase accessible")
+                // ✅ Serveur PocketBase accessible
             }
         } catch (e: Exception) {
-            android.util.Log.w("PocketBaseClient", "⚠️ Erreur de connectivité vers PocketBase: ${e.message}")
+            // ⚠️ Erreur de connectivité vers PocketBase: ${e.message}
         }
     }
 

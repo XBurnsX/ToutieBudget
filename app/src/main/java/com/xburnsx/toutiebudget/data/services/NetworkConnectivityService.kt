@@ -5,7 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.util.Log
+// import android.util.Log
 import com.xburnsx.toutiebudget.workers.SyncWorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +33,7 @@ class NetworkConnectivityService(private val context: Context) {
      */
     fun startNetworkMonitoring() {
         if (isNetworkCallbackRegistered) {
-            Log.d(TAG, "⚠️ Surveillance réseau déjà active")
+            // ⚠️ Surveillance réseau déjà active
             return
         }
         
@@ -51,10 +51,10 @@ class NetworkConnectivityService(private val context: Context) {
             val isCurrentlyOnline = isNetworkAvailable()
             wasOffline = !isCurrentlyOnline
             
-            Log.d(TAG, "✅ Surveillance réseau démarrée - État actuel: ${if (isCurrentlyOnline) "En ligne" else "Hors ligne"}")
+            // ✅ Surveillance réseau démarrée - État actuel: ${if (isCurrentlyOnline) "En ligne" else "Hors ligne"}
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erreur lors du démarrage de la surveillance réseau", e)
+            // ❌ Erreur lors du démarrage de la surveillance réseau
         }
     }
     
@@ -66,9 +66,9 @@ class NetworkConnectivityService(private val context: Context) {
             try {
                 connectivityManager.unregisterNetworkCallback(networkCallback)
                 isNetworkCallbackRegistered = false
-                Log.d(TAG, "✅ Surveillance réseau arrêtée")
+                // ✅ Surveillance réseau arrêtée
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Erreur lors de l'arrêt de la surveillance réseau", e)
+                // ❌ Erreur lors de l'arrêt de la surveillance réseau
             }
         }
     }
@@ -79,10 +79,10 @@ class NetworkConnectivityService(private val context: Context) {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         
         override fun onAvailable(network: Network) {
-            Log.d(TAG, "🌐 Réseau disponible: $network")
+            // 🌐 Réseau disponible: $network
             
             if (wasOffline) {
-                Log.i(TAG, "🚀 INTERNET REVIENT - Déclenchement de la synchronisation automatique")
+                // 🚀 INTERNET REVIENT - Déclenchement de la synchronisation automatique
                 wasOffline = false
                 
                 // Déclencher la synchronisation en arrière-plan
@@ -93,7 +93,7 @@ class NetworkConnectivityService(private val context: Context) {
                         
                         // Vérifier que la connexion est toujours active
                         if (isNetworkAvailable()) {
-                            Log.d(TAG, "✅ Connexion stable confirmée - Lancement de la synchronisation")
+                            // ✅ Connexion stable confirmée - Lancement de la synchronisation
                             
                             // Démarrer la synchronisation immédiatement
                             SyncWorkManager.demarrerSynchronisation(context)
@@ -102,17 +102,17 @@ class NetworkConnectivityService(private val context: Context) {
                             SyncWorkManager.planifierSynchronisationAutomatique(context)
                             
                         } else {
-                            Log.w(TAG, "⚠️ Connexion instable - Synchronisation reportée")
+                            // ⚠️ Connexion instable - Synchronisation reportée
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "❌ Erreur lors du déclenchement de la synchronisation", e)
+                        // ❌ Erreur lors du déclenchement de la synchronisation
                     }
                 }
             }
         }
         
         override fun onLost(network: Network) {
-            Log.d(TAG, "❌ Réseau perdu: $network")
+            // ❌ Réseau perdu: $network
             wasOffline = true
         }
         
@@ -120,7 +120,7 @@ class NetworkConnectivityService(private val context: Context) {
             val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             val hasValidated = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
             
-            Log.d(TAG, "🔄 Capacités réseau changées - Internet: $hasInternet, Validé: $hasValidated")
+            // 🔄 Capacités réseau changées - Internet: $hasInternet, Validé: $hasValidated
         }
     }
     
@@ -138,7 +138,7 @@ class NetworkConnectivityService(private val context: Context) {
                 false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Erreur lors de la vérification de la connectivité", e)
+            // ❌ Erreur lors de la vérification de la connectivité
             false
         }
     }
@@ -155,7 +155,7 @@ class NetworkConnectivityService(private val context: Context) {
         scope.launch {
             try {
                 if (isNetworkAvailable() && wasOffline) {
-                    Log.i(TAG, "🔍 Vérification manuelle - Internet disponible, déclenchement de la synchronisation")
+                    // 🔍 Vérification manuelle - Internet disponible, déclenchement de la synchronisation
                     wasOffline = false
                     
                     // Délai pour s'assurer que la connexion est stable
@@ -167,7 +167,7 @@ class NetworkConnectivityService(private val context: Context) {
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Erreur lors de la vérification manuelle", e)
+                // ❌ Erreur lors de la vérification manuelle
             }
         }
     }

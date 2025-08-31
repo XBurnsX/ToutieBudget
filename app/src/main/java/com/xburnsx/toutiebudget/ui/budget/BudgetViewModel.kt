@@ -118,7 +118,7 @@ class BudgetViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
-                println("DEBUG: BudgetViewModel reçoit l'événement budgetUpdated")
+                // DEBUG: BudgetViewModel reçoit l'événement budgetUpdated
                 // 🔄 FORCER UN RECHARGEMENT COMPLET après un virement
                 // Vider le cache pour s'assurer d'avoir les données les plus récentes
                 cacheComptes = emptyList()
@@ -126,10 +126,10 @@ class BudgetViewModel(
                 cacheAllocations = emptyList()
                 cacheCategories = emptyList()
                 
-                println("DEBUG: Cache vidé, rechargement des données...")
+                // DEBUG: Cache vidé, rechargement des données...
                 // Recharger avec les données les plus récentes
                 chargerDonneesBudget(moisSelectionne)
-                println("DEBUG: Données rechargées")
+                // DEBUG: Données rechargées
             }
         }
     }
@@ -233,10 +233,10 @@ class BudgetViewModel(
                 // 9. Charger l'état des catégories ouvertes depuis PocketBase
                 val categoriesOuvertes = try {
                     val preferences = realtimeSyncService.recupererPreferencesUtilisateur()
-                    println("DEBUG: Préférences récupérées de PocketBase: $preferences")
+                    // DEBUG: Préférences récupérées de PocketBase: $preferences
                     
                     val rawCategoriesOuvertes = preferences["categories_ouvertes"]
-                    println("DEBUG: Raw categories_ouvertes: $rawCategoriesOuvertes (type: ${rawCategoriesOuvertes?.javaClass?.simpleName})")
+                    // DEBUG: Raw categories_ouvertes: $rawCategoriesOuvertes (type: ${rawCategoriesOuvertes?.javaClass?.simpleName})
                     
                     val categoriesOuvertes = when (rawCategoriesOuvertes) {
                         is Map<*, *> -> {
@@ -246,15 +246,15 @@ class BudgetViewModel(
                             }
                         }
                         else -> {
-                            println("DEBUG: Type inattendu, utilisation de emptyMap()")
+                            // DEBUG: Type inattendu, utilisation de emptyMap()
                             emptyMap<String, Boolean>()
                         }
                     }
                     
-                    println("DEBUG: Categories ouvertes finales: $categoriesOuvertes")
+                    // DEBUG: Categories ouvertes finales: $categoriesOuvertes
                     categoriesOuvertes
                 } catch (e: Exception) {
-                    println("DEBUG: Erreur lors du chargement des catégories: ${e.message}")
+                    // DEBUG: Erreur lors du chargement des catégories: ${e.message}
                     e.printStackTrace()
                     // En cas d'erreur, utiliser l'état par défaut (toutes ouvertes)
                     emptyMap<String, Boolean>()
@@ -340,41 +340,41 @@ class BudgetViewModel(
             val objectif = enveloppe.objectifMontant
             
             // LOGS POUR DÉBOGUER LA COULEUR DE PROVENANCE
-            android.util.Log.d("ObjectifColor", "=== BUDGET VIEWMODEL - COULEUR PROVENANCE ===")
-            android.util.Log.d("ObjectifColor", "Enveloppe: ${enveloppe.nom}")
-            android.util.Log.d("ObjectifColor", "Solde total: $soldeTotal")
-            android.util.Log.d("ObjectifColor", "Dépense totale: $depenseTotale")
-            android.util.Log.d("ObjectifColor", "Objectif: $objectif")
-            android.util.Log.d("ObjectifColor", "Type objectif: ${enveloppe.typeObjectif}")
-            android.util.Log.d("ObjectifColor", "Dernière allocation compte source ID: ${derniereAllocation?.compteSourceId}")
-            android.util.Log.d("ObjectifColor", "Compte source trouvé: ${derniereAllocation?.compteSourceId?.let { mapComptes[it] }}")
+            // === BUDGET VIEWMODEL - COULEUR PROVENANCE ===
+            // Enveloppe: ${enveloppe.nom}
+            // Solde total: $soldeTotal
+            // Dépense totale: $depenseTotale
+            // Objectif: $objectif
+            // Type objectif: ${enveloppe.typeObjectif}
+            // Dernière allocation compte source ID: ${derniereAllocation?.compteSourceId}
+            // Compte source trouvé: ${derniereAllocation?.compteSourceId?.let { mapComptes[it] }}
             
             // 1. COULEUR POUR LA BULLE : reset à null si solde = 0
             val compteSource = if (soldeTotal > 0.001) {
                 // Solde positif : utiliser la couleur du compte source
-                android.util.Log.d("ObjectifColor", "Solde positif - Utiliser couleur du compte source pour bulle")
+                // Solde positif - Utiliser couleur du compte source pour bulle
                 derniereAllocation?.compteSourceId?.let { mapComptes[it] }
             } else {
                 // Solde = 0 : pas de couleur pour la bulle (devient grise)
-                android.util.Log.d("ObjectifColor", "Solde = 0 - Pas de couleur pour bulle (devient grise)")
+                // Solde = 0 - Pas de couleur pour bulle (devient grise)
                 null
             }
             
             // 2. COULEUR POUR LES BARRES : toujours garder couleur du compte si objectif atteint par dépense
             val compteSourcePourBarres = if (derniereAllocation?.compteSourceId != null) {
                 // Il y a un compte source : l'utiliser pour les barres
-                android.util.Log.d("ObjectifColor", "Compte source trouvé - Utiliser pour les barres")
+                // Compte source trouvé - Utiliser pour les barres
                 mapComptes[derniereAllocation.compteSourceId]
             } else {
                 // Pas de compte source : pas de couleur pour les barres
-                android.util.Log.d("ObjectifColor", "Pas de compte source - Pas de couleur pour les barres")
+                // Pas de compte source - Pas de couleur pour les barres
                 null
             }
             
-            android.util.Log.d("ObjectifColor", "Compte source pour bulle: $compteSource")
-            android.util.Log.d("ObjectifColor", "Compte source trouvé - Utiliser pour les barres")
-            android.util.Log.d("ObjectifColor", "Couleur bulle: ${compteSource?.couleur}")
-            android.util.Log.d("ObjectifColor", "Couleur barres: ${compteSourcePourBarres?.couleur}")
+            // Compte source pour bulle: $compteSource
+            // Compte source trouvé - Utiliser pour les barres
+            // Couleur bulle: ${compteSource?.couleur}
+            // Couleur barres: ${compteSourcePourBarres?.couleur}
 
             // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher le solde réel (alloué - dépenses)
             val nomCategorie = nomCategorieParId[enveloppe.categorieId]
@@ -692,16 +692,16 @@ class BudgetViewModel(
             try {
                 val currentState = _uiState.value
                 val categoriesToSave = currentState.categoriesOuvertes
-                println("DEBUG: Sauvegarde des catégories: $categoriesToSave")
+                // DEBUG: Sauvegarde des catégories: $categoriesToSave
                 
                 // Utiliser le RealtimeSyncService pour sauvegarder dans PocketBase
                 realtimeSyncService.mettreAJourPreferencesUtilisateur(
                     mapOf("categories_ouvertes" to categoriesToSave)
                 )
-                println("DEBUG: Catégories sauvegardées avec succès dans PocketBase")
+                // DEBUG: Catégories sauvegardées avec succès dans PocketBase
             } catch (e: Exception) {
                 // Erreur silencieuse - l'état local est déjà mis à jour
-                println("DEBUG: Erreur sauvegarde catégories: ${e.message}")
+                // DEBUG: Erreur sauvegarde catégories: ${e.message}
                 e.printStackTrace()
             }
         }

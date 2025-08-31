@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import android.util.Log
+// import android.util.Log
 
 /**
  * États possibles lors du démarrage de l'application
@@ -39,15 +39,15 @@ class StartupViewModel : ViewModel() {
     fun checkStartupConditions(context: Context) {
         viewModelScope.launch {
             try {
-                Log.d("StartupViewModel", "🚀 Vérification des conditions de démarrage...")
+                // 🚀 Vérification des conditions de démarrage...
                 
                 // 1. Initialiser la base de données Room en premier (toujours disponible)
                 AppModule.initializeDatabase(context)
-                Log.d("StartupViewModel", "✅ Base de données Room initialisée")
+                // ✅ Base de données Room initialisée
                 
                 // 2. Charger l'authentification sauvegardée (toujours disponible)
                 val isUserAuthenticated = PocketBaseClient.chargerAuthentificationSauvegardee(context)
-                Log.d("StartupViewModel", "🔐 Authentification chargée: $isUserAuthenticated")
+                // 🔐 Authentification chargée: $isUserAuthenticated
                 
                 // 3. Essayer d'initialiser PocketBase et vérifier la connexion serveur
                 var serverHealthy = false
@@ -56,9 +56,9 @@ class StartupViewModel : ViewModel() {
                     if (initSuccess) {
                         serverHealthy = PocketBaseClient.verifierConnexionServeur()
                     }
-                    Log.d("StartupViewModel", "🌐 Serveur accessible: $serverHealthy")
+                    // 🌐 Serveur accessible: $serverHealthy
                 } catch (e: Exception) {
-                    Log.w("StartupViewModel", "⚠️ Erreur de connexion serveur: ${e.message}")
+                    // ⚠️ Erreur de connexion serveur: ${e.message}
                     serverHealthy = false
                 }
                 
@@ -66,20 +66,20 @@ class StartupViewModel : ViewModel() {
                 when {
                     // 🎯 CAS 1 : Serveur accessible + utilisateur connecté
                     serverHealthy && isUserAuthenticated -> {
-                        Log.d("StartupViewModel", "✅ Mode connecté - utilisateur authentifié")
+                        // ✅ Mode connecté - utilisateur authentifié
                         planifierWorkerRappels(context)
                         _state.value = StartupState.UserAuthenticated
                     }
                     
                     // 🎯 CAS 2 : Serveur accessible + utilisateur non connecté
                     serverHealthy && !isUserAuthenticated -> {
-                        Log.d("StartupViewModel", "🔐 Mode connecté - utilisateur non authentifié")
+                        // 🔐 Mode connecté - utilisateur non authentifié
                         _state.value = StartupState.UserNotAuthenticated
                     }
                     
                     // 🎯 CAS 3 : Serveur inaccessible + utilisateur connecté = MODE HORS LIGNE
                     !serverHealthy && isUserAuthenticated -> {
-                        Log.d("StartupViewModel", "📱 MODE HORS LIGNE - utilisateur authentifié localement")
+                        // 📱 MODE HORS LIGNE - utilisateur authentifié localement
                         
                         // Planifier la synchronisation automatique quand internet revient
                         planifierSynchronisationAutomatique(context)
@@ -90,19 +90,19 @@ class StartupViewModel : ViewModel() {
                     
                     // 🎯 CAS 4 : Serveur inaccessible + utilisateur non connecté
                     !serverHealthy && !isUserAuthenticated -> {
-                        Log.w("StartupViewModel", "❌ Impossible d'ouvrir l'app - pas de serveur ni d'auth locale")
+                        // ❌ Impossible d'ouvrir l'app - pas de serveur ni d'auth locale
                         _state.value = StartupState.ServerError
                     }
                 }
                 
             } catch (e: Exception) {
-                Log.e("StartupViewModel", "❌ Erreur lors de la vérification des conditions", e)
+                // ❌ Erreur lors de la vérification des conditions
                 
                 // 🆕 GESTION D'ERREUR AMÉLIORÉE : Essayer le mode hors ligne
                 try {
                     val isUserAuthenticated = PocketBaseClient.chargerAuthentificationSauvegardee(context)
                     if (isUserAuthenticated) {
-                        Log.d("StartupViewModel", "🔄 Basculement en mode hors ligne après erreur")
+                        // 🔄 Basculement en mode hors ligne après erreur
                         _state.value = StartupState.OfflineMode
                     } else {
                         _state.value = StartupState.ServerError
@@ -129,7 +129,7 @@ class StartupViewModel : ViewModel() {
     fun forcerModeHorsLigne(context: Context) {
         viewModelScope.launch {
             try {
-                Log.d("StartupViewModel", "📱 Forçage du mode hors ligne...")
+                // 📱 Forçage du mode hors ligne...
                 
                 // Initialiser la base de données Room
                 AppModule.initializeDatabase(context)
@@ -138,19 +138,19 @@ class StartupViewModel : ViewModel() {
                 val isUserAuthenticated = PocketBaseClient.chargerAuthentificationSauvegardee(context)
                 
                 if (isUserAuthenticated) {
-                    Log.d("StartupViewModel", "✅ Mode hors ligne activé avec succès")
+                    // ✅ Mode hors ligne activé avec succès
                     
                     // Planifier la synchronisation automatique
                     planifierSynchronisationAutomatique(context)
                     
                     _state.value = StartupState.OfflineMode
                 } else {
-                    Log.w("StartupViewModel", "❌ Impossible d'activer le mode hors ligne - pas d'auth locale")
+                    // ❌ Impossible d'activer le mode hors ligne - pas d'auth locale
                     _state.value = StartupState.ServerError
                 }
                 
             } catch (e: Exception) {
-                Log.e("StartupViewModel", "❌ Erreur lors de l'activation du mode hors ligne", e)
+                // ❌ Erreur lors de l'activation du mode hors ligne
                 _state.value = StartupState.ServerError
             }
         }
@@ -167,9 +167,9 @@ class StartupViewModel : ViewModel() {
             androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "rappelsBudget", androidx.work.ExistingPeriodicWorkPolicy.UPDATE, work
             )
-            Log.d("StartupViewModel", "✅ Worker de rappels planifié")
+            // ✅ Worker de rappels planifié
         } catch (e: Exception) {
-            Log.w("StartupViewModel", "⚠️ Erreur lors de la planification du worker de rappels", e)
+            // ⚠️ Erreur lors de la planification du worker de rappels
         }
     }
     
@@ -182,9 +182,9 @@ class StartupViewModel : ViewModel() {
             // Utiliser le SyncWorkManager existant pour planifier la synchronisation
             val syncWorkManager = AppModule.provideSyncWorkManager(context)
             syncWorkManager.planifierSynchronisationAutomatique(context)
-            Log.d("StartupViewModel", "✅ Synchronisation automatique planifiée")
+            // ✅ Synchronisation automatique planifiée
         } catch (e: Exception) {
-            Log.w("StartupViewModel", "⚠️ Erreur lors de la planification de la synchronisation", e)
+            // ⚠️ Erreur lors de la planification de la synchronisation
         }
     }
 }

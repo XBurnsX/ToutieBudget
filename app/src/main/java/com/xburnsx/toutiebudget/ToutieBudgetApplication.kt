@@ -50,9 +50,9 @@ class ToutieBudgetApplication : Application() {
         try {
             val networkService = AppModule.provideNetworkConnectivityService(this)
             networkService.startNetworkMonitoring()
-            android.util.Log.d("ToutieBudgetApp", "✅ Surveillance réseau démarrée")
+            // ✅ Surveillance réseau démarrée
         } catch (e: Exception) {
-            android.util.Log.e("ToutieBudgetApp", "❌ Erreur lors du démarrage de la surveillance réseau", e)
+            // ❌ Erreur lors du démarrage de la surveillance réseau
         }
     }
     
@@ -67,16 +67,16 @@ class ToutieBudgetApplication : Application() {
                 val syncJobsEnAttente = syncJobDao.getPendingSyncJobs()
                 
                 if (syncJobsEnAttente.isNotEmpty()) {
-                    android.util.Log.d("ToutieBudgetApp", "🚀 ${syncJobsEnAttente.size} SyncJob en attente détectés à l'ouverture")
+                    // 🚀 ${syncJobsEnAttente.size} SyncJob en attente détectés à l'ouverture
                     
                     // DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION
                     // Le worker se déclenchera et traitera tous les SyncJob en attente
                     SyncWorkManager.declencherSynchronisationAutomatique(this@ToutieBudgetApplication)
                 } else {
-                    android.util.Log.d("ToutieBudgetApp", "✅ Aucun SyncJob en attente à l'ouverture")
+                    // ✅ Aucun SyncJob en attente à l'ouverture
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ToutieBudgetApp", "❌ Erreur lors de la vérification des SyncJob", e)
+                // ❌ Erreur lors de la vérification des SyncJob
             }
         }
     }

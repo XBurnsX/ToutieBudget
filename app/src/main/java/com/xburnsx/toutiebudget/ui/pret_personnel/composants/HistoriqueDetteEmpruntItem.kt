@@ -254,7 +254,7 @@ private fun HistoryRow(
     // ✅ VOS RÈGLES : Argent qui RENTRE = VERT + flèche BAS, Argent qui SORT = ROUGE + flèche HAUT
     
     // DEBUG: Afficher le type pour diagnostiquer
-    println("DEBUG HistoriqueDetteEmpruntItem: libelle='$libelle', isPret=$isPret, montant=$montant")
+    // DEBUG HistoriqueDetteEmpruntItem: libelle='$libelle', isPret=$isPret, montant=$montant
     
     val inflow = when (libelle) {
         "Prêt accordé" -> false      // Argent qui SORT → ROUGE + flèche vers le HAUT
@@ -263,12 +263,12 @@ private fun HistoryRow(
         "Remboursement donné" -> false // Argent qui SORT → ROUGE + flèche vers le HAUT
         "Transaction" -> false       // Transaction = Paiement → ROUGE + flèche vers le HAUT
         else -> {
-            println("DEBUG: Type non reconnu '$libelle', fallback=false")
+            // DEBUG: Type non reconnu '$libelle', fallback=false
             false // Par défaut, considérer comme sortie
         }
     }
     
-    println("DEBUG: inflow=$inflow, couleur=${if (inflow) "VERT" else "ROUGE"}")
+    // DEBUG: inflow=$inflow, couleur=${if (inflow) "VERT" else "ROUGE"}
     
     // ✅ FORCER DES COULEURS VRAIMENT VERTES ET ROUGES
     val amountColor = if (inflow) {

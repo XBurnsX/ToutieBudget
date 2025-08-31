@@ -21,7 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
 import java.net.URLEncoder
-import android.util.Log
+// import android.util.Log
 
 /**
  * Service de synchronisation temps réel avec PocketBase.
@@ -268,8 +268,8 @@ class RealtimeSyncService @Inject constructor() {
         val encodedFilter = URLEncoder.encode(rawFilter, Charsets.UTF_8.name())
         val getUrl = "$urlBase/api/collections/user_preferences/records?filter=$encodedFilter&perPage=1"
 
-        Log.d(logTag, "GET prefs → userId=${user.id}")
-        Log.d(logTag, "GET url=${getUrl}")
+        // GET prefs → userId=${user.id}
+        // GET url=${getUrl}
 
         val getReq = Request.Builder()
             .url(getUrl)
@@ -279,11 +279,11 @@ class RealtimeSyncService @Inject constructor() {
             .build()
 
         val getResp = httpClient.newCall(getReq).execute()
-        Log.d(logTag, "GET code=${getResp.code}")
+        // GET code=${getResp.code}
         val items = if (getResp.isSuccessful) {
             try {
                 val bodyStr = getResp.body?.string() ?: "{}"
-                Log.d(logTag, "GET body=${bodyStr}")
+                // GET body=${bodyStr}
                 val obj = gson.fromJson(bodyStr, com.google.gson.JsonObject::class.java)
                 obj.getAsJsonArray("items")
             } catch (_: Exception) { null }
@@ -294,11 +294,11 @@ class RealtimeSyncService @Inject constructor() {
         if (items != null && items.size() > 0) {
             // PATCH sur le record existant
             val recordId = items[0].asJsonObject.get("id").asString
-            Log.d(logTag, "PATCH recordId=${recordId}")
+            // PATCH recordId=${recordId}
             val patchBody = gson.toJson(changements).toRequestBody(media)
             val patchUrl = "$urlBase/api/collections/user_preferences/records/$recordId"
-            Log.d(logTag, "PATCH url=${patchUrl}")
-            Log.d(logTag, "PATCH json=${gson.toJson(changements)}")
+            // PATCH url=${patchUrl}
+            // PATCH json=${gson.toJson(changements)}
             val patchReq = Request.Builder()
                 .url(patchUrl)
                 .addHeader("Authorization", "Bearer $token")
@@ -306,11 +306,11 @@ class RealtimeSyncService @Inject constructor() {
                 .patch(patchBody)
                 .build()
             val patchResp = httpClient.newCall(patchReq).execute()
-            val patchStr = patchResp.body?.string()
-            Log.d(logTag, "PATCH code=${patchResp.code}")
-            Log.d(logTag, "PATCH body=${patchStr}")
+            // val patchStr = patchResp.body?.string()
+            // PATCH code=${patchResp.code}
+            // PATCH body=${patchStr}
             if (!patchResp.isSuccessful) throw Exception("Echec MAJ préférences: ${patchResp.code}")
-            Log.d(logTag, "PATCH OK")
+            // PATCH OK
         } else {
             // POST pour créer avec utilisateur_id + changements
             val bodyMap = HashMap<String, Any?>()
@@ -318,8 +318,8 @@ class RealtimeSyncService @Inject constructor() {
             bodyMap["utilisateur_id"] = user.id
             val postBody = gson.toJson(bodyMap).toRequestBody(media)
             val postUrl = "$urlBase/api/collections/user_preferences/records"
-            Log.d(logTag, "POST url=${postUrl}")
-            Log.d(logTag, "POST json=${gson.toJson(bodyMap)}")
+            // POST url=${postUrl}
+            // POST json=${gson.toJson(bodyMap)}
             val postReq = Request.Builder()
                 .url(postUrl)
                 .addHeader("Authorization", "Bearer $token")
@@ -327,11 +327,11 @@ class RealtimeSyncService @Inject constructor() {
                 .post(postBody)
                 .build()
             val postResp = httpClient.newCall(postReq).execute()
-            val postStr = postResp.body?.string()
-            Log.d(logTag, "POST code=${postResp.code}")
-            Log.d(logTag, "POST body=${postStr}")
+            // val postStr = postResp.body?.string()
+            // POST code=${postResp.code}
+            // POST body=${postStr}
             if (!postResp.isSuccessful) throw Exception("Echec création préférences: ${postResp.code}")
-            Log.d(logTag, "POST OK")
+            // POST OK
         }
     }
 
@@ -349,7 +349,7 @@ class RealtimeSyncService @Inject constructor() {
         val encodedFilter = java.net.URLEncoder.encode(rawFilter, Charsets.UTF_8.name())
         val getUrl = "$urlBase/api/collections/user_preferences/records?filter=$encodedFilter&perPage=1"
 
-        Log.d(logTag, "FETCH prefs → userId=${utilisateur.id}")
+        // FETCH prefs → userId=${utilisateur.id}
         val getReq = okhttp3.Request.Builder()
             .url(getUrl)
             .addHeader("Authorization", "Bearer $token")
@@ -359,7 +359,7 @@ class RealtimeSyncService @Inject constructor() {
 
         val response = httpClient.newCall(getReq).execute()
         if (!response.isSuccessful) {
-            Log.d(logTag, "FETCH prefs failed code=${response.code}")
+            // FETCH prefs failed code=${response.code}
             return@withContext emptyMap<String, Any?>()
         }
         val bodyStr = response.body?.string().orEmpty()
@@ -382,7 +382,7 @@ class RealtimeSyncService @Inject constructor() {
                         map["categories_ouvertes"] = categoriesMap
                     }
                 } catch (e: Exception) {
-                    Log.w(logTag, "Erreur parsing categories_ouvertes: ${e.message}")
+                    // Erreur parsing categories_ouvertes: ${e.message}
                 }
             }
             return@withContext map

@@ -1,6 +1,6 @@
 package com.xburnsx.toutiebudget.data.repositories.impl
 
-import android.util.Log
+// import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.*
@@ -112,35 +112,35 @@ class CompteRepositoryRoomImpl(
             // 🚨 CORRECTION : Spécifier le type exact et la collection !
             val (syncJobType, dataJson, collectionName) = when (compteAvecId) {
                 is CompteCheque -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_CHÈQUE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_CHÈQUE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecId.toCompteChequeEntity()
                     val json = genererJsonCompteChequeManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ:
+                    //   $json
                     Triple("COMPTE_CHEQUE", json, "comptes_cheques")
                 }
                 is CompteCredit -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_CRÉDIT DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_CRÉDIT DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecId.toCompteCreditEntity()
                     val json = genererJsonCompteCreditManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ:
+                    //   $json
                     Triple("COMPTE_CREDIT", json, "comptes_credits")
                 }
                 is CompteDette -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_DETTE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_DETTE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecId.toCompteDetteEntity()
                     val json = genererJsonCompteDetteManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ:
+                    //   $json
                     Triple("COMPTE_DETTE", json, "comptes_dettes")
                 }
                 is CompteInvestissement -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_INVESTISSEMENT DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_INVESTISSEMENT DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecId.toCompteInvestissementEntity()
                     val json = genererJsonCompteInvestissementManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ:")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ:
+                    //   $json
                     Triple("COMPTE_INVESTISSEMENT", json, "comptes_investissement")
                 }
                 else -> throw IllegalArgumentException("Type de compte non supporté")
@@ -248,35 +248,35 @@ class CompteRepositoryRoomImpl(
             // 🚨 CORRECTION : Utiliser les méthodes manuelles pour le JSON snake_case !
             val (syncJobType, dataJson, collectionName) = when (compteAvecUtilisateurId) {
                 is CompteCheque -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_CHÈQUE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_CHÈQUE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecUtilisateurId.toCompteChequeEntity()
                     val json = genererJsonCompteChequeManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ (UPDATE):
+                    //   $json
                     Triple("COMPTE_CHEQUE", json, "comptes_cheques")
                 }
                 is CompteCredit -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_CRÉDIT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_CRÉDIT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecUtilisateurId.toCompteCreditEntity()
                     val json = genererJsonCompteCreditManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ (UPDATE):
+                    //   $json
                     Triple("COMPTE_CREDIT", json, "comptes_credits")
                 }
                 is CompteDette -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_DETTE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_DETTE UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecUtilisateurId.toCompteDetteEntity()
                     val json = genererJsonCompteDetteManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ (UPDATE):
+                    //   $json
                     Triple("COMPTE_DETTE", json, "comptes_dettes")
                 }
                 is CompteInvestissement -> {
-                    Log.d("CompteRepository", "🚨 COMPTE_INVESTISSEMENT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL")
+                    // 🚨 COMPTE_INVESTISSEMENT UPDATE DÉTECTÉ - GÉNÉRATION JSON MANUEL
                     val entity = compteAvecUtilisateurId.toCompteInvestissementEntity()
                     val json = genererJsonCompteInvestissementManuel(entity)
-                    Log.d("CompteRepository", "🚨 JSON MANUEL GÉNÉRÉ (UPDATE):")
-                    Log.d("CompteRepository", "  $json")
+                    // 🚨 JSON MANUEL GÉNÉRÉ (UPDATE):
+                    //   $json
                     Triple("COMPTE_INVESTISSEMENT", json, "comptes_investissement")
                 }
                 else -> throw IllegalArgumentException("Type de compte non supporté")
@@ -511,12 +511,12 @@ class CompteRepositoryRoomImpl(
                         syncJobDao.insertSyncJob(syncJob)
                         
                         // 🚨 DEBUG CRITIQUE : Vérifier que le SyncJob est bien créé
-                        Log.d("CompteRepository", "🚨 SYNCJOB CRÉÉ POUR PRÊT À PLACER:")
-                        Log.d("CompteRepository", "  ID: ${syncJob.id}")
-                        Log.d("CompteRepository", "  Type: ${syncJob.type}")
-                        Log.d("CompteRepository", "  Action: ${syncJob.action}")
-                        Log.d("CompteRepository", "  RecordId: ${syncJob.recordId}")
-                        Log.d("CompteRepository", "  DataJson: ${syncJob.dataJson}")
+                        // 🚨 SYNCJOB CRÉÉ POUR PRÊT À PLACER:
+                        //   ID: ${syncJob.id}
+                        //   Type: ${syncJob.type}
+                        //   Action: ${syncJob.action}
+                        //   RecordId: ${syncJob.recordId}
+                        //   DataJson: ${syncJob.dataJson}
                         
                         // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
                         SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()

@@ -17,7 +17,7 @@ object SyncWorkManager {
      * Démarre la synchronisation immédiatement
      */
     fun demarrerSynchronisation(context: Context) {
-        android.util.Log.d("SyncWorkManager", "🚀 DÉMARRAGE de la synchronisation immédiate")
+        // 🚀 DÉMARRAGE de la synchronisation immédiate
         
         // ✅ FORCER la synchronisation immédiate en annulant tout travail en cours
         WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
@@ -35,7 +35,7 @@ object SyncWorkManager {
             workRequest
         )
         
-        android.util.Log.d("SyncWorkManager", "✅ Synchronisation immédiate planifiée (sans contraintes)")
+        // ✅ Synchronisation immédiate planifiée (sans contraintes)
     }
     
     /**

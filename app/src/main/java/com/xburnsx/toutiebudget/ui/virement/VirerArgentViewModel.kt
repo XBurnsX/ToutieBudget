@@ -132,7 +132,7 @@ class VirerArgentViewModel(
      * Change le mois sélectionné pour les virements.
      */
     fun changerMois(nouveauMois: Date) {
-        println("🔥 DEBUG: Changement de mois vers: $nouveauMois")
+        // 🔥 DEBUG: Changement de mois vers: $nouveauMois
         _uiState.update {
             it.copy(
                 moisSelectionne = nouveauMois,
@@ -180,17 +180,17 @@ class VirerArgentViewModel(
      * Charge les données pour un mois spécifique.
      */
     private fun chargerDonneesPourMois(mois: Date) {
-        println("🔥 DEBUG: Chargement des données pour le mois: $mois")
+        // 🔥 DEBUG: Chargement des données pour le mois: $mois
         viewModelScope.launch {
             try {
                 allAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
                     .getOrThrow()
-                println("🔥 DEBUG: Allocations chargées pour le mois $mois: ${allAllocations.size}")
+                // 🔥 DEBUG: Allocations chargées pour le mois $mois: ${allAllocations.size}
                 
                 // Reconfigurer les sources et destinations avec les nouvelles allocations
                 configurerSourcesEtDestinationsPourMode()
             } catch (e: Exception) {
-                println("🔥 DEBUG: Erreur lors du chargement des données pour le mois $mois: ${e.message}")
+                // 🔥 DEBUG: Erreur lors du chargement des données pour le mois $mois: ${e.message}
                 // Gérer l'erreur silencieusement
             }
         }
@@ -504,16 +504,16 @@ class VirerArgentViewModel(
                 loggerAllocationsEnveloppes("AVANT VIREMENT - État initial des allocations")
 
                 // VALIDATION DE PROVENANCE SELON LE TYPE DE VIREMENT
-                println("🔥 DEBUG: Début de la validation de provenance")
-                println("🔥 DEBUG: Source: ${source.javaClass.simpleName} - ${if (source is ItemVirement.EnveloppeItem) source.enveloppe.nom else "Compte"}")
-                println("🔥 DEBUG: Destination: ${destination.javaClass.simpleName} - ${if (destination is ItemVirement.EnveloppeItem) destination.enveloppe.nom else "Compte"}")
-                println("🔥 DEBUG: Montant: $montantEnDollars")
+                // 🔥 DEBUG: Début de la validation de provenance
+                // 🔥 DEBUG: Source: ${source.javaClass.simpleName} - ${if (source is ItemVirement.EnveloppeItem) source.enveloppe.nom else "Compte"}
+                // 🔥 DEBUG: Destination: ${destination.javaClass.simpleName} - ${if (destination is ItemVirement.EnveloppeItem) destination.enveloppe.nom else "Compte"}
+                // 🔥 DEBUG: Montant: $montantEnDollars
                 
                 val validationResult = validerProvenanceVirement(source, destination)
 
                 if (validationResult.isFailure) {
                     val messageErreur = validationResult.exceptionOrNull()?.message ?: "Erreur de validation inconnue"
-                    println("🔥 DEBUG: Validation échouée: $messageErreur")
+                    // 🔥 DEBUG: Validation échouée: $messageErreur
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -523,7 +523,7 @@ class VirerArgentViewModel(
                     return@launch
                 }
                 
-                println("🔥 DEBUG: Validation réussie")
+                // 🔥 DEBUG: Validation réussie
 
                 // Effectuer le virement selon les types source/destination
                 val virementResult = when {
@@ -816,7 +816,7 @@ class VirerArgentViewModel(
 
                 // 🔄 RECHARGER DONNÉES + MISE À JOUR BUDGET (EN PARALLÈLE, non-bloquant)
                 launch {
-                    println("DEBUG: Virement réussi, rechargement des données...")
+                    // DEBUG: Virement réussi, rechargement des données...
                     chargerDonneesInitiales()
                     
                     // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
@@ -829,21 +829,21 @@ class VirerArgentViewModel(
                         if (destination is ItemVirement.EnveloppeItem) {
                             allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
                         }
-                        println("DEBUG: Fusion automatique des allocations effectuée")
+                        // DEBUG: Fusion automatique des allocations effectuée
                     } catch (e: Exception) {
-                        println("⚠️ Erreur lors de la fusion automatique des allocations: ${e.message}")
+                        // ⚠️ Erreur lors de la fusion automatique des allocations: ${e.message}
                     }
                     
                     // ⏱️ Délai plus long pour s'assurer que les données sont bien sauvegardées
-                    println("DEBUG: Attente de 1 seconde avant mise à jour du budget...")
+                    // DEBUG: Attente de 1 seconde avant mise à jour du budget...
                     delay(1000)
                     
                     // 🔥 DIAGNOSTIC APRÈS VIREMENT : Logger toutes les allocations après fusion
                     loggerAllocationsEnveloppes("APRÈS VIREMENT - État final des allocations après fusion automatique")
                     
-                    println("DEBUG: Déclenchement de la mise à jour du budget...")
+                    // DEBUG: Déclenchement de la mise à jour du budget...
                     realtimeSyncService.declencherMiseAJourBudget()
-                    println("DEBUG: Mise à jour du budget déclenchée")
+                    // DEBUG: Mise à jour du budget déclenchée
                 }
 
             } catch (e: Exception) {
@@ -1033,11 +1033,11 @@ class VirerArgentViewModel(
      */
     private suspend fun loggerAllocationsEnveloppes(message: String) {
         try {
-            println("🔥 DIAGNOSTIC - $message")
-            println("🔥 DIAGNOSTIC - Enveloppes trouvées: ${allEnveloppes.size}")
+            // 🔥 DIAGNOSTIC - $message
+            // 🔥 DIAGNOSTIC - Enveloppes trouvées: ${allEnveloppes.size}
             
             // Utiliser les allocations déjà chargées dans le ViewModel
-            println("🔥 DIAGNOSTIC - Allocations chargées: ${allAllocations.size}")
+            // 🔥 DIAGNOSTIC - Allocations chargées: ${allAllocations.size}
             
             // Grouper par enveloppe
             val allocationsParEnveloppe = allAllocations.groupBy { it.enveloppeId }
@@ -1046,10 +1046,10 @@ class VirerArgentViewModel(
                 val allocationsEnveloppe = allocationsParEnveloppe[enveloppe.id] ?: emptyList()
                 
                 if (allocationsEnveloppe.isNotEmpty()) {
-                    println("🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}):")
+                    // 🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}):
                     
                     allocationsEnveloppe.forEach { allocation ->
-                        println("🔥 DIAGNOSTIC -   Allocation: enveloppeId=${allocation.enveloppeId}, solde=${allocation.solde}, alloue=${allocation.alloue}, depense=${allocation.depense}, compteSource=${allocation.compteSourceId}")
+                        // 🔥 DIAGNOSTIC -   Allocation: enveloppeId=${allocation.enveloppeId}, solde=${allocation.solde}, alloue=${allocation.alloue}, depense=${allocation.depense}, compteSource=${allocation.compteSourceId}
                     }
                     
                     // Calculer le total
@@ -1057,16 +1057,16 @@ class VirerArgentViewModel(
                     val totalAlloue = allocationsEnveloppe.sumOf { it.alloue }
                     val totalDepense = allocationsEnveloppe.sumOf { it.depense }
                     
-                    println("🔥 DIAGNOSTIC -   TOTAL: solde=$totalSolde, alloue=$totalAlloue, depense=$totalDepense")
+                    // 🔥 DIAGNOSTIC -   TOTAL: solde=$totalSolde, alloue=$totalAlloue, depense=$totalDepense
                 } else {
-                    println("🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}): AUCUNE ALLOCATION")
+                    // 🔥 DIAGNOSTIC - Enveloppe '${enveloppe.nom}' (${enveloppe.id}): AUCUNE ALLOCATION
                 }
             }
             
-            println("🔥 DIAGNOSTIC - Fin du diagnostic")
-            println("=".repeat(80))
+            // 🔥 DIAGNOSTIC - Fin du diagnostic
+            // =".repeat(80)
         } catch (e: Exception) {
-            println("🔥 DIAGNOSTIC - Erreur lors du diagnostic: ${e.message}")
+            // 🔥 DIAGNOSTIC - Erreur lors du diagnostic: ${e.message}
         }
     }
 

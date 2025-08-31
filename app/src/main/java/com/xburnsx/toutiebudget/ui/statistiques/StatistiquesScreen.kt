@@ -651,7 +651,7 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
                     val stepX = if (n > 1) w / (n - 1) else 0f
 
                     // DEBUG: Vérifier que le Canvas a une taille
-                    println("DEBUG Canvas: w=$w, h=$h, n=$n")
+                    // DEBUG Canvas: w=$w, h=$h, n=$n
 
                     fun mapY(v: Double, isMM7: Boolean = false): Float {
                         // Éviter la division par zéro
@@ -669,7 +669,7 @@ private fun CashflowSection(uiState: StatistiquesUiState) {
                         
                         // DEBUG: Afficher les calculs pour diagnostiquer
                         if (v == 0.0 || v == -68.0) {
-                            println("DEBUG mapY: v=$v, minY=$minY, maxY=$maxY, ratio=$ratio, normalizedRatio=$normalizedRatio, h=$h")
+                            // DEBUG mapY: v=$v, minY=$minY, maxY=$maxY, ratio=$ratio, normalizedRatio=$normalizedRatio, h=$h
                         }
                         
                         // Positionnement SIMPLE : négatifs en bas, positifs en haut

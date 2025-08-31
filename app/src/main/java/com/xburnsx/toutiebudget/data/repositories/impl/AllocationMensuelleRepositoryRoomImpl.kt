@@ -96,17 +96,17 @@ class AllocationMensuelleRepositoryRoomImpl(
 
             val moisStr = dateFormatter.format(mois)
             
-            println("🔍 DEBUG - recupererOuCreerAllocation appelé avec:")
-            println("🔍 DEBUG - enveloppeId: $enveloppeId")
-            println("🔍 DEBUG - mois demandé: $moisStr")
-            println("🔍 DEBUG - mois Date object: $mois")
+            // 🔍 DEBUG - recupererOuCreerAllocation appelé avec:
+            // 🔍 DEBUG - enveloppeId: $enveloppeId
+            // 🔍 DEBUG - mois demandé: $moisStr
+            // 🔍 DEBUG - mois Date object: $mois
 
             // 1. 🔥 FUSION RÉELLE : Récupérer TOUTES les allocations pour cette enveloppe et ce mois
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
             
-            println("🔍 DEBUG - Toutes les allocations de l'utilisateur: ${allocationsEntities.size}")
+            // 🔍 DEBUG - Toutes les allocations de l'utilisateur: ${allocationsEntities.size}
             allocationsEntities.filter { it.enveloppeId == enveloppeId }.forEach { entity ->
-                println("🔍 DEBUG - Allocation trouvée pour cette enveloppe: id=${entity.id}, mois=${entity.mois}, solde=${entity.solde}, alloue=${entity.alloue}")
+                // 🔍 DEBUG - Allocation trouvée pour cette enveloppe: id=${entity.id}, mois=${entity.mois}, solde=${entity.solde}, alloue=${entity.alloue}
             }
             
             // 🔥 CORRECTION : Fusionner par MOIS complet, pas par date exacte !
@@ -114,7 +114,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             val annee = moisCalendrier.get(Calendar.YEAR)
             val moisNumero = moisCalendrier.get(Calendar.MONTH)
             
-            println("🔍 DEBUG - Recherche pour année: $annee, mois: $moisNumero")
+            // 🔍 DEBUG - Recherche pour année: $annee, mois: $moisNumero
             
             val allocationsPourEnveloppeEtMois = allocationsEntities.filter { entity -> 
                 try {
@@ -128,7 +128,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                     moisEntity == moisNumero
                     
                     if (entity.enveloppeId == enveloppeId) {
-                        println("🔍 DEBUG - Vérification allocation: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois} -> anneeEntity=$anneeEntity, moisEntity=$moisEntity, match=$match")
+                        // 🔍 DEBUG - Vérification allocation: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois} -> anneeEntity=$anneeEntity, moisEntity=$moisEntity, match=$match
                     }
                     
                     match
@@ -136,18 +136,18 @@ class AllocationMensuelleRepositoryRoomImpl(
                     // Fallback : comparaison exacte si parsing échoue
                     val match = entity.enveloppeId == enveloppeId && entity.mois == moisStr
                     if (entity.enveloppeId == enveloppeId) {
-                        println("🔍 DEBUG - Fallback parsing: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois}, match=$match")
+                        // 🔍 DEBUG - Fallback parsing: enveloppeId=${entity.enveloppeId}, moisEntity=${entity.mois}, match=$match
                     }
                     match
                 }
             }
             
-            println("🔍 DEBUG - Allocations trouvées pour ce mois: ${allocationsPourEnveloppeEtMois.size}")
+            // 🔍 DEBUG - Allocations trouvées pour ce mois: ${allocationsPourEnveloppeEtMois.size}
 
             when {
                 // Cas 1: Aucune allocation trouvée -> Créer une nouvelle
                 allocationsPourEnveloppeEtMois.isEmpty() -> {
-                    println("🔍 DEBUG - Aucune allocation trouvée, création d'une nouvelle")
+                    // 🔍 DEBUG - Aucune allocation trouvée, création d'une nouvelle
                     // 🔥 CORRECTION : Vérifier s'il y a déjà une allocation pour ce mois (peu importe la date exacte)
                     val allocationsPourEnveloppeEtMoisComplet = allocationsEntities.filter { entity -> 
                         try {
@@ -166,11 +166,11 @@ class AllocationMensuelleRepositoryRoomImpl(
                     
                     if (allocationsPourEnveloppeEtMoisComplet.isNotEmpty()) {
                         // 🔥 CORRECTION : Il y a déjà une allocation pour ce mois, la retourner au lieu d'en créer une nouvelle
-                        println("🔍 DEBUG - Allocation existante trouvée pour ce mois, pas de création de doublon")
+                        // 🔍 DEBUG - Allocation existante trouvée pour ce mois, pas de création de doublon
                         allocationsPourEnveloppeEtMoisComplet.first().toAllocationMensuelleModel()
                     } else {
                         // Vraiment aucune allocation pour ce mois, créer une nouvelle
-                        println("🔍 DEBUG - Création d'une nouvelle allocation")
+                        // 🔍 DEBUG - Création d'une nouvelle allocation
                         val nouvelleAllocation = AllocationMensuelle(
                             id = "",
                             utilisateurId = utilisateurId,
@@ -224,18 +224,18 @@ class AllocationMensuelleRepositoryRoomImpl(
                     
                     if (allocationsAvecMontant.size == 1 && allocationsVides.isNotEmpty()) {
                         // Cas simple : 1 allocation avec montant + allocations vides → Supprimer les vides
-                        println("🔥 NETTOYAGE SIMPLE : Suppression de ${allocationsVides.size} allocations vides")
+                        // 🔥 NETTOYAGE SIMPLE : Suppression de ${allocationsVides.size} allocations vides
                         nettoyerDoublonsAllocations(allocationsVides, allocationsAvecMontant.first().id)
                         allocationsAvecMontant.first().toAllocationMensuelleModel()
                     } else if (allocationsAvecMontant.size > 1) {
                         // Cas complexe : Plusieurs allocations avec montant → Fusionner
-                        println("🔥 FUSION RÉELLE : ${allocationsAvecMontant.size} allocations avec montant trouvées, fusion en cours...")
+                        // 🔥 FUSION RÉELLE : ${allocationsAvecMontant.size} allocations avec montant trouvées, fusion en cours...
                         val allocationFusionnee = fusionnerAllocations(allocationsAvecMontant, mois)
                         nettoyerDoublonsAllocations(allocationsAvecMontant, allocationFusionnee.id)
                         allocationFusionnee
                     } else {
                         // Cas par défaut : Retourner la première allocation
-                        println("🔥 AUCUNE FUSION : Retour de la première allocation")
+                        // 🔥 AUCUNE FUSION : Retour de la première allocation
                         allocationsPourEnveloppeEtMois.first().toAllocationMensuelleModel()
                     }
                 }
@@ -401,7 +401,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         val alloueTotal = allocations.sumOf { it.alloue }
         val depenseTotal = allocations.sumOf { it.depense }
         
-        println("🔥 FUSION RÉELLE - Totaux calculés: solde=$soldeTotal, alloue=$alloueTotal, depense=$depenseTotal")
+        // 🔥 FUSION RÉELLE - Totaux calculés: solde=$soldeTotal, alloue=$alloueTotal, depense=$depenseTotal
         
         // 2. Choisir une allocation CANONIQUE à conserver (garder l'ID pour ne PAS casser les références)
         val allocationCanonique = allocations.first()
@@ -437,7 +437,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         )
         syncJobDao.insertSyncJob(syncJob)
         
-        println("🔥 FUSION RÉELLE - Allocation fusionnée créée avec ID: ${allocationFusionnee.id}")
+        // 🔥 FUSION RÉELLE - Allocation fusionnée créée avec ID: ${allocationFusionnee.id}
         
         // 7. Retourner le modèle fusionné
         allocationFusionnee.toAllocationMensuelleModel()
@@ -454,7 +454,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         // Supprimer toutes les allocations sauf celle qu'on garde
         val allocationsASupprimer = allocations.filter { it.id != idAllocationConservee }
         
-        println("🔥 NETTOYAGE - Suppression de ${allocationsASupprimer.size} allocations doublons")
+        // 🔥 NETTOYAGE - Suppression de ${allocationsASupprimer.size} allocations doublons
         
         allocationsASupprimer.forEach { allocation ->
             try {
@@ -473,10 +473,10 @@ class AllocationMensuelleRepositoryRoomImpl(
                 )
                 syncJobDao.insertSyncJob(syncJob)
                 
-                println("🔥 NETTOYAGE - Allocation ${allocation.id} supprimée et marquée pour synchronisation")
+                // 🔥 NETTOYAGE - Allocation ${allocation.id} supprimée et marquée pour synchronisation
                 
             } catch (e: Exception) {
-                println("⚠️ Erreur lors de la suppression de l'allocation ${allocation.id}: ${e.message}")
+                // ⚠️ Erreur lors de la suppression de l'allocation ${allocation.id}: ${e.message}
             }
         }
     }

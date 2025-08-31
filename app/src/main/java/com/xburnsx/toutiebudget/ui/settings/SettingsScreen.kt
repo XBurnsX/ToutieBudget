@@ -154,14 +154,14 @@ fun SettingsScreen(
                             "notif_obj_jours_avant" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifObjJoursAvant(ctx),
                             "notif_enveloppe_negatif" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifEnveloppeNegative(ctx)
                         )
-                        android.util.Log.d("PrefsSyncUI", "SAVE click, payload=${payload}")
+                        // SAVE click, payload=${payload}
                         scope.launch {
                             try {
-                                android.util.Log.d("PrefsSyncUI", "appel service → mettreAJourPreferencesUtilisateur")
+                                // appel service → mettreAJourPreferencesUtilisateur
                                 com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService().mettreAJourPreferencesUtilisateur(payload)
                                 snack.showSnackbar("Préférences enregistrées")
                             } catch (e: Exception) {
-                                android.util.Log.e("PrefsSyncUI", "SAVE error", e)
+                                // SAVE error
                                 snack.showSnackbar("Échec de l'enregistrement")
                             }
                         }

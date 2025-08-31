@@ -70,14 +70,14 @@ fun SyncJobScreen(
     LaunchedEffect(syncJobs) {
         val pendingJobs = syncJobs.filter { it.status == "PENDING" }
         if (pendingJobs.isNotEmpty()) {
-            android.util.Log.d("SyncJobScreen", "🚨 ${pendingJobs.size} SyncJob en attente détectés - DÉCLENCHEMENT IMMÉDIAT de la synchronisation")
+            // 🚨 ${pendingJobs.size} SyncJob en attente détectés - DÉCLENCHEMENT IMMÉDIAT de la synchronisation
             
             // DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION
             try {
                 com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
-                android.util.Log.d("SyncJobScreen", "✅ Synchronisation déclenchée avec succès")
+                // ✅ Synchronisation déclenchée avec succès
             } catch (e: Exception) {
-                android.util.Log.e("SyncJobScreen", "❌ Erreur lors du déclenchement de la synchronisation", e)
+                // ❌ Erreur lors du déclenchement de la synchronisation
             }
         }
     }

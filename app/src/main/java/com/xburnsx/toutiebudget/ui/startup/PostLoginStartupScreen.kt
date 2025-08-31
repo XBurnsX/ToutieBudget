@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.di.AppModule
 import kotlinx.coroutines.delay
-import android.util.Log
+// import android.util.Log
 
 /**
  * Écran d'initialisation qui s'affiche APRÈS la connexion de l'utilisateur
@@ -76,39 +76,39 @@ fun PostLoginStartupScreen(
 
     // Lancer l'import initial des données depuis PocketBase
     LaunchedEffect(Unit) {
-        Log.d("PostLoginStartup", "🚀 DÉBUT DE L'INITIALISATION POST-LOGIN")
+        // 🚀 DÉBUT DE L'INITIALISATION POST-LOGIN
         delay(1000) // Délai initial pour l'animation du logo
         
         try {
-            Log.d("PostLoginStartup", "📱 Tentative de récupération du service d'import...")
+            // 📱 Tentative de récupération du service d'import...
             val importService = AppModule.provideInitialImportService()
-            Log.d("PostLoginStartup", "✅ Service d'import récupéré: $importService")
+            // ✅ Service d'import récupéré: $importService
             
             // Configurer le callback de progression
             importService.onProgressUpdate = { step, message ->
-                Log.d("PostLoginStartup", "📊 PROGRESSION: Étape $step - $message")
+                // 📊 PROGRESSION: Étape $step - $message
                 currentStepState.value = step
             }
             
-            Log.d("PostLoginStartup", "🔥 LANCEMENT DE L'IMPORT RÉEL DES DONNÉES...")
+            // 🔥 LANCEMENT DE L'IMPORT RÉEL DES DONNÉES...
             // Lancer l'import réel des données
             val result = importService.importerDonneesInitiales()
-            Log.d("PostLoginStartup", "📋 RÉSULTAT IMPORT: $result")
+            // 📋 RÉSULTAT IMPORT: $result
             
             if (result.isSuccess) {
-                Log.d("PostLoginStartup", "🎉 IMPORT RÉUSSI! Navigation vers l'écran principal")
+                // 🎉 IMPORT RÉUSSI! Navigation vers l'écran principal
                 // Import réussi, navigation vers l'écran principal
                 onInitializationComplete()
             } else {
-                Log.e("PostLoginStartup", "❌ ERREUR IMPORT: ${result.exceptionOrNull()}")
+                // ❌ ERREUR IMPORT: ${result.exceptionOrNull()}
                 // En cas d'erreur, on continue quand même (mode offline)
-                Log.w("PostLoginStartup", "⚠️ Mode offline - continuation sans import")
+                // ⚠️ Mode offline - continuation sans import
                 onInitializationComplete()
             }
             
         } catch (e: Exception) {
             // En cas d'erreur, on continue quand même (mode offline)
-            Log.w("PostLoginStartup", "Erreur lors de l'import", e)
+            // Erreur lors de l'import
             onInitializationComplete()
         }
     }
