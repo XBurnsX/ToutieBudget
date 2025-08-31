@@ -141,6 +141,30 @@ class TransactionRepositoryRoomImpl(
             Result.failure(e)
         }
     }
+    
+    override suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date, limit: Int, offset: Int): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.success(emptyList())
+
+            val debutStr = dateFormatter.format(debut)
+            val finStr = dateFormatter.format(fin)
+
+            // Récupérer depuis Room (PRIMARY) avec pagination
+            val transactionsEntities = transactionDao.getTransactionsByUtilisateurAndPeriodWithPagination(
+                utilisateurId, debutStr, finStr, limit, offset
+            ).first()
+            
+            // Convertir les entités en modèles
+            val transactions = transactionsEntities.map { entity ->
+                entity.toTransactionModel()
+            }
+            
+            Result.success(transactions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun recupererTransactionsPourCompte(compteId: String, collectionCompte: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         try {

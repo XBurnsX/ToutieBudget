@@ -97,6 +97,13 @@ import java.util.Calendar
 import java.util.Date
 import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -246,9 +253,74 @@ private fun StatistiquesContent(
 
         // KPIs améliorés
                     AnimatedKpiCards(uiState, viewModel)
+        
+        // Divider avec couleur du thème
+        androidx.compose.material3.HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            thickness = 1.dp,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        
+        // Nouvelles cartes KPI pour les totaux - PLACÉES APRÈS LE DIVIDER
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                "Vue d'ensemble financière",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Total Dette (dette, carte de crédit, dette de prêt personnel)
+                GlassmorphicKpiCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Dette",
+                    value = MoneyFormatter.formatAmount(uiState.totalDette),
+                    icon = Icons.Default.TrendingDown,
+                    gradient = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.errorContainer,
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                        )
+                    ),
+                    delay = 0
+                )
+                
+                // Total Valeur (cash qu'on possède en tout)
+                GlassmorphicKpiCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Total Valeur",
+                    value = MoneyFormatter.formatAmount(uiState.totalValeur),
+                    icon = Icons.Default.AccountBalance,
+                    gradient = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0x334CAF50), // vert translucide
+                            Color(0x664CAF50)
+                        )
+                    ),
+                    delay = 100
+                )
+                
+                // Valeur Nette (dette - total valeur)
+                GlassmorphicKpiCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Valeur Nette",
+                    value = MoneyFormatter.formatAmount(uiState.valeurNette),
+                    icon = Icons.Default.TrendingUp,
+                    gradient = netGradient(uiState.valeurNette),
+                    delay = 200
+                )
+            }
+        }
 
         // Top 5 cards avec animation staggered
         AnimatedTopCards(uiState, viewModel)
+
+        // Nouveau graphique de moyenne sur 7 jours
+        Moyenne7JoursChart(uiState)
 
         // Sélecteur retiré (désormais dans la topbar)
 
@@ -594,7 +666,7 @@ private fun EnhancedListCard(
             }
 
             // Items compacts
-            val displayed = items.take(5)
+            val displayed = items.take(20)
             displayed.forEachIndexed { index, item ->
                 CompactListItem(
                     item = item,
@@ -751,7 +823,235 @@ private fun ChartsSection(uiState: StatistiquesUiState) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                EnhancedPieChart(items = uiState.top5Enveloppes)
+                EnhancedPieChart(items = uiState.repartitionEnveloppes)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
+    if (uiState.moyennes7Jours.isEmpty()) return
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Titre du graphique
+            Text(
+                "Moyenne sur 7 jours",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // SUPPRIMER le premier Canvas qui se superpose - on garde seulement celui dans la structure correcte
+            
+            // Définir les couleurs pour le graphique
+            val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            val lineColor = MaterialTheme.colorScheme.primary
+            
+            // Échelle graduée sur le côté gauche (montants)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                // Labels Y à gauche avec espacement correct
+                Column(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(300.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val values = uiState.moyennes7Jours.map { it.second }
+                    val minValue = values.minOrNull() ?: 0.0
+                    val maxValue = values.maxOrNull() ?: 100.0
+                    
+                    for (i in 0..5) {
+                        val value = maxValue - ((maxValue - minValue) * i / 5)
+                        Text(
+                            MoneyFormatter.formatAmount(value),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Start
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Graphique principal - ÉLARGI pour plus d'espace
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(300.dp)
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Canvas(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        val width = size.width
+                        val height = size.height
+                        val padding = 20f
+                        val chartWidth = width - (padding * 2)
+                        val chartHeight = height - (padding * 2)
+                        
+                        // Trouver les valeurs min et max pour l'échelle
+                        val values = uiState.moyennes7Jours.map { it.second }
+                        val minValue = values.minOrNull() ?: 0.0
+                        val maxValue = values.maxOrNull() ?: 100.0
+                        val valueRange = maxValue - minValue
+                        
+                        // Dessiner la grille de fond
+                        val gridStrokeWidth = 1f
+                        
+                        // Lignes horizontales de la grille
+                        for (i in 0..5) {
+                            val y = padding + (chartHeight * i / 5)
+                            drawLine(
+                                color = gridColor,
+                                start = androidx.compose.ui.geometry.Offset(padding, y),
+                                end = androidx.compose.ui.geometry.Offset(width - padding, y),
+                                strokeWidth = gridStrokeWidth
+                            )
+                        }
+                        
+                        // Filtrer les données pour correspondre aux dates affichées (1 jour sur 2)
+                        val donneesFiltrees = uiState.moyennes7Jours.mapIndexedNotNull { index, (label, value) ->
+                            if (index % 2 == 0) label to value else null
+                        }
+                        
+                        // Lignes verticales de la grille - seulement pour les points filtrés
+                        for (i in 0 until donneesFiltrees.size) {
+                            val x = padding + (chartWidth * i / (donneesFiltrees.size - 1))
+                            drawLine(
+                                color = gridColor,
+                                start = androidx.compose.ui.geometry.Offset(x, padding),
+                                end = androidx.compose.ui.geometry.Offset(x, height - padding),
+                                strokeWidth = gridStrokeWidth
+                            )
+                        }
+                        
+                        // Dessiner la ligne principale "Drop lines" - seulement pour les points filtrés
+                        val lineStrokeWidth = 3f
+                        
+                        for (i in 0 until donneesFiltrees.size - 1) {
+                            val current = donneesFiltrees[i]
+                            val next = donneesFiltrees[i + 1]
+                            
+                            val x1 = padding + (chartWidth * i / (donneesFiltrees.size - 1))
+                            val x2 = padding + (chartWidth * (i + 1) / (donneesFiltrees.size - 1))
+                            
+                            val y1 = padding + chartHeight - (chartHeight * (current.second.toFloat() - minValue.toFloat()) / valueRange.toFloat())
+                            val y2 = padding + chartHeight - (chartHeight * (next.second.toFloat() - minValue.toFloat()) / valueRange.toFloat())
+                            
+                            // Ligne principale
+                            drawLine(
+                                color = lineColor,
+                                start = androidx.compose.ui.geometry.Offset(x1, y1),
+                                end = androidx.compose.ui.geometry.Offset(x2, y2),
+                                strokeWidth = lineStrokeWidth
+                            )
+                            
+                            // Points de connexion
+                            drawCircle(
+                                color = lineColor,
+                                radius = 6f,
+                                center = androidx.compose.ui.geometry.Offset(x1, y1)
+                            )
+                            
+                            // Dernier point
+                            if (i == donneesFiltrees.size - 2) {
+                                drawCircle(
+                                    color = lineColor,
+                                    radius = 6f,
+                                    center = androidx.compose.ui.geometry.Offset(x2, y2)
+                                )
+                            }
+                        }
+                    }
+                    
+                    // SUPPRIMER les bulles qui se chevauchent - on garde seulement l'échelle graduée claire
+                }
+            }
+            
+                        // Labels des dates en bas du graphique - FILTRÉS pour afficher 1 jour sur 2
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 96.dp, end = 16.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Filtrer pour afficher seulement 1 jour sur 2 (1, 3, 5, 7, 9, 11, 13, etc.)
+                val datesFiltrees = uiState.moyennes7Jours.mapIndexedNotNull { index, (label, _) ->
+                    if (index % 2 == 0) label else null
+                }
+                
+                for (label in datesFiltrees) {
+                    // Formater la date pour afficher SEULEMENT le jour
+                    val dateFormatee = try {
+                        val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).parse(label)
+                        java.text.SimpleDateFormat("dd", java.util.Locale.getDefault()).format(date)
+                    } catch (e: Exception) {
+                        label
+                    }
+                    
+                    Text(
+                        dateFormatee,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            
+            // Légende et informations - DÉPLACÉE au-dessus du graphique pour ne pas cacher les dates
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = CircleShape
+                            )
+                    )
+                    Text(
+                        "Moyenne mobile 7 jours",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Valeur actuelle
+                val derniereMoyenne = uiState.moyennes7Jours.lastOrNull()?.second ?: 0.0
+                Text(
+                    "Actuel: ${MoneyFormatter.formatAmount(derniereMoyenne)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

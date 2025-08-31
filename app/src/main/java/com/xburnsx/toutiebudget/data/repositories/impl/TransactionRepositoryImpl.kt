@@ -188,6 +188,49 @@ class TransactionRepositoryImpl : TransactionRepository {
             Result.failure(e)
         }
     }
+    
+    override suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date, limit: Int, offset: Int): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        if (!client.estConnecte()) {
+            return@withContext Result.success(emptyList())
+        }
+        
+        try {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé"))
+
+            val token = client.obtenirToken() 
+                ?: return@withContext Result.failure(Exception("Token manquant"))
+            val urlBase = client.obtenirUrlBaseActive()
+
+            val dateDebut = dateFormatter.format(debut)
+            val dateFin = dateFormatter.format(fin)
+            
+            // Filtre pour ne récupérer que les transactions de l'utilisateur connecté dans la période
+            val filtreEncode = URLEncoder.encode(
+                "utilisateur_id = '$utilisateurId' && date >= '$dateDebut' && date <= '$dateFin'", 
+                "UTF-8"
+            )
+            val url = "$urlBase/api/collections/${Collections.TRANSACTIONS}/records?filter=$filtreEncode&perPage=$limit&page=${(offset / limit) + 1}&sort=-date"
+
+            val requete = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .get()
+                .build()
+
+            val reponse = httpClient.newCall(requete).execute()
+            if (!reponse.isSuccessful) {
+                throw Exception("Erreur lors de la récupération des transactions: ${reponse.code} ${reponse.body?.string()}")
+            }
+
+            val corpsReponse = reponse.body!!.string()
+            val transactions = deserialiserListeTransactions(corpsReponse)
+
+            Result.success(transactions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun recupererTransactionsPourCompte(compteId: String, collectionCompte: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         if (!client.estConnecte()) {

@@ -23,15 +23,20 @@ data class StatistiquesUiState(
     val totalDepenses: Double = 0.0,
     val totalRevenus: Double = 0.0,
     val totalNet: Double = 0.0,
+    val totalDette: Double = 0.0,
+    val totalValeur: Double = 0.0,
+    val valeurNette: Double = 0.0,
     val transactionsPeriode: List<Transaction> = emptyList(),
     val top5Enveloppes: List<TopItem> = emptyList(),
+    val repartitionEnveloppes: List<TopItem> = emptyList(),
     val top5Tiers: List<TopItem> = emptyList(),
     val depenses6DerniersMois: List<Pair<String, Double>> = emptyList(),
     val revenus6DerniersMois: List<Pair<String, Double>> = emptyList(),
-
+    val moyennes7Jours: List<Pair<String, Double>> = emptyList(),
     val tiersToNom: Map<String, String> = emptyMap(),
     val modalOuvert: Boolean = false,
     val modalTitre: String = "",
-    val modalTransactions: List<Transaction> = emptyList()
+    val modalTransactions: List<Transaction> = emptyList(),
+    val hasMoreData: Boolean = true
 )
 

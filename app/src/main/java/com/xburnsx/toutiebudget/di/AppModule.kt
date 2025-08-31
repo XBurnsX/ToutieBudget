@@ -226,14 +226,21 @@ import android.content.Context
          DetteViewModel(compteRepository = compteRepository)
      }
 
-      private val statistiquesViewModel: StatistiquesViewModel by lazy {
-          StatistiquesViewModel(
-              transactionRepository = transactionRepository,
-              enveloppeRepository = enveloppeRepository,
-              tiersRepository = tiersRepository,
-              categorieRepository = categorieRepository,
-              realtimeSyncService = realtimeSyncService
-          )
+      private var statistiquesViewModel: StatistiquesViewModel? = null
+      
+      private fun createStatistiquesViewModel(): StatistiquesViewModel {
+          if (statistiquesViewModel == null) {
+              statistiquesViewModel = StatistiquesViewModel(
+                  transactionRepository = transactionRepository,
+                  enveloppeRepository = enveloppeRepository,
+                  tiersRepository = tiersRepository,
+                  categorieRepository = categorieRepository,
+                  compteRepository = compteRepository,
+                  pretPersonnelRepository = pretPersonnelRepository,
+                  realtimeSyncService = realtimeSyncService
+              )
+          }
+          return statistiquesViewModel!!
       }
 
       private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
@@ -270,7 +277,7 @@ import android.content.Context
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
-      fun provideStatistiquesViewModel(): StatistiquesViewModel = statistiquesViewModel
+             fun provideStatistiquesViewModel(): StatistiquesViewModel = createStatistiquesViewModel()
       fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
       fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel
      fun provideHistoriqueCompteViewModel(savedStateHandle: SavedStateHandle): HistoriqueCompteViewModel {

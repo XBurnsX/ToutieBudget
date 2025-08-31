@@ -7,6 +7,8 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,8 @@ class StatistiquesViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val tiersRepository: TiersRepository,
     private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository,
+    private val compteRepository: CompteRepository,
+    private val pretPersonnelRepository: PretPersonnelRepository,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
 
@@ -28,6 +32,11 @@ class StatistiquesViewModel(
     // Map pour résoudre allocation -> enveloppe
     private var allocationIdToEnveloppeId: Map<String, String> = emptyMap()
     private val ID_SANS_ENVELOPPE = "__SANS_ENV__"
+    
+    // Pagination pour les listes de transactions
+    private val _pageSize = 50
+    private var _currentPage = 0
+    private var _hasMoreData = true
 
     init {
         rafraichirDonneesMoisCourant()
@@ -97,6 +106,9 @@ class StatistiquesViewModel(
                 )
                 return@launch
             }
+            
+            // Calculer les totaux financiers
+            val totauxFinanciers = calculerTotauxFinanciers()
 
             val transactions6Mois = transactionsResult.getOrNull().orEmpty()
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
@@ -215,6 +227,19 @@ class StatistiquesViewModel(
                 .take(5)
                 .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
 
+            // 5) Construire la répartition complète avec 20 enveloppes
+            val repartitionEnveloppes = depenseParEnveloppe.entries
+                .map { (envId, montant) ->
+                    val label = when (envId) {
+                        "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
+                        else -> enveloppeIdParNom[envId] ?: "Enveloppe inconnue"
+                    }
+                    TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
+                }
+                .sortedByDescending { it.montant }
+                .take(20)
+                .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
+
             // Top 5 Tiers
             val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
             // Calculer les dépenses par tiers en excluant les enveloppes de catégories "Dettes"/"Cartes de crédit"
@@ -290,6 +315,8 @@ class StatistiquesViewModel(
                 sixMoisLabels[idx] to total
             }
 
+            // Calculer les moyennes sur 7 jours
+            val moyennes7Jours = calculerMoyennes7Jours(transactions6Mois, fin)
 
 
             _uiState.value = StatistiquesUiState(
@@ -301,11 +328,15 @@ class StatistiquesViewModel(
                 totalNet = totalNet,
                 transactionsPeriode = transactions,
                 top5Enveloppes = top5Enveloppes,
+                repartitionEnveloppes = repartitionEnveloppes,
                 top5Tiers = top5Tiers,
                 depenses6DerniersMois = depenses6DerniersMois,
                 revenus6DerniersMois = revenus6DerniersMois,
                 tiersToNom = tiersToNom,
-
+                moyennes7Jours = moyennes7Jours,
+                totalDette = totauxFinanciers.first,
+                totalValeur = totauxFinanciers.second,
+                valeurNette = totauxFinanciers.third
             )
         }
     }
@@ -372,5 +403,235 @@ class StatistiquesViewModel(
         }
         ouvrirModalTransactions("Tous les revenus - ${_uiState.value.periode?.label ?: "Période"}", revenus)
     }
+    
+    // Fonctions de pagination pour les listes de transactions
+    fun chargerPageSuivante() {
+        if (!_hasMoreData) return
+        
+        _currentPage++
+        val offset = _currentPage * _pageSize
+        
+        viewModelScope.launch {
+            val periode = _uiState.value.periode
+            if (periode != null) {
+                val transactionsSupplementaires = transactionRepository.recupererTransactionsParPeriode(
+                    periode.debut, 
+                    periode.fin, 
+                    _pageSize, 
+                    offset
+                )
+                
+                if (transactionsSupplementaires.isSuccess) {
+                    val nouvellesTransactions = transactionsSupplementaires.getOrNull().orEmpty()
+                    if (nouvellesTransactions.size < _pageSize) {
+                        _hasMoreData = false
+                    }
+                    
+                    // Mettre à jour l'état avec les nouvelles transactions
+                    val transactionsActuelles = _uiState.value.transactionsPeriode.toMutableList()
+                    transactionsActuelles.addAll(nouvellesTransactions)
+                    
+                    _uiState.value = _uiState.value.copy(
+                        transactionsPeriode = transactionsActuelles,
+                        hasMoreData = _hasMoreData
+                    )
+                }
+            }
+        }
+    }
+    
+    fun reinitialiserPagination() {
+        _currentPage = 0
+        _hasMoreData = true
+    }
+    
+    fun rafraichirListeTransactions() {
+        reinitialiserPagination()
+        val periode = _uiState.value.periode
+        if (periode != null) {
+            chargerPeriode(periode.debut, periode.fin, periode.label)
+        }
+    }
+    
+    // Fonction pour calculer les totaux financiers
+    private suspend fun calculerTotauxFinanciers(): Triple<Double, Double, Double> {
+        var totalDette = 0.0
+        var totalValeur = 0.0
+        
+        try {
+            // 1. Récupérer tous les comptes et filtrer par type
+            val tousLesComptes = compteRepository.recupererTousLesComptes()
+            if (tousLesComptes.isSuccess) {
+                val comptes = tousLesComptes.getOrNull().orEmpty()
+                
+                println("🔍 DEBUG: ${comptes.size} comptes trouvés")
+                
+                // Filtrer les comptes par type
+                comptes.forEach { compte ->
+                    println("🔍 DEBUG: Compte ${compte.nom} - Type: ${compte.collection} - Solde: ${compte.solde}")
+                    
+                    when (compte.collection) {
+                        "comptes_dettes" -> {
+                            val compteDette = compte as com.xburnsx.toutiebudget.data.modeles.CompteDette
+                            // Les dettes sont de l'argent qu'on DOIT (pas qu'on a)
+                            // Si soldeDette est négatif, c'est une dette (on doit de l'argent)
+                            // Si soldeDette est positif, c'est un crédit (on a de l'argent)
+                            if (compteDette.soldeDette < 0) {
+                                totalDette += kotlin.math.abs(compteDette.soldeDette)
+                                println("🔍 DEBUG: Dette ajoutée: ${kotlin.math.abs(compteDette.soldeDette)} (Total dette: $totalDette)")
+                            } else {
+                                totalValeur += compteDette.soldeDette
+                                println("🔍 DEBUG: Crédit ajouté: ${compteDette.soldeDette} (Total valeur: $totalValeur)")
+                            }
+                        }
+                        "comptes_credits" -> {
+                            val compteCredit = compte as com.xburnsx.toutiebudget.data.modeles.CompteCredit  
+                            // Les soldes utilisés des cartes de crédit sont des dettes
+                            // Si soldeUtilise est négatif, c'est une dette (on doit de l'argent)
+                            // Si soldeUtilise est positif, c'est un crédit (on a de l'argent)
+                            if (compteCredit.soldeUtilise < 0) {
+                                totalDette += kotlin.math.abs(compteCredit.soldeUtilise)
+                                println("🔍 DEBUG: Crédit dette ajouté: ${kotlin.math.abs(compteCredit.soldeUtilise)} (Total dette: $totalDette)")
+                            } else {
+                                totalValeur += compteCredit.soldeUtilise
+                                println("🔍 DEBUG: Crédit positif ajouté: ${compteCredit.soldeUtilise} (Total valeur: $totalValeur)")
+                            }
+                        }
+                        "comptes_cheques" -> {
+                            // Pour les comptes chèques, ajouter le solde (positif ou négatif)
+                            if (compte.solde >= 0) {
+                                totalValeur += compte.solde
+                                println("🔍 DEBUG: Chèque positif ajouté: ${compte.solde} (Total valeur: $totalValeur)")
+                            } else {
+                                totalDette += kotlin.math.abs(compte.solde)
+                                println("🔍 DEBUG: Chèque négatif ajouté: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
+                            }
+                        }
+                        "comptes_investissement" -> {
+                            // Pour les comptes d'investissement, ajouter le solde
+                            if (compte.solde >= 0) {
+                                totalValeur += compte.solde
+                                println("🔍 DEBUG: Investissement positif ajouté: ${compte.solde} (Total valeur: $totalValeur)")
+                            } else {
+                                totalDette += kotlin.math.abs(compte.solde)
+                                println("🔍 DEBUG: Investissement négatif ajouté: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
+                            }
+                        }
+                        "comptes_epargne" -> {
+                            // Pour les comptes d'épargne, ajouter le solde
+                            if (compte.solde >= 0) {
+                                totalValeur += compte.solde
+                                println("🔍 DEBUG: Épargne positive ajoutée: ${compte.solde} (Total valeur: $totalValeur)")
+                            } else {
+                                totalDette += kotlin.math.abs(compte.solde)
+                                println("🔍 DEBUG: Épargne négative ajoutée: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
+                            }
+                        }
+                        else -> {
+                            // Pour tous les autres types de comptes, ajouter le solde
+                            if (compte.solde >= 0) {
+                                totalValeur += compte.solde
+                                println("🔍 DEBUG: Autre compte positif ajouté: ${compte.solde} (Type: ${compte.collection}) (Total valeur: $totalValeur)")
+                            } else {
+                                totalDette += kotlin.math.abs(compte.solde)
+                                println("🔍 DEBUG: Autre compte négatif ajouté: ${kotlin.math.abs(compte.solde)} (Type: ${compte.collection}) (Total dette: $totalDette)")
+                            }
+                        }
+                    }
+                }
+            } else {
+                println("❌ ERREUR: Impossible de récupérer les comptes: ${tousLesComptes.exceptionOrNull()?.message}")
+            }
+            
+            // 2. Calculer le total des prêts personnels
+            val pretsPersonnels = pretPersonnelRepository.lister()
+            if (pretsPersonnels.isSuccess) {
+                val prets = pretsPersonnels.getOrNull().orEmpty()
+                println("🔍 DEBUG: ${prets.size} prêts personnels trouvés")
+                
+                prets.forEach { pret ->
+                    if (pret.solde < 0) {
+                        totalDette += kotlin.math.abs(pret.solde)
+                        println("🔍 DEBUG: Prêt personnel dette ajouté: ${kotlin.math.abs(pret.solde)} (Total dette: $totalDette)")
+                    } else {
+                        totalValeur += pret.solde
+                        println("🔍 DEBUG: Prêt personnel crédit ajouté: ${pret.solde} (Total valeur: $totalValeur)")
+                    }
+                }
+            } else {
+                println("❌ ERREUR: Impossible de récupérer les prêts personnels: ${pretsPersonnels.exceptionOrNull()?.message}")
+            }
+            
+        } catch (e: Exception) {
+            println("❌ ERREUR dans calculerTotauxFinanciers: ${e.message}")
+            e.printStackTrace()
+            // En cas d'erreur, retourner des valeurs par défaut
+            totalDette = 0.0
+            totalValeur = 0.0
+        }
+        
+        // 3. Calculer la valeur nette (total valeur - total dette)
+        // Si tu as 1000$ en cash et 500$ de dettes, ta valeur nette = 1000$ - 500$ = 500$
+        val valeurNette = totalValeur - totalDette
+        
+        println("🔍 DEBUG FINAL: Total Dette: $totalDette, Total Valeur: $totalValeur, Valeur Nette: $valeurNette")
+        
+        return Triple(totalDette, totalValeur, valeurNette)
+    }
 }
+
+// Fonction pour calculer les moyennes sur 7 jours pour chaque jour du mois
+private fun calculerMoyennes7Jours(transactions: List<Transaction>, dateFin: Date): List<Pair<String, Double>> {
+    val moyennes = mutableListOf<Pair<String, Double>>()
+    val cal = Calendar.getInstance().apply { 
+        time = dateFin 
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.DAY_OF_MONTH, -29) // Remonter de 30 jours
+    }
+    
+    // Calculer la moyenne sur 7 jours glissante pour chaque jour
+    repeat(30) { jour ->
+        val dateCourante = cal.time
+        
+        // Calculer la moyenne sur les 7 jours précédents (incluant le jour actuel)
+        val cal7Jours = Calendar.getInstance().apply { 
+            time = dateCourante 
+            add(Calendar.DAY_OF_YEAR, -6) // Remonter de 6 jours
+        }
+        val debut7Jours = cal7Jours.time
+        val fin7Jours = dateCourante
+        
+        val transactions7Jours = transactions.filter { 
+            it.date >= debut7Jours && it.date <= fin7Jours 
+        }
+        
+        val totalDepenses = transactions7Jours.filter { 
+            it.type == TypeTransaction.Depense || 
+            it.type == TypeTransaction.Pret || 
+            it.type == TypeTransaction.RemboursementDonne || 
+            it.type == TypeTransaction.PaiementEffectue
+        }.sumOf { it.montant }
+        
+        val totalRevenus = transactions7Jours.filter { 
+            it.type == TypeTransaction.Revenu || 
+            it.type == TypeTransaction.Emprunt || 
+            it.type == TypeTransaction.RemboursementRecu
+        }.sumOf { it.montant }
+        
+        val net7Jours = totalRevenus - totalDepenses
+        val moyenne7Jours = net7Jours / 7.0 // Moyenne par jour sur 7 jours
+        
+        val label = java.text.SimpleDateFormat("dd", java.util.Locale.FRENCH).format(dateCourante)
+        moyennes.add(label to moyenne7Jours)
+        
+        cal.add(Calendar.DAY_OF_YEAR, 1)
+    }
+    
+    return moyennes
+}
+
+
 

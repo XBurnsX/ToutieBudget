@@ -21,6 +21,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND date BETWEEN :dateDebut AND :dateFin ORDER BY date DESC")
     fun getTransactionsByUtilisateurAndPeriod(utilisateurId: String, dateDebut: String, dateFin: String): Flow<List<Transaction>>
     
+    @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND date BETWEEN :dateDebut AND :dateFin ORDER BY date DESC LIMIT :limit OFFSET :offset")
+    fun getTransactionsByUtilisateurAndPeriodWithPagination(utilisateurId: String, dateDebut: String, dateFin: String, limit: Int, offset: Int): Flow<List<Transaction>>
+    
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND allocation_mensuelle_id = :allocationId ORDER BY date DESC")
     fun getTransactionsByAllocation(utilisateurId: String, allocationId: String): Flow<List<Transaction>>
     

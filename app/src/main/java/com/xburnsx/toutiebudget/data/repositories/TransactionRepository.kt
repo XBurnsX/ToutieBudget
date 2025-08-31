@@ -34,6 +34,16 @@ interface TransactionRepository {
     suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date): Result<List<Transaction>>
     
     /**
+     * Récupère les transactions d'un utilisateur pour une période donnée avec pagination.
+     * @param debut Date de début de la période
+     * @param fin Date de fin de la période
+     * @param limit Nombre maximum de transactions à récupérer
+     * @param offset Nombre de transactions à ignorer (pour la pagination)
+     * @return Result contenant la liste des transactions, ou une erreur
+     */
+    suspend fun recupererTransactionsParPeriode(debut: Date, fin: Date, limit: Int, offset: Int): Result<List<Transaction>>
+    
+    /**
      * Récupère les transactions liées à un compte spécifique.
      * @param compteId ID du compte
      * @param collectionCompte Collection du compte (ex: "comptes_cheque")
