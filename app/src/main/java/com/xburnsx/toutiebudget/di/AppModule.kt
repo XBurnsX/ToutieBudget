@@ -328,4 +328,7 @@ import android.content.Context
      fun provideNetworkConnectivityService(context: Context): com.xburnsx.toutiebudget.data.services.NetworkConnectivityService {
          return com.xburnsx.toutiebudget.data.services.NetworkConnectivityService(context)
      }
+     
+     // 🆕 NOUVEAU : Fournit le repository d'historique des allocations
+     fun provideHistoriqueAllocationRepository(): HistoriqueAllocationRepository = historiqueAllocationRepository
  }

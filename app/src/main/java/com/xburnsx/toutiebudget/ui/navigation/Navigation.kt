@@ -40,6 +40,7 @@ import com.xburnsx.toutiebudget.ui.login.LoginScreen
 import com.xburnsx.toutiebudget.ui.startup.StartupScreen
 import com.xburnsx.toutiebudget.ui.startup.PostLoginStartupScreen
 import com.xburnsx.toutiebudget.ui.settings.SettingsScreen
+import com.xburnsx.toutiebudget.ui.settings.HistoryScreen
 import com.xburnsx.toutiebudget.ui.sync.SyncJobScreen
 import com.xburnsx.toutiebudget.ui.virement.VirerArgentScreen
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
@@ -459,6 +460,13 @@ fun MainAppScaffold(
                     onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") },
                     onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") },
                     onNavigateToHistory = { bottomBarNavController.navigate(Screen.HistoriqueGeneral.route) }
+                )
+            }
+
+            // Route pour l'historique général
+            composable(Screen.HistoriqueGeneral.route) {
+                HistoryScreen(
+                    onBack = { bottomBarNavController.popBackStack() }
                 )
             }
 
