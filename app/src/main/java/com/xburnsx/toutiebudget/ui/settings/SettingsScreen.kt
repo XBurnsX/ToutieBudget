@@ -116,7 +116,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToArchives: () -> Unit = {},
     onNavigateToSyncJobs: () -> Unit = {},
-    onNavigateToDatabaseManager: () -> Unit = {}
+    onNavigateToDatabaseManager: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -390,6 +391,17 @@ fun SettingsScreen(
 
             // Section Données
             item { SectionHeader(titre = "Données", icone = Icons.Default.Archive) }
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Archive,
+                        titre = "Historique des comptes",
+                        description = "Voir l'historique complet des transactions et virements",
+                        onClick = onNavigateToHistory,
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                    )
+                }
+            }
             item {
                 SettingsCard {
                     RowParam(

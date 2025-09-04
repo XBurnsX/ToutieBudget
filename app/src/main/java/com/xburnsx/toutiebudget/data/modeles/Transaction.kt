@@ -16,12 +16,16 @@ data class Transaction(
     val montant: Double = 0.0,
     val date: Date = Date(),
     val note: String? = null,
+    val description: String? = null, // Description de la transaction
     val compteId: String = "",
     val collectionCompte: String = "",
     val allocationMensuelleId: String? = null,
     val estFractionnee: Boolean = false, // Si la transaction est fractionnée
     val sousItems: String? = null, // JSON des sous-items pour les transactions fractionnées
     val tiersUtiliser: String? = null, // Nom du tiers utilisé dans cette transaction
+    val soldeAvant: Double = 0.0, // Solde du compte avant la transaction
+    val soldeApres: Double = 0.0, // Solde du compte après la transaction
+    val dateTransaction: String = "", // Date formatée pour l'affichage
     val created: Date? = null,
     val updated: Date? = null
 )

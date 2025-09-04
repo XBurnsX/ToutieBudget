@@ -43,7 +43,8 @@ class BudgetViewModel(
     private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase,
     private val realtimeSyncService: RealtimeSyncService,
     private val validationProvenanceService: ValidationProvenanceService,
-    private val objectifCalculator: ObjectifCalculator
+    private val objectifCalculator: ObjectifCalculator,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
 
     // Service de reset automatique des objectifs bihebdomadaires
@@ -639,6 +640,25 @@ class BudgetViewModel(
                 
                 // ✅ MISE À JOUR : Sauvegarder l'allocation unique
                 allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
+
+                // 📝 ENREGISTRER DANS L'HISTORIQUE
+                try {
+                    android.util.Log.d("ToutieBudget", "🔄 BUDGET_VIEWMODEL : Tentative d'enregistrement dans l'historique pour assignation d'argent")
+                    historiqueAllocationService.enregistrerModificationAllocation(
+                        allocationAvant = allocationFusionnee,
+                        allocationApres = allocationFinale,
+                        compte = compteSource,
+                        enveloppe = enveloppe,
+                        montantModification = montantDollars,
+                        soldeAvant = compteSource.solde,
+                        soldeApres = compteSource.solde, // Le solde du compte ne change pas pour un virement prêt à placer
+                        pretAPlacerAvant = compteSource.pretAPlacer,
+                        pretAPlacerApres = nouveauPretAPlacer
+                    )
+                    android.util.Log.d("ToutieBudget", "✅ BUDGET_VIEWMODEL : Enregistrement dans l'historique réussi")
+                } catch (e: Exception) {
+                    android.util.Log.e("ToutieBudget", "❌ BUDGET_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
+                }
 
                 // 🔄 FORCER LA VISIBILITÉ DES SYNCJOB des allocations
                 realtimeSyncService.declencherMiseAJourBudget()

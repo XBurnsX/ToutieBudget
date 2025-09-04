@@ -93,21 +93,31 @@ import android.content.Context
              database.syncJobDao()
          )
      }
-     private val pretPersonnelRepository: PretPersonnelRepository by lazy { 
-         PretPersonnelRepositoryRoomImpl(
-             database.pretPersonnelDao(),
-             database.syncJobDao()
-         )
-     }
+         private val pretPersonnelRepository: PretPersonnelRepository by lazy { 
+        PretPersonnelRepositoryRoomImpl(
+            database.pretPersonnelDao(),
+            database.syncJobDao()
+        )
+    }
+    
+    private val historiqueAllocationRepository: HistoriqueAllocationRepository by lazy { 
+        HistoriqueAllocationRepositoryRoomImpl(
+            database.historiqueAllocationDao()
+        )
+    }
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
          ValidationProvenanceService(enveloppeRepository, compteRepository)
      }
-     private val virementUseCase: VirementUseCase by lazy {
-         VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService)
+     
+     private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService by lazy {
+         com.xburnsx.toutiebudget.domain.services.Impl.HistoriqueAllocationServiceImpl(historiqueAllocationRepository)
      }
-     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository, categorieRepository) }
+     private val virementUseCase: VirementUseCase by lazy {
+         VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService, historiqueAllocationService)
+     }
+     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository, categorieRepository, historiqueAllocationService) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
     
     private val initialImportService: InitialImportService by lazy {
@@ -154,7 +164,8 @@ import android.content.Context
             verifierEtExecuterRolloverUseCase = verifierEtExecuterRolloverUseCase,
             realtimeSyncService = realtimeSyncService,
             validationProvenanceService = validationProvenanceService,
-            objectifCalculator = objectifCalculator
+            objectifCalculator = objectifCalculator,
+            historiqueAllocationService = historiqueAllocationService
         )
      }
      

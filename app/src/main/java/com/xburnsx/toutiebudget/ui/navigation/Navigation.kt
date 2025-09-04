@@ -65,6 +65,7 @@ sealed class Screen(
     object Statistiques : Screen("statistiques", "Stats", { Icons.Default.BarChart })
     object HistoriqueCompte : Screen("historique_compte/{compteId}/{collectionCompte}/{nomCompte}", "Historique", { Icons.Default.History })
     object HistoriqueEnveloppe : Screen("historique_enveloppe/{enveloppeId}/{nomEnveloppe}", "Historique Enveloppe", { Icons.Default.History })
+    object HistoriqueGeneral : Screen("historique_general", "Historique des Comptes", { Icons.Default.History })
     object VirerArgent : Screen("virer_argent", "Virement", { ImageVector.vectorResource(R.drawable.transfert_argent) })
     object Settings : Screen("settings", "Paramètres", { Icons.Default.Settings })
 
@@ -456,7 +457,8 @@ fun MainAppScaffold(
                     onBack = { bottomBarNavController.popBackStack() },
                     onNavigateToArchives = { bottomBarNavController.navigate("archives") },
                     onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") },
-                    onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") }
+                    onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") },
+                    onNavigateToHistory = { bottomBarNavController.navigate(Screen.HistoriqueGeneral.route) }
                 )
             }
 
@@ -481,6 +483,13 @@ fun MainAppScaffold(
                 ArchivesScreen(
                     comptesViewModel = comptesVm,
                     budgetViewModel = budgetVm,
+                    onBack = { bottomBarNavController.popBackStack() }
+                )
+            }
+            
+            // Route pour la page Historique générale
+            composable(Screen.HistoriqueGeneral.route) {
+                com.xburnsx.toutiebudget.ui.settings.HistoryScreen(
                     onBack = { bottomBarNavController.popBackStack() }
                 )
             }

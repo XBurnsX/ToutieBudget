@@ -23,7 +23,8 @@ class VirementUseCase @Inject constructor(
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val validationProvenanceService: ValidationProvenanceService
+    private val validationProvenanceService: ValidationProvenanceService,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) {
 
     /**
@@ -89,6 +90,31 @@ class VirementUseCase @Inject constructor(
             )
 
             allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+
+            // 4.5. Récupérer l'enveloppe pour l'historique
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()
+                ?: throw IllegalArgumentException("Impossible de récupérer les enveloppes")
+            val enveloppe = enveloppes.find { it.id == enveloppeId }
+                ?: throw IllegalArgumentException("Enveloppe non trouvée: $enveloppeId")
+            
+            // 4.6. Enregistrer dans l'historique
+            android.util.Log.d("ToutieBudget", "🔄 VIREMENT_USE_CASE : Tentative d'enregistrement dans l'historique pour virement prêt à placer")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocationExistante,
+                    allocationApres = allocationMiseAJour,
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montantModification = montant,
+                    soldeAvant = compte.solde,
+                    soldeApres = compte.solde, // Le solde du compte ne change pas pour un virement prêt à placer
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer - montant
+                )
+                android.util.Log.d("ToutieBudget", "✅ VIREMENT_USE_CASE : Enregistrement dans l'historique réussi")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ VIREMENT_USE_CASE : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
+            }
 
             // 5. Mettre à jour le prêt à placer du compte
             val resultCompte = compteRepository.mettreAJourPretAPlacerSeulement(
@@ -202,6 +228,24 @@ class VirementUseCase @Inject constructor(
             // ✅ Mettre à jour l'allocation existante
             allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
 
+            // 5.5. Récupérer l'enveloppe pour l'historique
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()
+                ?: throw IllegalArgumentException("Impossible de récupérer les enveloppes")
+            val enveloppe = enveloppes.find { it.id == enveloppeId }
+                ?: throw IllegalArgumentException("Enveloppe non trouvée: $enveloppeId")
+            
+            // 5.6. Enregistrer dans l'historique
+            historiqueAllocationService.enregistrerModificationAllocation(
+                allocationAvant = allocationExistante,
+                allocationApres = allocationMiseAJour,
+                compte = compte,
+                enveloppe = enveloppe,
+                montantModification = -montant, // Négatif car on retire de l'enveloppe
+                soldeAvant = compte.solde,
+                soldeApres = compte.solde, // Le solde du compte ne change pas pour un virement enveloppe vers prêt à placer
+                pretAPlacerAvant = compte.pretAPlacer,
+                pretAPlacerApres = compte.pretAPlacer + montant
+            )
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
             val validationResult = validationProvenanceService.validerRetourVersCompte(

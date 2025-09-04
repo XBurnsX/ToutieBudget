@@ -25,7 +25,8 @@ class ArgentServiceImpl @Inject constructor(
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val virementUseCase: VirementUseCase,
     private val enveloppeRepository: com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository,
-    private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository
+    private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ArgentService {
 
     /**
@@ -60,6 +61,35 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+
+        // 3.5. Récupérer l'enveloppe pour l'historique
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()
+            ?: throw IllegalArgumentException("Impossible de récupérer les enveloppes")
+        val enveloppe = enveloppes.find { it.id == enveloppeId }
+            ?: throw IllegalArgumentException("Enveloppe non trouvée: $enveloppeId")
+        
+        // 3.6. Enregistrer dans l'historique
+        if (compteSource is CompteCheque) {
+            android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour allocation")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocation,
+                    allocationApres = allocationMiseAJour,
+                    compte = compteSource,
+                    enveloppe = enveloppe,
+                    montantModification = montant,
+                    soldeAvant = compteSource.solde,
+                    soldeApres = compteSource.solde - montant,
+                    pretAPlacerAvant = compteSource.pretAPlacer,
+                    pretAPlacerApres = compteSource.pretAPlacer // Le prêt à placer ne change pas pour une allocation directe
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
+            }
+        } else {
+            android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte source n'est pas un CompteCheque, pas d'enregistrement dans l'historique")
+        }
 
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
@@ -113,6 +143,35 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         allocationMensuelleRepository.mettreAJourAllocation(allocationMiseAJour)
+
+        // 3.5. Récupérer l'enveloppe pour l'historique
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()
+            ?: throw IllegalArgumentException("Impossible de récupérer les enveloppes")
+        val enveloppe = enveloppes.find { it.id == enveloppeId }
+            ?: throw IllegalArgumentException("Enveloppe non trouvée: $enveloppeId")
+        
+        // 3.6. Enregistrer dans l'historique
+        if (compteSource is CompteCheque) {
+            android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour allocation sans transaction")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocation,
+                    allocationApres = allocationMiseAJour,
+                    compte = compteSource,
+                    enveloppe = enveloppe,
+                    montantModification = montant,
+                    soldeAvant = compteSource.solde,
+                    soldeApres = compteSource.solde - montant,
+                    pretAPlacerAvant = compteSource.pretAPlacer,
+                    pretAPlacerApres = compteSource.pretAPlacer // Le prêt à placer ne change pas pour une allocation directe
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (sans transaction)")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (sans transaction): ${e.message}")
+            }
+        } else {
+            android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte source n'est pas un CompteCheque, pas d'enregistrement dans l'historique (sans transaction)")
+        }
 
         // 4. Mettre à jour le solde du compte source
         val nouveauSolde = compteSource.solde - montant
@@ -382,6 +441,20 @@ class ArgentServiceImpl @Inject constructor(
         )
 
         val allocationCreee = allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocation)
+
+        // 4.5. Enregistrer dans l'historique
+        if (compte is CompteCheque) {
+            historiqueAllocationService.enregistrerCreationAllocation(
+                allocation = allocationCreee,
+                compte = compte,
+                enveloppe = enveloppe,
+                montant = montant,
+                soldeAvant = compte.solde,
+                soldeApres = nouveauSoldeCompte,
+                pretAPlacerAvant = compte.pretAPlacer,
+                pretAPlacerApres = compte.pretAPlacer // Le prêt à placer ne change pas pour un virement direct
+            )
+        }
 
         // Créer la transaction
         val transaction = Transaction(
@@ -1032,3 +1105,5 @@ class ArgentServiceImpl @Inject constructor(
         }
     }
 }
+
+
