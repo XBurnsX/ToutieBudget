@@ -109,6 +109,31 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         transactionRepository.creerTransaction(transaction)
+        
+        // 📝 ENREGISTRER DANS L'HISTORIQUE
+        try {
+            val compte = compteRepository.getCompteById(compteSourceId, collectionCompteSource)
+            val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeId }
+            
+            if (compte is CompteCheque && enveloppe != null) {
+                android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour allocation argent enveloppe")
+                historiqueAllocationService.enregistrerCreationAllocation(
+                    allocation = allocationMiseAJour,
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montant = montant,
+                    soldeAvant = compte.solde,
+                    soldeApres = compte.solde - montant,
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (allocation argent enveloppe)")
+            } else {
+                android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte ou enveloppe non trouvé, pas d'enregistrement dans l'historique (allocation argent enveloppe)")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (allocation argent enveloppe): ${e.message}")
+        }
     }
 
     /**
@@ -273,6 +298,34 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         transactionRepository.creerTransaction(transaction)
+        
+        // 📝 ENREGISTRER DANS L'HISTORIQUE
+        try {
+            val compte = compteRepository.getCompteById(compteId, collectionCompte)
+            
+            if (compte is CompteCheque) {
+                android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour transaction ${typeTransaction}")
+                historiqueAllocationService.enregistrerTransactionDirecte(
+                    compte = compte,
+                    enveloppe = null, // Pas d'enveloppe pour les transactions directes
+                    typeTransaction = typeTransaction.name,
+                    montant = when (typeTransaction) {
+                        TypeTransaction.Depense, TypeTransaction.Pret, TypeTransaction.RemboursementDonne, TypeTransaction.PaiementEffectue, TypeTransaction.TransfertSortant -> -montant
+                        TypeTransaction.Revenu, TypeTransaction.RemboursementRecu, TypeTransaction.Emprunt, TypeTransaction.Paiement, TypeTransaction.TransfertEntrant -> montant
+                    },
+                    soldeAvant = compte.solde,
+                    soldeApres = nouveauSolde,
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer, // Le prêt à placer ne change pas pour les transactions directes
+                    note = note
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (transaction ${typeTransaction})")
+            } else {
+                android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte n'est pas un CompteCheque, pas d'enregistrement dans l'historique (transaction ${typeTransaction})")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
+        }
     }
     
     /**
@@ -543,6 +596,29 @@ class ArgentServiceImpl @Inject constructor(
         )
         
         transactionRepository.creerTransaction(transaction)
+        
+        // 📝 ENREGISTRER DANS L'HISTORIQUE
+        if (compte is CompteCheque) {
+            android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour virement enveloppe vers compte")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocationExistante,
+                    allocationApres = allocationExistante.copy(solde = allocationExistante.solde - montant),
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montantModification = -montant, // Négatif car on retire de l'enveloppe
+                    soldeAvant = compte.solde,
+                    soldeApres = nouveauSoldeCompte, // Le solde du compte augmente
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer // Le prêt à placer ne change pas
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (enveloppe vers compte)")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (enveloppe vers compte): ${e.message}")
+            }
+        } else {
+            android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte destination n'est pas un CompteCheque, pas d'enregistrement dans l'historique (enveloppe vers compte)")
+        }
     }
 
     override suspend fun effectuerVirementEnveloppeVersCompteSansTransaction(
@@ -550,6 +626,8 @@ class ArgentServiceImpl @Inject constructor(
         compte: com.xburnsx.toutiebudget.data.modeles.Compte,
         montant: Double
     ): Result<Unit> = runCatching {
+        android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Début effectuerVirementEnveloppeVersCompteSansTransaction - ${enveloppe.nom} vers ${compte.nom} - ${montant}$")
+        
         if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
         
         // Récupérer l'allocation mensuelle de l'enveloppe
@@ -600,6 +678,31 @@ class ArgentServiceImpl @Inject constructor(
         } catch (e: Exception) {
             // Erreur silencieuse de fusion - ne pas faire échouer le virement
             // ⚠️ Erreur lors de la fusion des allocations après virement enveloppe->compte: ${e.message}
+        }
+        
+        android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Arrivé à la section historique - compte type: ${compte::class.simpleName}")
+        
+        // 📝 ENREGISTRER DANS L'HISTORIQUE
+        if (compte is CompteCheque) {
+            android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour virement enveloppe vers prêt à placer")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocationExistante,
+                    allocationApres = allocationExistante.copy(solde = allocationExistante.solde - montant),
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montantModification = -montant, // Négatif car on retire de l'enveloppe
+                    soldeAvant = compte.solde, // Solde AVANT la modification
+                    soldeApres = compte.solde, // Le solde du compte ne change pas pour un virement enveloppe vers prêt à placer
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer + montant // Le prêt à placer augmente
+                )
+                android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (enveloppe vers prêt à placer)")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (enveloppe vers prêt à placer): ${e.message}")
+            }
+        } else {
+            android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte destination n'est pas un CompteCheque, pas d'enregistrement dans l'historique (enveloppe vers prêt à placer)")
         }
         
         // PAS DE TRANSACTION - C'est un virement interne !
@@ -1040,6 +1143,37 @@ class ArgentServiceImpl @Inject constructor(
             note = null
         )
         transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
+
+        // 📝 ENREGISTRER DANS L'HISTORIQUE POUR PAIEMENT EFFECTUÉ
+        try {
+            if (compteQuiPaie is CompteCheque) {
+                android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour paiement effectué")
+                // Récupérer le solde APRÈS la mise à jour
+                val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque
+                if (compteApres != null) {
+                    val soldeApres = compteApres.solde
+                    val pretAPlacerApres = compteApres.pretAPlacer
+                    // Calculer le solde AVANT (argent qui SORT : soldeAvant = soldeApres + montant)
+                    val soldeAvant = soldeApres + montant
+                    val pretAPlacerAvant = pretAPlacerApres // Le prêt à placer ne change pas pour les paiements
+                    
+                    historiqueAllocationService.enregistrerTransactionDirecte(
+                        compte = compteApres,
+                        enveloppe = null,
+                        typeTransaction = "PAIEMENT_EFFECTUE",
+                        montant = -montant, // Négatif car c'est de l'argent qui sort
+                        soldeAvant = soldeAvant,
+                        soldeApres = soldeApres,
+                        pretAPlacerAvant = pretAPlacerAvant,
+                        pretAPlacerApres = pretAPlacerApres,
+                        note = "Paiement vers ${note ?: carteOuDette.nom}"
+                    )
+                    android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (paiement effectué)")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (paiement effectué): ${e.message}")
+        }
 
         // 7.2 Transactions sur la carte et sur les dettes (reçues comme remboursement)
         if (montantPourCarte > 0) {

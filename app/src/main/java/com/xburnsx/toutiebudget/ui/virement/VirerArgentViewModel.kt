@@ -14,6 +14,7 @@ import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -657,7 +658,8 @@ class VirerArgentViewModel(
                                 }
                             }
                         } else if (estPretAPlacer(destination.enveloppe)) {
-                                                                // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
+                            android.util.Log.d("ToutieBudget", "🔄 VIRER_ARGENT_VIEWMODEL : Chemin Enveloppe vers Prêt à placer (Enveloppe vers Enveloppe)")
+                            // Destination est un "Prêt à placer" - VIREMENT INTERNE (pas de transaction)
                                     val compteId = extraireCompteIdDepuisPretAPlacer(destination.enveloppe.id)
                                                          val compteDestination = allComptes.find { it.id == compteId }
                             if (compteDestination == null) {
@@ -706,6 +708,30 @@ class VirerArgentViewModel(
                                                 
                                                 try {
                                                     compteRepository.mettreAJourCompte(compteModifie)
+                                                    
+                                                    // 📝 ENREGISTRER DANS L'HISTORIQUE
+                                                    try {
+                                                        val enveloppeSource = allEnveloppes.find { it.id == source.enveloppe.id }
+                                                        if (enveloppeSource != null) {
+                                                            android.util.Log.d("ToutieBudget", "🔄 VIRER_ARGENT_VIEWMODEL : Tentative d'enregistrement dans l'historique pour virement enveloppe vers prêt à placer")
+                                                            val historiqueAllocationService = AppModule.provideHistoriqueAllocationService()
+                                                            historiqueAllocationService.enregistrerModificationAllocation(
+                                                                allocationAvant = allocationSource,
+                                                                allocationApres = allocationSourceMiseAJour,
+                                                                compte = compteDestination,
+                                                                enveloppe = enveloppeSource,
+                                                                montantModification = -montantEnDollars, // Négatif car on retire de l'enveloppe
+                                                                soldeAvant = compteDestination.solde,
+                                                                soldeApres = compteDestination.solde, // Le solde ne change pas
+                                                                pretAPlacerAvant = ancienPretAPlacer,
+                                                                pretAPlacerApres = nouveauPretAPlacer
+                                                            )
+                                                            android.util.Log.d("ToutieBudget", "✅ VIRER_ARGENT_VIEWMODEL : Enregistrement dans l'historique réussi (enveloppe vers prêt à placer)")
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        android.util.Log.e("ToutieBudget", "❌ VIRER_ARGENT_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (enveloppe vers prêt à placer): ${e.message}")
+                                                    }
+                                                    
                                                     Result.success(Unit)
                                                 } catch (e: Exception) {
                                                     Result.failure<Unit>(Exception("Erreur lors de la mise à jour du prêt à placer: ${e.message}"))

@@ -56,4 +56,19 @@ interface HistoriqueAllocationService {
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     )
+    
+    /**
+     * Enregistre une transaction directe (sans allocation).
+     */
+    suspend fun enregistrerTransactionDirecte(
+        compte: CompteCheque,
+        enveloppe: Enveloppe?,
+        typeTransaction: String,
+        montant: Double,
+        soldeAvant: Double,
+        soldeApres: Double,
+        pretAPlacerAvant: Double,
+        pretAPlacerApres: Double,
+        note: String?
+    )
 }

@@ -437,6 +437,8 @@ class CompteRepositoryRoomImpl(
                 is CompteCheque -> {
                     val nouveauSolde = compte.solde + variationSolde
                     val nouveauPretAPlacer = if (mettreAJourPretAPlacer) {
+                        // Pour le prêt à placer, on utilise la même variation que le solde
+                        // car ils doivent bouger ensemble (prêt = argent qui sort des deux)
                         compte.pretAPlacer + variationSolde
                     } else {
                         compte.pretAPlacer

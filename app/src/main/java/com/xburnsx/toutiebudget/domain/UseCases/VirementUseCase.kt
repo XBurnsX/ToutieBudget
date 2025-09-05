@@ -173,7 +173,7 @@ class VirementUseCase @Inject constructor(
         compteId: String,
         montant: Double
     ): Result<Unit> = runCatching {
-
+        android.util.Log.d("ToutieBudget", "🔄 VIREMENT_USE_CASE : Début effectuerVirementEnveloppeVersPretAPlacer - enveloppeId: $enveloppeId, compteId: $compteId, montant: $montant")
 
         if (montant <= 0) {
             throw IllegalArgumentException("Le montant doit être positif")
@@ -235,17 +235,23 @@ class VirementUseCase @Inject constructor(
                 ?: throw IllegalArgumentException("Enveloppe non trouvée: $enveloppeId")
             
             // 5.6. Enregistrer dans l'historique
-            historiqueAllocationService.enregistrerModificationAllocation(
-                allocationAvant = allocationExistante,
-                allocationApres = allocationMiseAJour,
-                compte = compte,
-                enveloppe = enveloppe,
-                montantModification = -montant, // Négatif car on retire de l'enveloppe
-                soldeAvant = compte.solde,
-                soldeApres = compte.solde, // Le solde du compte ne change pas pour un virement enveloppe vers prêt à placer
-                pretAPlacerAvant = compte.pretAPlacer,
-                pretAPlacerApres = compte.pretAPlacer + montant
-            )
+            android.util.Log.d("ToutieBudget", "🔄 VIREMENT_USE_CASE : Tentative d'enregistrement dans l'historique pour virement enveloppe vers prêt à placer")
+            try {
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = allocationExistante,
+                    allocationApres = allocationMiseAJour,
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montantModification = -montant, // Négatif car on retire de l'enveloppe
+                    soldeAvant = compte.solde,
+                    soldeApres = compte.solde, // Le solde du compte ne change pas pour un virement enveloppe vers prêt à placer
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = compte.pretAPlacer + montant
+                )
+                android.util.Log.d("ToutieBudget", "✅ VIREMENT_USE_CASE : Enregistrement dans l'historique réussi (enveloppe vers prêt à placer)")
+            } catch (e: Exception) {
+                android.util.Log.e("ToutieBudget", "❌ VIREMENT_USE_CASE : Erreur lors de l'enregistrement dans l'historique (enveloppe vers prêt à placer): ${e.message}")
+            }
 
             // 🔒 VALIDATION DE PROVENANCE - Vérifier que l'argent retourne vers son compte d'origine
             val validationResult = validationProvenanceService.validerRetourVersCompte(

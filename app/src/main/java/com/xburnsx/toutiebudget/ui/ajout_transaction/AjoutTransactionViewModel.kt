@@ -43,7 +43,8 @@ class AjoutTransactionViewModel(
     private val transactionRepository: TransactionRepository,
     private val pretPersonnelRepository: PretPersonnelRepository,
     private val argentService: com.xburnsx.toutiebudget.domain.services.ArgentService,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
@@ -736,6 +737,36 @@ class AjoutTransactionViewModel(
                             // ERREUR: Échec création transaction PRET: ${resultTransaction.exceptionOrNull()?.message}
                             throw resultTransaction.exceptionOrNull() ?: Exception("Échec création transaction PRET")
                         }
+                        
+                        // 📝 ENREGISTRER DANS L'HISTORIQUE
+                        try {
+                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
+                            if (compte is CompteCheque) {
+                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction PRET")
+                                // Récupérer le solde APRÈS la mise à jour
+                                val soldeApres = compte.solde
+                                val pretAPlacerApres = compte.pretAPlacer
+                                // Calculer le solde AVANT (argent qui SORT : soldeAvant = soldeApres + montant)
+                                val soldeAvant = soldeApres + montantDollars
+                                val pretAPlacerAvant = pretAPlacerApres + montantDollars
+                                
+                                historiqueAllocationService.enregistrerTransactionDirecte(
+                                    compte = compte,
+                                    enveloppe = null,
+                                    typeTransaction = "PRET",
+                                    montant = -montantDollars, // Négatif car c'est un prêt sortant
+                                    soldeAvant = soldeAvant,
+                                    soldeApres = soldeApres,
+                                    pretAPlacerAvant = pretAPlacerAvant,
+                                    pretAPlacerApres = pretAPlacerApres,
+                                    note = "Prêt à ${nomTiers}"
+                                )
+                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction PRET)")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction PRET): ${e.message}")
+                        }
+                        
                         // DEBUG: Transaction PRET créée avec succès: ${resultTransaction.getOrNull()}
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Prêt enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
@@ -755,6 +786,35 @@ class AjoutTransactionViewModel(
                             variationSolde = montantDollars,
                             mettreAJourPretAPlacer = true
                         )
+                        
+                        // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
+                        try {
+                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
+                            if (compte is CompteCheque) {
+                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_RECU")
+                                // Récupérer le solde APRÈS la mise à jour
+                                val soldeApres = compte.solde
+                                val pretAPlacerApres = compte.pretAPlacer
+                                // Calculer le solde AVANT (argent qui RENTRE : soldeAvant = soldeApres - montant)
+                                val soldeAvant = soldeApres - montantDollars
+                                val pretAPlacerAvant = pretAPlacerApres - montantDollars
+                                
+                                historiqueAllocationService.enregistrerTransactionDirecte(
+                                    compte = compte,
+                                    enveloppe = null,
+                                    typeTransaction = "REMBOURSEMENT_RECU",
+                                    montant = montantDollars, // Positif car c'est de l'argent qui arrive
+                                    soldeAvant = soldeAvant,
+                                    soldeApres = soldeApres,
+                                    pretAPlacerAvant = pretAPlacerAvant,
+                                    pretAPlacerApres = pretAPlacerApres,
+                                    note = "Remboursement reçu de ${nomTiers}"
+                                )
+                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_RECU)")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_RECU): ${e.message}")
+                        }
                         for (pret in existants) {
                             if (restant <= 0) break
                             val aPayer = kotlin.math.min(restant, pret.solde)
@@ -785,6 +845,35 @@ class AjoutTransactionViewModel(
                             // DEBUG: Transaction créée avec succès: ${resultTransaction.getOrNull()}
                             restant -= aPayer
                         }
+                        
+                        // 📝 ENREGISTRER DANS L'HISTORIQUE
+                        try {
+                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
+                            if (compte is CompteCheque) {
+                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_RECU")
+                                // Utiliser les vraies valeurs AVANT la mise à jour (solde actuel)
+                                val soldeAvant = compte.solde
+                                val soldeApres = compte.solde + montantDollars
+                                val pretAPlacerAvant = compte.pretAPlacer
+                                val pretAPlacerApres = compte.pretAPlacer + montantDollars
+                                
+                                historiqueAllocationService.enregistrerTransactionDirecte(
+                                    compte = compte,
+                                    enveloppe = null,
+                                    typeTransaction = "REMBOURSEMENT_RECU",
+                                    montant = montantDollars, // Positif car c'est de l'argent qui arrive
+                                    soldeAvant = soldeAvant,
+                                    soldeApres = soldeApres,
+                                    pretAPlacerAvant = pretAPlacerAvant,
+                                    pretAPlacerApres = pretAPlacerApres, // Le prêt à placer augmente aussi !
+                                    note = "Remboursement reçu de ${nomTiers}"
+                                )
+                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_RECU)")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_RECU): ${e.message}")
+                        }
+                        
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
@@ -838,6 +927,44 @@ class AjoutTransactionViewModel(
                                 sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                             )
                         )
+                        
+                        // Créditer le compte et le prêt à placer
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        
+                        // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
+                        try {
+                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
+                            if (compte is CompteCheque) {
+                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction EMPRUNT")
+                                // Récupérer le solde APRÈS la mise à jour
+                                val soldeApres = compte.solde
+                                val pretAPlacerApres = compte.pretAPlacer
+                                // Calculer le solde AVANT (argent qui RENTRE : soldeAvant = soldeApres - montant)
+                                val soldeAvant = soldeApres - montantDollars
+                                val pretAPlacerAvant = pretAPlacerApres - montantDollars
+                                
+                                historiqueAllocationService.enregistrerTransactionDirecte(
+                                    compte = compte,
+                                    enveloppe = null,
+                                    typeTransaction = "EMPRUNT",
+                                    montant = montantDollars, // Positif car c'est de l'argent qui arrive
+                                    soldeAvant = soldeAvant,
+                                    soldeApres = soldeApres,
+                                    pretAPlacerAvant = pretAPlacerAvant,
+                                    pretAPlacerApres = pretAPlacerApres,
+                                    note = "Emprunt de ${nomTiers}"
+                                )
+                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction EMPRUNT)")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction EMPRUNT): ${e.message}")
+                        }
+                        
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Emprunt enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
@@ -881,6 +1008,44 @@ class AjoutTransactionViewModel(
                             )
                             restant -= aPayer
                         }
+                        
+                        // Débiter le compte UNE fois
+                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                            compteId = compte.id,
+                            collectionCompte = collectionCompte,
+                            variationSolde = -montantDollars,
+                            mettreAJourPretAPlacer = true
+                        )
+                        
+                        // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
+                        try {
+                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
+                            if (compte is CompteCheque) {
+                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_DONNE")
+                                // Récupérer le solde APRÈS la mise à jour
+                                val soldeApres = compte.solde
+                                val pretAPlacerApres = compte.pretAPlacer
+                                // Calculer le solde AVANT (argent qui SORT : soldeAvant = soldeApres + montant)
+                                val soldeAvant = soldeApres + montantDollars
+                                val pretAPlacerAvant = pretAPlacerApres + montantDollars
+                                
+                                historiqueAllocationService.enregistrerTransactionDirecte(
+                                    compte = compte,
+                                    enveloppe = null,
+                                    typeTransaction = "REMBOURSEMENT_DONNE",
+                                    montant = -montantDollars, // Négatif car c'est de l'argent qui sort
+                                    soldeAvant = soldeAvant,
+                                    soldeApres = soldeApres,
+                                    pretAPlacerAvant = pretAPlacerAvant,
+                                    pretAPlacerApres = pretAPlacerApres,
+                                    note = "Remboursement donné à ${nomTiers}"
+                                )
+                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_DONNE)")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_DONNE): ${e.message}")
+                        }
+                        
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()

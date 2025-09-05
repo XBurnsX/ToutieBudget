@@ -133,4 +133,51 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         
         historiqueAllocationRepository.insertHistorique(historique)
     }
+    
+    override suspend fun enregistrerTransactionDirecte(
+        compte: CompteCheque,
+        enveloppe: Enveloppe?,
+        typeTransaction: String,
+        montant: Double,
+        soldeAvant: Double,
+        soldeApres: Double,
+        pretAPlacerAvant: Double,
+        pretAPlacerApres: Double,
+        note: String?
+    ) {
+        try {
+            android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement transaction directe - $typeTransaction - ${String.format("%.2f", montant)}$")
+            
+            val description = if (enveloppe != null) {
+                "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ vers ${enveloppe.nom}"
+            } else {
+                "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ ${note ?: ""}"
+            }
+            
+            val historique = HistoriqueAllocation(
+                id = IdGenerator.generateId(),
+                utilisateurId = compte.utilisateurId,
+                compteId = compte.id,
+                collectionCompte = "compte_cheque",
+                enveloppeId = enveloppe?.id ?: "",
+                enveloppeNom = enveloppe?.nom ?: "Transaction directe",
+                typeAction = "TRANSACTION",
+                description = description,
+                montant = montant,
+                soldeAvant = soldeAvant,
+                soldeApres = soldeApres,
+                pretAPlacerAvant = pretAPlacerAvant,
+                pretAPlacerApres = pretAPlacerApres,
+                dateAction = dateFormatter.format(Date()),
+                allocationId = "",
+                details = note ?: "Transaction directe sur le compte"
+            )
+            
+            historiqueAllocationRepository.insertHistorique(historique)
+            android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Transaction directe enregistrée avec succès")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "❌ HISTORIQUE : Erreur lors de l'enregistrement de la transaction directe: ${e.message}")
+        }
+    }
 }

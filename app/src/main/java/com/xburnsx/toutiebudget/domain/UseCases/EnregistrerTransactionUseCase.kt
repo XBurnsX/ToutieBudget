@@ -23,7 +23,8 @@ class EnregistrerTransactionUseCase(
     private val transactionRepository: TransactionRepository,
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val allocationMensuelleRepository: AllocationMensuelleRepository
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) {
 
     /**
@@ -110,6 +111,77 @@ class EnregistrerTransactionUseCase(
                 val resultTransaction = transactionRepository.creerTransaction(transaction)
                 if (resultTransaction.isFailure) {
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
+                }
+
+                // 📝 ENREGISTRER DANS L'HISTORIQUE
+                try {
+                    val compte = compteRepository.getCompteById(compteId, collectionCompte)
+                    val enveloppe = if (!allocationMensuelleId.isNullOrBlank()) {
+                        enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeId }
+                    } else null
+                    
+                    if (compte is CompteCheque) {
+                        android.util.Log.d("ToutieBudget", "🔄 ENREGISTRER_TRANSACTION_USE_CASE : Tentative d'enregistrement dans l'historique pour transaction ${typeTransaction}")
+                        historiqueAllocationService.enregistrerTransactionDirecte(
+                            compte = compte,
+                            enveloppe = enveloppe,
+                            typeTransaction = typeTransaction.name,
+                            montant = when (typeTransaction) {
+                                TypeTransaction.Depense, TypeTransaction.Pret, TypeTransaction.RemboursementDonne, TypeTransaction.PaiementEffectue, TypeTransaction.TransfertSortant -> -montant
+                                TypeTransaction.Revenu, TypeTransaction.RemboursementRecu, TypeTransaction.Emprunt, TypeTransaction.Paiement, TypeTransaction.TransfertEntrant -> montant
+                            },
+                            soldeAvant = compte.solde,
+                            soldeApres = compte.solde + when (typeTransaction) {
+                                TypeTransaction.Depense, TypeTransaction.Pret, TypeTransaction.RemboursementDonne, TypeTransaction.PaiementEffectue, TypeTransaction.TransfertSortant -> -montant
+                                TypeTransaction.Revenu, TypeTransaction.RemboursementRecu, TypeTransaction.Emprunt, TypeTransaction.Paiement, TypeTransaction.TransfertEntrant -> montant
+                            },
+                            pretAPlacerAvant = compte.pretAPlacer,
+                            pretAPlacerApres = compte.pretAPlacer, // Le prêt à placer ne change pas pour les transactions directes
+                            note = note
+                        )
+                        android.util.Log.d("ToutieBudget", "✅ ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement dans l'historique réussi (transaction ${typeTransaction})")
+                        
+                        // 📝 ENREGISTRER L'HISTORIQUE POUR CHAQUE FRACTION SI TRANSACTION FRACTIONNÉE
+                        if (estFractionnee && !sousItems.isNullOrBlank()) {
+                            try {
+                                android.util.Log.d("ToutieBudget", "🔄 ENREGISTRER_TRANSACTION_USE_CASE : Traitement des fractions pour transaction fractionnée")
+                                val gson = com.google.gson.Gson()
+                                val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
+                                val fractions = gson.fromJson<List<Map<String, Any>>>(sousItems, type)
+                                
+                                for ((index, fraction) in fractions.withIndex()) {
+                                    val enveloppeIdFraction = fraction["enveloppe_id"] as? String
+                                    val montantFraction = (fraction["montant"] as? Double) ?: 0.0
+                                    
+                                    if (enveloppeIdFraction != null && montantFraction > 0) {
+                                        val enveloppeFraction = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeIdFraction }
+                                        
+                                        if (enveloppeFraction != null) {
+                                            android.util.Log.d("ToutieBudget", "🔄 ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement historique pour fraction ${index + 1}: ${enveloppeFraction.nom} - ${String.format("%.2f", montantFraction)}$")
+                                            historiqueAllocationService.enregistrerTransactionDirecte(
+                                                compte = compte,
+                                                enveloppe = enveloppeFraction,
+                                                typeTransaction = "FRACTION_${typeTransaction.name}",
+                                                montant = -montantFraction, // Négatif car c'est une dépense
+                                                soldeAvant = compte.solde,
+                                                soldeApres = compte.solde, // Le solde ne change pas pour les fractions
+                                                pretAPlacerAvant = compte.pretAPlacer,
+                                                pretAPlacerApres = compte.pretAPlacer, // Le prêt à placer ne change pas pour les fractions
+                                                note = "Fraction ${index + 1} de transaction fractionnée"
+                                            )
+                                        }
+                                    }
+                                }
+                                android.util.Log.d("ToutieBudget", "✅ ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement historique des fractions réussi")
+                            } catch (e: Exception) {
+                                android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement de l'historique des fractions: ${e.message}")
+                            }
+                        }
+                    } else {
+                        android.util.Log.d("ToutieBudget", "ℹ️ ENREGISTRER_TRANSACTION_USE_CASE : Compte n'est pas un CompteCheque, pas d'enregistrement dans l'historique (transaction ${typeTransaction})")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
                 }
 
                 // 3. Mettre à jour les soldes en parallèle

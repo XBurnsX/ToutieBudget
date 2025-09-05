@@ -144,7 +144,7 @@ import android.content.Context
 
      private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
-         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
+         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService)
      }
      private val supprimerTransactionUseCase: SupprimerTransactionUseCase by lazy {
          SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
@@ -194,11 +194,12 @@ import android.content.Context
              categorieRepository = categorieRepository,
              tiersRepository = tiersRepository,
              allocationMensuelleRepository = allocationMensuelleRepository,
-              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
-              transactionRepository = transactionRepository,
-              pretPersonnelRepository = pretPersonnelRepository,
-              argentService = argentService,
-              realtimeSyncService = realtimeSyncService
+             enregistrerTransactionUseCase = enregistrerTransactionUseCase,
+             transactionRepository = transactionRepository,
+             pretPersonnelRepository = pretPersonnelRepository,
+             argentService = argentService,
+             realtimeSyncService = realtimeSyncService,
+             historiqueAllocationService = historiqueAllocationService
          )
      }
      
@@ -331,4 +332,7 @@ import android.content.Context
      
      // 🆕 NOUVEAU : Fournit le repository d'historique des allocations
      fun provideHistoriqueAllocationRepository(): HistoriqueAllocationRepository = historiqueAllocationRepository
- }
+     
+     // 🆕 NOUVEAU : Fournit le service d'historique des allocations
+     fun provideHistoriqueAllocationService(): com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService = historiqueAllocationService
+}
