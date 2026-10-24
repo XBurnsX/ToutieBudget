@@ -4,6 +4,7 @@
 package com.xburnsx.toutiebudget.ui.login
 
 import android.app.Activity
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -82,8 +83,12 @@ fun LoginScreen(
     val lanceurConnexionGoogle = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { resultat: ActivityResult ->
+        Log.d("LoginScreen", "📱 Résultat Google Sign-In reçu - Code: ${resultat.resultCode}")
+        Log.d("LoginScreen", "📱 Intent data: ${resultat.data}")
+        
         when (resultat.resultCode) {
             Activity.RESULT_OK -> {
+                Log.d("LoginScreen", "✅ Google Sign-In OK, traitement du compte...")
                 val tache = GoogleSignIn.getSignedInAccountFromIntent(resultat.data)
                 try {
                     val compte = tache.getResult(ApiException::class.java)
@@ -92,21 +97,88 @@ fun LoginScreen(
                     val email = compte?.email ?: "utilisateur@gmail.com"
                     val nom = compte?.displayName
                     
+                    Log.d("LoginScreen", "📧 Email: $email")
+                    Log.d("LoginScreen", "👤 Nom: $nom")
+                    Log.d("LoginScreen", "🔑 Code serveur: ${if (codeServeur.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
+                    Log.d("LoginScreen", "🎫 ID Token: ${if (idToken.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
+                    
                     if (codeServeur != null && codeServeur.isNotBlank()) {
+                        Log.d("LoginScreen", "✅ Utilisation du code serveur pour l'authentification")
                         viewModel.gererConnexionGoogleAvecCompte(email, nom, codeServeur, idToken, contexte)
                     } else if (idToken != null && idToken.isNotBlank()) {
+                        Log.d("LoginScreen", "⚠️ Pas de code serveur, utilisation de l'ID Token")
                         viewModel.gererConnexionGoogleAvecCompte(email, nom, null, idToken, contexte)
                     } else {
+                        Log.e("LoginScreen", "❌ Aucun token reçu - problème de configuration SHA-1 probable")
+                        // Aucun token reçu - probablement problème de configuration SHA-1
                         viewModel.gererConnexionGoogleAvecCompte(email, nom, null, null, contexte)
                     }
-                } catch (_: ApiException) {
+                } catch (e: ApiException) {
+                    Log.e("LoginScreen", "❌ Erreur ApiException: ${e.statusCode} - ${e.message}", e)
+                    Log.e("LoginScreen", "❌ Stack trace: ${e.stackTraceToString()}")
+                    // Gérer l'exception API de manière plus explicite
+                    val codeErreur = e.statusCode
+                    viewModel.gererErreurGoogleSignIn(codeErreur, contexte)
+                } catch (e: Exception) {
+                    Log.e("LoginScreen", "❌ Erreur inattendue lors du traitement: ${e.message}", e)
+                    Log.e("LoginScreen", "❌ Stack trace: ${e.stackTraceToString()}")
                     viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
                 }
             }
             Activity.RESULT_CANCELED -> {
+                Log.w("LoginScreen", "🚫 Code RESULT_CANCELED reçu")
+                // Essayer quand même de récupérer les infos au cas où il y aurait une exception cachée
+                try {
+                    val tache = GoogleSignIn.getSignedInAccountFromIntent(resultat.data)
+                    val compte = tache.getResult(ApiException::class.java)
+                    Log.d("LoginScreen", "⚠️ Compte récupéré malgré CANCELED: ${compte?.email}")
+                    val codeServeur = compte?.serverAuthCode
+                    val idToken = compte?.idToken
+                    if (!codeServeur.isNullOrBlank() || !idToken.isNullOrBlank()) {
+                        Log.d("LoginScreen", "✅ Tokens présents malgré CANCELED, tentative de connexion...")
+                        viewModel.gererConnexionGoogleAvecCompte(
+                            compte?.email ?: "utilisateur@gmail.com",
+                            compte?.displayName,
+                            codeServeur,
+                            idToken,
+                            contexte
+                        )
+                        return@rememberLauncherForActivityResult
+                    }
+                } catch (e: ApiException) {
+                    Log.e("LoginScreen", "❌ ApiException dans RESULT_CANCELED: ${e.statusCode} - ${e.message}", e)
+                    Log.e("LoginScreen", "❌ C'est probablement une erreur de configuration, pas une annulation!")
+                    viewModel.gererErreurGoogleSignIn(e.statusCode, contexte)
+                    return@rememberLauncherForActivityResult
+                } catch (e: Exception) {
+                    Log.e("LoginScreen", "❌ Exception dans RESULT_CANCELED: ${e.message}", e)
+                }
+                
+                Log.d("LoginScreen", "🚫 Vraie annulation par l'utilisateur")
+                // L'utilisateur a vraiment annulé la connexion
                 viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
             }
             else -> {
+                Log.e("LoginScreen", "❌ Résultat inattendu: ${resultat.resultCode}")
+                // Essayer quand même de récupérer les infos
+                try {
+                    val tache = GoogleSignIn.getSignedInAccountFromIntent(resultat.data)
+                    val compte = tache.getResult(ApiException::class.java)
+                    val codeServeur = compte?.serverAuthCode
+                    val idToken = compte?.idToken
+                    if (!codeServeur.isNullOrBlank() || !idToken.isNullOrBlank()) {
+                        viewModel.gererConnexionGoogleAvecCompte(
+                            compte?.email ?: "utilisateur@gmail.com",
+                            compte?.displayName,
+                            codeServeur,
+                            idToken,
+                            contexte
+                        )
+                        return@rememberLauncherForActivityResult
+                    }
+                } catch (e: Exception) {
+                    Log.e("LoginScreen", "❌ Erreur lors de la récupération: ${e.message}", e)
+                }
                 viewModel.gererConnexionGoogleAvecCompte("utilisateur@gmail.com", "Utilisateur", null, null, contexte)
             }
         }
@@ -183,9 +255,12 @@ fun LoginScreen(
             ) {
                 GoogleSignInButton(
                     onClick = {
+                        Log.d("LoginScreen", "🖱️ Bouton Google Sign-In cliqué")
                         // 🎯 FORCER LA SÉLECTION DE COMPTE : déconnecter d'abord
                         val clientGoogle = GoogleSignIn.getClient(contexte, optionsConnexionGoogle)
+                        Log.d("LoginScreen", "🚪 Déconnexion Google en cours...")
                         clientGoogle.signOut().addOnCompleteListener {
+                            Log.d("LoginScreen", "✅ Déconnexion terminée, lancement de Google Sign-In...")
                             // Après déconnexion, lancer la connexion (forcera le sélecteur)
                             lanceurConnexionGoogle.launch(clientGoogle.signInIntent)
                         }

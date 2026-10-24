@@ -1,0 +1,50 @@
+@echo off
+echo ========================================
+echo Obtention du SHA-1 de la clé de release
+echo ========================================
+echo.
+
+REM Chemin vers le keystore de release
+set KEYSTORE_PATH=%~dp0toutiebudget-release-key.jks
+set KEYSTORE_PASSWORD=qwerty
+set KEY_ALIAS=toutiebudget
+
+echo Vérification de l'existence du keystore...
+if not exist "%KEYSTORE_PATH%" (
+    echo ERREUR: Le keystore de release n'existe pas à l'emplacement suivant:
+    echo %KEYSTORE_PATH%
+    pause
+    exit /b 1
+)
+
+echo Keystore trouvé: %KEYSTORE_PATH%
+echo.
+
+REM Obtenir le SHA-1
+echo Extraction du SHA-1...
+echo.
+
+REM Utiliser keytool pour obtenir le SHA-1
+"%JAVA_HOME%\bin\keytool.exe" -list -v -keystore "%KEYSTORE_PATH%" -alias "%KEY_ALIAS%" -storepass "%KEYSTORE_PASSWORD%" -keypass "%KEYSTORE_PASSWORD%" 2>nul | findstr /C:"SHA1:"
+
+if errorlevel 1 (
+    echo.
+    echo Tentative avec keytool du JDK système...
+    keytool -list -v -keystore "%KEYSTORE_PATH%" -alias "%KEY_ALIAS%" -storepass "%KEYSTORE_PASSWORD%" -keypass "%KEYSTORE_PASSWORD%" 2>nul | findstr /C:"SHA1:"
+)
+
+echo.
+echo ========================================
+echo Instructions:
+echo ========================================
+echo 1. Copiez le SHA-1 ci-dessus
+echo 2. Allez sur https://console.cloud.google.com/
+echo 3. Sélectionnez votre projet: toutiebudget-kotlin
+echo 4. Allez dans APIs ^& Services ^> Credentials
+echo 5. Cliquez sur votre OAuth 2.0 Client ID Android
+echo 6. Ajoutez le SHA-1 dans la section "SHA-1 certificate fingerprints"
+echo 7. Sauvegardez les modifications
+echo.
+pause
+
+

@@ -770,35 +770,10 @@ class ArgentServiceImpl @Inject constructor(
 
         val allocationSourceCreee = allocationMensuelleRepository.creerNouvelleAllocation(allocationVirementSource)
 
-        // Créer les transactions pour tracer les virements
-        val transactionSource = Transaction(
-            id = IdGenerator.generateId(),
-            utilisateurId = enveloppeSource.utilisateurId,
-            type = TypeTransaction.Depense,
-            montant = montant,
-            date = Date(), // Utilise l'heure locale actuelle du téléphone
-            compteId = "", // Pas de compte impliqué
-            collectionCompte = "",
-            allocationMensuelleId = allocationSourceCreee.id,
-            tiersUtiliser = "Virement vers enveloppe ${enveloppeDestination.nom}",
-            note = "Virement vers enveloppe ${enveloppeDestination.nom}"
-        )
-        
-        val transactionDest = Transaction(
-            id = IdGenerator.generateId(),
-            utilisateurId = enveloppeDestination.utilisateurId,
-            type = TypeTransaction.Revenu,
-            montant = montant,
-            date = Date(), // Utilise l'heure locale actuelle du téléphone
-            compteId = "", // Pas de compte impliqué
-            collectionCompte = "",
-            allocationMensuelleId = allocationDestCreee.id,
-            tiersUtiliser = "Virement depuis enveloppe ${enveloppeSource.nom}",
-            note = "Virement depuis enveloppe ${enveloppeDestination.nom}"
-        )
-
-        transactionRepository.creerTransaction(transactionSource)
-        transactionRepository.creerTransaction(transactionDest)
+        // ❌ NE PAS créer de transactions pour les virements entre enveloppes
+        // Les virements entre enveloppes ne doivent PAS affecter les soldes des comptes
+        // Les transactions ne sont créées que pour tracer les mouvements entre comptes,
+        // pas entre enveloppes (qui sont des allocations internes)
 
         // 🔥 FUSION AUTOMATIQUE : Forcer la fusion des allocations après le virement
         try {

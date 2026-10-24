@@ -31,7 +31,8 @@ class TransactionRepositoryImpl : TransactionRepository {
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
     private val httpClient = okhttp3.OkHttpClient()
-    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+    // Format de date unifié pour PocketBase (ISO 8601 avec UTC)
+    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC") // ✅ Envoyer en UTC vers PocketBase
     }
 

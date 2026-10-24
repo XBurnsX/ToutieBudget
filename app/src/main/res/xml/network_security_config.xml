@@ -3,11 +3,8 @@
     <!-- Configuration pour le développement (autoriser HTTP) -->
     <domain-config cleartextTrafficPermitted="true">
 
-        <!-- Serveur local de développement (dispositif physique) -->
+        <!-- Serveur Beelink (PocketBase 24/7) - Modifier l'IP selon votre réseau -->
         <domain includeSubdomains="false">192.168.1.77</domain>
-
-        <!-- Serveur externe/public -->
-        <domain includeSubdomains="true">toutiebudget.duckdns.org</domain>
 
         <!-- Adresses spécifiques émulateur Android -->
         <domain includeSubdomains="false">10.0.2.2</domain>      <!-- Host machine depuis émulateur -->
@@ -33,10 +30,17 @@
         <trust-anchors>
             <!-- Certificats système (production) -->
             <certificates src="system"/>
-            <!-- Certificats utilisateur (développement uniquement) -->
-            <certificates src="user"/>
         </trust-anchors>
     </base-config>
+    
+    <!-- Configuration spécifique pour le domaine PocketBase HTTPS en production -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">pocketbase.toutieserver.com</domain>
+        <domain includeSubdomains="true">toutieserver.com</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
 
     <!-- Configuration spéciale pour debug builds -->
     <debug-overrides>

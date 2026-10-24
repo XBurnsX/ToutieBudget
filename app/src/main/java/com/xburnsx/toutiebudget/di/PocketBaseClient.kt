@@ -12,6 +12,7 @@ import com.google.gson.JsonObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.content.Context
+import android.util.Log
 import com.xburnsx.toutiebudget.utils.SafeDateAdapter
 import androidx.core.content.edit
 
@@ -33,12 +34,16 @@ object PocketBaseClient {
         .retryOnConnectionFailure(true)
         .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de connexions persistantes
         .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)) // Support HTTP/2
+        // OkHttp décompresse automatiquement gzip/deflate, pas besoin d'intercepteur spécial
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .addHeader("Accept-Encoding", "gzip, deflate") // Compression
                 .addHeader("Connection", "keep-alive") // Connexions persistantes
                 .build()
-            chain.proceed(request)
+            val response = chain.proceed(request)
+            // Vérifier que la réponse est bien décompressée
+            Log.d("PocketBaseClient", "📦 Content-Encoding: ${response.header("Content-Encoding")}")
+            response
         }
         .build()
 
@@ -59,13 +64,17 @@ object PocketBaseClient {
      */
     suspend fun initialiser(): Boolean {
         return try {
+            Log.d("PocketBaseClient", "🚀 Initialisation du client PocketBase...")
             val urlActive = UrlResolver.obtenirUrlActive()
+            Log.d("PocketBaseClient", "🌐 URL active: $urlActive")
             
             // Test de connectivité (ne lance plus d'exception)
             testerConnectivite(urlActive)
             
+            Log.d("PocketBaseClient", "✅ Initialisation réussie")
             true // ✅ Initialisation réussie
         } catch (e: Exception) {
+            Log.e("PocketBaseClient", "❌ Erreur lors de l'initialisation: ${e.message}", e)
             // 🆕 MODE HORS LIGNE : Log de l'erreur mais pas d'exception
             // ⚠️ Erreur lors de l'initialisation (mode hors ligne autorisé): ${e.message}
             false // ❌ Initialisation échouée mais app peut continuer
@@ -78,8 +87,10 @@ object PocketBaseClient {
      */
     private suspend fun testerConnectivite(urlBase: String) {
         try {
+            val urlHealth = "${urlBase.trimEnd('/')}/api/health"
+            Log.d("PocketBaseClient", "🏥 Test de connectivité vers: $urlHealth")
             val requete = Request.Builder()
-                .url("${urlBase.trimEnd('/')}/api/health")
+                .url(urlHealth)
                 .get()
                 .build()
             
@@ -88,12 +99,12 @@ object PocketBaseClient {
             }
             
             if (!reponse.isSuccessful) {
-                // ⚠️ Serveur PocketBase non accessible (code: ${reponse.code})
+                Log.w("PocketBaseClient", "⚠️ Serveur PocketBase non accessible (code: ${reponse.code})")
             } else {
-                // ✅ Serveur PocketBase accessible
+                Log.d("PocketBaseClient", "✅ Serveur PocketBase accessible")
             }
         } catch (e: Exception) {
-            // ⚠️ Erreur de connectivité vers PocketBase: ${e.message}
+            Log.w("PocketBaseClient", "⚠️ Erreur de connectivité vers PocketBase: ${e.message}", e)
         }
     }
 
@@ -104,22 +115,31 @@ object PocketBaseClient {
     suspend fun connecterAvecGoogle(codeAutorisation: String, context: Context): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
+                Log.d("PocketBaseClient", "🔐 Début de l'authentification Google OAuth2")
+                Log.d("PocketBaseClient", "📝 Code d'autorisation reçu: ${codeAutorisation.take(20)}...")
+                
                 val urlBase = obtenirUrlBaseActive()
+                Log.d("PocketBaseClient", "🌐 URL de base PocketBase: $urlBase")
 
                 // Endpoint OAuth2 PocketBase pour Google
                 val urlOAuth = "$urlBase/api/collections/users/auth-with-oauth2"
+                Log.d("PocketBaseClient", "🔗 URL OAuth2: $urlOAuth")
 
                 // Données pour l'authentification OAuth2
-                // IMPORTANT : Le redirectURL doit correspondre EXACTEMENT à ce qui est configuré dans Google Cloud Console
-                // On utilise localhost car Google refuse les IPs privées, mais on communique quand même avec l'IP locale
+                // IMPORTANT : Le redirectURL doit correspondre EXACTEMENT à ce qui est configuré dans Google Cloud Console et PocketBase
+                // Utiliser l'URL de base active (https://pocketbase.toutieserver.com)
+                val redirectURL = urlBase.trimEnd('/')
+                Log.d("PocketBaseClient", "↩️ Redirect URL: $redirectURL")
+                
                 val donneesOAuth = JsonObject().apply {
                     addProperty("provider", "google")
                     addProperty("code", codeAutorisation)
                     addProperty("codeVerifier", "") // Standard pour le flux web/mobile
-                    addProperty("redirectURL", "http://localhost:8090") // Sans le path complet
+                    addProperty("redirectURL", redirectURL) // URL de base active (sans path)
                     // createData est optionnel, PocketBase prendra les infos du profil Google
                 }
                 val corpsRequeteString = donneesOAuth.toString()
+                Log.d("PocketBaseClient", "📦 Données OAuth2: $corpsRequeteString")
 
                 val corpsRequete = corpsRequeteString.toRequestBody("application/json".toMediaType())
 
@@ -128,29 +148,80 @@ object PocketBaseClient {
                     .post(corpsRequete)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("Accept", "application/json")
+                    // Désactiver la compression pour éviter les problèmes de décompression
+                    .addHeader("Accept-Encoding", "identity")
                     .build()
 
+                Log.d("PocketBaseClient", "🚀 Envoi de la requête OAuth2 à PocketBase...")
                 val reponse = client.newCall(requete).execute()
 
+                // Vérifier le Content-Encoding avant de lire le body
+                val contentEncoding = reponse.header("Content-Encoding")
+                Log.d("PocketBaseClient", "📥 Réponse reçue - Code: ${reponse.code}")
+                Log.d("PocketBaseClient", "📥 Content-Encoding: $contentEncoding")
+                Log.d("PocketBaseClient", "📥 Content-Type: ${reponse.header("Content-Type")}")
+                
                 val corpsReponse = reponse.body?.string() ?: ""
+                Log.d("PocketBaseClient", "📥 Corps de la réponse (premiers 500 caractères): ${corpsReponse.take(500)}")
+                Log.d("PocketBaseClient", "📥 Longueur totale: ${corpsReponse.length} caractères")
 
                 if (reponse.isSuccessful) {
+                    Log.d("PocketBaseClient", "✅ Authentification réussie!")
                     try {
-                        val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
-                        sauvegarderToken(context, reponseAuth.token)
-                        sauvegarderUtilisateur(context, reponseAuth.record)
-                        Result.success(Unit)
+                        // Vérifier si la réponse est vide ou non-JSON
+                        if (corpsReponse.isBlank()) {
+                            Log.e("PocketBaseClient", "❌ Réponse vide de PocketBase")
+                            Result.failure(Exception("Réponse vide de PocketBase. Vérifiez la configuration OAuth dans PocketBase."))
+                        } else if (!corpsReponse.trimStart().startsWith("{")) {
+                            Log.e("PocketBaseClient", "❌ Réponse n'est pas un JSON valide. Réponse complète: $corpsReponse")
+                            Result.failure(Exception("Réponse invalide de PocketBase: ${corpsReponse.take(200)}"))
+                        } else {
+                            val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
+                            sauvegarderToken(context, reponseAuth.token)
+                            sauvegarderUtilisateur(context, reponseAuth.record)
+                            Log.d("PocketBaseClient", "💾 Token et utilisateur sauvegardés")
+                            Result.success(Unit)
+                        }
                     } catch (e: Exception) {
-                        Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}"))
+                        Log.e("PocketBaseClient", "❌ Erreur de parsing JSON: ${e.message}", e)
+                        Log.e("PocketBaseClient", "❌ Réponse complète qui a causé l'erreur: $corpsReponse")
+                        Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}. Réponse: ${corpsReponse.take(200)}"))
                     }
                 } else {
                     // Analyse détaillée de l'erreur
                     val messageErreur = analyserErreurServeur(reponse.code, corpsReponse)
+                    Log.e("PocketBaseClient", "❌ Erreur serveur - Code: ${reponse.code}, Message: $messageErreur")
+                    Log.e("PocketBaseClient", "❌ Réponse complète: $corpsReponse")
                     
                     Result.failure(Exception(messageErreur))
                 }
 
+            } catch (e: javax.net.ssl.SSLHandshakeException) {
+                Log.e("PocketBaseClient", "❌ Erreur SSL Handshake: ${e.message}", e)
+                Log.e("PocketBaseClient", "❌ Problème de certificat SSL. Vérifiez que le certificat de pocketbase.toutieserver.com est valide.")
+                UrlResolver.invaliderCache()
+                Result.failure(Exception("Erreur de certificat SSL. Le certificat du serveur n'est pas valide ou n'est pas reconnu."))
+            } catch (e: javax.net.ssl.SSLPeerUnverifiedException) {
+                Log.e("PocketBaseClient", "❌ Erreur SSL Peer Unverified: ${e.message}", e)
+                Log.e("PocketBaseClient", "❌ Le certificat SSL du serveur n'est pas vérifié.")
+                UrlResolver.invaliderCache()
+                Result.failure(Exception("Erreur de certificat SSL. Le certificat du serveur n'est pas vérifié."))
+            } catch (e: java.net.UnknownHostException) {
+                Log.e("PocketBaseClient", "❌ Host inconnu: ${e.message}", e)
+                UrlResolver.invaliderCache()
+                Result.failure(Exception("Impossible de joindre le serveur. Vérifiez votre connexion internet et l'adresse du serveur."))
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.e("PocketBaseClient", "❌ Timeout: ${e.message}", e)
+                UrlResolver.invaliderCache()
+                Result.failure(Exception("Le serveur ne répond pas dans les délais. Vérifiez votre connexion internet."))
+            } catch (e: java.net.ConnectException) {
+                Log.e("PocketBaseClient", "❌ Connexion refusée: ${e.message}", e)
+                UrlResolver.invaliderCache()
+                Result.failure(Exception("Connexion refusée par le serveur. Vérifiez que PocketBase est démarré."))
             } catch (e: IOException) {
+                Log.e("PocketBaseClient", "❌ Erreur IO: ${e.message}", e)
+                Log.e("PocketBaseClient", "❌ Type d'exception: ${e.javaClass.simpleName}")
+                Log.e("PocketBaseClient", "❌ Stack trace: ${e.stackTraceToString()}")
                 UrlResolver.invaliderCache()
                 
                 val messageErreur = when {
@@ -160,11 +231,16 @@ object PocketBaseClient {
                         "Impossible de joindre le serveur. Vérifiez l'adresse du serveur."
                     e.message?.contains("connection refused", ignoreCase = true) == true -> 
                         "Connexion refusée par le serveur. Vérifiez que PocketBase est démarré."
-                    else -> "Erreur réseau ou timeout. Le serveur est-il accessible à l'adresse ${UrlResolver.obtenirUrlActuelle()}? Message: ${e.message}"
+                    e.message?.contains("SSL", ignoreCase = true) == true ->
+                        "Erreur de certificat SSL. Vérifiez que le certificat du serveur est valide."
+                    else -> "Erreur réseau. Le serveur est-il accessible à ${UrlResolver.obtenirUrlActuelle()}? Message: ${e.message}"
                 }
                 
                 Result.failure(Exception(messageErreur))
             } catch (e: Exception) {
+                Log.e("PocketBaseClient", "❌ Erreur inattendue: ${e.message}", e)
+                Log.e("PocketBaseClient", "❌ Type d'exception: ${e.javaClass.simpleName}")
+                Log.e("PocketBaseClient", "❌ Stack trace: ${e.stackTraceToString()}")
                 Result.failure(Exception("Erreur inattendue: ${e.message}"))
             }
         }

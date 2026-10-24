@@ -1,0 +1,35 @@
+SHA-1 du keystore de RELEASE:
+14:D6:F9:65:C3:5C:1F:33:6C:89:DD:74:89:B9:2E:93:8A:06:3C:C5
+
+SHA-256 du keystore de RELEASE:
+2C:86:A6:00:C8:CF:62:DD:48:86:1B:D2:89:6A:27:A1:85:3F:77:E8:EA:7D:37:E8:E4:9E:27:E8:31:F6:FE:3D
+
+========================================
+INSTRUCTIONS POUR GOOGLE PLAY CONSOLE:
+========================================
+
+1. Allez sur https://play.google.com/console/
+2. Sélectionnez votre app "Toutie Budget"
+3. Allez dans: Setup > App signing
+4. Dans la section "App signing key certificate", vous devriez voir le SHA-1
+5. Si le SHA-1 affiché est différent, vous devez:
+   - Soit utiliser le keystore qui correspond au SHA-1 affiché
+   - Soit contacter le support Google Play pour changer le keystore (si c'est la première version)
+
+IMPORTANT:
+- Le SHA-1 dans Google Play Console doit correspondre au keystore que vous utilisez
+- Si c'est la première version de l'app, Google Play génère automatiquement un keystore
+- Pour les versions suivantes, vous devez utiliser le MÊME keystore
+
+========================================
+VÉRIFICATION:
+========================================
+
+Pour vérifier quel SHA-1 Google Play attend:
+1. Google Play Console > Setup > App signing
+2. Regardez "App signing key certificate" > SHA-1 certificate fingerprint
+3. Comparez avec le SHA-1 ci-dessus
+
+Si les SHA-1 ne correspondent PAS:
+- Vous utilisez le mauvais keystore
+- Ou vous devez utiliser le keystore de Google Play (upload key)

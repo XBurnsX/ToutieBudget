@@ -13,9 +13,19 @@ import java.util.TimeZone
  */
 class DateStringConverter {
     
-    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+    // Format principal ISO 8601 avec UTC (comme PocketBase)
+    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
+    
+    // Formats de fallback pour parser les dates existantes
+    private val dateFormatsFallback = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+    )
     
     /**
      * Convertit une String date vers Long (timestamp)
@@ -23,11 +33,15 @@ class DateStringConverter {
     @TypeConverter
     fun fromDateString(dateString: String?): Long? {
         if (dateString.isNullOrBlank()) return null
-        return try {
-            dateFormatter.parse(dateString)?.time
-        } catch (e: Exception) {
-            null
+        // Essayer tous les formats
+        for (format in dateFormatsFallback) {
+            try {
+                return format.parse(dateString)?.time
+            } catch (_: Exception) {
+                // Continuer avec le prochain format
+            }
         }
+        return null
     }
     
     /**

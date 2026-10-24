@@ -41,8 +41,31 @@ class TransactionRepositoryRoomImpl(
         .setFieldNamingPolicy(com.google.gson.FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
         .create()
 
-    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
+    // Format de date unifié ISO 8601 avec UTC (comme PocketBase)
+    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
+    }
+    
+    // Formats de fallback pour parser les dates existantes dans Room
+    private val dateFormatsFallback = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+    )
+    
+    private fun parseDate(dateString: String?): Date? {
+        if (dateString.isNullOrBlank()) return null
+        // Essayer tous les formats
+        for (format in dateFormatsFallback) {
+            try {
+                return format.parse(dateString)
+            } catch (_: Exception) {
+                // Continuer avec le prochain format
+            }
+        }
+        return null
     }
 
     override suspend fun creerTransaction(transaction: Transaction): Result<Transaction> = withContext(Dispatchers.IO) {
@@ -305,12 +328,21 @@ class TransactionRepositoryRoomImpl(
      * Extension function pour convertir une entité Room en modèle Transaction
      */
     private fun TransactionEntity.toTransactionModel(): Transaction {
+        // ❌ CORRECTION : Ne pas utiliser Date() par défaut si le parsing échoue
+        // Cela causait des dates aléatoires. Si le parsing échoue, on retourne null ou on log l'erreur
+        val parsedDate = parseDate(date) ?: run {
+            // Log l'erreur mais ne crée pas une date aléatoire
+            android.util.Log.e("TransactionRepositoryRoom", "⚠️ Impossible de parser la date: $date")
+            // Retourner une date par défaut seulement si vraiment nécessaire (éviter les crashes)
+            Date(System.currentTimeMillis())
+        }
+        
         return Transaction(
             id = id,
             utilisateurId = utilisateurId,
             type = com.xburnsx.toutiebudget.data.modeles.TypeTransaction.depuisValeurPocketBase(type) ?: com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense,
             montant = montant,
-            date = try { dateFormatter.parse(date) ?: Date() } catch (e: Exception) { Date() },
+            date = parsedDate,
             note = note,
             compteId = compteId,
             collectionCompte = collectionCompte,
@@ -318,8 +350,8 @@ class TransactionRepositoryRoomImpl(
             estFractionnee = estFractionnee,
             sousItems = sousItems,
             tiersUtiliser = tiersUtiliser,
-            created = created?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } },
-            updated = updated?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } }
+            created = created?.let { parseDate(it) },
+            updated = updated?.let { parseDate(it) }
         )
     }
     

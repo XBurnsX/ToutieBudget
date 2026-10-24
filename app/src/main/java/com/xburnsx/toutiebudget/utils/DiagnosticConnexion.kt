@@ -33,11 +33,11 @@ object DiagnosticConnexion {
         rapport.appendLine(DetecteurEmulateur.obtenirInfoEnvironnement())
         rapport.appendLine()
 
-        // Tester les URLs PocketBase
+        // Tester l'URL PocketBase HTTPS
+        val urlPocketbase = "https://pocketbase.toutieserver.com"
+        
         val urlsATester = listOf(
-            "http://10.0.2.2:8090" to "Émulateur vers Host",
-            "http://192.168.1.77:8090" to "IP Locale",
-            "http://toutiebudget.duckdns.org:8090" to "Publique"
+            urlPocketbase to "PocketBase HTTPS"
         )
 
         rapport.appendLine("=== TESTS DE CONNEXION POCKETBASE ===")
@@ -52,7 +52,7 @@ object DiagnosticConnexion {
         val sitesTest = listOf(
             "https://www.google.com" to "Google",
             "https://www.cloudflare.com" to "Cloudflare",
-            "https://toutiebudget.duckdns.org" to "DuckDNS"
+            "https://toutieserver.duckdns.org" to "DuckDNS"
         )
 
         for ((url, nom) in sitesTest) {

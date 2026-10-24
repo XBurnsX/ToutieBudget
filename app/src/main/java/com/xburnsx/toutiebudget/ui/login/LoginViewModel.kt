@@ -4,10 +4,12 @@
 package com.xburnsx.toutiebudget.ui.login
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.utils.DetecteurEmulateur
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -81,6 +83,12 @@ class LoginViewModel : ViewModel() {
         context: Context
     ) {
         viewModelScope.launch {
+            Log.d("LoginViewModel", "🔐 Début de la gestion de connexion Google")
+            Log.d("LoginViewModel", "📧 Email: $email")
+            Log.d("LoginViewModel", "👤 Nom: $nom")
+            Log.d("LoginViewModel", "🔑 Code autorisation: ${if (codeAutorisation.isNullOrBlank()) "VIDE" else "${codeAutorisation.take(20)}..."}")
+            Log.d("LoginViewModel", "🎫 ID Token: ${if (idToken.isNullOrBlank()) "VIDE" else "${idToken.take(20)}..."}")
+            
             _etatUi.update {
                 it.copy(
                     estEnChargement = true,
@@ -91,10 +99,19 @@ class LoginViewModel : ViewModel() {
 
             // Vérification des données reçues
             if (codeAutorisation.isNullOrBlank() && idToken.isNullOrBlank()) {
+                Log.e("LoginViewModel", "❌ Aucune information d'authentification reçue!")
+                val estEmulateur = DetecteurEmulateur.estEmulateur()
+                val messageErreur = if (estEmulateur) {
+                    "Aucune information d'authentification reçue de Google sur l'émulateur.\n\n" +
+                    "Cela est probablement dû à une configuration SHA-1 manquante dans Google Cloud Console.\n\n" +
+                    "Solution : Ajoutez le SHA-1 de votre clé de debug dans Google Cloud Console > APIs & Services > Credentials."
+                } else {
+                    "Aucune information d'authentification reçue de Google. Vérifiez votre connexion internet et réessayez."
+                }
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
-                        erreur = "Aucune information d'authentification reçue de Google. Vérifiez votre connexion internet et réessayez.",
+                        erreur = messageErreur,
                         messageChargement = ""
                     )
                 }
@@ -103,6 +120,7 @@ class LoginViewModel : ViewModel() {
 
             // SI on a un code d'autorisation, essayer PocketBase
             if (!codeAutorisation.isNullOrBlank()) {
+                Log.d("LoginViewModel", "✅ Code d'autorisation présent, connexion à PocketBase...")
                 _etatUi.update {
                     it.copy(messageChargement = "Connexion à PocketBase...")
                 }
@@ -110,6 +128,7 @@ class LoginViewModel : ViewModel() {
                 val resultat = PocketBaseClient.connecterAvecGoogle(codeAutorisation, context)
 
                 resultat.onSuccess {
+                    Log.d("LoginViewModel", "✅ Connexion réussie!")
                     _etatUi.update {
                         it.copy(
                             estEnChargement = false,
@@ -123,6 +142,7 @@ class LoginViewModel : ViewModel() {
 
                     return@launch
                 }.onFailure { erreur ->
+                    Log.e("LoginViewModel", "❌ Erreur de connexion: ${erreur.message}", erreur)
                     // Message d'erreur plus explicite pour l'utilisateur
                     val messageErreur = when {
                         erreur.message?.contains("timeout", ignoreCase = true) == true -> 
@@ -168,6 +188,51 @@ class LoginViewModel : ViewModel() {
                         messageChargement = "Connexion réussie (mode local)"
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Gère les erreurs spécifiques de Google Sign-In
+     * @param codeErreur Code d'erreur de l'API Google Sign-In
+     */
+    fun gererErreurGoogleSignIn(codeErreur: Int, context: Context) {
+        viewModelScope.launch {
+            val estEmulateur = DetecteurEmulateur.estEmulateur()
+            val messageErreur = when (codeErreur) {
+                10 -> {
+                    // DEVELOPER_ERROR - SHA-1 manquant ou incorrect
+                    "❌ Erreur de configuration Google Sign-In (Code 10)\n\n" +
+                    "Le SHA-1 de votre clé de signature n'est pas configuré dans Google Cloud Console.\n\n" +
+                    "📋 Solution :\n" +
+                    "1. Exécutez le script 'obtenir-sha1-debug.bat' dans le dossier du projet\n" +
+                    "2. Copiez le SHA-1 affiché\n" +
+                    "3. Allez sur https://console.cloud.google.com/\n" +
+                    "4. Projet : toutiebudget-kotlin\n" +
+                    "5. APIs & Services > Credentials\n" +
+                    "6. Cliquez sur votre OAuth 2.0 Client ID Android\n" +
+                    "7. Ajoutez le SHA-1 dans 'SHA-1 certificate fingerprints'\n" +
+                    "8. Sauvegardez et attendez 2-3 minutes\n" +
+                    "9. Relancez l'application\n\n" +
+                    "💡 Pour release : utilisez 'obtenir-sha1-release.bat'"
+                }
+                12501 -> "Connexion annulée par l'utilisateur."
+                7 -> "Erreur réseau. Vérifiez votre connexion internet."
+                8 -> "Erreur interne. Réessayez plus tard."
+                else -> {
+                    "Erreur Google Sign-In (code $codeErreur).\n\n" +
+                    "Si le problème persiste, vérifiez la configuration OAuth dans Google Cloud Console."
+                }
+            }
+            
+            Log.e("LoginViewModel", "❌ Erreur Google Sign-In code $codeErreur: $messageErreur")
+            
+            _etatUi.update {
+                it.copy(
+                    estEnChargement = false,
+                    erreur = messageErreur,
+                    messageChargement = ""
+                )
             }
         }
     }

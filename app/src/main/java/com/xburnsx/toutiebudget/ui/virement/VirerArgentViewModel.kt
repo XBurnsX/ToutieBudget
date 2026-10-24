@@ -775,48 +775,28 @@ class VirerArgentViewModel(
                                  enveloppeSource == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_INTROUVABLE))
                                  enveloppeDestination == null -> Result.failure(Exception(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_DESTINATION_INTROUVABLE))
                                  else -> {
-                                     // 🎯 UTILISER LA MÊME LOGIQUE QUE PRÊT À PLACER -> ENVELOPPE !
-                                     // 1. Retirer de l'enveloppe source (comme retirer du prêt à placer)
-                                     val allocationSource = allAllocations.find { it.enveloppeId == source.enveloppe.id }
-                                     if (allocationSource == null) {
-                                         Result.failure(Exception("Aucune allocation trouvée pour l'enveloppe source"))
-                                     } else {
-                                         // Mettre à jour l'allocation source (diminue solde + alloué)
-                                         val allocationSourceMiseAJour = allocationSource.copy(
-                                             solde = allocationSource.solde - montantEnDollars,
-                                             alloue = allocationSource.alloue - montantEnDollars
+                                     // ✅ CORRECTION : Utiliser directement effectuerVirementEnveloppeVersEnveloppe
+                                     // Cette fonction gère TOUT : les allocations source ET destination
+                                     // Elle ne modifie PAS le solde du compte (uniquement les allocations)
+                                     try {
+                                         val result = argentService.effectuerVirementEnveloppeVersEnveloppe(
+                                             enveloppeSource = enveloppeSource,
+                                             enveloppeDestination = enveloppeDestination,
+                                             montant = montantEnDollars
                                          )
                                          
+                                         // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
+                                         val moisAVirer = _uiState.value.moisSelectionne
                                          try {
-                                             allocationMensuelleRepository.mettreAJourAllocation(allocationSourceMiseAJour)
-                                             
-                                             // 2. Ajouter à l'enveloppe destination (comme ajouter à l'enveloppe)
-                                             // 🔥 CORRECTION : Vérifier que les champs ne sont pas null
-                                             val result = if (allocationSource.compteSourceId == null || allocationSource.collectionCompteSource == null) {
-                                                 Result.failure<Unit>(Exception("Données de provenance manquantes pour l'enveloppe source"))
-                                             } else {
-                                                 argentService.allouerArgentEnveloppeSansTransaction(
-                                                     enveloppeId = destination.enveloppe.id,
-                                                     compteSourceId = allocationSource.compteSourceId!!,
-                                                     collectionCompteSource = allocationSource.collectionCompteSource!!,
-                                                     montant = montantEnDollars,
-                                                     mois = _uiState.value.moisSelectionne
-                                                 )
-                                             }
-                                             
-                                             // 🔥 FORCER LA RE-FUSION APRÈS OPÉRATIONS ArgentService !
-                                             val moisAVirer = _uiState.value.moisSelectionne
-                                             try {
-                                                 allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
-                                                 allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
-                                             } catch (_: Exception) {
-                                                 // Erreur silencieuse
-                                             }
-                                             
-                                             result
-                                         } catch (e: Exception) {
-                                             Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
+                                             allocationMensuelleRepository.recupererOuCreerAllocation(source.enveloppe.id, moisAVirer)
+                                             allocationMensuelleRepository.recupererOuCreerAllocation(destination.enveloppe.id, moisAVirer)
+                                         } catch (_: Exception) {
+                                             // Erreur silencieuse
                                          }
+                                         
+                                         result
+                                     } catch (e: Exception) {
+                                         Result.failure<Unit>(Exception("Erreur lors du virement: ${e.message}"))
                                      }
                                  }
                              }

@@ -1,6 +1,6 @@
 package com.xburnsx.toutiebudget.data.services
 
-// import android.util.Log
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
@@ -76,22 +76,47 @@ class InitialImportService(
             
             // ÉTAPE 1: Vérification de la connexion
             onProgressUpdate?.invoke(1, "Vérification de la connexion...")
+            Log.d(logTag, "🔍 Début de l'import initial des données")
+            
             // 🔍 Tentative de récupération de l'utilisateur connecté...
             val utilisateurConnecte = client.obtenirUtilisateurConnecte()
-            // 👤 Utilisateur connecté: $utilisateurConnecte
+            Log.d(logTag, "👤 Utilisateur connecté: ${utilisateurConnecte?.id ?: "NULL"}")
             
-            val utilisateurId = utilisateurConnecte?.id
-                ?: return@withContext Result.failure(Exception("Utilisateur non connecté"))
+            if (utilisateurConnecte == null) {
+                Log.e(logTag, "❌ Utilisateur non connecté - Vérification de l'authentification...")
+                val estConnecte = client.estConnecte()
+                Log.e(logTag, "❌ Est connecté: $estConnecte")
+                return@withContext Result.failure(Exception("Utilisateur non connecté. Veuillez vous reconnecter."))
+            }
+            
+            val utilisateurId = utilisateurConnecte.id
+            Log.d(logTag, "✅ Utilisateur ID: $utilisateurId")
             
             // 🔍 Tentative de récupération de l'URL base...
-            val urlBase = UrlResolver.obtenirUrlActive()
+            val urlBase = try {
+                UrlResolver.obtenirUrlActive()
+            } catch (e: Exception) {
+                Log.e(logTag, "❌ Erreur lors de la récupération de l'URL: ${e.message}", e)
+                return@withContext Result.failure(Exception("Erreur de connexion au serveur: ${e.message}"))
+            }
+            Log.d(logTag, "🔗 URL Base: $urlBase")
+            
             // 🔍 Tentative de récupération du token...
             val token = client.obtenirToken()
-                ?: return@withContext Result.failure(Exception("Token manquant"))
+            if (token == null) {
+                Log.e(logTag, "❌ Token manquant")
+                return@withContext Result.failure(Exception("Token d'authentification manquant. Veuillez vous reconnecter."))
+            }
+            Log.d(logTag, "🔑 Token: ${token.take(20)}...")
             
-            // ✅ Utilisateur connecté: $utilisateurId
-            // 🔗 URL Base: $urlBase
-            // 🔑 Token: ${token.take(20)}...
+            // Test de connectivité vers PocketBase
+            Log.d(logTag, "🏥 Test de connectivité vers PocketBase...")
+            val testConnectivite = client.verifierConnexionServeur()
+            if (!testConnectivite) {
+                Log.e(logTag, "❌ Serveur PocketBase non accessible")
+                return@withContext Result.failure(Exception("Impossible de se connecter au serveur. Vérifiez votre connexion internet."))
+            }
+            Log.d(logTag, "✅ Serveur PocketBase accessible")
             
             // ÉTAPE 2: Import des ENTITÉS DE BASE (sans relations)
             onProgressUpdate?.invoke(2, "Import des entités de base...")
@@ -179,8 +204,9 @@ class InitialImportService(
             Result.success(Unit)
             
         } catch (e: Exception) {
-            // ❌ Erreur lors de l'import complet
-            Result.failure(e)
+            Log.e(logTag, "❌ Erreur lors de l'import complet: ${e.message}", e)
+            Log.e(logTag, "❌ Stack trace: ${e.stackTraceToString()}")
+            Result.failure(Exception("Erreur lors de la synchronisation: ${e.message}"))
         }
     }
     
@@ -188,17 +214,19 @@ class InitialImportService(
      * Importe les comptes chèques depuis PocketBase
      */
     private suspend fun importerComptesCheques(urlBase: String, token: String, utilisateurId: String): List<CompteCheque> {
-        val url = "$urlBase/api/collections/comptes_cheques/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour comptes chèques
-            return emptyList()
-        }
+        return try {
+            val url = "$urlBase/api/collections/comptes_cheques/records?filter=utilisateur_id='$utilisateurId'"
+            Log.d(logTag, "📥 Import comptes chèques depuis: $url")
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes chèques: ${response.body?.string()}")
+                return emptyList()
+            }
         
         val jsonResponse = response.body?.string() ?: "{}"
         val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
@@ -221,23 +249,31 @@ class InitialImportService(
                 null
             }
         }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour comptes chèques: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des comptes chèques: ${e.message}", e)
+            emptyList()
+        }
     }
     
     /**
      * Importe les comptes crédits depuis PocketBase
      */
     private suspend fun importerComptesCredits(urlBase: String, token: String, utilisateurId: String): List<CompteCredit> {
-        val url = "$urlBase/api/collections/comptes_credits/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour comptes crédits
-            return emptyList()
-        }
+        return try {
+            val url = "$urlBase/api/collections/comptes_credits/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes crédits: ${response.body?.string()}")
+                return emptyList()
+            }
         
         val jsonResponse = response.body?.string() ?: "{}"
         val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
@@ -259,9 +295,16 @@ class InitialImportService(
                     collection = item.collection ?: "comptes_credits"
                 )
             } catch (e: Exception) {
-                // ⚠️ Erreur conversion compte crédit: ${e.message}
+                Log.e(logTag, "⚠️ Erreur conversion compte crédit: ${e.message}", e)
                 null
             }
+        }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour comptes crédits: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des comptes crédits: ${e.message}", e)
+            emptyList()
         }
     }
     
@@ -269,42 +312,50 @@ class InitialImportService(
      * Importe les comptes dettes depuis PocketBase
      */
     private suspend fun importerComptesDettes(urlBase: String, token: String, utilisateurId: String): List<CompteDette> {
-        val url = "$urlBase/api/collections/comptes_dettes/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour comptes dettes
-            return emptyList()
-        }
-        
-        val jsonResponse = response.body?.string() ?: "{}"
-        val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
-        
-        return listeResultats.items.mapNotNull { item ->
-            try {
-                CompteDette(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nom = item.nom ?: "",
-                    soldeDette = item.solde_dette?.toDoubleOrNull() ?: 0.0,
-                    estArchive = item.archive ?: false,
-                    ordre = item.ordre ?: 0,
-                    montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
-                    tauxInteret = item.taux_interet?.toDoubleOrNull(),
-                    paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
-                    dureeMoisPret = item.duree_mois_pret?.toIntOrNull(),
-                    paiementEffectue = item.paiement_effectue ?: 0,
-                    prixTotal = item.prix_total?.toDoubleOrNull(),
-                    collection = item.collection ?: "comptes_dettes"
-                )
-            } catch (e: Exception) {
-                // ⚠️ Erreur conversion compte dette: ${e.message}
-                null
+        return try {
+            val url = "$urlBase/api/collections/comptes_dettes/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes dettes: ${response.body?.string()}")
+                return emptyList()
             }
+            
+            val jsonResponse = response.body?.string() ?: "{}"
+            val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
+            
+            return listeResultats.items.mapNotNull { item ->
+                try {
+                    CompteDette(
+                        id = item.id,
+                        utilisateurId = item.utilisateur_id ?: "",
+                        nom = item.nom ?: "",
+                        soldeDette = item.solde_dette?.toDoubleOrNull() ?: 0.0,
+                        estArchive = item.archive ?: false,
+                        ordre = item.ordre ?: 0,
+                        montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
+                        tauxInteret = item.taux_interet?.toDoubleOrNull(),
+                        paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
+                        dureeMoisPret = item.duree_mois_pret?.toIntOrNull(),
+                        paiementEffectue = item.paiement_effectue ?: 0,
+                        prixTotal = item.prix_total?.toDoubleOrNull(),
+                        collection = item.collection ?: "comptes_dettes"
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "⚠️ Erreur conversion compte dette: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour comptes dettes: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des comptes dettes: ${e.message}", e)
+            emptyList()
         }
     }
     
@@ -312,37 +363,45 @@ class InitialImportService(
      * Importe les comptes investissement depuis PocketBase
      */
     private suspend fun importerComptesInvestissement(urlBase: String, token: String, utilisateurId: String): List<CompteInvestissement> {
-        val url = "$urlBase/api/collections/comptes_investissement/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour comptes investissement
-            return emptyList()
-        }
-        
-        val jsonResponse = response.body?.string() ?: "{}"
-        val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
-        
-        return listeResultats.items.mapNotNull { item ->
-            try {
-                CompteInvestissement(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nom = item.nom ?: "",
-                    solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                    couleur = item.couleur ?: "#FF0000",
-                    estArchive = item.archive ?: false,
-                    ordre = item.ordre ?: 0,
-                    collection = item.collection ?: "comptes_investissement"
-                )
-            } catch (e: Exception) {
-                // ⚠️ Erreur conversion compte investissement: ${e.message}
-                null
+        return try {
+            val url = "$urlBase/api/collections/comptes_investissement/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour comptes investissement: ${response.body?.string()}")
+                return emptyList()
             }
+            
+            val jsonResponse = response.body?.string() ?: "{}"
+            val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
+            
+            return listeResultats.items.mapNotNull { item ->
+                try {
+                    CompteInvestissement(
+                        id = item.id,
+                        utilisateurId = item.utilisateur_id ?: "",
+                        nom = item.nom ?: "",
+                        solde = item.solde?.toDoubleOrNull() ?: 0.0,
+                        couleur = item.couleur ?: "#FF0000",
+                        estArchive = item.archive ?: false,
+                        ordre = item.ordre ?: 0,
+                        collection = item.collection ?: "comptes_investissement"
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "⚠️ Erreur conversion compte investissement: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour comptes investissement: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des comptes investissement: ${e.message}", e)
+            emptyList()
         }
     }
     
@@ -350,33 +409,41 @@ class InitialImportService(
      * Importe les catégories depuis PocketBase
      */
     private suspend fun importerCategories(urlBase: String, token: String, utilisateurId: String): List<Categorie> {
-        val url = "$urlBase/api/collections/categories/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour catégories
-            return emptyList()
-        }
-        
-        val jsonResponse = response.body?.string() ?: "{}"
-        val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
-        
-        return listeResultats.items.mapNotNull { item ->
-            try {
-                Categorie(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nom = item.nom ?: "",
-                    ordre = item.ordre ?: 0
-                )
-                    } catch (e: Exception) {
-            // ⚠️ Erreur conversion catégorie: ${e.message}
-            null
-        }
+        return try {
+            val url = "$urlBase/api/collections/categories/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour catégories: ${response.body?.string()}")
+                return emptyList()
+            }
+            
+            val jsonResponse = response.body?.string() ?: "{}"
+            val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
+            
+            return listeResultats.items.mapNotNull { item ->
+                try {
+                    Categorie(
+                        id = item.id,
+                        utilisateurId = item.utilisateur_id ?: "",
+                        nom = item.nom ?: "",
+                        ordre = item.ordre ?: 0
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "⚠️ Erreur conversion catégorie: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour catégories: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des catégories: ${e.message}", e)
+            emptyList()
         }
     }
     
@@ -385,22 +452,23 @@ class InitialImportService(
      * CHARGE 500 PAGES POUR RÉCUPÉRER TOUTES LES TRANSACTIONS !
      */
     private suspend fun importerTransactions(urlBase: String, token: String, utilisateurId: String, allocations: List<AllocationMensuelle>): List<Transaction> {
-        val transactions = mutableListOf<Transaction>()
-        var page = 1
-        val perPage = 500 // Charger 500 éléments par page
-        
-        while (page <= 500) { // Limite de sécurité à 500 pages
-            val url = "$urlBase/api/collections/transactions/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", token)
-                .build()
+        return try {
+            val transactions = mutableListOf<Transaction>()
+            var page = 1
+            val perPage = 500 // Charger 500 éléments par page
             
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                // ⚠️ Erreur HTTP ${response.code} pour transactions page $page
-                break
-            }
+            while (page <= 500) { // Limite de sécurité à 500 pages
+                val url = "$urlBase/api/collections/transactions/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+                
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour transactions page $page: ${response.body?.string()}")
+                    break
+                }
             
             val jsonResponse = response.body?.string() ?: "{}"
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
@@ -453,8 +521,15 @@ class InitialImportService(
             page++
         }
         
-        // 🔍 TOTAL TRANSACTIONS RÉCUPÉRÉES: ${transactions.size}
-        return transactions
+            // 🔍 TOTAL TRANSACTIONS RÉCUPÉRÉES: ${transactions.size}
+            transactions
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour transactions: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des transactions: ${e.message}", e)
+            emptyList()
+        }
     }
     
     /**
@@ -462,22 +537,23 @@ class InitialImportService(
      * CHARGE 500 PAGES POUR RÉCUPÉRER TOUTES LES ENVELOPPES !
      */
     private suspend fun importerEnveloppes(urlBase: String, token: String, utilisateurId: String, categories: List<Categorie>): List<Enveloppe> {
-        val enveloppes = mutableListOf<Enveloppe>()
-        var page = 1
-        val perPage = 500 // Charger 500 éléments par page
-        
-        while (page <= 500) { // Limite de sécurité à 500 pages
-            val url = "$urlBase/api/collections/enveloppes/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", token)
-                .build()
+        return try {
+            val enveloppes = mutableListOf<Enveloppe>()
+            var page = 1
+            val perPage = 500 // Charger 500 éléments par page
             
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                // ⚠️ Erreur HTTP ${response.code} pour enveloppes page $page
-                break
-            }
+            while (page <= 500) { // Limite de sécurité à 500 pages
+                val url = "$urlBase/api/collections/enveloppes/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+                
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour enveloppes page $page: ${response.body?.string()}")
+                    break
+                }
             
             val jsonResponse = response.body?.string() ?: "{}"
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
@@ -547,8 +623,15 @@ class InitialImportService(
             page++
         }
         
-        // 🔍 TOTAL ENVELOPPES RÉCUPÉRÉES: ${enveloppes.size}
-        return enveloppes
+            // 🔍 TOTAL ENVELOPPES RÉCUPÉRÉES: ${enveloppes.size}
+            enveloppes
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour enveloppes: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des enveloppes: ${e.message}", e)
+            emptyList()
+        }
     }
     
     /**
@@ -556,22 +639,23 @@ class InitialImportService(
      * CHARGE 500 PAGES POUR RÉCUPÉRER TOUTES LES ALLOCATIONS !
      */
     private suspend fun importerAllocationsMensuelles(urlBase: String, token: String, utilisateurId: String, enveloppes: List<Enveloppe>): List<AllocationMensuelle> {
-        val allocations = mutableListOf<AllocationMensuelle>()
-        var page = 1
-        val perPage = 500 // Charger 500 éléments par page
-        
-        while (page <= 500) { // Limite de sécurité à 500 pages
-            val url = "$urlBase/api/collections/allocations_mensuelles/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
-            val request = Request.Builder()
-                .url(url)
-                .addHeader("Authorization", token)
-                .build()
+        return try {
+            val allocations = mutableListOf<AllocationMensuelle>()
+            var page = 1
+            val perPage = 500 // Charger 500 éléments par page
             
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                // ⚠️ Erreur HTTP ${response.code} pour allocations mensuelles page $page
-                break
-            }
+            while (page <= 500) { // Limite de sécurité à 500 pages
+                val url = "$urlBase/api/collections/allocations_mensuelles/records?filter=utilisateur_id='$utilisateurId'&perPage=$perPage&page=$page"
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+                
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour allocations mensuelles page $page: ${response.body?.string()}")
+                    break
+                }
             
             val jsonResponse = response.body?.string() ?: "{}"
             val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
@@ -619,44 +703,59 @@ class InitialImportService(
             page++
         }
         
-        // 🔍 TOTAL ALLOCATIONS RÉCUPÉRÉES: ${allocations.size}
-        return allocations
+            // 🔍 TOTAL ALLOCATIONS RÉCUPÉRÉES: ${allocations.size}
+            allocations
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour allocations mensuelles: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des allocations mensuelles: ${e.message}", e)
+            emptyList()
+        }
     }
     
     /**
      * Importe les tiers depuis PocketBase
      */
     private suspend fun importerTiers(urlBase: String, token: String, utilisateurId: String): List<Tiers> {
-        val url = "$urlBase/api/collections/tiers/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour tiers
-            return emptyList()
-        }
-        
-        val jsonResponse = response.body?.string() ?: "{}"
-        val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
-        
-        return listeResultats.items.mapNotNull { item ->
-            try {
-                Tiers(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nom = item.nom ?: "",
-                    created = item.created ?: "",
-                    updated = item.updated ?: "",
-                    collectionId = item.collectionId ?: "",
-                    collectionName = item.collectionName ?: ""
-                )
-                    } catch (e: Exception) {
-            // ⚠️ Erreur conversion tiers: ${e.message}
-            null
-        }
+        return try {
+            val url = "$urlBase/api/collections/tiers/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour tiers: ${response.body?.string()}")
+                return emptyList()
+            }
+            
+            val jsonResponse = response.body?.string() ?: "{}"
+            val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
+            
+            return listeResultats.items.mapNotNull { item ->
+                try {
+                    Tiers(
+                        id = item.id,
+                        utilisateurId = item.utilisateur_id ?: "",
+                        nom = item.nom ?: "",
+                        created = item.created ?: "",
+                        updated = item.updated ?: "",
+                        collectionId = item.collectionId ?: "",
+                        collectionName = item.collectionName ?: ""
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "⚠️ Erreur conversion tiers: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour tiers: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des tiers: ${e.message}", e)
+            emptyList()
         }
     }
     
@@ -664,39 +763,47 @@ class InitialImportService(
      * Importe les prêts personnels depuis PocketBase
      */
     private suspend fun importerPretsPersonnels(urlBase: String, token: String, utilisateurId: String): List<PretPersonnel> {
-        val url = "$urlBase/api/collections/pret_personnel/records?filter=utilisateur_id='$utilisateurId'"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Authorization", token)
-            .build()
-        
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            // ⚠️ Erreur HTTP ${response.code} pour prêts personnels
-            return emptyList()
-        }
-        
-        val jsonResponse = response.body?.string() ?: "{}"
-        val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
-        
-        return listeResultats.items.mapNotNull { item ->
-            try {
-                PretPersonnel(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nomTiers = item.nom_tiers,
-                    montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
-                    solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                    type = item.type ?: "",
-                    estArchive = item.archive ?: false,
-                    dateCreation = item.date_creation,
-                    created = item.created,
-                    updated = item.updated
-                )
-            } catch (e: Exception) {
-                // ⚠️ Erreur conversion prêt personnel: ${e.message}
-                null
+        return try {
+            val url = "$urlBase/api/collections/pret_personnel/records?filter=utilisateur_id='$utilisateurId'"
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(logTag, "⚠️ Erreur HTTP ${response.code} pour prêts personnels: ${response.body?.string()}")
+                return emptyList()
             }
+            
+            val jsonResponse = response.body?.string() ?: "{}"
+            val listeResultats = gson.fromJson(jsonResponse, ListeResultats::class.java)
+            
+            return listeResultats.items.mapNotNull { item ->
+                try {
+                    PretPersonnel(
+                        id = item.id,
+                        utilisateurId = item.utilisateur_id ?: "",
+                        nomTiers = item.nom_tiers,
+                        montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
+                        solde = item.solde?.toDoubleOrNull() ?: 0.0,
+                        type = item.type ?: "",
+                        estArchive = item.archive ?: false,
+                        dateCreation = item.date_creation,
+                        created = item.created,
+                        updated = item.updated
+                    )
+                } catch (e: Exception) {
+                    Log.e(logTag, "⚠️ Erreur conversion prêt personnel: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: javax.net.ssl.SSLHandshakeException) {
+            Log.e(logTag, "❌ Erreur SSL pour prêts personnels: ${e.message}", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(logTag, "❌ Erreur lors de l'import des prêts personnels: ${e.message}", e)
+            emptyList()
         }
     }
     

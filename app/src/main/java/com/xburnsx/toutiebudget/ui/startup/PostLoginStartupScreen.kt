@@ -36,8 +36,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.R
 import com.xburnsx.toutiebudget.di.AppModule
+import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.delay
-// import android.util.Log
+import android.util.Log
 
 /**
  * Écran d'initialisation qui s'affiche APRÈS la connexion de l'utilisateur
@@ -80,9 +81,29 @@ fun PostLoginStartupScreen(
         delay(1000) // Délai initial pour l'animation du logo
         
         try {
+            Log.d("PostLoginStartup", "🚀 Début de l'import initial")
+            
+            // Vérifier que l'utilisateur est bien connecté avant de lancer l'import
+            var tentatives = 0
+            while (tentatives < 5 && !PocketBaseClient.estConnecte()) {
+                Log.d("PostLoginStartup", "⏳ Attente de la connexion... (tentative ${tentatives + 1}/5)")
+                delay(500)
+                tentatives++
+            }
+            
+            if (!PocketBaseClient.estConnecte()) {
+                Log.e("PostLoginStartup", "❌ Utilisateur non connecté après 5 tentatives")
+                currentStepState.value = -1
+                onInitializationComplete()
+                return@LaunchedEffect
+            }
+            
+            val utilisateur = PocketBaseClient.obtenirUtilisateurConnecte()
+            Log.d("PostLoginStartup", "✅ Utilisateur connecté: ${utilisateur?.id}")
+            
             // 📱 Tentative de récupération du service d'import...
             val importService = AppModule.provideInitialImportService()
-            // ✅ Service d'import récupéré: $importService
+            Log.d("PostLoginStartup", "✅ Service d'import récupéré")
             
             // Configurer le callback de progression
             importService.onProgressUpdate = { step, message ->
@@ -97,18 +118,22 @@ fun PostLoginStartupScreen(
             
             if (result.isSuccess) {
                 // 🎉 IMPORT RÉUSSI! Navigation vers l'écran principal
-                // Import réussi, navigation vers l'écran principal
+                Log.d("PostLoginStartup", "✅ Import réussi!")
                 onInitializationComplete()
             } else {
-                // ❌ ERREUR IMPORT: ${result.exceptionOrNull()}
+                val erreur = result.exceptionOrNull()
+                Log.e("PostLoginStartup", "❌ ERREUR IMPORT: ${erreur?.message}", erreur)
                 // En cas d'erreur, on continue quand même (mode offline)
                 // ⚠️ Mode offline - continuation sans import
+                // Mais on affiche l'erreur à l'utilisateur
+                currentStepState.value = -1 // Code d'erreur
                 onInitializationComplete()
             }
             
         } catch (e: Exception) {
+            Log.e("PostLoginStartup", "❌ Exception lors de l'import: ${e.message}", e)
             // En cas d'erreur, on continue quand même (mode offline)
-            // Erreur lors de l'import
+            currentStepState.value = -1 // Code d'erreur
             onInitializationComplete()
         }
     }
