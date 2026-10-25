@@ -83,6 +83,9 @@ class SyncWorker(
             
             // Traiter chaque tâche de synchronisation
             for (syncJob in syncJobs) {
+                // Remplacé par un nouveau déclenchement : s'arrêter entre deux tâches,
+                // le prochain worker reprendra les tâches restantes
+                if (isStopped) break
                 try {
                     // 🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}
                     
@@ -136,21 +139,7 @@ class SyncWorker(
      */
     private suspend fun traiterCreation(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
-            val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions"
-                "COMPTE" -> "comptes_cheques" // Collection par défaut
-                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
-                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
-                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
-                "PRET_PERSONNEL" -> "pret_personnel"
-                "ENVELOPPE" -> "enveloppes"
-                "CATEGORIE" -> "categories"
-                "TIERS" -> "tiers"
-                else -> syncJob.type.lowercase()
-            }
+            val collection = SyncCollections.collectionPourType(syncJob.type)
             
             val url = "$urlBase/api/collections/$collection/records"
             // 🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)
@@ -165,19 +154,25 @@ class SyncWorker(
                 .build()
             
             val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            val success = response.isSuccessful
-            
-            if (!success) {
-                // ❌ Échec HTTP ${response.code} pour CREATE:
-                //   Réponse du serveur: $responseBody
-                //   Headers de réponse: ${response.headers}
-            } else {
-                // ✅ Création réussie:
-                //   Réponse du serveur: $responseBody
+            val code = response.code
+            response.close()
+            if (response.isSuccessful) return true
+
+            // Une tâche CREATE peut être rejouée si le worker a été coupé après l'envoi
+            // mais avant de marquer la tâche COMPLETED. Si la fiche existe déjà sur le
+            // serveur (400 sur l'id), on applique les données en PATCH au lieu d'échouer en boucle.
+            if (code == 400) {
+                val recordId = syncJob.recordId.ifBlank { idDepuisJson(syncJob.dataJson) ?: "" }
+                if (recordId.isNotBlank() && ficheExiste(urlBase, collection, recordId, token)) {
+                    val patch = Request.Builder()
+                        .url("$url/$recordId")
+                        .patch(syncJob.dataJson.toRequestBody("application/json".toMediaType()))
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                    return httpClient.newCall(patch).execute().use { it.isSuccessful }
+                }
             }
-            
-            return success
+            return false
             
         } catch (e: Exception) {
             // ❌ Erreur lors de la création
@@ -190,21 +185,7 @@ class SyncWorker(
      */
     private suspend fun traiterMiseAJour(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
-            val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions"
-                "COMPTE" -> "comptes_cheques" // Collection par défaut
-                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
-                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
-                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
-                "PRET_PERSONNEL" -> "pret_personnel"
-                "ENVELOPPE" -> "enveloppes"
-                "CATEGORIE" -> "categories"
-                "TIERS" -> "tiers"
-                else -> syncJob.type.lowercase()
-            }
+            val collection = SyncCollections.collectionPourType(syncJob.type)
             
             // 🆕 CORRECTION CRITIQUE : Gestion des recordId manquants pour les anciennes tâches
             val recordId = if (syncJob.recordId.isBlank()) {
@@ -312,21 +293,7 @@ class SyncWorker(
      */
     private suspend fun traiterSuppression(syncJob: SyncJob, urlBase: String, token: String): Boolean {
         try {
-            // 🚨 CORRECTION CRITIQUE : Utiliser directement les noms des tables Room = collections Pocketbase
-            val collection = when (syncJob.type.uppercase()) {
-                "TRANSACTION" -> "transactions"
-                "COMPTE" -> "comptes_cheques" // Collection par défaut
-                "COMPTE_CHEQUE" -> "comptes_cheques" // Même nom que la table Room !
-                "COMPTE_CREDIT" -> "comptes_credits" // Même nom que la table Room !
-                "COMPTE_DETTE" -> "comptes_dettes" // Même nom que la table Room !
-                "COMPTE_INVESTISSEMENT" -> "comptes_investissement" // Même nom que la table Room !
-                "ALLOCATION_MENSUELLE" -> "allocations_mensuelles"
-                "PRET_PERSONNEL" -> "pret_personnel"
-                "ENVELOPPE" -> "enveloppes"
-                "CATEGORIE" -> "categories"
-                "TIERS" -> "tiers"
-                else -> syncJob.type.lowercase()
-            }
+            val collection = SyncCollections.collectionPourType(syncJob.type)
             
             // 🆕 CORRECTION CRITIQUE : Gestion des recordId manquants pour les anciennes tâches
             val recordId = if (syncJob.recordId.isBlank()) {
@@ -359,20 +326,8 @@ class SyncWorker(
                 .addHeader("Authorization", "Bearer $token")
                 .build()
             
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            val success = response.isSuccessful
-            
-            if (!success) {
-                // ❌ Échec HTTP ${response.code} pour DELETE:
-                //   Réponse du serveur: $responseBody
-                //   Headers de réponse: ${response.headers}
-            } else {
-                // ✅ Suppression réussie:
-                //   Réponse du serveur: $responseBody
-            }
-            
-            return success
+            // 404 = déjà supprimée sur le serveur (tâche rejouée) : le résultat voulu est atteint
+            return httpClient.newCall(request).execute().use { it.isSuccessful || it.code == 404 }
             
         } catch (e: Exception) {
             // ❌ Erreur lors de la suppression
@@ -380,6 +335,25 @@ class SyncWorker(
         }
     }
     
+    private fun idDepuisJson(dataJson: String): String? = try {
+        (gson.fromJson(dataJson, Map::class.java)["id"] as? String)?.takeIf { it.isNotBlank() }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun ficheExiste(urlBase: String, collection: String, recordId: String, token: String): Boolean {
+        val request = Request.Builder()
+            .url("$urlBase/api/collections/$collection/records/$recordId")
+            .get()
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        return try {
+            httpClient.newCall(request).execute().use { it.isSuccessful }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /**
      * Vérifie si le réseau est disponible
      */

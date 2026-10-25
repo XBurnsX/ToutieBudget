@@ -11,6 +11,7 @@ import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
+import com.xburnsx.toutiebudget.data.services.SyncPayloads
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -701,81 +702,9 @@ class CompteRepositoryRoomImpl(
         )
     }
     
-    /**
-     * Génère manuellement le JSON pour un compte chèque avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonCompteChequeManuel(entity: CompteChequeEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom" to entity.nom,
-            "solde" to entity.solde,
-            "pret_a_placer" to entity.pretAPlacerRaw,
-            "couleur" to entity.couleur,
-            "archive" to entity.estArchive,
-            "ordre" to entity.ordre,
-            "collection" to entity.collection
-        )
-        return gson.toJson(data)
-    }
-    
-    /**
-     * Génère manuellement le JSON pour un compte crédit avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonCompteCreditManuel(entity: CompteCreditEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom" to entity.nom,
-            "solde_utilise" to entity.soldeUtilise,
-            "couleur" to entity.couleur,
-            "archive" to entity.estArchive,
-            "ordre" to entity.ordre,
-            "limite_credit" to entity.limiteCredit,
-            "taux_interet" to entity.tauxInteret,
-            "paiement_minimum" to entity.paiementMinimum,
-            "frais_mensuels_json" to entity.fraisMensuelsJson,
-            "collection" to entity.collection
-        )
-        return gson.toJson(data)
-    }
-    
-    /**
-     * Génère manuellement le JSON pour un compte dette avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonCompteDetteManuel(entity: CompteDetteEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom" to entity.nom,
-            "solde_dette" to entity.soldeDette,
-            "archive" to entity.estArchive,
-            "ordre" to entity.ordre,
-            "montant_initial" to entity.montantInitial,
-            "taux_interet" to entity.tauxInteret,
-            "paiement_minimum" to entity.paiementMinimum,
-            "duree_mois_pret" to entity.dureeMoisPret,
-            "paiement_effectue" to entity.paiementEffectue,
-            "prix_total" to entity.prixTotal,
-            "collection" to entity.collection
-        )
-        return gson.toJson(data)
-    }
-    
-    /**
-     * Génère manuellement le JSON pour un compte investissement avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonCompteInvestissementManuel(entity: CompteInvestissementEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom" to entity.nom,
-            "solde" to entity.solde,
-            "couleur" to entity.couleur,
-            "archive" to entity.estArchive,
-            "ordre" to entity.ordre,
-            "collection" to entity.collection
-        )
-        return gson.toJson(data)
-    }
+    // Format JSON PocketBase : source unique dans SyncPayloads (partagé avec la gestion de la base)
+    private fun genererJsonCompteChequeManuel(entity: CompteChequeEntity): String = SyncPayloads.jsonPour(entity)
+    private fun genererJsonCompteCreditManuel(entity: CompteCreditEntity): String = SyncPayloads.jsonPour(entity)
+    private fun genererJsonCompteDetteManuel(entity: CompteDetteEntity): String = SyncPayloads.jsonPour(entity)
+    private fun genererJsonCompteInvestissementManuel(entity: CompteInvestissementEntity): String = SyncPayloads.jsonPour(entity)
 }

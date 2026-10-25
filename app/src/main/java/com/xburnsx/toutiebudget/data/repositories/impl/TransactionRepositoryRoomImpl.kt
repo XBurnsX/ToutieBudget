@@ -374,7 +374,8 @@ class TransactionRepositoryRoomImpl(
             
             // Effectuer la synchronisation immédiate
             val urlBase = com.xburnsx.toutiebudget.di.UrlResolver.obtenirUrlActive()
-            val collection = syncJob.type.lowercase()
+            // Même correspondance que le SyncWorker ("TRANSACTION" → "transactions")
+            val collection = com.xburnsx.toutiebudget.workers.SyncCollections.collectionPourType(syncJob.type)
             
             val success = when (syncJob.action) {
                 "CREATE" -> {
@@ -383,7 +384,7 @@ class TransactionRepositoryRoomImpl(
                     val request = okhttp3.Request.Builder()
                         .url(url)
                         .post(requestBody)
-                        .addHeader("Authorization", token)
+                        .addHeader("Authorization", "Bearer $token")
                         .build()
                     
                     val response = okhttp3.OkHttpClient().newCall(request).execute()
@@ -395,7 +396,7 @@ class TransactionRepositoryRoomImpl(
                     val request = okhttp3.Request.Builder()
                         .url(url)
                         .patch(requestBody)
-                        .addHeader("Authorization", token)
+                        .addHeader("Authorization", "Bearer $token")
                         .build()
                     
                     val response = okhttp3.OkHttpClient().newCall(request).execute()
@@ -406,7 +407,7 @@ class TransactionRepositoryRoomImpl(
                     val request = okhttp3.Request.Builder()
                         .url(url)
                         .delete()
-                        .addHeader("Authorization", token)
+                        .addHeader("Authorization", "Bearer $token")
                         .build()
                     
                     val response = okhttp3.OkHttpClient().newCall(request).execute()

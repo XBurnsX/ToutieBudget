@@ -30,6 +30,8 @@ import com.xburnsx.toutiebudget.data.room.entities.*
 import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.ui.theme.CouleurTheme
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.data.services.SyncPayloads
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
@@ -138,6 +140,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                                 try {
                                     val database = ToutieBudgetDatabase.getDatabase(context)
                                     database.compteChequeDao().deleteCompteById(compte.id)
+                                    SyncPayloads.enregistrerSuppression(database.syncJobDao(), "COMPTE_CHEQUE", compte.id)
                                     comptesCheque = database.compteChequeDao().getComptesByUtilisateur(
                                         PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                                     ).first()
@@ -170,6 +173,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                                 try {
                                     val database = ToutieBudgetDatabase.getDatabase(context)
                                     database.compteCreditDao().deleteCompteById(compte.id)
+                                    SyncPayloads.enregistrerSuppression(database.syncJobDao(), "COMPTE_CREDIT", compte.id)
                                     comptesCredit = database.compteCreditDao().getComptesByUtilisateur(
                                         PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                                     ).first()
@@ -202,6 +206,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                                 try {
                                     val database = ToutieBudgetDatabase.getDatabase(context)
                                     database.compteDetteDao().deleteCompteById(compte.id)
+                                    SyncPayloads.enregistrerSuppression(database.syncJobDao(), "COMPTE_DETTE", compte.id)
                                     comptesDette = database.compteDetteDao().getComptesByUtilisateur(
                                         PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                                     ).first()
@@ -234,6 +239,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                                 try {
                                     val database = ToutieBudgetDatabase.getDatabase(context)
                                     database.compteInvestissementDao().deleteCompteById(compte.id)
+                                    SyncPayloads.enregistrerSuppression(database.syncJobDao(), "COMPTE_INVESTISSEMENT", compte.id)
                                     comptesInvestissement = database.compteInvestissementDao().getComptesByUtilisateur(
                                         PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                                     ).first()
@@ -260,6 +266,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteChequeDao().insertCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesCheque = database.compteChequeDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -278,6 +285,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                     try {
                         val database = ToutieBudgetDatabase.getDatabase(context)
                         database.compteChequeDao().updateCompte(compte)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", compte, compte.id)
                         comptesCheque = database.compteChequeDao().getComptesByUtilisateur(
                             PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         ).first()
@@ -298,6 +306,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteCreditDao().insertCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesCredit = database.compteCreditDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -316,6 +325,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteDetteDao().insertCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesDette = database.compteDetteDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -334,6 +344,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteInvestissementDao().insertCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesInvestissement = database.compteInvestissementDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -356,6 +367,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteChequeDao().updateCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesCheque = database.compteChequeDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -374,6 +386,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteCreditDao().updateCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesCredit = database.compteCreditDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -392,6 +405,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteDetteDao().updateCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesDette = database.compteDetteDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -410,6 +424,7 @@ fun ComptesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val compteAvecUtilisateur = compte.copy(utilisateurId = utilisateurId)
                         database.compteInvestissementDao().updateCompte(compteAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", compteAvecUtilisateur, compteAvecUtilisateur.id)
                         comptesInvestissement = database.compteInvestissementDao().getComptesByUtilisateur(utilisateurId).first()
                     } catch (e: Exception) {
                         // Gérer l'erreur
@@ -628,6 +643,7 @@ fun TransactionsTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.transactionDao().deleteTransactionById(transaction.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "TRANSACTION", transaction.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             transactions = database.transactionDao().getTransactionsByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -651,6 +667,7 @@ fun TransactionsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val transactionAvecUtilisateur = transaction.copy(utilisateurId = utilisateurId)
                         database.transactionDao().insertTransaction(transactionAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", transactionAvecUtilisateur, transactionAvecUtilisateur.id)
                         transactions = database.transactionDao().getTransactionsByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -673,6 +690,7 @@ fun TransactionsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val transactionAvecUtilisateur = updatedTransaction.copy(utilisateurId = utilisateurId)
                         database.transactionDao().updateTransaction(transactionAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", transactionAvecUtilisateur, transactionAvecUtilisateur.id)
                         transactions = database.transactionDao().getTransactionsByUtilisateur(utilisateurId).first()
                         editingTransaction = null
                     } catch (e: Exception) {
@@ -765,6 +783,7 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.allocationMensuelleDao().deleteAllocationById(allocation.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "ALLOCATION_MENSUELLE", allocation.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             allocations = database.allocationMensuelleDao().getAllocationsByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -789,6 +808,7 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val allocationAvecUtilisateur = allocation.copy(utilisateurId = utilisateurId)
                         database.allocationMensuelleDao().insertAllocation(allocationAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", allocationAvecUtilisateur, allocationAvecUtilisateur.id)
                         allocations = database.allocationMensuelleDao().getAllocationsByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -811,6 +831,7 @@ fun AllocationsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val allocationAvecUtilisateur = updatedAllocation.copy(utilisateurId = utilisateurId)
                         database.allocationMensuelleDao().updateAllocation(allocationAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", allocationAvecUtilisateur, allocationAvecUtilisateur.id)
                         allocations = database.allocationMensuelleDao().getAllocationsByUtilisateur(utilisateurId).first()
                         editingAllocation = null
                     } catch (e: Exception) {
@@ -902,6 +923,7 @@ fun CategoriesTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.categorieDao().deleteCategorieById(categorie.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "CATEGORIE", categorie.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             categories = database.categorieDao().getCategoriesByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -925,6 +947,7 @@ fun CategoriesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val categorieAvecUtilisateur = categorie.copy(utilisateurId = utilisateurId)
                         database.categorieDao().insertCategorie(categorieAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", categorieAvecUtilisateur, categorieAvecUtilisateur.id)
                         categories = database.categorieDao().getCategoriesByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -947,6 +970,7 @@ fun CategoriesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val categorieAvecUtilisateur = updatedCategorie.copy(utilisateurId = utilisateurId)
                         database.categorieDao().updateCategorie(categorieAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", categorieAvecUtilisateur, categorieAvecUtilisateur.id)
                         categories = database.categorieDao().getCategoriesByUtilisateur(utilisateurId).first()
                         editingCategorie = null
                     } catch (e: Exception) {
@@ -1037,6 +1061,7 @@ fun EnveloppesTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.enveloppeDao().deleteEnveloppeById(enveloppe.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "ENVELOPPE", enveloppe.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             enveloppes = database.enveloppeDao().getEnveloppesByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -1060,6 +1085,7 @@ fun EnveloppesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val enveloppeAvecUtilisateur = enveloppe.copy(utilisateurId = utilisateurId)
                         database.enveloppeDao().insertEnveloppe(enveloppeAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", enveloppeAvecUtilisateur, enveloppeAvecUtilisateur.id)
                         enveloppes = database.enveloppeDao().getEnveloppesByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -1082,6 +1108,7 @@ fun EnveloppesTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val enveloppeAvecUtilisateur = updatedEnveloppe.copy(utilisateurId = utilisateurId)
                         database.enveloppeDao().updateEnveloppe(enveloppeAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", enveloppeAvecUtilisateur, enveloppeAvecUtilisateur.id)
                         enveloppes = database.enveloppeDao().getEnveloppesByUtilisateur(utilisateurId).first()
                         editingEnveloppe = null
                     } catch (e: Exception) {
@@ -1172,6 +1199,7 @@ fun TiersTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.tiersDao().deleteTiersById(tier.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "TIERS", tier.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             tiers = database.tiersDao().getTiersByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -1195,6 +1223,7 @@ fun TiersTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val tiersAvecUtilisateur = newTiers.copy(utilisateurId = utilisateurId)
                         database.tiersDao().insertTiers(tiersAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", tiersAvecUtilisateur, tiersAvecUtilisateur.id)
                         tiers = database.tiersDao().getTiersByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -1217,6 +1246,7 @@ fun TiersTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val tiersAvecUtilisateur = updatedTiers.copy(utilisateurId = utilisateurId)
                         database.tiersDao().updateTiers(tiersAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", tiersAvecUtilisateur, tiersAvecUtilisateur.id)
                         tiers = database.tiersDao().getTiersByUtilisateur(utilisateurId).first()
                         editingTiers = null
                     } catch (e: Exception) {
@@ -1307,6 +1337,7 @@ fun PretsTab(couleurTheme: CouleurTheme) {
                         try {
                             val database = ToutieBudgetDatabase.getDatabase(context)
                             database.pretPersonnelDao().deletePretById(pret.id)
+                            SyncPayloads.enregistrerSuppression(database.syncJobDao(), "PRET_PERSONNEL", pret.id)
                             val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                             prets = database.pretPersonnelDao().getPretsByUtilisateur(utilisateurId).first()
                         } catch (e: Exception) {
@@ -1330,6 +1361,7 @@ fun PretsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val pretAvecUtilisateur = pret.copy(utilisateurId = utilisateurId)
                         database.pretPersonnelDao().insertPret(pretAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "CREATE", pretAvecUtilisateur, pretAvecUtilisateur.id)
                         prets = database.pretPersonnelDao().getPretsByUtilisateur(utilisateurId).first()
                         showAddDialog = false
                     } catch (e: Exception) {
@@ -1352,6 +1384,7 @@ fun PretsTab(couleurTheme: CouleurTheme) {
                         val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: ""
                         val pretAvecUtilisateur = updatedPret.copy(utilisateurId = utilisateurId)
                         database.pretPersonnelDao().updatePret(pretAvecUtilisateur)
+                        SyncPayloads.enregistrer(database.syncJobDao(), "UPDATE", pretAvecUtilisateur, pretAvecUtilisateur.id)
                         prets = database.pretPersonnelDao().getPretsByUtilisateur(utilisateurId).first()
                         editingPret = null
                     } catch (e: Exception) {
@@ -1500,7 +1533,7 @@ fun AddEditTransactionDialog(
                 onClick = {
                     if (note.isNotBlank() && montant.isNotBlank() && date.isNotBlank() && type.isNotBlank()) {
                         val newTransaction = Transaction(
-                            id = transaction?.id ?: "",
+                            id = transaction?.id ?: IdGenerator.generateId(),
                             type = type,
                             montant = montant.toDoubleOrNull() ?: 0.0,
                             date = date,
@@ -1609,7 +1642,7 @@ fun AddEditAllocationDialog(
                 onClick = {
                     if (mois.isNotBlank() && solde.isNotBlank() && alloue.isNotBlank() && depense.isNotBlank()) {
                         val newAllocation = AllocationMensuelle(
-                            id = allocation?.id ?: "",
+                            id = allocation?.id ?: IdGenerator.generateId(),
                             mois = mois,
                             solde = solde.toDoubleOrNull() ?: 0.0,
                             alloue = alloue.toDoubleOrNull() ?: 0.0,
@@ -1670,7 +1703,7 @@ fun AddEditCategorieDialog(
                 onClick = {
                     if (nom.isNotBlank() && ordre.isNotBlank()) {
                         val newCategorie = Categorie(
-                            id = categorie?.id ?: "",
+                            id = categorie?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             ordre = ordre.toIntOrNull() ?: 0,
                             utilisateurId = ""
@@ -1771,7 +1804,7 @@ fun AddEditEnveloppeDialog(
                 onClick = {
                     if (nom.isNotBlank() && categorieId.isNotBlank()) {
                         val newEnveloppe = Enveloppe(
-                            id = enveloppe?.id ?: "",
+                            id = enveloppe?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             categorieId = categorieId,
                             utilisateurId = "",
@@ -1858,7 +1891,7 @@ fun AddEditTiersDialog(
                 onClick = {
                     if (nom.isNotBlank()) {
                         val newTiers = Tiers(
-                            id = tiers?.id ?: "",
+                            id = tiers?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             utilisateurId = "",
                             created = created,
@@ -1959,7 +1992,7 @@ fun AddEditPretDialog(
                 onClick = {
                     if (montantInitial.isNotBlank() && solde.isNotBlank() && type.isNotBlank()) {
                         val newPret = PretPersonnel(
-                            id = pret?.id ?: "",
+                            id = pret?.id ?: IdGenerator.generateId(),
                             nomTiers = nomTiers.takeIf { it.isNotBlank() },
                             montantInitial = montantInitial.toDoubleOrNull() ?: 0.0,
                             solde = solde.toDoubleOrNull() ?: 0.0,
@@ -2042,7 +2075,7 @@ fun AddEditCompteChequeDialog(
                 onClick = {
                     if (nom.isNotBlank() && solde.isNotBlank() && ordre.isNotBlank() && collection.isNotBlank()) {
                         val newCompte = CompteCheque(
-                            id = compte?.id ?: "",
+                            id = compte?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             solde = solde.toDoubleOrNull() ?: 0.0,
                             pretAPlacerRaw = pretAPlacer.toDoubleOrNull(),
@@ -2156,7 +2189,7 @@ fun AddEditCompteCreditDialog(
                     if (nom.isNotBlank() && limiteCredit.isNotBlank() && soldeUtilise.isNotBlank() && 
                         tauxInteret.isNotBlank() && ordre.isNotBlank() && collection.isNotBlank()) {
                         val newCompte = CompteCredit(
-                            id = compte?.id ?: "",
+                            id = compte?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             limiteCredit = limiteCredit.toDoubleOrNull() ?: 0.0,
                             soldeUtilise = soldeUtilise.toDoubleOrNull() ?: 0.0,
@@ -2291,7 +2324,7 @@ fun AddEditCompteDetteDialog(
                     if (nom.isNotBlank() && soldeDette.isNotBlank() && montantInitial.isNotBlank() && 
                         tauxInteret.isNotBlank() && ordre.isNotBlank() && collection.isNotBlank()) {
                         val newCompte = CompteDette(
-                            id = compte?.id ?: "",
+                            id = compte?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             soldeDette = soldeDette.toDoubleOrNull() ?: 0.0,
                             montantInitial = montantInitial.toDoubleOrNull() ?: 0.0,
@@ -2365,7 +2398,7 @@ fun AddEditCompteInvestissementDialog(
                 onClick = {
                     if (nom.isNotBlank() && solde.isNotBlank() && ordre.isNotBlank()) {
                         val newCompte = CompteInvestissement(
-                            id = compte?.id ?: "",
+                            id = compte?.id ?: IdGenerator.generateId(),
                             nom = nom,
                             solde = solde.toDoubleOrNull() ?: 0.0,
                             utilisateurId = "",

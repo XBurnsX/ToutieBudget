@@ -11,6 +11,7 @@ import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
+import com.xburnsx.toutiebudget.data.services.SyncPayloads
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -167,24 +168,8 @@ class PretPersonnelRepositoryRoomImpl(
         }
     }
 
-    /**
-     * Génère manuellement le JSON pour un prêt personnel avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonPretPersonnelManuel(entity: PretPersonnelEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom_tiers" to entity.nomTiers,
-            "montant_initial" to entity.montantInitial,
-            "solde" to entity.solde,
-            "type" to entity.type,
-            "archive" to entity.estArchive,  // ← ✅ Maintenant ça va devenir "archive" !
-            "date_creation" to entity.dateCreation,
-            "created" to entity.created,
-            "updated" to entity.updated
-        )
-        return gson.toJson(data)
-    }
+    // Format JSON PocketBase : source unique dans SyncPayloads (partagé avec la gestion de la base)
+    private fun genererJsonPretPersonnelManuel(entity: PretPersonnelEntity): String = SyncPayloads.jsonPour(entity)
 
     /**
      * Extension function pour convertir une entité Room en modèle PretPersonnel

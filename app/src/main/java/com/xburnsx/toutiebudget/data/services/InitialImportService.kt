@@ -41,20 +41,6 @@ class InitialImportService(
     private val gson = GsonBuilder().create()
     private val logTag = "InitialImport"
     
-    /**
-     * Convertit une string Pocketbase en TypeObjectif
-     */
-    private fun stringVersTypeObjectif(typeString: String?): com.xburnsx.toutiebudget.data.modeles.TypeObjectif {
-        return when (typeString?.trim()) {
-            "Aucun" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun
-            "Mensuel" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
-            "Bihebdomadaire" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire
-            "Echeance" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance
-            "Annuel" -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel
-            else -> com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun
-        }
-    }
-    
     // Callback pour la progression
     var onProgressUpdate: ((step: Int, message: String) -> Unit)? = null
     
@@ -107,7 +93,6 @@ class InitialImportService(
                 Log.e(logTag, "❌ Token manquant")
                 return@withContext Result.failure(Exception("Token d'authentification manquant. Veuillez vous reconnecter."))
             }
-            Log.d(logTag, "🔑 Token: ${token.take(20)}...")
             
             // Test de connectivité vers PocketBase
             Log.d(logTag, "🏥 Test de connectivité vers PocketBase...")
@@ -233,17 +218,7 @@ class InitialImportService(
         
         return listeResultats.items.mapNotNull { item ->
             try {
-                                 CompteCheque(
-                     id = item.id,
-                     utilisateurId = item.utilisateur_id ?: "",
-                     nom = item.nom ?: "",
-                     solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                     pretAPlacerRaw = item.pret_a_placer?.toDoubleOrNull(),
-                     couleur = item.couleur ?: "#FF0000",
-                     estArchive = item.archive ?: false,
-                     ordre = item.ordre ?: 0,
-                     collection = item.collection ?: "comptes_cheques"
-                 )
+                PocketBaseMapper.versCompteCheque(item)
             } catch (e: Exception) {
                 // ⚠️ Erreur conversion compte chèque: ${e.message}
                 null
@@ -280,20 +255,7 @@ class InitialImportService(
         
         return listeResultats.items.mapNotNull { item ->
             try {
-                CompteCredit(
-                    id = item.id,
-                    utilisateurId = item.utilisateur_id ?: "",
-                    nom = item.nom ?: "",
-                    soldeUtilise = item.solde_utilise?.toDoubleOrNull() ?: 0.0,
-                    couleur = item.couleur ?: "#FF0000",
-                    estArchive = item.archive ?: false,
-                    ordre = item.ordre ?: 0,
-                    limiteCredit = item.limite_credit?.toDoubleOrNull() ?: 0.0,
-                    tauxInteret = item.taux_interet?.toDoubleOrNull(),
-                    paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
-                    fraisMensuelsJson = item.frais_mensuels_json?.let { gson.toJson(it) },
-                    collection = item.collection ?: "comptes_credits"
-                )
+                PocketBaseMapper.versCompteCredit(item)
             } catch (e: Exception) {
                 Log.e(logTag, "⚠️ Erreur conversion compte crédit: ${e.message}", e)
                 null
@@ -330,21 +292,7 @@ class InitialImportService(
             
             return listeResultats.items.mapNotNull { item ->
                 try {
-                    CompteDette(
-                        id = item.id,
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nom = item.nom ?: "",
-                        soldeDette = item.solde_dette?.toDoubleOrNull() ?: 0.0,
-                        estArchive = item.archive ?: false,
-                        ordre = item.ordre ?: 0,
-                        montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
-                        tauxInteret = item.taux_interet?.toDoubleOrNull(),
-                        paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
-                        dureeMoisPret = item.duree_mois_pret?.toIntOrNull(),
-                        paiementEffectue = item.paiement_effectue ?: 0,
-                        prixTotal = item.prix_total?.toDoubleOrNull(),
-                        collection = item.collection ?: "comptes_dettes"
-                    )
+                    PocketBaseMapper.versCompteDette(item)
                 } catch (e: Exception) {
                     Log.e(logTag, "⚠️ Erreur conversion compte dette: ${e.message}", e)
                     null
@@ -381,16 +329,7 @@ class InitialImportService(
             
             return listeResultats.items.mapNotNull { item ->
                 try {
-                    CompteInvestissement(
-                        id = item.id,
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nom = item.nom ?: "",
-                        solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                        couleur = item.couleur ?: "#FF0000",
-                        estArchive = item.archive ?: false,
-                        ordre = item.ordre ?: 0,
-                        collection = item.collection ?: "comptes_investissement"
-                    )
+                    PocketBaseMapper.versCompteInvestissement(item)
                 } catch (e: Exception) {
                     Log.e(logTag, "⚠️ Erreur conversion compte investissement: ${e.message}", e)
                     null
@@ -427,12 +366,7 @@ class InitialImportService(
             
             return listeResultats.items.mapNotNull { item ->
                 try {
-                    Categorie(
-                        id = item.id,
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nom = item.nom ?: "",
-                        ordre = item.ordre ?: 0
-                    )
+                    PocketBaseMapper.versCategorie(item)
                 } catch (e: Exception) {
                     Log.e(logTag, "⚠️ Erreur conversion catégorie: ${e.message}", e)
                     null
@@ -482,28 +416,8 @@ class InitialImportService(
             
             val transactionsPage = listeResultats.items.mapNotNull { item ->
                 try {
-                    // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    // 🔍 Transaction ${item.id}: allocation_mensuelle_id = '${item.allocation_mensuelle_id}'
-                    
-                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
-                    val allocationId = item.allocation_mensuelle_id ?: ""
-                    
-                    Transaction(
-                        id = item.id, // GARDER L'ID POCKETBASE !
-                        utilisateurId = item.utilisateur_id ?: "",
-                        type = item.type ?: "",
-                        montant = item.montant?.toDoubleOrNull() ?: 0.0,
-                        date = item.date ?: "",
-                        note = item.note,
-                        compteId = item.compte_id ?: "",
-                        collectionCompte = item.collection_compte ?: "",
-                        allocationMensuelleId = allocationId ?: "",
-                        estFractionnee = item.est_fractionnee ?: false,
-                        sousItems = item.sous_items?.let { gson.toJson(it) },
-                        tiersUtiliser = item.tiers_utiliser,
-                        created = item.created,
-                        updated = item.updated
-                    )
+                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS ! (garde l'ID PocketBase)
+                    PocketBaseMapper.versTransaction(item)
                 } catch (e: Exception) {
                     // ⚠️ Erreur conversion transaction: ${e.message}
                     null
@@ -567,45 +481,8 @@ class InitialImportService(
             
             val enveloppesPage = listeResultats.items.mapNotNull { item ->
                 try {
-                    // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    // 🔍 Enveloppe ${item.id}: categorie_id = '${item.categorie_id}'
-                    // 🔍 Enveloppe ${item.id}: frequence_objectif = '${item.frequence_objectif}'
-                    // 🔍 Enveloppe ${item.id}: montant_objectif = '${item.montant_objectif}'
-                    // 🔍 Enveloppe ${item.id}: date_objectif = '${item.date_objectif}'
-                    // 🔍 Enveloppe ${item.id}: date_debut_objectif = '${item.date_debut_objectif}'
-                    
-                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
-                    val categorieId = item.categorie_id ?: ""
-                    
-                    // 🎯 CORRECTION : Gérer correctement les dates des objectifs
-                    val dateObjectif = item.date_objectif
-                    val dateDebutObjectif = item.date_debut_objectif
-                    
-                    val enveloppe = Enveloppe(
-                        id = item.id, // GARDER L'ID POCKETBASE !
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nom = item.nom ?: "",
-                        categorieId = categorieId ?: "",
-                        estArchive = item.est_archive ?: false,
-                        ordre = item.ordre ?: 0,
-                        typeObjectif = stringVersTypeObjectif(item.frequence_objectif),
-                        objectifMontant = item.montant_objectif?.toDoubleOrNull() ?: 0.0,
-                        dateObjectif = dateObjectif, // 🎯 GARDER LA DATE EN STRING POUR ROOM
-                        dateDebutObjectif = dateDebutObjectif, // 🎯 GARDER LA DATE EN STRING POUR ROOM
-                        objectifJour = item.objectif_jour?.toIntOrNull(),
-                        resetApresEcheance = item.reset_apres_echeance ?: false
-                    )
-                    
-                    // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LES OBJECTIFS !
-                    // 🎯 ENVELOPPE CRÉÉE: ${enveloppe.nom}
-                    //   - Type objectif: ${enveloppe.typeObjectif}
-                    //   - Montant objectif: ${enveloppe.objectifMontant}
-                    //   - Date objectif: ${enveloppe.dateObjectif}
-                    //   - Date début: ${enveloppe.dateDebutObjectif}
-                    //   - Objectif jour: ${enveloppe.objectifJour}
-                    //   - Reset après échéance: ${enveloppe.resetApresEcheance}
-                    
-                    enveloppe
+                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS ! (garde l'ID PocketBase, dates en String)
+                    PocketBaseMapper.versEnveloppe(item)
                 } catch (e: Exception) {
                     // ⚠️ Erreur conversion enveloppe: ${e.message}
                     null
@@ -669,23 +546,8 @@ class InitialImportService(
             
             val allocationsPage = listeResultats.items.mapNotNull { item ->
                 try {
-                    // LOG DÉTAILLÉ POUR DÉBOGGER !
-                    // 🔍 Allocation ${item.id}: enveloppe_id = '${item.enveloppe_id}'
-                    
-                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS !
-                    val enveloppeId = item.enveloppe_id ?: ""
-                    
-                    AllocationMensuelle(
-                        id = item.id, // GARDER L'ID POCKETBASE !
-                        utilisateurId = item.utilisateur_id ?: "",
-                        enveloppeId = enveloppeId ?: "",
-                        mois = item.mois ?: "",
-                        solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                        alloue = item.alloue?.toDoubleOrNull() ?: 0.0,
-                        depense = item.depense?.toDoubleOrNull() ?: 0.0,
-                        compteSourceId = item.compte_source_id,
-                        collectionCompteSource = item.collection_compte_source
-                    )
+                    // IMPORTER TOUT SANS VÉRIFIER LES RELATIONS ! (garde l'ID PocketBase)
+                    PocketBaseMapper.versAllocationMensuelle(item)
                 } catch (e: Exception) {
                     // ⚠️ Erreur conversion allocation mensuelle: ${e.message}
                     null
@@ -736,15 +598,7 @@ class InitialImportService(
             
             return listeResultats.items.mapNotNull { item ->
                 try {
-                    Tiers(
-                        id = item.id,
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nom = item.nom ?: "",
-                        created = item.created ?: "",
-                        updated = item.updated ?: "",
-                        collectionId = item.collectionId ?: "",
-                        collectionName = item.collectionName ?: ""
-                    )
+                    PocketBaseMapper.versTiers(item)
                 } catch (e: Exception) {
                     Log.e(logTag, "⚠️ Erreur conversion tiers: ${e.message}", e)
                     null
@@ -781,18 +635,7 @@ class InitialImportService(
             
             return listeResultats.items.mapNotNull { item ->
                 try {
-                    PretPersonnel(
-                        id = item.id,
-                        utilisateurId = item.utilisateur_id ?: "",
-                        nomTiers = item.nom_tiers,
-                        montantInitial = item.montant_initial?.toDoubleOrNull() ?: 0.0,
-                        solde = item.solde?.toDoubleOrNull() ?: 0.0,
-                        type = item.type ?: "",
-                        estArchive = item.archive ?: false,
-                        dateCreation = item.date_creation,
-                        created = item.created,
-                        updated = item.updated
-                    )
+                    PocketBaseMapper.versPretPersonnel(item)
                 } catch (e: Exception) {
                     Log.e(logTag, "⚠️ Erreur conversion prêt personnel: ${e.message}", e)
                     null

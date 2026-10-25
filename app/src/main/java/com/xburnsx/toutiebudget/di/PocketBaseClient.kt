@@ -116,7 +116,6 @@ object PocketBaseClient {
         withContext(Dispatchers.IO) {
             try {
                 Log.d("PocketBaseClient", "🔐 Début de l'authentification Google OAuth2")
-                Log.d("PocketBaseClient", "📝 Code d'autorisation reçu: ${codeAutorisation.take(20)}...")
                 
                 val urlBase = obtenirUrlBaseActive()
                 Log.d("PocketBaseClient", "🌐 URL de base PocketBase: $urlBase")
@@ -139,7 +138,6 @@ object PocketBaseClient {
                     // createData est optionnel, PocketBase prendra les infos du profil Google
                 }
                 val corpsRequeteString = donneesOAuth.toString()
-                Log.d("PocketBaseClient", "📦 Données OAuth2: $corpsRequeteString")
 
                 val corpsRequete = corpsRequeteString.toRequestBody("application/json".toMediaType())
 
@@ -161,9 +159,9 @@ object PocketBaseClient {
                 Log.d("PocketBaseClient", "📥 Content-Encoding: $contentEncoding")
                 Log.d("PocketBaseClient", "📥 Content-Type: ${reponse.header("Content-Type")}")
                 
+                // Le corps d'une réponse réussie contient le jeton : ne jamais le logger
                 val corpsReponse = reponse.body?.string() ?: ""
-                Log.d("PocketBaseClient", "📥 Corps de la réponse (premiers 500 caractères): ${corpsReponse.take(500)}")
-                Log.d("PocketBaseClient", "📥 Longueur totale: ${corpsReponse.length} caractères")
+                Log.d("PocketBaseClient", "📥 Longueur de la réponse: ${corpsReponse.length} caractères")
 
                 if (reponse.isSuccessful) {
                     Log.d("PocketBaseClient", "✅ Authentification réussie!")
@@ -173,8 +171,8 @@ object PocketBaseClient {
                             Log.e("PocketBaseClient", "❌ Réponse vide de PocketBase")
                             Result.failure(Exception("Réponse vide de PocketBase. Vérifiez la configuration OAuth dans PocketBase."))
                         } else if (!corpsReponse.trimStart().startsWith("{")) {
-                            Log.e("PocketBaseClient", "❌ Réponse n'est pas un JSON valide. Réponse complète: $corpsReponse")
-                            Result.failure(Exception("Réponse invalide de PocketBase: ${corpsReponse.take(200)}"))
+                            Log.e("PocketBaseClient", "❌ Réponse n'est pas un JSON valide")
+                            Result.failure(Exception("Réponse invalide de PocketBase"))
                         } else {
                             val reponseAuth = gson.fromJson(corpsReponse, ReponseAuthentification::class.java)
                             sauvegarderToken(context, reponseAuth.token)
@@ -184,8 +182,7 @@ object PocketBaseClient {
                         }
                     } catch (e: Exception) {
                         Log.e("PocketBaseClient", "❌ Erreur de parsing JSON: ${e.message}", e)
-                        Log.e("PocketBaseClient", "❌ Réponse complète qui a causé l'erreur: $corpsReponse")
-                        Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}. Réponse: ${corpsReponse.take(200)}"))
+                        Result.failure(Exception("Erreur de parsing de la réponse JSON: ${e.message}"))
                     }
                 } else {
                     // Analyse détaillée de l'erreur

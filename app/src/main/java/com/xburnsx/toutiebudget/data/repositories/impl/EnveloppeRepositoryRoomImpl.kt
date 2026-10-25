@@ -14,6 +14,7 @@ import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.utils.IdGenerator
 import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
+import com.xburnsx.toutiebudget.data.services.SyncPayloads
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -43,26 +44,8 @@ class EnveloppeRepositoryRoomImpl(
     private val gson: Gson = GsonBuilder()
         .create() // 🎯 CORRECTION : Supprimer la politique snake_case pour éviter les conflits avec @ColumnInfo
     
-    /**
-     * Génère manuellement le JSON pour une enveloppe avec les bons noms de champs (snake_case)
-     */
-    private fun genererJsonEnveloppeManuel(entity: EnveloppeEntity): String {
-        val data = mapOf(
-            "id" to entity.id,
-            "utilisateur_id" to entity.utilisateurId,
-            "nom" to entity.nom,
-            "categorie_id" to entity.categorieId,
-            "est_archive" to entity.estArchive,
-            "ordre" to entity.ordre,
-            "frequence_objectif" to entity.typeObjectif.toString(),
-            "montant_objectif" to entity.objectifMontant,
-            "date_objectif" to entity.dateObjectif,
-            "date_debut_objectif" to entity.dateDebutObjectif,
-            "objectif_jour" to entity.objectifJour,
-            "reset_apres_echeance" to entity.resetApresEcheance
-        )
-        return gson.toJson(data)
-    }
+    // Format JSON PocketBase : source unique dans SyncPayloads (partagé avec la gestion de la base)
+    private fun genererJsonEnveloppeManuel(entity: EnveloppeEntity): String = SyncPayloads.jsonPour(entity)
 
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
         timeZone = TimeZone.getTimeZone("UTC")

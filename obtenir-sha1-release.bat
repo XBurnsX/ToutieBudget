@@ -6,8 +6,19 @@ echo.
 
 REM Chemin vers le keystore de release
 set KEYSTORE_PATH=%~dp0toutiebudget-release-key.jks
-set KEYSTORE_PASSWORD=qwerty
 set KEY_ALIAS=toutiebudget
+
+REM Mot de passe lu depuis keystore.properties (non versionné)
+set KEYSTORE_PASSWORD=
+for /f "usebackq tokens=1,* delims==" %%a in ("%~dp0keystore.properties") do (
+    if "%%a"=="storePassword" set KEYSTORE_PASSWORD=%%b
+)
+if "%KEYSTORE_PASSWORD%"=="" (
+    echo ERREUR: storePassword introuvable dans keystore.properties
+    echo Copiez keystore.properties.example en keystore.properties et remplissez-le.
+    pause
+    exit /b 1
+)
 
 echo Vérification de l'existence du keystore...
 if not exist "%KEYSTORE_PATH%" (

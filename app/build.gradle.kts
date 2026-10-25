@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -14,20 +16,34 @@ android {
         applicationId = "com.xburnsx.toutiebudget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 39
-        versionName = "1.6.0"
+        versionCode = 40
+        versionName = "1.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1078578579569-eb1v1cre9rius8grrppg1sktal3bkbrl.apps.googleusercontent.com\"")
     }
 
+    // Les infos de signature viennent de keystore.properties (non versionné)
+    // ou des variables d'environnement TOUTIE_KEYSTORE_*. Jamais dans le code.
+    val keystoreProps = Properties().apply {
+        val fichier = rootProject.file("keystore.properties")
+        if (fichier.exists()) fichier.inputStream().use { load(it) }
+    }
+    fun signature(cle: String, env: String): String? =
+        keystoreProps.getProperty(cle) ?: System.getenv(env)
+
+    val keystoreFichier = signature("storeFile", "TOUTIE_KEYSTORE_FILE")
+    val signatureDisponible = keystoreFichier != null && rootProject.file(keystoreFichier).exists()
+
     signingConfigs {
-        create("release") {
-            storeFile = file("../toutiebudget-release-key.jks")
-            storePassword = "qwerty"  // Remplacez par votre mot de passe
-            keyAlias = "toutiebudget"
-            keyPassword = "qwerty"  // Remplacez par votre mot de passe
+        if (signatureDisponible) {
+            create("release") {
+                storeFile = rootProject.file(keystoreFichier!!)
+                storePassword = signature("storePassword", "TOUTIE_KEYSTORE_PASSWORD")
+                keyAlias = signature("keyAlias", "TOUTIE_KEY_ALIAS")
+                keyPassword = signature("keyPassword", "TOUTIE_KEY_PASSWORD")
+            }
         }
     }
 
@@ -35,7 +51,9 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            if (signatureDisponible) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
