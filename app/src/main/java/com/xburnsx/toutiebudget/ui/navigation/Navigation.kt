@@ -335,6 +335,9 @@ fun AppNavigation() {
                 )
             }
         }
+
+        // Vérifie les mises à jour à l'ouverture (fonctionne même sans être connecté)
+        com.xburnsx.toutiebudget.ui.miseajour.MiseAJourDialog()
     }
 }
 
