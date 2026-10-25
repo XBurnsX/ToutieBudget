@@ -433,7 +433,7 @@ fun SettingsScreen(
                     RowParam(
                         icone = Icons.Default.Info,
                         titre = "Version de l'application",
-                        description = "ToutieBudget v1.0.0"
+                        description = "ToutieBudget v${com.xburnsx.toutiebudget.BuildConfig.VERSION_NAME} (build ${com.xburnsx.toutiebudget.BuildConfig.VERSION_CODE})"
                     )
                 }
             }
