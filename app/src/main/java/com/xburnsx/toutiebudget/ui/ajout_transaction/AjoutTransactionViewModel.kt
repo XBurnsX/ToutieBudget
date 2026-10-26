@@ -615,7 +615,12 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         },
                         montant = montant / 100.0, // Convertir centimes en dollars
-                        note = comptePaiement.nom // Passer le nom de la dette/carte comme tiers
+                        note = comptePaiement.nom, // Passer le nom de la dette/carte comme tiers
+                        // DF14 : la date choisie (avec l'heure actuelle) et donc son mois
+                        date = java.time.LocalDateTime.now().let { maintenant ->
+                            Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second)
+                                .atZone(ZoneId.systemDefault()).toInstant())
+                        }
                     )
                     
                     // DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}

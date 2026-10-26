@@ -29,7 +29,7 @@ import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
         AllocationMensuelle::class,
         HistoriqueAllocation::class
     ],
-    version = 5, // 4 : utilisateur et diagnostic des SyncJobs ; 5 : détails des cartes de crédit
+    version = 6, // 4 : SyncJobs ; 5 : détails des cartes de crédit ; 6 : détails des dettes
     exportSchema = false
 )
 @TypeConverters(DateStringConverter::class)
@@ -62,7 +62,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
                     ToutieBudgetDatabase::class.java,
                     "toutiebudget_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5) // 🆕 AJOUT : Migrations
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6) // 🆕 AJOUT : Migrations
                 // .fallbackToDestructiveMigration() // DÉSACTIVÉ : Utiliser les migrations pour préserver les données
                 .build()
                 INSTANCE = instance
@@ -94,6 +94,13 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE comptes_credits ADD COLUMN details_carte_json TEXT")
+            }
+        }
+
+        // MIGRATION : Version 5 vers 6 - mode, contrat, lien d'enveloppe et ajustements des dettes (section 11)
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE comptes_dettes ADD COLUMN details_dette_json TEXT")
             }
         }
 

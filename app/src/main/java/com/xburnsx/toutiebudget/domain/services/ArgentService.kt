@@ -183,6 +183,8 @@ interface ArgentService {
         carteOuDetteId: String,
         collectionCarteOuDette: String,
         montant: Double,
-        note: String? = null
+        note: String? = null,
+        // DF14 : date choisie dans Transactions ; détermine aussi le mois de l'enveloppe
+        date: java.util.Date = java.util.Date()
     ): Result<Unit>
 }

@@ -232,8 +232,10 @@ class ComptesViewModel(
     private suspend fun archiverEnveloppeDetteSiTerminee(dette: CompteDette): String? {
         val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
         val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
-        val envDette = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-            .firstOrNull { it.nom.equals(dette.nom, ignoreCase = true) && (catDettes == null || it.categorieId == catDettes.id) && !it.estArchive }
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+        // DF11 : le lien par ID d'abord ; sinon un seul homonyme dans la catégorie Dettes, jamais ailleurs
+        val envDette = dette.details.enveloppeId?.let { id -> enveloppes.firstOrNull { it.id == id && !it.estArchive } }
+            ?: enveloppes.singleOrNull { it.nom.equals(dette.nom, ignoreCase = true) && catDettes != null && it.categorieId == catDettes.id && !it.estArchive }
             ?: return null
 
         val terminee = kotlin.math.abs(dette.soldeDette) < 0.01
@@ -366,6 +368,7 @@ class ComptesViewModel(
                     detailsCarteJson = com.xburnsx.toutiebudget.data.modeles.DetailsCarte(emetteur = formState.emetteurCarte).versJson()
                 )
                 "Dette" -> CompteDette(
+                    id = IdGenerator.generateId(), // connu d'avance pour relier son enveloppe (DF11)
                     nom = formState.nom,
                     soldeDette = -soldeInitial, // dette négative à la création
                     estArchive = false,
@@ -439,6 +442,13 @@ class ComptesViewModel(
                                     resetApresEcheance = false
                                 )
                                 enveloppeRepository.creerEnveloppe(env)
+                                // DF11 : lien permanent dette -> enveloppe (par ID, plus par nom)
+                                compteRepository.mettreAJourCompte(
+                                    nouveauCompte.copy(
+                                        utilisateurId = utilisateurId,
+                                        detailsDetteJson = nouveauCompte.details.copy(enveloppeId = env.id).versJson()
+                                    )
+                                )
                             }
                             
                             is CompteCredit -> {

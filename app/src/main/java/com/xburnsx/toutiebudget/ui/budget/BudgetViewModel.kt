@@ -233,6 +233,8 @@ class BudgetViewModel(
 
                     CategorieEnveloppesUi(nomCategorie, enveloppesUiCategorie)
                 }
+                    // DF12 : une catégorie Dettes sans enveloppe active est masquée (jamais supprimée)
+                    .filterNot { it.nomCategorie.equals("Dettes", ignoreCase = true) && it.enveloppes.isEmpty() }
 
                 // 9. État des catégories ouvertes et favoris : l'appareil d'abord (C2), même hors ligne
                 val categoriesOuvertes = preferenceRepository.recupererCategoriesOuvertes()

@@ -151,8 +151,13 @@ data class CompteDette(
     val paiementEffectue: Int = 0,
     @SerializedName("prix_total")
     val prixTotal: Double? = null,
-    override val collection: String = "comptes_dettes"
+    override val collection: String = "comptes_dettes",
+    @SerializedName("details_dette_json")
+    val detailsDetteJson: String? = null // Section 11 : JSON de DetailsDette
 ) : Compte {
+    /** Mode, contrat, lien d'enveloppe et corrections confirmées (valeurs par défaut si rien n'est configuré). */
+    val details: DetailsDette get() = DetailsDette.depuis(detailsDetteJson)
+
     // La couleur est gérée dans l'UI, toujours rouge pour les dettes.
     override val couleur: String = "#FF0000"
     

@@ -2,116 +2,284 @@ package com.xburnsx.toutiebudget.ui.dette
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xburnsx.toutiebudget.data.modeles.AjustementDette
+import com.xburnsx.toutiebudget.data.modeles.ChangementTaux
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.modeles.ModeDette
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette
+import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
+import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
+import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import com.xburnsx.toutiebudget.di.AppModule
+import com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import kotlin.math.pow
-import com.xburnsx.toutiebudget.di.AppModule
+import kotlin.math.abs
 
-class DetteViewModel @Inject constructor(
-    private val compteRepository: CompteRepository
+/**
+ * « Gérer la dette » (section 11). L'écran informe, configure et projette ; il ne débite
+ * jamais un compte : les paiements réels passent par Transactions.
+ *
+ * DF1 : les saisies restent dans un brouillon et sont enregistrées UNE fois.
+ * DF2 / DF15 : à l'enregistrement, la dette est relue et seuls les paramètres sont fusionnés :
+ *              le solde réel et le compteur de versements ne sont jamais réécrits.
+ */
+class DetteViewModel(
+    private val compteRepository: CompteRepository,
+    private val transactionRepository: TransactionRepository,
+    private val enveloppeRepository: EnveloppeRepository,
+    private val categorieRepository: CategorieRepository,
+    private val historiqueAllocationService: HistoriqueAllocationService
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(DetteUiState())
     val uiState: StateFlow<DetteUiState> = _uiState.asStateFlow()
-    
+
+    private var detteIdCourante: String? = null
+
     fun chargerDette(detteId: String) {
+        detteIdCourante = detteId
+        // Tout de suite : l'écran ne doit pas réagir à l'état d'une visite précédente
+        _uiState.update { DetteUiState(isLoading = true) }
         viewModelScope.launch {
             try {
-                _uiState.value = _uiState.value.copy(isLoading = true)
-                
                 val dette = compteRepository.getCompteById(detteId, "comptes_dettes") as? CompteDette
-                if (dette != null) {
-                    _uiState.value = _uiState.value.copy(
+                    ?: throw Exception("Dette non trouvée")
+                val transactions = transactionRepository.recupererTransactionsPourCompte(detteId, "comptes_dettes")
+                    .getOrElse { emptyList() }
+                val formulaire = FormulaireDette.depuis(dette, trouverEnveloppeLiee(dette))
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
                         dette = dette,
-                        isLoading = false
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        error = "Dette non trouvée",
-                        isLoading = false
+                        transactions = transactions,
+                        formulaire = formulaire,
+                        formulaireInitial = formulaire
                     )
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Erreur lors du chargement: ${e.message}",
-                    isLoading = false
-                )
+                _uiState.update { it.copy(isLoading = false, erreurChargement = "Erreur lors du chargement : ${e.message}") }
             }
         }
     }
-    
-    fun sauvegarderDette(dette: CompteDette) {
+
+    /** DF13 : « Réessayer » relance vraiment le chargement. */
+    fun reessayer() {
+        detteIdCourante?.let { chargerDette(it) }
+    }
+
+    /** DF11 : lien existant, ou unique homonyme de la catégorie Dettes pour une ancienne dette (jamais ailleurs). */
+    private suspend fun trouverEnveloppeLiee(dette: CompteDette): String? {
+        dette.details.enveloppeId?.let { return it }
+        val catDettes = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+            .firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: return null
+        return enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+            .singleOrNull { it.nom.equals(dette.nom, ignoreCase = true) && it.categorieId == catDettes.id && !it.estArchive }
+            ?.id
+    }
+
+    fun modifierFormulaire(changement: FormulaireDette.() -> FormulaireDette) {
+        _uiState.update { it.copy(formulaire = it.formulaire.changement()) }
+    }
+
+    /** DF1 / DF6 / DF15 : validation complète puis UN enregistrement fusionné sur la version à jour. */
+    fun sauvegarder() {
+        val etat = _uiState.value
+        val f = etat.formulaire
+        val erreurs = f.valider()
+        if (erreurs.isNotEmpty()) {
+            _uiState.update { it.copy(formulaire = f.copy(erreurs = erreurs)) }
+            return
+        }
+        if (etat.isSaving) return
+        val id = etat.dette?.id ?: return
+
         viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, messageErreur = null) }
             try {
-                _uiState.value = _uiState.value.copy(isSaving = true)
+                val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
+                    ?: throw Exception("Dette introuvable")
+                val details = aJour.details.copy(
+                    mode = f.mode,
+                    dateDebut = f.dateDebut.trim().ifBlank { null },
+                    dateFin = f.dateFin.trim().ifBlank { null },
+                    jourVersement = f.jourVersement.trim().toIntOrNull(),
+                    enveloppeId = f.enveloppeId ?: aJour.details.enveloppeId,
+                    tauxVariable = f.tauxVariable,
+                    changementsTaux = f.changementsTaux
+                )
+                val aSauver = aJour.copy(
+                    nom = f.nom.trim(),
+                    montantInitial = nombre(f.montantInitial) ?: aJour.montantInitial,
+                    tauxInteret = if (f.taux.isBlank()) null else nombre(f.taux),
+                    dureeMoisPret = f.dureeMois.trim().toIntOrNull(),
+                    paiementMinimum = nombre(f.versementPrevu),
+                    detailsDetteJson = details.versJson()
+                    // soldeDette, paiementEffectue et estArchive restent ceux de la version à jour
+                )
+                compteRepository.mettreAJourCompte(aSauver).getOrThrow()
+                AppModule.provideComptesViewModel().rafraichirComptes()
 
-                val montantInitial = dette.montantInitial
-                val tauxAnnuel = (dette.tauxInteret ?: 0.0) / 100.0
-                val dureeMois = (dette.dureeMoisPret ?: 0)
-                val tauxMensuel = if (tauxAnnuel > 0) tauxAnnuel / 12.0 else 0.0
-
-                // Paiement mensuel (amortissement classique)
-                val paiementMensuel = if (tauxMensuel > 0 && dureeMois > 0) {
-                    montantInitial * (tauxMensuel * (1 + tauxMensuel).pow(dureeMois)) /
-                        ((1 + tauxMensuel).pow(dureeMois) - 1)
-                } else if (dureeMois > 0) {
-                    montantInitial / dureeMois
-                } else 0.0
-
-                // Prix total et solde mis à jour = prix total (demande utilisateur)
-                val prixTotal = if (dureeMois > 0) paiementMensuel * dureeMois else montantInitial
- 
-                // Solde restant basé sur paiements effectués, borné à >= 0
-                val paiementsEffectues = dette.paiementEffectue.coerceAtLeast(0)
-                val soldeRestant = if (dureeMois > 0) {
-                    (prixTotal - paiementMensuel * paiementsEffectues).coerceAtLeast(0.0)
-                } else {
-                    // Si pas de durée définie, on conserve le solde existant en valeur absolue
-                    kotlin.math.abs(dette.soldeDette)
+                val avertissement = if (etat.dette != null && abs(aJour.soldeDette - etat.dette.soldeDette) > 0.005) {
+                    "Le solde a changé entre-temps (paiement ailleurs) : le solde réel a été conservé."
+                } else null
+                val formulaire = FormulaireDette.depuis(aSauver, details.enveloppeId)
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        isSaved = avertissement == null,
+                        dette = aSauver,
+                        formulaire = formulaire,
+                        formulaireInitial = formulaire,
+                        messageInfo = avertissement
+                    )
                 }
-                val nouveauSoldeDette = -soldeRestant
-
-                val aSauver = dette.copy(
-                    prixTotal = prixTotal,
-                    paiementMinimum = kotlin.math.round(paiementMensuel * 100) / 100.0, // enregistrer paiement mensuel calculé
-                    soldeDette = nouveauSoldeDette
-                )
-                
-                compteRepository.mettreAJourCompte(aSauver)
-                
-                // 🔄 DÉCLENCHER LE RAFRAÎCHISSEMENT AUTOMATIQUE DES COMPTES
-                val comptesViewModel = AppModule.provideComptesViewModel()
-                comptesViewModel.rafraichirComptes()
-                
-                _uiState.value = _uiState.value.copy(
-                    dette = aSauver,
-                    isSaving = false,
-                    isSaved = true
-                )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Erreur lors de la sauvegarde: ${e.message}",
-                    isSaving = false
-                )
+                // DF13 : on reste sur la page avec les saisies
+                _uiState.update { it.copy(isSaving = false, messageErreur = "Échec de l'enregistrement : ${e.message}") }
             }
         }
     }
-    
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+
+    /**
+     * DA5 / DF7 : solde officiel confirmé, ou intérêts/frais réellement ajoutés par le prêteur.
+     * Tracé dans l'historique ; jamais compté comme un paiement ni comme un revenu.
+     */
+    fun ajusterSolde(type: TypeAjustementDette, montantSaisi: Double, date: String, note: String?) {
+        val id = _uiState.value.dette?.id ?: return
+        if (_uiState.value.isSaving) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, messageErreur = null) }
+            try {
+                val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
+                    ?: throw Exception("Dette introuvable")
+                val soldeAvant = aJour.soldeDette
+                val soldeApres = MoneyFormatter.roundAmount(
+                    when (type) {
+                        TypeAjustementDette.SOLDE_OFFICIEL -> -abs(montantSaisi) // montant restant officiel
+                        TypeAjustementDette.INTERETS, TypeAjustementDette.FRAIS -> soldeAvant - abs(montantSaisi)
+                    }
+                )
+                val ajustement = AjustementDette(date = date, type = type, soldeAvant = soldeAvant, soldeApres = soldeApres, note = note)
+                val details = aJour.details.copy(ajustements = aJour.details.ajustements + ajustement)
+                val aSauver = aJour.copy(soldeDette = soldeApres, detailsDetteJson = details.versJson())
+                compteRepository.mettreAJourCompte(aSauver).getOrThrow()
+                try {
+                    historiqueAllocationService.enregistrerAjustementCompte(
+                        compte = aSauver,
+                        typeAction = "AJUSTEMENT_DETTE",
+                        description = "${type.libelle} — ${aSauver.nom} : ${MoneyFormatter.formatAmount(soldeAvant)} → ${MoneyFormatter.formatAmount(soldeApres)}" +
+                            (note?.let { " ($it)" } ?: ""),
+                        montant = soldeApres - soldeAvant,
+                        soldeAvant = soldeAvant,
+                        soldeApres = soldeApres,
+                        pretAPlacerAvant = 0.0,
+                        pretAPlacerApres = 0.0
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("ToutieBudget", "Trace d'ajustement de dette non enregistrée: ${e.message}")
+                }
+                AppModule.provideComptesViewModel().rafraichirComptes()
+                _uiState.update { it.copy(isSaving = false, dette = aSauver, messageInfo = "Solde de la dette mis à jour.") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSaving = false, messageErreur = "Échec de l'ajustement : ${e.message}") }
+            }
+        }
     }
 
+    fun reinitialiser() {
+        detteIdCourante = null
+        _uiState.value = DetteUiState()
+    }
+
+    fun effacerMessages() {
+        _uiState.update { it.copy(messageErreur = null, messageInfo = null) }
+    }
+
+    private fun nombre(texte: String): Double? = texte.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
 }
 
 data class DetteUiState(
     val dette: CompteDette? = null,
+    val transactions: List<Transaction> = emptyList(),
+    val formulaire: FormulaireDette = FormulaireDette(),
+    val formulaireInitial: FormulaireDette = FormulaireDette(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
-    val error: String? = null
-) 
+    val erreurChargement: String? = null,
+    val messageErreur: String? = null,
+    val messageInfo: String? = null
+) {
+    /** DF1 : changements non enregistrés (pour prévenir avant de quitter). */
+    val aDesModifications: Boolean get() = formulaire.copy(erreurs = emptyMap()) != formulaireInitial.copy(erreurs = emptyMap())
+}
+
+/** Brouillon des paramètres (DF1). Les montants sont du texte saisi. */
+data class FormulaireDette(
+    val nom: String = "",
+    val mode: ModeDette = ModeDette.SIMPLE,
+    val montantInitial: String = "",
+    val taux: String = "",
+    val dureeMois: String = "",
+    val versementPrevu: String = "",
+    val dateDebut: String = "",
+    val dateFin: String = "",
+    val jourVersement: String = "",
+    val tauxVariable: Boolean = false,
+    val changementsTaux: List<ChangementTaux> = emptyList(),
+    val enveloppeId: String? = null,
+    val erreurs: Map<String, String> = emptyMap()
+) {
+    /** DF6 : aucune valeur négative, non numérique, NaN ou division par zéro n'est acceptée. */
+    fun valider(): Map<String, String> {
+        val e = mutableMapOf<String, String>()
+        fun n(s: String) = s.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+        if (nom.isBlank()) e["nom"] = "Nom requis"
+        n(montantInitial).let { if (it == null || it < 0 || !it.isFinite()) e["montant"] = "Montant positif requis" }
+        if (versementPrevu.isNotBlank()) n(versementPrevu).let { if (it == null || it < 0 || !it.isFinite()) e["versement"] = "Montant invalide" }
+        if (mode == ModeDette.FINANCE) {
+            n(taux).let { if (it == null || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
+            dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
+        } else {
+            if (taux.isNotBlank()) n(taux).let { if (it == null || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100" }
+            if (dureeMois.isNotBlank() && dureeMois.trim().toIntOrNull() !in 1..600) e["duree"] = "Durée de 1 à 600 mois"
+        }
+        listOf("dateDebut" to dateDebut, "dateFin" to dateFin).forEach { (cle, v) ->
+            if (v.isNotBlank() && MoteurCarteCredit.lireDate(v.trim()) == null) e[cle] = "Date AAAA-MM-JJ"
+        }
+        val debut = MoteurCarteCredit.lireDate(dateDebut.trim())
+        val fin = MoteurCarteCredit.lireDate(dateFin.trim())
+        if (debut != null && fin != null && fin.before(debut)) e["dateFin"] = "La fin précède le début"
+        if (jourVersement.isNotBlank() && jourVersement.trim().toIntOrNull() !in 1..31) e["jour"] = "Jour entre 1 et 31"
+        return e
+    }
+
+    companion object {
+        fun depuis(dette: CompteDette, enveloppeId: String?): FormulaireDette {
+            val d = dette.details
+            fun t(v: Double?) = v?.let { MoneyFormatter.roundAmount(it).toString() } ?: ""
+            return FormulaireDette(
+                nom = dette.nom,
+                mode = d.mode,
+                montantInitial = t(dette.montantInitial),
+                taux = dette.tauxInteret?.toString() ?: "",
+                dureeMois = dette.dureeMoisPret?.toString() ?: "",
+                versementPrevu = t(dette.paiementMinimum),
+                dateDebut = d.dateDebut ?: "",
+                dateFin = d.dateFin ?: "",
+                jourVersement = d.jourVersement?.toString() ?: "",
+                tauxVariable = d.tauxVariable,
+                changementsTaux = d.changementsTaux,
+                enveloppeId = enveloppeId
+            )
+        }
+    }
+}

@@ -93,7 +93,8 @@ object PocketBaseMapper {
         dureeMoisPret = item.duree_mois_pret?.toIntOrNull(),
         paiementEffectue = item.paiement_effectue ?: 0,
         prixTotal = item.prix_total?.toDoubleOrNull(),
-        collection = item.collection ?: "comptes_dettes"
+        collection = item.collection ?: "comptes_dettes",
+        detailsDetteJson = item.details_dette_json?.let { if (it is String) it else gson.toJson(it) }
     )
 
     fun versCompteInvestissement(item: ItemPocketBase) = CompteInvestissement(

@@ -110,6 +110,29 @@ Hors maître (demandé directement) :
 | CC10 | FAIT | Taux avances / transferts / promo (+ fin) / retard ; frais mensuels, annuels, ponctuels avec date ; même nom + type = remplacé ; jamais facturés automatiquement |
 | CC11 | FAIT | Par relevé : intérêts facturés vs estimés ; cumul réel par année ; gain d'intérêts et de temps par rapport au minimum |
 
+| DF1 | FAIT | Brouillon + UN enregistrement ; Retour avec changements = confirmation ; la page se ferme seulement après une vraie sauvegarde |
+| DF2 | FAIT | Le solde réel n'est plus recalculé (prix théorique × clics) : 1 200 $ − 50 $ reste 1 150 $ ; changer taux/durée ne touche que les prévisions |
+| DF3 | FAIT | Versements réels par date et montant ; échéances complètes couvertes calculées sur les montants (pas les clics) ; suppression d'un paiement corrige le compteur |
+| DF4 | FAIT | `MoteurDette` unique ; plus de 25 % / 12 mois par défaut : donnée manquante = « indisponible » |
+| DF5 | FAIT | Date de début, date de fin, jour du versement enregistrés (`details_dette_json`, Room v6) |
+| DF6 | FAIT | Validation : négatifs, non numériques, durées hors 1-600, NaN/Infinity refusés ; 0 % géré |
+| DF7 | FAIT | Intérêts futurs estimés / intérêts ajoutés (confirmés) / intérêts payés « indisponibles » sans décomposition |
+| DF8 | FAIT | Paiement supérieur au restant refusé juste avant l'écriture (dette relue) |
+| DF9 | FAIT | Suppression : Paiement annulé dans le bon sens (−) ; les deux moitiés liées (`operation_paiement_id`, ou appariement des anciens paiements) annulées ensemble, enveloppe et archive restaurées ; une moitié seule = refus |
+| DF10 | FAIT (compensation) | Validation avant écriture, compte payeur remis si l'écriture de la dette échoue, erreurs plus ignorées ; pas de transaction Room unique (synchro immédiate réseau) |
+| DF11 | FAIT | Lien dette → enveloppe par ID (création, paiement, archivage) ; anciennes dettes : un seul homonyme dans « Dettes » puis lien enregistré ; jamais un homonyme ailleurs |
+| DF12 | FAIT | Enveloppe archivée (pas supprimée) seulement si dette soldée et enveloppe vide ; catégorie Dettes vide masquée dans Budget, pas supprimée |
+| DF13 | FAIT | « Réessayer » recharge vraiment ; erreurs d'enregistrement affichées, on reste sur la page ; bouton désactivé pendant l'opération |
+| DF14 | FAIT | Date choisie dans Transactions propagée aux deux écritures et au mois de l'enveloppe |
+| DF15 | FAIT | Enregistrement sur la version relue : seuls les paramètres sont fusionnés, le solde réel n'est jamais écrasé (avertissement si changé ailleurs) |
+| DA1 | FAIT | Modes « Dette simple » / « Prêt financé » ; les champs sont conservés en changeant de mode |
+| DA2 | FAIT | Échéancier détaillé depuis le solde réel (début, taux, intérêts, versement, capital, fin) |
+| DA3 | FAIT | Prochaine échéance, versé pour cette échéance, état payé/partiel/non payé, encore exigible |
+| DA4 | FAIT | Versement supplémentaire : temps économisé, nouvelle fin, intérêts évités, hypothèses affichées |
+| DA5 | FAIT | Solde officiel confirmé, intérêts/frais facturés : datés, notés, tracés « AJUSTEMENT_DETTE », jamais un paiement |
+| DA6 | FAIT | Restant, versé, intérêts et frais confirmés, estimations identifiées |
+| DA7 | FAIT | Taux variable : changements datés, appliqués aux versements futurs seulement |
+
 À savoir : les nouveaux champs `comptes_credits.details_carte_json` et `user_preferences.enveloppes_favorites`
 doivent être ajoutés à PocketBase avec `migrer-pocketbase.ps1` (identifiants admin saisis par l'utilisateur).
 Base Room passée en version 5 (migration sans perte).

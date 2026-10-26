@@ -932,12 +932,13 @@ class ArgentServiceImpl @Inject constructor(
         carteOuDetteId: String,
         collectionCarteOuDette: String,
         montant: Double,
-        note: String?
+        note: String?,
+        date: Date
     ): Result<Unit> = runCatching {
         if (montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
 
-        // 1. Comptes
+        // 1. Comptes (relus juste avant l'écriture : un paiement fait sur un autre appareil est pris en compte)
         val compteQuiPaie = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie)
             ?: throw IllegalArgumentException("Compte qui paie non trouvé: $compteQuiPaieId")
         val carteOuDette = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette)
@@ -948,18 +949,35 @@ class ArgentServiceImpl @Inject constructor(
         if (compteQuiPaie.solde < montantArrondi) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
         }
+        // DF8 : pas de trop-payé involontaire sur une dette
+        if (estDette) {
+            val restant = MoneyFormatter.roundAmount(kotlin.math.max(0.0, -carteOuDette.solde))
+            if (montantArrondi > restant + 0.005) {
+                throw IllegalStateException(
+                    "Paiement supérieur à la dette : il reste ${MoneyFormatter.formatAmount(restant)} à payer sur ${carteOuDette.nom}."
+                )
+            }
+        }
 
-        // 2. Enveloppe de la carte/dette : même nom, dans sa catégorie (« Cartes de crédit » / « Dettes »)
+        // 2. Enveloppe de la carte/dette. DF11 : d'abord le lien permanent par ID ;
+        //    sinon même nom dans sa catégorie (« Cartes de crédit » / « Dettes »), jamais un homonyme ailleurs.
+        //    DF14 : le mois de l'enveloppe est celui de la date du paiement.
         val mois = Calendar.getInstance().apply {
+            time = date
             set(Calendar.DAY_OF_MONTH, 1)
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.time
         val nomCategorie = if (estDette) "Dettes" else "Cartes de crédit"
         val categorie = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
             .firstOrNull { it.nom.equals(nomCategorie, ignoreCase = true) }
-        val enveloppeCible = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-            .filter { it.nom.equals(carteOuDette.nom, ignoreCase = true) && !it.estArchive }
-            .let { candidates -> candidates.firstOrNull { categorie != null && it.categorieId == categorie.id } ?: candidates.singleOrNull() }
+        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+        val idLie = (carteOuDette as? CompteDette)?.details?.enveloppeId
+        val enveloppeCible = idLie?.let { id -> toutesEnveloppes.firstOrNull { it.id == id } }
+            ?: toutesEnveloppes
+                .filter { it.nom.equals(carteOuDette.nom, ignoreCase = true) && !it.estArchive }
+                .let { candidates ->
+                    if (categorie != null) candidates.singleOrNull { it.categorieId == categorie.id } else candidates.singleOrNull()
+                }
         val allocationAvant = enveloppeCible?.let { allocationMensuelleRepository.recupererOuCreerAllocation(it.id, mois) }
         if (allocationAvant != null && allocationAvant.solde > 0.01 &&
             allocationAvant.compteSourceId != null && allocationAvant.compteSourceId != compteQuiPaieId
@@ -1007,17 +1025,20 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleRepository.mettreAJourAllocation(allocationApres)
         }
 
-        // 6. Transactions : une sortie, une entrée « Paiement » (jamais « Emprunt », qui est un prêt personnel)
+        // 6. Transactions : une sortie, une entrée « Paiement » (jamais « Emprunt », qui est un prêt personnel).
+        //    DF9 : les deux moitiés portent le même identifiant d'opération pour être annulées ensemble.
+        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${IdGenerator.generateId()}\"}"
         transactionRepository.creerTransaction(
             Transaction(
                 id = IdGenerator.generateId(),
                 utilisateurId = compteQuiPaie.utilisateurId,
                 type = TypeTransaction.PaiementEffectue,
                 montant = montantArrondi,
-                date = Date(),
+                date = date,
                 compteId = compteQuiPaieId,
                 collectionCompte = collectionCompteQuiPaie,
                 allocationMensuelleId = allocationApres?.id,
+                sousItems = lienOperation,
                 tiersUtiliser = note ?: carteOuDette.nom,
                 note = null
             )
@@ -1028,7 +1049,8 @@ class ArgentServiceImpl @Inject constructor(
                 utilisateurId = carteOuDette.utilisateurId,
                 type = TypeTransaction.Paiement,
                 montant = montantArrondi,
-                date = Date(),
+                sousItems = lienOperation,
+                date = date,
                 compteId = carteOuDetteId,
                 collectionCompte = collectionCible,
                 allocationMensuelleId = null,
@@ -1063,10 +1085,15 @@ class ArgentServiceImpl @Inject constructor(
             val detteActuelle = compteRepository.getCompteById(carteOuDetteId, collectionCible) as? CompteDette
             if (detteActuelle != null) {
                 val estSoldee = kotlin.math.abs(nouveauSoldeCible) < 0.01
+                // DF11 : une ancienne dette retrouvée par nom reçoit son lien permanent vers l'enveloppe
+                val details = if (detteActuelle.details.enveloppeId == null && enveloppeCible != null) {
+                    detteActuelle.details.copy(enveloppeId = enveloppeCible.id).versJson()
+                } else detteActuelle.detailsDetteJson
                 compteRepository.mettreAJourCompte(
                     detteActuelle.copy(
                         paiementEffectue = detteActuelle.paiementEffectue + 1,
-                        estArchive = detteActuelle.estArchive || estSoldee
+                        estArchive = detteActuelle.estArchive || estSoldee,
+                        detailsDetteJson = details
                     )
                 )
                 if (estSoldee && enveloppeCible != null && allocationApres != null &&
@@ -1076,5 +1103,10 @@ class ArgentServiceImpl @Inject constructor(
                 }
             }
         }
+    }
+
+    companion object {
+        /** Clé de sousItems qui relie la sortie du compte payeur et l'entrée sur la carte/dette (DF9). */
+        const val CLE_OPERATION_PAIEMENT = "operation_paiement_id"
     }
 }

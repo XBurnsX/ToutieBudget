@@ -247,7 +247,13 @@ import android.content.Context
      }
      
      private val detteViewModel: DetteViewModel by lazy {
-         DetteViewModel(compteRepository = compteRepository)
+         DetteViewModel(
+             compteRepository = compteRepository,
+             transactionRepository = transactionRepository,
+             enveloppeRepository = enveloppeRepository,
+             categorieRepository = categorieRepository,
+             historiqueAllocationService = historiqueAllocationService
+         )
      }
 
       private var statistiquesViewModel: StatistiquesViewModel? = null

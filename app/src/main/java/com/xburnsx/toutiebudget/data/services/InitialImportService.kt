@@ -242,5 +242,6 @@ data class ItemPocketBase(
     val collectionName: String?,
     val nom_tiers: String?,
     val date_creation: String?,
-    val details_carte_json: Any? = null // Cartes de crédit (section 10)
+    val details_carte_json: Any? = null, // Cartes de crédit (section 10)
+    val details_dette_json: Any? = null // Dettes (section 11)
 )

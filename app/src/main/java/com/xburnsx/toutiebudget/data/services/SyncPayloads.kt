@@ -92,7 +92,10 @@ object SyncPayloads {
             "duree_mois_pret" to entite.dureeMoisPret,
             "paiement_effectue" to entite.paiementEffectue,
             "prix_total" to entite.prixTotal,
-            "collection" to entite.collection
+            "collection" to entite.collection,
+            "details_dette_json" to entite.detailsDetteJson?.let {
+                try { com.google.gson.JsonParser.parseString(it) } catch (_: Exception) { null }
+            }
         ))
         is CompteInvestissementEntity -> gsonAvecNulls.toJson(mapOf(
             "id" to entite.id,

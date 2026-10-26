@@ -656,7 +656,8 @@ class CompteRepositoryRoomImpl(
             dureeMoisPret = this.dureeMoisPret,
             paiementEffectue = this.paiementEffectue,
             prixTotal = this.prixTotal,
-            collection = this.collection
+            collection = this.collection,
+            detailsDetteJson = this.detailsDetteJson
         )
     }
 
@@ -674,7 +675,8 @@ class CompteRepositoryRoomImpl(
             dureeMoisPret = this.dureeMoisPret,
             paiementEffectue = this.paiementEffectue,
             prixTotal = this.prixTotal,
-            collection = this.collection
+            collection = this.collection,
+            detailsDetteJson = this.detailsDetteJson
         )
     }
 

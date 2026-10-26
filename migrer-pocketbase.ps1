@@ -2,6 +2,7 @@
 # Sans eux, ces informations restent seulement sur le téléphone (rien n'est perdu sur l'appareil).
 #
 #   comptes_credits.details_carte_json   : profil émetteur, taux, cycle et relevés des cartes (section 10)
+#   comptes_dettes.details_dette_json      : mode, contrat, lien d'enveloppe, taux et ajustements des dettes (section 11)
 #   user_preferences.enveloppes_favorites : enveloppes favorites de la page Budget (A4)
 #
 # Le script ne fait qu'AJOUTER des champs JSON manquants ; il ne modifie ni ne supprime rien d'autre.
@@ -13,6 +14,7 @@ $urlPocketBase = 'https://pocketbase.toutieserver.com'
 
 $champsAAjouter = @(
     @{ collection = 'comptes_credits'; champ = 'details_carte_json' },
+    @{ collection = 'comptes_dettes'; champ = 'details_dette_json' },
     @{ collection = 'user_preferences'; champ = 'enveloppes_favorites' }
 )
 

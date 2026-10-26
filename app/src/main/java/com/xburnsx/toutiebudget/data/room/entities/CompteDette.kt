@@ -45,5 +45,9 @@ data class CompteDette(
     val prixTotal: Double? = null,
     
     @ColumnInfo(name = "collection")
-    val collection: String = "comptes_dettes"
+    val collection: String = "comptes_dettes",
+
+    // Section 11 : mode, dates du contrat, lien d'enveloppe, taux variables, ajustements (JSON de DetailsDette)
+    @ColumnInfo(name = "details_dette_json")
+    val detailsDetteJson: String? = null
 )
