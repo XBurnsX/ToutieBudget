@@ -49,7 +49,7 @@ class ObjectifResetServiceTest {
             
             val calendarReset = Calendar.getInstance().apply { time = dateReset }
             val jourReset = obtenirNomJourSemaine(calendarReset.get(Calendar.DAY_OF_WEEK))
-            val dateResetFormatee = formaterDate(dateReset.time)
+            val dateResetFormatee = formaterDate(dateReset)
             
             println("  → Reset : $dateResetFormatee ($jourReset)")
             
@@ -65,7 +65,7 @@ class ObjectifResetServiceTest {
             
             val calendarProchaine = Calendar.getInstance().apply { time = prochaineDate }
             val jourProchaine = obtenirNomJourSemaine(calendarProchaine.get(Calendar.DAY_OF_WEEK))
-            val dateProchaineFormatee = formaterDate(prochaineDate.time)
+            val dateProchaineFormatee = formaterDate(prochaineDate)
             
             println("  → Prochaine : $dateProchaineFormatee ($jourProchaine)")
             println()
