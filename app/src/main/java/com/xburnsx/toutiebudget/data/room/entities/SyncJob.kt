@@ -41,5 +41,23 @@ data class SyncJob(
     /**
      * Statut de la tâche (PENDING, IN_PROGRESS, COMPLETED, FAILED)
      */
-    val status: String = "PENDING"
+    val status: String = "PENDING",
+
+    /**
+     * Utilisateur qui a créé la tâche : le worker ne l'envoie qu'avec la session de CET utilisateur (SJ7, LD7).
+     * Par défaut, l'utilisateur connecté au moment de la création.
+     */
+    val utilisateurId: String = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id ?: "",
+
+    /** Diagnostic (SJ11) : nombre d'essais, dernière erreur nettoyée (jamais le JSON), code HTTP, date. */
+    val tentatives: Int = 0,
+    val derniereErreur: String? = null,
+    val codeHttp: Int? = null,
+    val derniereTentative: Long = 0,
+
+    /**
+     * Erreur permanente (400/403/404...) : la tâche n'est plus réessayée automatiquement (SJ10)
+     * jusqu'à un « Réessayer » manuel.
+     */
+    val bloque: Boolean = false
 )

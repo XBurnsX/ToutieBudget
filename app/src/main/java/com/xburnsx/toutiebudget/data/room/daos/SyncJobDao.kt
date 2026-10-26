@@ -28,6 +28,27 @@ interface SyncJobDao {
      */
     @Query("SELECT * FROM sync_jobs WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAt ASC")
     suspend fun getPendingAndFailedSyncJobs(): List<SyncJob>
+
+    /**
+     * Tâches à envoyer pour un utilisateur : en attente ou en échec réessayable (pas bloquées),
+     * dans l'ordre de création (SJ5). Les anciennes tâches sans utilisateur sont incluses.
+     */
+    @Query(
+        "SELECT * FROM sync_jobs WHERE (status = 'PENDING' OR (status = 'FAILED' AND bloque = 0)) " +
+        "AND (utilisateurId = :utilisateurId OR utilisateurId = '') ORDER BY createdAt ASC"
+    )
+    suspend fun getTachesAEnvoyer(utilisateurId: String): List<SyncJob>
+
+    /** Résultat d'un essai d'envoi (SJ10, SJ11). */
+    @Query(
+        "UPDATE sync_jobs SET status = :status, tentatives = tentatives + 1, derniereErreur = :erreur, " +
+        "codeHttp = :codeHttp, derniereTentative = :quand, bloque = :bloque WHERE id = :id"
+    )
+    suspend fun enregistrerEssai(id: String, status: String, erreur: String?, codeHttp: Int?, quand: Long, bloque: Boolean)
+
+    /** « Réessayer » manuel : remet la tâche dans la file, sans effacer son historique d'essais. */
+    @Query("UPDATE sync_jobs SET status = 'PENDING', bloque = 0 WHERE id = :id")
+    suspend fun reactiver(id: String)
     
     /**
      * Récupère les tâches par type d'entité

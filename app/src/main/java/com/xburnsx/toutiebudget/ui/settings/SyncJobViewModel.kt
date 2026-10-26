@@ -85,8 +85,9 @@ class SyncJobViewModel(
             try {
                 val failedJobs = syncJobs.value.filter { it.status == "FAILED" }
                 failedJobs.forEach { job ->
-                    syncJobDao.updateSyncJobStatus(job.id, "PENDING")
+                    syncJobDao.reactiver(job.id)
                 }
+                com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
                 loadSyncJobs() // Recharger la liste
                 
             } catch (e: Exception) {
@@ -101,7 +102,8 @@ class SyncJobViewModel(
     fun retrySingleFailedJob(jobId: String) {
         viewModelScope.launch {
             try {
-                syncJobDao.updateSyncJobStatus(jobId, "PENDING")
+                syncJobDao.reactiver(jobId)
+                com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
                 loadSyncJobs() // Recharger la liste
                 
             } catch (e: Exception) {

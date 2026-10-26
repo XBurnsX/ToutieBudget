@@ -29,7 +29,7 @@ import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
         AllocationMensuelle::class,
         HistoriqueAllocation::class
     ],
-    version = 3, // 🆕 INCREMENTÉ : Ajout de l'historique des allocations
+    version = 4, // 4 : utilisateur et diagnostic des SyncJobs
     exportSchema = false
 )
 @TypeConverters(DateStringConverter::class)
@@ -62,7 +62,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
                     ToutieBudgetDatabase::class.java,
                     "toutiebudget_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3) // 🆕 AJOUT : Migrations
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4) // 🆕 AJOUT : Migrations
                 // .fallbackToDestructiveMigration() // DÉSACTIVÉ : Utiliser les migrations pour préserver les données
                 .build()
                 INSTANCE = instance
@@ -78,6 +78,18 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
             }
         }
         
+        // MIGRATION : Version 3 vers 4 - utilisateur et diagnostic des SyncJobs (SJ7, SJ10, SJ11)
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN utilisateurId TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN tentatives INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN derniereErreur TEXT")
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN codeHttp INTEGER")
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN derniereTentative INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE sync_jobs ADD COLUMN bloque INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         // 🆕 MIGRATION : Version 2 vers 3 - Ajout de la table historique_allocation
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {

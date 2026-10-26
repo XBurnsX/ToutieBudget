@@ -397,11 +397,24 @@ fun SyncJobCard(
                 fontSize = 12.sp
             )
             
-            if (syncJob.dataJson.isNotEmpty()) {
+            // Diagnostic de la tâche, jamais son contenu (données financières) (SJ11, SJ19)
+            if (syncJob.tentatives > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Données: ${syncJob.dataJson.take(100)}${if (syncJob.dataJson.length > 100) "..." else ""}",
+                    text = "Essais : ${syncJob.tentatives} — dernier le ${syncJobViewModel.formatDate(syncJob.derniereTentative)}",
                     color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+            syncJob.derniereErreur?.let { erreur ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (syncJob.bloque) {
+                        "Bloquée : $erreur. Corrige la cause puis appuie sur Réessayer."
+                    } else {
+                        "Erreur : $erreur. Nouvel essai automatique."
+                    },
+                    color = if (syncJob.bloque) Color(0xFFF44336) else Color(0xFFFFA500),
                     fontSize = 12.sp
                 )
             }

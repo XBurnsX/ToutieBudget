@@ -5,123 +5,111 @@ import androidx.work.*
 import java.util.concurrent.TimeUnit
 
 /**
- * Gestionnaire du WorkManager de synchronisation
- * Configure et planifie l'exécution du SyncWorker
+ * Gestionnaire du WorkManager de synchronisation.
+ *
+ * Plus aucun envoi en cours n'est annulé (SJ2) : les déclenchements s'ajoutent à la suite
+ * (APPEND_OR_REPLACE), et le verrou du SyncWorker garantit un seul envoi à la fois.
  */
 object SyncWorkManager {
-    
-    private const val SYNC_WORK_NAME = "sync_work"
+
+    private const val SYNC_WORK_NAME = "sync_work"          // déclenchements immédiats, à la suite
+    private const val SYNC_RESEAU_NAME = "sync_reseau"      // au retour d'Internet
+    private const val SYNC_REESSAI_NAME = "sync_reessai"    // nouvel essai après erreur réessayable
     private const val SYNC_WORK_TAG = "sync_tag"
-    
+
     /**
-     * Démarre la synchronisation immédiatement
+     * Démarre la synchronisation immédiatement, à la suite de celle en cours s'il y en a une.
      */
     fun demarrerSynchronisation(context: Context) {
-        // 🚀 DÉMARRAGE de la synchronisation immédiate
-        
-        // ✅ FORCER la synchronisation immédiate en annulant tout travail en cours
-        WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
-        
-        // Créer un work request SANS contraintes pour forcer l'exécution immédiate
         val workRequest = OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(Constraints.Builder().build()) // ✅ AUCUNE contrainte pour forcer l'exécution
             .addTag(SYNC_WORK_TAG)
             .setInputData(workDataOf("triggered_by" to "immediate"))
             .build()
-        
+
         WorkManager.getInstance(context).enqueueUniqueWork(
             SYNC_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             workRequest
         )
-        
-        // ✅ Synchronisation immédiate planifiée (sans contraintes)
     }
-    
+
     /**
-     * Planifie la synchronisation automatique quand internet revient
-     * Le worker se déclenche automatiquement dès que la connectivité est rétablie
-     * SUIVANT LE MD : Worker INTELLIGENT avec contraintes réseau
+     * Planifie la synchronisation automatique quand internet revient.
+     * Le worker se déclenche dès que la connectivité est rétablie, même app fermée.
+     * KEEP : une demande déjà en attente suffit, elle n'est pas remplacée.
      */
     fun planifierSynchronisationAutomatique(context: Context) {
-        // ✅ SUIVRE LE MD : Worker avec contraintes réseau qui se déclenche quand internet revient
-        val workRequest = creerWorkRequestReseau()
         WorkManager.getInstance(context).enqueueUniqueWork(
-            SYNC_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            SYNC_RESEAU_NAME,
+            ExistingWorkPolicy.KEEP,
+            creerWorkRequestReseau()
+        )
+    }
+
+    /**
+     * Nouvel essai après des erreurs réessayables (réseau, 408, 429, 5xx), avec un délai
+     * qui grandit selon le nombre d'essais : 1, 2, 4, 8... minutes, au plus 1 heure (SJ10).
+     */
+    fun planifierNouvelEssai(context: Context, nombreEssais: Int) {
+        val delaiMinutes = (1L shl (nombreEssais - 1).coerceIn(0, 6)).coerceAtMost(60L)
+        val workRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(
+                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            )
+            .setInitialDelay(delaiMinutes, TimeUnit.MINUTES)
+            .addTag(SYNC_WORK_TAG)
+            .setInputData(workDataOf("triggered_by" to "reessai"))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            SYNC_REESSAI_NAME,
+            ExistingWorkPolicy.KEEP,
             workRequest
         )
     }
-    
+
     /**
      * Arrête la synchronisation
      */
     fun arreterSynchronisation(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
+        WorkManager.getInstance(context).cancelAllWorkByTag(SYNC_WORK_TAG)
     }
-    
+
     /**
-     * Déclenche la synchronisation automatique après une modification
-     * Le worker se déclenchera automatiquement quand internet revient
+     * Déclenche la synchronisation après une modification
      */
     fun declencherSynchronisationAutomatique(context: Context) {
-        // 🚀 DÉCLENCHER IMMÉDIATEMENT si on a internet !
         demarrerSynchronisation(context)
-        
-        // Planifier aussi pour les futurs changements réseau
         planifierSynchronisationAutomatique(context)
     }
-    
+
     /**
-     * Crée une requête de travail unique (synchronisation immédiate)
-     */
-    private fun creerWorkRequest(): OneTimeWorkRequest {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED) // Seulement avec internet
-            .setRequiresBatteryNotLow(false) // Pas besoin de batterie pleine
-            .build()
-        
-        return OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(constraints)
-            .addTag(SYNC_WORK_TAG)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                15,
-                TimeUnit.MINUTES
-            )
-            .setInputData(workDataOf("triggered_by" to "manual"))
-            .build()
-    }
-    
-    /**
-     * Crée une requête de travail avec contraintes réseau (SUIVANT LE MD)
-     * Le worker se déclenche AUTOMATIQUEMENT dès qu'internet revient
-     * Même si l'appli est fermée !
+     * Crée une requête de travail avec contraintes réseau.
+     * Le worker se déclenche AUTOMATIQUEMENT dès qu'internet revient, même app fermée.
      */
     private fun creerWorkRequestReseau(): OneTimeWorkRequest {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED) // Se déclenche dès qu'internet revient
-            .setRequiresBatteryNotLow(false) // Pas besoin de batterie pleine
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(false)
             .build()
-        
+
         return OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(constraints)
             .addTag(SYNC_WORK_TAG)
             .setInputData(workDataOf("triggered_by" to "network_restored"))
             .build()
     }
-    
+
     /**
      * Vérifie si une synchronisation est en cours
      */
     fun estSynchronisationEnCours(context: Context): Boolean {
         val workInfo = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork(SYNC_WORK_NAME)
+            .getWorkInfosByTag(SYNC_WORK_TAG)
             .get()
-        
+
         return workInfo.any { it.state == WorkInfo.State.RUNNING }
     }
-    
+
     /**
      * Récupère le statut de la dernière synchronisation
      */
@@ -129,7 +117,7 @@ object SyncWorkManager {
         val workInfo = WorkManager.getInstance(context)
             .getWorkInfosForUniqueWork(SYNC_WORK_NAME)
             .get()
-        
+
         return workInfo.maxByOrNull { it.id }?.state
     }
 }

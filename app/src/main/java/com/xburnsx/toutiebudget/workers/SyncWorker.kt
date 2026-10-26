@@ -1,7 +1,7 @@
 package com.xburnsx.toutiebudget.workers
 
 import android.content.Context
-// import android.util.Log
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.gson.Gson
@@ -12,16 +12,25 @@ import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.di.PocketBaseClient
 import com.xburnsx.toutiebudget.di.UrlResolver
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Worker de synchronisation qui lit la table SyncJob et envoie les modifications vers Pocketbase
- * L'OUVRIER DE NUIT qui s'occupe de la liste de tâches !
+ * Worker de synchronisation : lit la file SyncJob et envoie les modifications vers PocketBase.
+ *
+ * - Un seul envoi à la fois dans l'application (verrou), sans jamais annuler un envoi en cours (SJ2).
+ * - Les tâches d'un utilisateur ne partent qu'avec la session de ce même utilisateur (SJ7, LD7).
+ * - Erreurs classées (SJ10) : réseau / 408 / 429 / 5xx = réessayées plus tard avec délai croissant ;
+ *   400 / 403 / 404 / 422 = tâche bloquée, à corriger puis « Réessayer » manuellement.
+ * - Chaque essai est noté (code, erreur nettoyée, nombre d'essais) sans le contenu de la tâche (SJ11).
+ * - Ordre respecté par fiche : si une tâche échoue, les suivantes de la même fiche attendent (SJ5).
  */
 class SyncWorker(
     context: Context,
@@ -35,306 +44,202 @@ class SyncWorker(
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
-    
+
     private val gson: Gson = GsonBuilder()
         .serializeNulls()
         .create()
-    
-    private val logTag = "SyncWorker"
+
+    /** Résultat d'un envoi. [code] = code HTTP, null si erreur réseau. */
+    private data class Resultat(val ok: Boolean, val code: Int?, val message: String?)
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        try {
-            // 🚀 DÉBUT DE LA SYNCHRONISATION
-            
-            // Vérifier la connexion réseau
-            if (!isNetworkAvailable()) {
-                // ⚠️ Pas de connexion réseau - synchronisation reportée
-                return@withContext Result.retry()
+        verrou.withLock {
+            try {
+                envoyerFile()
+            } catch (e: Exception) {
+                Log.e(TAG, "Synchronisation interrompue (${e.javaClass.simpleName})")
+                SyncWorkManager.planifierNouvelEssai(applicationContext, 1)
+                Result.success()
             }
-            
-            // 🚨 DEBUG : Afficher les informations de base
-            
-            // 🆕 CHARGER L'AUTHENTIFICATION SAUVEGARDÉE AVANT D'OBTENIR LE TOKEN
-            // C'est crucial pour que le worker puisse accéder au token sauvegardé
-            client.chargerAuthentificationSauvegardee(applicationContext)
-            
-            // Vérifier l'authentification
-            val token = client.obtenirToken()
-            if (token == null) {
-                // ⚠️ Pas de token d'authentification - synchronisation reportée
-                return@withContext Result.retry()
-            }
-            
-            // ✅ Token d'authentification récupéré avec succès
-            
-            val urlBase = UrlResolver.obtenirUrlActive()
-            
-            // Récupérer tous les SyncJob en attente ET les échecs pour retry
-            val syncJobs = syncJobDao.getPendingAndFailedSyncJobs()
-            if (syncJobs.isEmpty()) {
-                // ✅ Aucune tâche de synchronisation en attente ou à retenter
-                return@withContext Result.success()
-            }
-            
-            // 📋 ${syncJobs.size} tâches de synchronisation à traiter
-            
-            var successCount = 0
-            var failureCount = 0
-            
-            // Traiter chaque tâche de synchronisation
-            for (syncJob in syncJobs) {
-                // Remplacé par un nouveau déclenchement : s'arrêter entre deux tâches,
-                // le prochain worker reprendra les tâches restantes
-                if (isStopped) break
-                try {
-                    // 🔄 Traitement de la tâche ${syncJob.id}: ${syncJob.type} - ${syncJob.action}
-                    
-                    val success = when (syncJob.action) {
-                        "CREATE" -> traiterCreation(syncJob, urlBase, token)
-                        "UPDATE" -> traiterMiseAJour(syncJob, urlBase, token)
-                        "DELETE" -> traiterSuppression(syncJob, urlBase, token)
-                        else -> {
-                            // ⚠️ Action non reconnue: ${syncJob.action}
-                            false
-                        }
-                    }
-                    
-                    if (success) {
-                        // Marquer la tâche comme terminée
-                        syncJobDao.updateSyncJobStatus(syncJob.id, "COMPLETED")
-                        successCount++
-                        // ✅ Tâche ${syncJob.id} synchronisée avec succès
-                    } else {
-                        // Marquer la tâche comme échouée
-                        syncJobDao.updateSyncJobStatus(syncJob.id, "FAILED")
-                        failureCount++
-                        // ❌ Échec de la synchronisation de la tâche ${syncJob.id}
-                    }
-                    
-                } catch (e: Exception) {
-                    // ❌ Erreur lors du traitement de la tâche ${syncJob.id}
-                    syncJobDao.updateSyncJobStatus(syncJob.id, "FAILED")
-                    failureCount++
-                }
-            }
-            
-            // 🎉 SYNCHRONISATION TERMINÉE: $successCount succès, $failureCount échecs
-            
-            // 🚫 SUPPRESSION DU NETTOYAGE AUTOMATIQUE : L'utilisateur gère manuellement les tâches
-            // Les tâches restent visibles dans l'interface avec les onglets par statut
-            // 📋 Tâches conservées pour gestion manuelle par l'utilisateur
-            
-            // Si toutes les tâches ont réussi, on retourne success
-            // Sinon, on retourne retry pour réessayer les tâches échouées
-            return@withContext if (failureCount == 0) Result.success() else Result.retry()
-            
-        } catch (e: Exception) {
-            // ❌ Erreur fatale lors de la synchronisation
-            return@withContext Result.failure()
         }
     }
-    
+
+    private suspend fun envoyerFile(): Result {
+        if (!isNetworkAvailable()) {
+            // Le travail « réseau » se déclenchera au retour d'Internet
+            SyncWorkManager.planifierSynchronisationAutomatique(applicationContext)
+            return Result.success()
+        }
+
+        // Charger l'authentification sauvegardée (le worker peut tourner app fermée)
+        client.chargerAuthentificationSauvegardee(applicationContext)
+        val token = client.obtenirToken()
+        val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+        if (token == null || utilisateurId == null) {
+            // Pas de session : rien n'est envoyé ; la file attend la reconnexion de son utilisateur
+            return Result.success()
+        }
+        val urlBase = UrlResolver.obtenirUrlActive()
+
+        val dejaEssayees = mutableSetOf<String>()
+        var echecsReessayables = 0
+        var plusGrandNombreEssais = 0
+
+        // Reprendre la file tant que de nouvelles tâches arrivent pendant l'envoi
+        while (!isStopped) {
+            val taches = syncJobDao.getTachesAEnvoyer(utilisateurId).filter { it.id !in dejaEssayees }
+            if (taches.isEmpty()) break
+
+            val fichesEnAttente = mutableSetOf<String>()
+            for (tache in taches) {
+                if (isStopped) break
+                dejaEssayees += tache.id
+                val fiche = cleFiche(tache)
+                if (fiche != null && fiche in fichesEnAttente) continue // une tâche plus ancienne de cette fiche a échoué
+
+                val resultat = try {
+                    when (tache.action) {
+                        "CREATE" -> traiterCreation(tache, urlBase, token)
+                        "UPDATE" -> traiterMiseAJour(tache, urlBase, token)
+                        "DELETE" -> traiterSuppression(tache, urlBase, token)
+                        else -> Resultat(false, null, "Action inconnue : ${tache.action}")
+                    }
+                } catch (e: IOException) {
+                    Resultat(false, null, "Réseau indisponible")
+                } catch (e: Exception) {
+                    Resultat(false, null, e.javaClass.simpleName)
+                }
+
+                val maintenant = System.currentTimeMillis()
+                if (resultat.ok) {
+                    syncJobDao.enregistrerEssai(tache.id, "COMPLETED", null, resultat.code, maintenant, false)
+                    continue
+                }
+
+                if (fiche != null) fichesEnAttente += fiche
+                val bloquee = estErreurPermanente(resultat.code, tache.action)
+                syncJobDao.enregistrerEssai(
+                    tache.id, "FAILED", resultat.message ?: "Erreur inconnue", resultat.code, maintenant, bloquee
+                )
+                if (!bloquee) {
+                    echecsReessayables++
+                    plusGrandNombreEssais = maxOf(plusGrandNombreEssais, tache.tentatives + 1)
+                }
+                if (resultat.code == 401) {
+                    // Session expirée ou révoquée : inutile d'envoyer le reste avec ce jeton
+                    return Result.success()
+                }
+            }
+        }
+
+        if (echecsReessayables > 0) {
+            SyncWorkManager.planifierNouvelEssai(applicationContext, plusGrandNombreEssais)
+        }
+        return Result.success()
+    }
+
+    /** 400 / 403 / 404 / 422 ne se règlent pas en réessayant (SJ10). 401 = session, réessayée après reconnexion. */
+    private fun estErreurPermanente(code: Int?, action: String): Boolean = when (code) {
+        null, 401, 408, 429 -> false
+        in 500..599 -> false
+        404 -> action != "DELETE"
+        else -> code in 400..499
+    }
+
+    /** Identifiant de la fiche touchée, pour garder l'ordre des tâches d'une même fiche. */
+    private fun cleFiche(tache: SyncJob): String? =
+        tache.recordId.ifBlank { idDepuisJson(tache.dataJson) ?: "" }.ifBlank { null }?.let { "${tache.type}/$it" }
+
     /**
      * Traite une tâche de création (CREATE)
      */
-    private suspend fun traiterCreation(syncJob: SyncJob, urlBase: String, token: String): Boolean {
-        try {
-            val collection = SyncCollections.collectionPourType(syncJob.type)
-            
-            val url = "$urlBase/api/collections/$collection/records"
-            // 🔄 URL de création: $url (type: ${syncJob.type} → collection: $collection)
-            
-            // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
-            
-            val requestBody = syncJob.dataJson.toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .addHeader("Authorization", "Bearer $token")
-                .build()
-            
-            val response = httpClient.newCall(request).execute()
-            val code = response.code
-            response.close()
-            if (response.isSuccessful) return true
+    private fun traiterCreation(syncJob: SyncJob, urlBase: String, token: String): Resultat {
+        val collection = SyncCollections.collectionPourType(syncJob.type)
+        val url = "$urlBase/api/collections/$collection/records"
 
-            // Une tâche CREATE peut être rejouée si le worker a été coupé après l'envoi
-            // mais avant de marquer la tâche COMPLETED. Si la fiche existe déjà sur le
-            // serveur (400 sur l'id), on applique les données en PATCH au lieu d'échouer en boucle.
-            if (code == 400) {
-                val recordId = syncJob.recordId.ifBlank { idDepuisJson(syncJob.dataJson) ?: "" }
-                if (recordId.isNotBlank() && ficheExiste(urlBase, collection, recordId, token)) {
-                    val patch = Request.Builder()
-                        .url("$url/$recordId")
-                        .patch(syncJob.dataJson.toRequestBody("application/json".toMediaType()))
-                        .addHeader("Authorization", "Bearer $token")
-                        .build()
-                    return httpClient.newCall(patch).execute().use { it.isSuccessful }
-                }
+        val request = Request.Builder()
+            .url(url)
+            .post(syncJob.dataJson.toRequestBody(JSON))
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        val premier = executer(request)
+        if (premier.ok) return premier
+
+        // Une tâche CREATE peut être rejouée si le worker a été coupé après l'envoi
+        // mais avant de marquer la tâche COMPLETED. Si la fiche existe déjà sur le
+        // serveur (400 sur l'id), on applique les données en PATCH au lieu d'échouer en boucle (SJ1).
+        if (premier.code == 400) {
+            val recordId = syncJob.recordId.ifBlank { idDepuisJson(syncJob.dataJson) ?: "" }
+            if (recordId.isNotBlank() && ficheExiste(urlBase, collection, recordId, token)) {
+                val patch = Request.Builder()
+                    .url("$url/$recordId")
+                    .patch(syncJob.dataJson.toRequestBody(JSON))
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+                return executer(patch)
             }
-            return false
-            
-        } catch (e: Exception) {
-            // ❌ Erreur lors de la création
-            return false
         }
+        return premier
     }
-    
+
     /**
      * Traite une tâche de mise à jour (UPDATE)
      */
-    private suspend fun traiterMiseAJour(syncJob: SyncJob, urlBase: String, token: String): Boolean {
-        try {
-            val collection = SyncCollections.collectionPourType(syncJob.type)
-            
-            // 🆕 CORRECTION CRITIQUE : Gestion des recordId manquants pour les anciennes tâches
-            val recordId = if (syncJob.recordId.isBlank()) {
-                // Si recordId est vide, essayer d'extraire l'ID depuis le JSON
-                try {
-                    val gson = Gson()
-                    val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
-                    val idFromJson = dataMap["id"] as? String
-                    if (!idFromJson.isNullOrBlank()) {
-                        // ⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson
-                        idFromJson
-                    } else {
-                        // ❌ RecordId manquant ET ID non trouvé dans le JSON pour UPDATE ${syncJob.id}
-                        return false
-                    }
-                } catch (e: Exception) {
-                    // ❌ Erreur lors de l'extraction de l'ID du JSON
-                    return false
-                }
-            } else {
-                syncJob.recordId
-            }
-            
-            val url = "$urlBase/api/collections/$collection/records/$recordId"
-            // 🔄 URL de mise à jour: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)
-            
-            // 🚨 DIAGNOSTIC CRITIQUE : Afficher les données JSON envoyées
-            
-            // 🚨 DEBUG CRITIQUE : Log détaillé pour les comptes chèques
-            if (syncJob.type == "COMPTE_CHEQUE") {
-                // 🚨 COMPTE_CHÈQUE DÉTECTÉ:
-                //   Action: ${syncJob.action}
-                //   RecordId: ${syncJob.recordId}
-            }
-            
-            // 🚨 CORRECTION CRITIQUE : Pour les allocations, faire comme Room - REMPLACER les valeurs !
-            val requestBody = if (syncJob.type == "ALLOCATION_MENSUELLE") {
-                // 🎯 PROBLÈME IDENTIFIÉ : Les opérateurs d'incrémentation causent des problèmes !
-                // SOLUTION : Faire comme Room - remplacer complètement avec les bonnes valeurs calculées
-                val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
-                val modifiedData = mutableMapOf<String, Any>()
-                
-                // Traiter chaque champ - REMPLACER complètement comme Room
-                dataMap.forEach { (key, value) ->
-                    when (key) {
-                        "solde", "depense", "alloue", "pretAPlacer" -> {
-                            // 🚨 CORRECTION : REMPLACER complètement au lieu d'incrémenter !
-                            // Room calcule déjà les bonnes valeurs, on les envoie telles quelles
-                            if (value != null) {
-                                modifiedData[key.toString()] = value
-                            }
-                        }
-                        else -> {
-                            // Garder les autres champs tels quels (ID, mois, etc.)
-                            if (value != null) {
-                                modifiedData[key.toString()] = value
-                            }
-                        }
-                    }
-                }
-                
-                val jsonData = gson.toJson(modifiedData)
-                // 🚨 ALLOCATION MODIFIÉE : Données originales Room = ${syncJob.dataJson}
-                // 🚨 ALLOCATION MODIFIÉE : Données avec REMPLACEMENT complet = $jsonData
-                
-                jsonData.toRequestBody("application/json".toMediaType())
-            } else {
-                // Pour les autres types, utiliser les données telles quelles
-                syncJob.dataJson.toRequestBody("application/json".toMediaType())
-            }
-            
-            val request = Request.Builder()
-                .url(url)
-                .patch(requestBody)
-                .addHeader("Authorization", "Bearer $token")
-                .build()
-            
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            val success = response.isSuccessful
-            
-            if (!success) {
-                // ❌ Échec HTTP ${response.code} pour UPDATE:
-                //   Réponse du serveur: $responseBody
-                //   Headers de réponse: ${response.headers}
-            } else {
-                // ✅ Mise à jour réussie:
-                //   Réponse du serveur: $responseBody
-                // 🚨 DEBUG CRITIQUE : Log de succès pour les comptes chèques
-                if (syncJob.type == "COMPTE_CHEQUE") {
-                    // ✅ COMPTE_CHÈQUE MIS À JOUR AVEC SUCCÈS !
-                }
-            }
-            
-            return success
-            
-        } catch (e: Exception) {
-            // ❌ Erreur lors de la mise à jour
-            return false
+    private fun traiterMiseAJour(syncJob: SyncJob, urlBase: String, token: String): Resultat {
+        val collection = SyncCollections.collectionPourType(syncJob.type)
+        // Anciennes tâches sans recordId : prendre l'ID du JSON
+        val recordId = syncJob.recordId.ifBlank { idDepuisJson(syncJob.dataJson) ?: "" }
+        if (recordId.isBlank()) return Resultat(false, 400, "Identifiant de fiche manquant")
+
+        // Allocations : envoyer les valeurs calculées par Room telles quelles, sans les champs nuls
+        val corps = if (syncJob.type == "ALLOCATION_MENSUELLE") {
+            val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
+            gson.toJson(dataMap.filterValues { it != null })
+        } else {
+            syncJob.dataJson
         }
+
+        val request = Request.Builder()
+            .url("$urlBase/api/collections/$collection/records/$recordId")
+            .patch(corps.toRequestBody(JSON))
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        return executer(request)
     }
-    
+
     /**
      * Traite une tâche de suppression (DELETE)
      */
-    private suspend fun traiterSuppression(syncJob: SyncJob, urlBase: String, token: String): Boolean {
-        try {
-            val collection = SyncCollections.collectionPourType(syncJob.type)
-            
-            // 🆕 CORRECTION CRITIQUE : Gestion des recordId manquants pour les anciennes tâches
-            val recordId = if (syncJob.recordId.isBlank()) {
-                // Si recordId est vide, essayer d'extraire l'ID depuis le JSON
-                try {
-                    val gson = Gson()
-                    val dataMap = gson.fromJson(syncJob.dataJson, Map::class.java)
-                    val idFromJson = dataMap["id"] as? String
-                    if (!idFromJson.isNullOrBlank()) {
-                        // ⚠️ RecordId manquant, utilisation de l'ID du JSON: $idFromJson
-                        idFromJson
-                    } else {
-                        // ❌ RecordId manquant ET ID non trouvé dans le JSON pour DELETE ${syncJob.id}
-                        return false
-                    }
-                } catch (e: Exception) {
-                    // ❌ Erreur lors de l'extraction de l'ID du JSON
-                    return false
-                }
-            } else {
-                syncJob.recordId
-            }
-            
-            val url = "$urlBase/api/collections/$collection/records/$recordId"
-            // 🔄 URL de suppression: $url (type: ${syncJob.type} → collection: $collection, recordId: $recordId)
-            
-            val request = Request.Builder()
-                .url(url)
-                .delete()
-                .addHeader("Authorization", "Bearer $token")
-                .build()
-            
-            // 404 = déjà supprimée sur le serveur (tâche rejouée) : le résultat voulu est atteint
-            return httpClient.newCall(request).execute().use { it.isSuccessful || it.code == 404 }
-            
-        } catch (e: Exception) {
-            // ❌ Erreur lors de la suppression
-            return false
-        }
+    private fun traiterSuppression(syncJob: SyncJob, urlBase: String, token: String): Resultat {
+        val collection = SyncCollections.collectionPourType(syncJob.type)
+        val recordId = syncJob.recordId.ifBlank { idDepuisJson(syncJob.dataJson) ?: "" }
+        if (recordId.isBlank()) return Resultat(false, 400, "Identifiant de fiche manquant")
+
+        val request = Request.Builder()
+            .url("$urlBase/api/collections/$collection/records/$recordId")
+            .delete()
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        val resultat = executer(request)
+        // 404 = déjà supprimée sur le serveur (tâche rejouée) : le résultat voulu est atteint
+        return if (resultat.code == 404) Resultat(true, 404, null) else resultat
     }
-    
+
+    /** Envoie la requête ; le message d'erreur garde seulement le texte de PocketBase, jamais le contenu envoyé. */
+    private fun executer(request: Request): Resultat =
+        httpClient.newCall(request).execute().use { reponse ->
+            if (reponse.isSuccessful) {
+                Resultat(true, reponse.code, null)
+            } else {
+                val message = try {
+                    gson.fromJson(reponse.body?.string(), Map::class.java)?.get("message") as? String
+                } catch (_: Exception) {
+                    null
+                }
+                Resultat(false, reponse.code, "HTTP ${reponse.code}" + (message?.let { " : ${it.take(120)}" } ?: ""))
+            }
+        }
+
     private fun idDepuisJson(dataJson: String): String? = try {
         (gson.fromJson(dataJson, Map::class.java)["id"] as? String)?.takeIf { it.isNotBlank() }
     } catch (_: Exception) {
@@ -358,17 +263,23 @@ class SyncWorker(
      * Vérifie si le réseau est disponible
      */
     private fun isNetworkAvailable(): Boolean {
-        // 🆕 VRAIE VÉRIFICATION DE LA CONNECTIVITÉ RÉSEAU
         return try {
             val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
             val network = connectivityManager.activeNetwork
             val capabilities = connectivityManager.getNetworkCapabilities(network)
-            
+
             capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
             capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         } catch (e: Exception) {
-            // ❌ Erreur lors de la vérification réseau
             false
         }
+    }
+
+    companion object {
+        private const val TAG = "SyncWorker"
+        private val JSON = "application/json".toMediaType()
+
+        /** Un seul envoi de la file à la fois dans tout le processus, quel que soit le déclencheur. */
+        private val verrou = Mutex()
     }
 }
