@@ -183,7 +183,13 @@ fun HistoryScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(historiqueAllocations) { historique ->
+                        items(
+                            items = historiqueAllocations.sortedWith(
+                                compareByDescending<HistoriqueAllocation> { lireDateHistoriqueUtc(it.dateAction)?.time ?: Long.MIN_VALUE }
+                                    .thenByDescending { it.id }
+                            ),
+                            key = { it.id }
+                        ) { historique ->
                             HistoriqueAllocationCard(historique = historique)
                         }
                     }
@@ -242,7 +248,7 @@ fun HistoriqueAllocationCard(historique: HistoriqueAllocation) {
                 )
                 
                 Text(
-                    text = historique.dateAction,
+                    text = afficherDateHistoriqueLocale(historique.dateAction),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -310,4 +316,19 @@ fun HistoriqueAllocationCard(historique: HistoriqueAllocation) {
             }
         }
     }
+}
+
+/** HG11 : les événements sont stockés en UTC (sans suffixe horaire).
+ * Lire explicitement en UTC avant d'afficher dans le fuseau de l'appareil.
+ */
+private fun lireDateHistoriqueUtc(valeur: String): Date? = runCatching {
+    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+        isLenient = false
+    }.parse(valeur)
+}.getOrNull()
+
+private fun afficherDateHistoriqueLocale(valeur: String): String {
+    val date = lireDateHistoriqueUtc(valeur) ?: return valeur
+    return SimpleDateFormat("d MMM yyyy HH:mm", Locale.FRENCH).format(date)
 }
