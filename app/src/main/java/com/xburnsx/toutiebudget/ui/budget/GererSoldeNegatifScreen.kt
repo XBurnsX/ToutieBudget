@@ -170,7 +170,7 @@ fun GererSoldeNegatifScreen(
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = "Total des soldes négatifs : ${String.format("%.2f", totalMontantNegatif)} €",
+                                text = "Total des soldes négatifs : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(totalMontantNegatif)}",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold

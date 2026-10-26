@@ -25,7 +25,10 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -88,7 +91,9 @@ fun ClavierBudgetEnveloppe(
     comptePreselectionne: CompteBudget? = null,
     onAssigner: (montantCentimes: Long, compteSourceId: String) -> Unit,
     onFermer: () -> Unit,
-    onVoirHistorique: (String, String) -> Unit = { _, _ -> }
+    onVoirHistorique: (String, String) -> Unit = { _, _ -> },
+    estFavori: Boolean = false,
+    onBasculerFavori: (() -> Unit)? = null
 ) {
     var montantCentimes by remember { mutableLongStateOf(0L) }
     var compteSelectionne by remember { mutableStateOf(comptePreselectionne) }
@@ -184,6 +189,17 @@ fun ClavierBudgetEnveloppe(
                                 progression > 0.0 -> Color(0xFFFFC107) // Jaune
                                 else -> Color(0xFF9E9E9E) // Gris
                             },
+                        )
+                    }
+                }
+
+                // A4 : étoile discrète pour mettre l'enveloppe en favori
+                if (onBasculerFavori != null) {
+                    IconButton(onClick = onBasculerFavori) {
+                        Icon(
+                            imageVector = if (estFavori) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            contentDescription = if (estFavori) "Retirer des favoris" else "Ajouter aux favoris",
+                            tint = if (estFavori) Color(0xFFFFC107) else MaterialTheme.colorScheme.outline
                         )
                     }
                 }

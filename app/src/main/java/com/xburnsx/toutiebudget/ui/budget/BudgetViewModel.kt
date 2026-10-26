@@ -23,7 +23,10 @@ import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -231,35 +234,9 @@ class BudgetViewModel(
                     CategorieEnveloppesUi(nomCategorie, enveloppesUiCategorie)
                 }
 
-                // 9. Charger l'état des catégories ouvertes depuis PocketBase
-                val categoriesOuvertes = try {
-                    val preferences = realtimeSyncService.recupererPreferencesUtilisateur()
-                    // DEBUG: Préférences récupérées de PocketBase: $preferences
-                    
-                    val rawCategoriesOuvertes = preferences["categories_ouvertes"]
-                    // DEBUG: Raw categories_ouvertes: $rawCategoriesOuvertes (type: ${rawCategoriesOuvertes?.javaClass?.simpleName})
-                    
-                    val categoriesOuvertes = when (rawCategoriesOuvertes) {
-                        is Map<*, *> -> {
-                            // Conversion sécurisée Map<*, *> -> Map<String, Boolean>
-                            rawCategoriesOuvertes.entries.associate { (key, value) ->
-                                key.toString() to (value as? Boolean ?: true)
-                            }
-                        }
-                        else -> {
-                            // DEBUG: Type inattendu, utilisation de emptyMap()
-                            emptyMap<String, Boolean>()
-                        }
-                    }
-                    
-                    // DEBUG: Categories ouvertes finales: $categoriesOuvertes
-                    categoriesOuvertes
-                } catch (e: Exception) {
-                    // DEBUG: Erreur lors du chargement des catégories: ${e.message}
-                    e.printStackTrace()
-                    // En cas d'erreur, utiliser l'état par défaut (toutes ouvertes)
-                    emptyMap<String, Boolean>()
-                }
+                // 9. État des catégories ouvertes et favoris : l'appareil d'abord (C2), même hors ligne
+                val categoriesOuvertes = preferenceRepository.recupererCategoriesOuvertes()
+                val enveloppesFavorites = preferenceRepository.recupererEnveloppesFavorites()
 
                 // 10. Mettre à jour l'état final
                 _uiState.update {
@@ -268,12 +245,16 @@ class BudgetViewModel(
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
                         categoriesEnveloppes = categoriesEnveloppesUi,
                         categoriesOuvertes = categoriesOuvertes,
+                        enveloppesFavorites = enveloppesFavorites,
                         messageChargement = null,
                         erreur = null
                     )
                 }
 
                 moisSelectionne = moisCible
+
+                // 11. Échanger avec PocketBase sans bloquer l'affichage
+                synchroniserPreferencesBudget()
 
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -555,6 +536,14 @@ class BudgetViewModel(
         cacheCategories = emptyList()
     }
 
+    // C3 : signale la réussite d'UNE assignation (id de l'enveloppe) pour fermer SA fenêtre seulement
+    private val _assignationReussie = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val assignationReussie: SharedFlow<String> = _assignationReussie.asSharedFlow()
+
+    // A2 : résultat d'une répartition vers plusieurs enveloppes
+    private val _resultatRepartition = MutableSharedFlow<ResultatRepartition>(extraBufferCapacity = 1)
+    val resultatRepartition: SharedFlow<ResultatRepartition> = _resultatRepartition.asSharedFlow()
+
     /**
      * 💰 ASSIGNER DE L'ARGENT D'UN COMPTE VERS UNE ENVELOPPE
      *
@@ -578,8 +567,6 @@ class BudgetViewModel(
 
                 val montantDollars = montantCentimes / 100.0
 
-
-
                 // 1. Vérifier que le compte source existe et a assez d'argent "prêt à placer"
                 val compteSource = cacheComptes.find { it.id == compteSourceId }
                 if (compteSource !is CompteCheque) {
@@ -592,102 +579,21 @@ class BudgetViewModel(
 
                 // 2. Vérifier que l'enveloppe existe
                 val enveloppe = cacheEnveloppes.find { it.id == enveloppeId }
-                if (enveloppe == null) {
-                    throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
-                }
+                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
 
-                // 🔒 VALIDATION DE PROVENANCE - Nouveau contrôle
-                val moisActuelValidation = obtenirPremierJourDuMois(moisSelectionne)
-                val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
-                    enveloppeId = enveloppeId,
-                    compteSourceId = compteSourceId,
-                    mois = moisActuelValidation
-                )
+                val mois = obtenirPremierJourDuMois(moisSelectionne)
+                validerProvenance(enveloppeId, compteSourceId, mois)
+                executerAssignation(compteSource, enveloppe, montantDollars, mois)
 
-                if (validationResult.isFailure) {
-                    throw Exception(validationResult.exceptionOrNull()?.message ?: "Erreur de validation de provenance")
-                }
-
-                // 3. Mettre à jour le compte source (retirer de "prêt à placer")
-                val nouveauPretAPlacerBrut = compteSource.pretAPlacer - montantDollars
-                // 🎯 ARRONDIR AUTOMATIQUEMENT LE NOUVEAU MONTANT
-                val nouveauPretAPlacer = MoneyFormatter.roundAmount(nouveauPretAPlacerBrut)
-                val compteModifie = compteSource.copy(
-                    pretAPlacerRaw = nouveauPretAPlacer,
-                    // Sécuriser la collection (évite crash si null dans des données anciennes)
-                    collection = "comptes_cheques"
-                )
-
-                val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
-                if (resultCompte.isFailure) {
-                    throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
-                }
-
-                // 4. ✅ LOGIQUE CORRIGÉE : METTRE À JOUR l'allocation existante au lieu de créer un doublon
-                val moisActuel = obtenirPremierJourDuMois(moisSelectionne)
-                
-                // ✅ FUSION COMPLÈTE : Récupérer l'allocation fusionnée ET l'augmenter directement
-                val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, moisActuel)
-                
-                // ✅ MODIFIER DIRECTEMENT l'allocation fusionnée
-                val allocationFinale = allocationFusionnee.copy(
-                    solde = allocationFusionnee.solde + montantDollars,
-                    alloue = allocationFusionnee.alloue + montantDollars,
-                    // ✅ PROVENANCE : Changer seulement si solde était à 0
-                    compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSourceId else allocationFusionnee.compteSourceId,
-                    collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
-                )
-                
-                // ✅ MISE À JOUR : Sauvegarder l'allocation unique
-                allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
-
-                // 📝 ENREGISTRER DANS L'HISTORIQUE
-                try {
-                    android.util.Log.d("ToutieBudget", "🔄 BUDGET_VIEWMODEL : Tentative d'enregistrement dans l'historique pour assignation d'argent")
-                    historiqueAllocationService.enregistrerModificationAllocation(
-                        allocationAvant = allocationFusionnee,
-                        allocationApres = allocationFinale,
-                        compte = compteSource,
-                        enveloppe = enveloppe,
-                        montantModification = montantDollars,
-                        soldeAvant = compteSource.solde,
-                        soldeApres = compteSource.solde, // Le solde du compte ne change pas pour un virement prêt à placer
-                        pretAPlacerAvant = compteSource.pretAPlacer,
-                        pretAPlacerApres = nouveauPretAPlacer
-                    )
-                    android.util.Log.d("ToutieBudget", "✅ BUDGET_VIEWMODEL : Enregistrement dans l'historique réussi")
-                } catch (e: Exception) {
-                    android.util.Log.e("ToutieBudget", "❌ BUDGET_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
-                }
-
-                // 🔄 FORCER LA VISIBILITÉ DES SYNCJOB des allocations
-                realtimeSyncService.declencherMiseAJourBudget()
-
-                // 🔄 FORCER UN RECHARGEMENT COMPLET après le virement
-                // Vider le cache pour s'assurer d'avoir les données les plus récentes
-                cacheComptes = emptyList()
-                cacheEnveloppes = emptyList()
-                cacheAllocations = emptyList()
-                cacheCategories = emptyList()
-                
-                // 6. Recharger les données pour rafraîchir l'affichage
-                chargerDonneesBudget(moisSelectionne)
+                _assignationReussie.tryEmit(enveloppeId)
+                rechargerApresModification()
 
             } catch (e: Exception) {
                 e.printStackTrace()
-
-                // Utiliser les messages d'erreur appropriés selon le type d'erreur
-                val messageErreur = when {
-                    // Si c'est une erreur de provenance, utiliser le message tel quel
-                    VirementErrorMessages.estErreurProvenance(e.message ?: "") -> e.message ?: "Erreur inconnue"
-                    // Sinon, utiliser le préfixe générique
-                    else -> "Erreur lors de l'assignation: ${e.message}"
-                }
-
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        erreur = messageErreur,
+                        erreur = messageErreurAssignation(e),
                         messageChargement = null
                     )
                 }
@@ -696,7 +602,147 @@ class BudgetViewModel(
     }
 
     /**
+     * A2 : distribue le « Prêt à placer » d'UN compte vers plusieurs enveloppes en une opération.
+     * Tout est validé (fonds du compte, provenance de chaque enveloppe) avant la première écriture,
+     * et chaque enveloppe garde la provenance de ce compte.
+     */
+    fun assignerAPlusieursEnveloppes(compteSourceId: String, montantsCentimes: Map<String, Long>) {
+        viewModelScope.launch {
+            val reussies = mutableListOf<String>()
+            try {
+                val montants = montantsCentimes.filterValues { it > 0 }
+                if (montants.isEmpty()) throw Exception("Aucun montant à assigner.")
+
+                _uiState.update { it.copy(isLoading = true, messageChargement = "Répartition de l'argent...") }
+
+                // Relire le compte et les enveloppes à jour avant de valider
+                val compteSource = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                    .find { it.id == compteSourceId } as? CompteCheque
+                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                    .associateBy { it.id }
+
+                val totalDollars = montants.values.sum() / 100.0
+                if (compteSource.pretAPlacer + 0.001 < totalDollars) {
+                    throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
+                }
+
+                val mois = obtenirPremierJourDuMois(moisSelectionne)
+                montants.keys.forEach { enveloppeId ->
+                    val enveloppe = enveloppes[enveloppeId]
+                        ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
+                    try {
+                        validerProvenance(enveloppeId, compteSourceId, mois)
+                    } catch (e: Exception) {
+                        throw Exception("${enveloppe.nom} : ${e.message}")
+                    }
+                }
+
+                var compteCourant: CompteCheque = compteSource
+                montants.forEach { (enveloppeId, centimes) ->
+                    val enveloppe = enveloppes.getValue(enveloppeId)
+                    compteCourant = executerAssignation(compteCourant, enveloppe, centimes / 100.0, mois)
+                    reussies.add(enveloppe.nom)
+                }
+
+                _resultatRepartition.tryEmit(ResultatRepartition(reussies))
+                rechargerApresModification()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _resultatRepartition.tryEmit(ResultatRepartition(reussies, messageErreurAssignation(e)))
+                _uiState.update { it.copy(isLoading = false, messageChargement = null) }
+                if (reussies.isNotEmpty()) rechargerApresModification()
+            }
+        }
+    }
+
+    private suspend fun validerProvenance(enveloppeId: String, compteSourceId: String, mois: Date) {
+        val validationResult = validationProvenanceService.validerAjoutArgentEnveloppe(
+            enveloppeId = enveloppeId,
+            compteSourceId = compteSourceId,
+            mois = mois
+        )
+        if (validationResult.isFailure) {
+            throw Exception(validationResult.exceptionOrNull()?.message ?: "Erreur de validation de provenance")
+        }
+    }
+
+    /**
+     * Retire le montant du « Prêt à placer » du compte et l'ajoute à l'allocation du mois.
+     * Le solde bancaire du compte ne change pas. Retourne le compte à jour.
+     */
+    private suspend fun executerAssignation(
+        compteSource: CompteCheque,
+        enveloppe: Enveloppe,
+        montantDollars: Double,
+        mois: Date
+    ): CompteCheque {
+        // 1. Mettre à jour le compte source (retirer de "prêt à placer")
+        val nouveauPretAPlacer = MoneyFormatter.roundAmount(compteSource.pretAPlacer - montantDollars)
+        val compteModifie = compteSource.copy(
+            pretAPlacerRaw = nouveauPretAPlacer,
+            // Sécuriser la collection (évite crash si null dans des données anciennes)
+            collection = "comptes_cheques"
+        )
+
+        val resultCompte = compteRepository.mettreAJourCompte(compteModifie)
+        if (resultCompte.isFailure) {
+            throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
+        }
+
+        // 2. Mettre à jour l'allocation existante du mois (fusionnée) au lieu de créer un doublon
+        val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
+        val allocationFinale = allocationFusionnee.copy(
+            solde = allocationFusionnee.solde + montantDollars,
+            alloue = allocationFusionnee.alloue + montantDollars,
+            // ✅ PROVENANCE : Changer seulement si solde était à 0
+            compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSource.id else allocationFusionnee.compteSourceId,
+            collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
+        )
+        allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
+
+        // 📝 ENREGISTRER DANS L'HISTORIQUE
+        try {
+            historiqueAllocationService.enregistrerModificationAllocation(
+                allocationAvant = allocationFusionnee,
+                allocationApres = allocationFinale,
+                compte = compteSource,
+                enveloppe = enveloppe,
+                montantModification = montantDollars,
+                soldeAvant = compteSource.solde,
+                soldeApres = compteSource.solde, // Le solde du compte ne change pas pour un virement prêt à placer
+                pretAPlacerAvant = compteSource.pretAPlacer,
+                pretAPlacerApres = nouveauPretAPlacer
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "❌ BUDGET_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
+        }
+
+        return compteModifie
+    }
+
+    private fun rechargerApresModification() {
+        // 🔄 FORCER LA VISIBILITÉ DES SYNCJOB des allocations
+        realtimeSyncService.declencherMiseAJourBudget()
+
+        // Vider le cache pour s'assurer d'avoir les données les plus récentes
+        cacheComptes = emptyList()
+        cacheEnveloppes = emptyList()
+        cacheAllocations = emptyList()
+        cacheCategories = emptyList()
+
+        chargerDonneesBudget(moisSelectionne)
+    }
+
+    private fun messageErreurAssignation(e: Exception): String = when {
+        // Si c'est une erreur de provenance, utiliser le message tel quel
+        VirementErrorMessages.estErreurProvenance(e.message ?: "") -> e.message ?: "Erreur inconnue"
+        else -> "Erreur lors de l'assignation: ${e.message}"
+    }
+
+    /**
      * Ouvre ou ferme une catégorie d'enveloppes.
+     * L'état est gardé sur l'appareil (fonctionne hors ligne) puis envoyé à PocketBase (C2).
      * @param nomCategorie Nom de la catégorie à basculer
      */
     fun toggleCategorie(nomCategorie: String) {
@@ -706,23 +752,65 @@ class BudgetViewModel(
             categoriesOuvertes[nomCategorie] = !estOuverte
             currentState.copy(categoriesOuvertes = categoriesOuvertes)
         }
-        
-        // Sauvegarder l'état dans PocketBase
+
         viewModelScope.launch {
+            preferenceRepository.sauvegarderCategoriesOuvertes(_uiState.value.categoriesOuvertes)
+            synchroniserPreferencesBudget()
+        }
+    }
+
+    /** A4 : ajoute ou retire une enveloppe des favoris. */
+    fun basculerFavori(enveloppeId: String) {
+        _uiState.update { currentState ->
+            val favorites = currentState.enveloppesFavorites.toMutableSet()
+            if (!favorites.add(enveloppeId)) favorites.remove(enveloppeId)
+            currentState.copy(enveloppesFavorites = favorites)
+        }
+
+        viewModelScope.launch {
+            preferenceRepository.sauvegarderEnveloppesFavorites(_uiState.value.enveloppesFavorites)
+            synchroniserPreferencesBudget()
+        }
+    }
+
+    /**
+     * Échange les préférences de la page Budget avec PocketBase.
+     * Un choix local pas encore envoyé passe avant la version du serveur : il n'est jamais perdu.
+     * Hors ligne, rien ne change et l'envoi sera refait au prochain chargement.
+     */
+    private fun synchroniserPreferencesBudget() {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val currentState = _uiState.value
-                val categoriesToSave = currentState.categoriesOuvertes
-                // DEBUG: Sauvegarde des catégories: $categoriesToSave
-                
-                // Utiliser le RealtimeSyncService pour sauvegarder dans PocketBase
-                realtimeSyncService.mettreAJourPreferencesUtilisateur(
-                    mapOf("categories_ouvertes" to categoriesToSave)
-                )
-                // DEBUG: Catégories sauvegardées avec succès dans PocketBase
-            } catch (e: Exception) {
-                // Erreur silencieuse - l'état local est déjà mis à jour
-                // DEBUG: Erreur sauvegarde catégories: ${e.message}
-                e.printStackTrace()
+                if (preferenceRepository.preferencesBudgetEnAttenteEnvoi()) {
+                    realtimeSyncService.mettreAJourPreferencesUtilisateur(
+                        mapOf(
+                            "categories_ouvertes" to preferenceRepository.recupererCategoriesOuvertes(),
+                            "enveloppes_favorites" to preferenceRepository.recupererEnveloppesFavorites().toList()
+                        )
+                    )
+                    preferenceRepository.marquerPreferencesBudgetEnvoyees()
+                    return@launch
+                }
+
+                val preferences = realtimeSyncService.recupererPreferencesUtilisateur()
+                val categoriesServeur = (preferences["categories_ouvertes"] as? Map<*, *>)
+                    ?.entries?.associate { (cle, valeur) -> cle.toString() to (valeur as? Boolean ?: true) }
+                val favoritesServeur = (preferences["enveloppes_favorites"] as? List<*>)
+                    ?.map { it.toString() }?.toSet()
+
+                // Un choix fait pendant la requête reste prioritaire
+                if (preferenceRepository.preferencesBudgetEnAttenteEnvoi()) return@launch
+                if (categoriesServeur == null && favoritesServeur == null) return@launch
+
+                preferenceRepository.appliquerPreferencesBudgetServeur(categoriesServeur, favoritesServeur)
+                _uiState.update {
+                    it.copy(
+                        categoriesOuvertes = categoriesServeur ?: it.categoriesOuvertes,
+                        enveloppesFavorites = favoritesServeur ?: it.enveloppesFavorites
+                    )
+                }
+            } catch (_: Exception) {
+                // Hors ligne ou serveur indisponible : l'état local reste affiché
             }
         }
     }

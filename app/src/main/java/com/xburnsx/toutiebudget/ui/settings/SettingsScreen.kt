@@ -128,7 +128,12 @@ fun SettingsScreen(
     var showResetConfirmDialog by remember { mutableStateOf(false) }
     var isResetting by remember { mutableStateOf(false) }
     var resetError by remember { mutableStateOf<String?>(null) }
-    
+    var showPlanReset by remember { mutableStateOf(false) }
+
+    if (showPlanReset) {
+        PlanResetDialog(onFermer = { showPlanReset = false })
+    }
+
 
 
     // Service pour la réinitialisation
@@ -237,6 +242,16 @@ fun SettingsScreen(
                                 )
                             )
                         }
+                    )
+                }
+            }
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Refresh,
+                        titre = "Refaire la répartition d'un mois",
+                        description = "Remettre l'argent assigné dans « Prêt à placer », avec aperçu",
+                        onClick = { showPlanReset = true }
                     )
                 }
             }

@@ -8,24 +8,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -33,9 +37,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +53,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,18 +64,39 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.xburnsx.toutiebudget.R
-import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.data.modeles.TypeObjectif
 import com.xburnsx.toutiebudget.ui.budget.composants.ClavierBudgetEnveloppe
 import com.xburnsx.toutiebudget.ui.budget.composants.CompteBudget
 import com.xburnsx.toutiebudget.ui.budget.composants.EnveloppeItem
 import com.xburnsx.toutiebudget.ui.budget.composants.PretAPlacerCarte
+import com.xburnsx.toutiebudget.ui.budget.composants.PrevisionsDialog
+import com.xburnsx.toutiebudget.ui.budget.composants.RepartitionMultipleDialog
 import com.xburnsx.toutiebudget.ui.budget.composants.SelecteurMoisAnnee
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import java.util.Date
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.Menu
+
+/** A3 : filtres d'enveloppes proposés à la demande. */
+enum class FiltreEnveloppes(val libelle: String) {
+    FAVORITES("Favorites"),
+    NEGATIVES("Négatives"),
+    SANS_FONDS("Sans fonds"),
+    A_FINANCER("Objectif à financer"),
+    AVEC_OBJECTIF("Avec objectif"),
+    AVEC_SOLDE("Solde disponible");
+
+    fun accepte(enveloppe: EnveloppeUi, favorites: Set<String>): Boolean = when (this) {
+        FAVORITES -> enveloppe.id in favorites
+        NEGATIVES -> enveloppe.solde < -0.001
+        SANS_FONDS -> enveloppe.solde in -0.001..0.001
+        A_FINANCER -> enveloppe.versementRecommande > 0.009
+        AVEC_OBJECTIF -> enveloppe.objectif > 0 && enveloppe.typeObjectif != TypeObjectif.Aucun
+        AVEC_SOLDE -> enveloppe.solde > 0.001
+    }
+}
+
+private const val CATEGORIE_FAVORIS = "★ Favoris"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -89,6 +117,18 @@ fun BudgetScreen(
     var showClavierEnveloppe by remember { mutableStateOf(false) }
     var comptesDisponibles by remember { mutableStateOf<List<CompteBudget>>(emptyList()) }
 
+    // A3 / A5 : recherche et filtres à la demande (rien d'affiché tant qu'ils sont fermés)
+    var rechercheOuverte by rememberSaveable { mutableStateOf(false) }
+    var recherche by rememberSaveable { mutableStateOf("") }
+    var filtre by rememberSaveable { mutableStateOf<FiltreEnveloppes?>(null) }
+    val filtreActif = rechercheOuverte && (recherche.isNotBlank() || filtre != null)
+
+    // A2 / A7
+    var showRepartition by remember { mutableStateOf(false) }
+    var repartitionEnCours by remember { mutableStateOf(false) }
+    var repartitionErreur by remember { mutableStateOf<String?>(null) }
+    var showPrevisions by remember { mutableStateOf(false) }
+
     // 🆕 CHARGER LES COMPTES POUR LE CLAVIER - CORRECTION
     LaunchedEffect(uiState.bandeauxPretAPlacer, uiState.isLoading) {
         // Mettre à jour la liste chaque fois que les données changent
@@ -106,8 +146,56 @@ fun BudgetScreen(
         }
     }
 
-    val ctx = LocalContext.current
-    // L'animation a été supprimée
+    // C3 : fermer le clavier seulement quand SON assignation a réussi
+    // (un simple rafraîchissement du budget ne le ferme plus)
+    LaunchedEffect(Unit) {
+        viewModel.assignationReussie.collect { enveloppeId ->
+            if (enveloppeSelectionnee?.id == enveloppeId) {
+                showClavierEnveloppe = false
+                enveloppeSelectionnee = null
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.resultatRepartition.collect { resultat ->
+            repartitionEnCours = false
+            if (resultat.erreur == null) {
+                showRepartition = false
+                repartitionErreur = null
+            } else {
+                repartitionErreur = if (resultat.reussies.isEmpty()) {
+                    resultat.erreur
+                } else {
+                    "Déjà assignées : ${resultat.reussies.joinToString()}. Arrêt : ${resultat.erreur}"
+                }
+            }
+        }
+    }
+
+    // Enveloppes affichées : recherche et filtre appliqués à la demande
+    val toutesEnveloppes = uiState.categoriesEnveloppes.flatMap { it.enveloppes }
+    val categoriesAffichees = if (!filtreActif) {
+        uiState.categoriesEnveloppes
+    } else {
+        uiState.categoriesEnveloppes.mapNotNull { categorie ->
+            val gardees = categorie.enveloppes.filter { enveloppe ->
+                (recherche.isBlank() || enveloppe.nom.contains(recherche.trim(), ignoreCase = true)) &&
+                    (filtre?.accepte(enveloppe, uiState.enveloppesFavorites) ?: true)
+            }
+            if (gardees.isEmpty()) null else categorie.copy(enveloppes = gardees)
+        }
+    }
+    // A4 : section compacte des favoris, en tête, sans retirer les enveloppes de leur catégorie
+    val favoris = if (filtreActif) emptyList() else {
+        toutesEnveloppes.filter { it.id in uiState.enveloppesFavorites }
+            .distinctBy { it.id }
+    }
+
+    val ouvrirClavier: (EnveloppeUi) -> Unit = { enveloppe ->
+        enveloppeSelectionnee = enveloppe
+        showClavierEnveloppe = true
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
@@ -148,12 +236,12 @@ fun BudgetScreen(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { 
+                                text = {
                                     Text(
                                         "Prêt personnel",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Medium
-                                    ) 
+                                    )
                                 },
                                 onClick = {
                                     menuExpanded = false
@@ -161,19 +249,61 @@ fun BudgetScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { 
+                                text = {
                                     Text(
                                         "Virer argent",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Medium
-                                    ) 
+                                    )
                                 },
                                 onClick = {
                                     menuExpanded = false
                                     onVirementClick?.invoke()
                                 }
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Répartir l'argent",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    repartitionErreur = null
+                                    showRepartition = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Prévisions",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    showPrevisions = true
+                                }
+                            )
                         }
+                    }
+
+                    // A5 : recherche / filtres, ouverts seulement sur demande
+                    IconButton(onClick = {
+                        rechercheOuverte = !rechercheOuverte
+                        if (!rechercheOuverte) {
+                            recherche = ""
+                            filtre = null
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (rechercheOuverte) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = if (rechercheOuverte) "Fermer la recherche" else "Rechercher une enveloppe",
+                            tint = Color.White
+                        )
                     }
 
                     // Icône des catégories (séparée)
@@ -232,13 +362,51 @@ fun BudgetScreen(
                 }
             }
 
+            // 🔎 A5 / A3 : barre de recherche et filtres (visible seulement si demandée)
+            if (rechercheOuverte) {
+                item(key = "recherche_filtres") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = recherche,
+                            onValueChange = { recherche = it },
+                            placeholder = { Text("Nom de l'enveloppe") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            items(FiltreEnveloppes.entries.toList()) { option ->
+                                FilterChip(
+                                    selected = filtre == option,
+                                    onClick = { filtre = if (filtre == option) null else option },
+                                    label = { Text(option.libelle) }
+                                )
+                            }
+                        }
+                        if (filtreActif && categoriesAffichees.isEmpty()) {
+                            Text(
+                                "Aucune enveloppe ne correspond.",
+                                color = Color.Gray,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             // 🚨 CARTE D'ALERTE POUR ENVELOPPES NÉGATIVES
-            val enveloppesNegatives = uiState.categoriesEnveloppes
-                .flatMap { it.enveloppes }
+            val enveloppesNegatives = toutesEnveloppes
                 .filter { it.solde < -0.001 }
                 .count()
-            
-            if (enveloppesNegatives > 0) {
+
+            if (enveloppesNegatives > 0 && !filtreActif) {
                 item {
                     Card(
                         colors = CardDefaults.cardColors(
@@ -273,16 +441,62 @@ fun BudgetScreen(
                 }
             }
 
+            // ⭐ A4 : favoris (catégorie compacte repliable, l'ordre des vraies catégories ne change pas)
+            if (favoris.isNotEmpty()) {
+                item(key = "favoris") {
+                    val estOuverte = uiState.categoriesOuvertes[CATEGORIE_FAVORIS] ?: true
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF121212))
+                                .clickable { viewModel.toggleCategorie(CATEGORIE_FAVORIS) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFC107),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Favoris",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = if (estOuverte) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                contentDescription = if (estOuverte) "Fermer les favoris" else "Ouvrir les favoris",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        if (estOuverte) {
+                            favoris.forEach { enveloppe ->
+                                Box(modifier = Modifier.clickable { ouvrirClavier(enveloppe) }) {
+                                    EnveloppeItem(enveloppe = enveloppe)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Enveloppes groupées par catégorie
-            items(uiState.categoriesEnveloppes, key = { it.nomCategorie }) { categorie ->
+            items(categoriesAffichees, key = { it.nomCategorie }) { categorie ->
                 Column {
                     // En-tête de catégorie avec flèche pliable
-                    val estOuverte = uiState.categoriesOuvertes[categorie.nomCategorie] ?: true
+                    // Pendant une recherche/filtre, les résultats restent visibles sans changer l'état mémorisé
+                    val estOuverte = filtreActif || (uiState.categoriesOuvertes[categorie.nomCategorie] ?: true)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xFF121212))
-                            .clickable { viewModel.toggleCategorie(categorie.nomCategorie) }
+                            .clickable(enabled = !filtreActif) { viewModel.toggleCategorie(categorie.nomCategorie) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -293,7 +507,7 @@ fun BudgetScreen(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
-                        
+
                         // Flèche pliable
                         Icon(
                             imageVector = if (estOuverte) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
@@ -305,19 +519,10 @@ fun BudgetScreen(
 
                     // 🆕 ENVELOPPES (affichées seulement si la catégorie est ouverte)
                     if (estOuverte) {
-                        val clicActif = true
                         categorie.enveloppes.forEach { enveloppe ->
-                            if (clicActif) {
-                                Box(
-                                    modifier = Modifier.clickable {
-                                        enveloppeSelectionnee = enveloppe
-                                        showClavierEnveloppe = true
-                                    }
-                                ) {
-                                    EnveloppeItem(enveloppe = enveloppe)
-                                }
-                            } else {
-                                // Affichage simple, sans action
+                            Box(
+                                modifier = Modifier.clickable { ouvrirClavier(enveloppe) }
+                            ) {
                                 EnveloppeItem(enveloppe = enveloppe)
                             }
                         }
@@ -328,34 +533,20 @@ fun BudgetScreen(
     }
     }
 
-    // 🔄 FERMETURE AUTOMATIQUE DU CLAVIER EN CAS DE SUCCÈS
-    LaunchedEffect(uiState.isLoading, uiState.erreur) {
-        // Fermer le clavier seulement si :
-        // 1. Plus en cours de chargement (opération terminée)
-        // 2. Pas d'erreur (succès)
-        // 3. Le clavier est ouvert
-        if (!uiState.isLoading && uiState.erreur == null && showClavierEnveloppe) {
-            showClavierEnveloppe = false
-            enveloppeSelectionnee = null
-        }
-    }
-
     // 🆕 CLAVIER BUDGET ENVELOPPE
     if (showClavierEnveloppe && enveloppeSelectionnee != null) {
+        val enveloppeClavier = enveloppeSelectionnee!!
         ClavierBudgetEnveloppe(
-            enveloppe = enveloppeSelectionnee!!,
+            enveloppe = enveloppeClavier,
             comptesDisponibles = comptesDisponibles,
             comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
             onAssigner = { montantCentimes, compteSourceId ->
-                // 🎯 LOGIQUE D'ASSIGNATION - AVEC GESTION D'ERREUR
-
+                // 🎯 LOGIQUE D'ASSIGNATION - le clavier se ferme seulement sur réussite (C3)
                 viewModel.assignerArgentAEnveloppe(
-                    enveloppeId = enveloppeSelectionnee!!.id,
+                    enveloppeId = enveloppeClavier.id,
                     compteSourceId = compteSourceId,
                     montantCentimes = montantCentimes
                 )
-
-                // NE PAS fermer le clavier ici - on attend le résultat dans LaunchedEffect
             },
             onFermer = {
                 showClavierEnveloppe = false
@@ -365,101 +556,87 @@ fun BudgetScreen(
                 onVoirHistoriqueEnveloppe(enveloppeId, nomEnveloppe)
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
+            },
+            estFavori = enveloppeClavier.id in uiState.enveloppesFavorites,
+            onBasculerFavori = { viewModel.basculerFavori(enveloppeClavier.id) }
+        )
+    }
+
+    // A2 : répartition vers plusieurs enveloppes
+    if (showRepartition) {
+        RepartitionMultipleDialog(
+            comptes = comptesDisponibles,
+            categories = uiState.categoriesEnveloppes,
+            enCours = repartitionEnCours,
+            erreur = repartitionErreur,
+            onConfirmer = { compteId, montants ->
+                repartitionErreur = null
+                repartitionEnCours = true
+                viewModel.assignerAPlusieursEnveloppes(compteId, montants)
+            },
+            onFermer = {
+                showRepartition = false
+                repartitionErreur = null
             }
         )
     }
 
-    // 🚨 AFFICHAGE DES ERREURS DE VALIDATION - MÊME DIALOGUE QUE VIREMENT
+    // A7 : prévisions de financement, seulement sur demande
+    if (showPrevisions) {
+        PrevisionsDialog(
+            categories = uiState.categoriesEnveloppes,
+            moisSelectionne = moisSelectionne,
+            onFermer = { showPrevisions = false }
+        )
+    }
+
+    // 🚨 AFFICHAGE DES ERREURS - en dialogue pour rester visible au-dessus du clavier (C3)
     uiState.erreur?.let { erreur ->
-        if (VirementErrorMessages.estErreurProvenance(erreur)) {
-            // Dialogue d'erreur pour les conflits de provenance - IDENTIQUE À VIREMENT
-            AlertDialog(
-                onDismissRequest = { viewModel.effacerErreur() },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = VirementErrorMessages.obtenirTitreDialogue(erreur),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                },
-                text = {
-                    Text(
-                        text = erreur,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+        val estProvenance = VirementErrorMessages.estErreurProvenance(erreur)
+        AlertDialog(
+            onDismissRequest = { viewModel.effacerErreur() },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
                     )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { viewModel.effacerErreur() }
-                    ) {
-                        Text("Compris")
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surface,
-                titleContentColor = MaterialTheme.colorScheme.error,
-                textContentColor = MaterialTheme.colorScheme.onSurface
-            )
-        } else {
-            // Affichage normal pour les autres erreurs - IDENTIQUE À VIREMENT
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (estProvenance) VirementErrorMessages.obtenirTitreDialogue(erreur) else "Erreur",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            text = {
                 Text(
                     text = erreur,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-        }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.effacerErreur() }
+                ) {
+                    Text("Compris")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.error,
+            textContentColor = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun BudgetScreenPreview() {
-    // Preview simplifié sans ViewModel
-
-    listOf(
-        EnveloppeUi(
-            id = "env1",
-            nom = "Courses",
-            solde = 320.50,
-            depense = 80.25,
-            alloue = 300.0, // Exemple d'allocation ce mois
-            alloueCumulatif = 380.0, // ← NOUVEAU : Total alloué depuis le début
-            objectif = 400.0,
-            couleurProvenance = "#4CAF50",
-            statutObjectif = StatutObjectif.JAUNE
-        ),
-        EnveloppeUi(
-            id = "env2",
-            nom = "Essence",
-            solde = 150.0,
-            depense = 45.0,
-            alloue = 195.0, // Exemple d'allocation ce mois
-            alloueCumulatif = 195.0, // ← NOUVEAU : Total alloué depuis le début
-            objectif = 200.0,
-            couleurProvenance = "#2196F3",
-            statutObjectif = StatutObjectif.VERT
-        )
-    )
-
     // Interface simplifiée pour le preview
     Column(
         modifier = Modifier

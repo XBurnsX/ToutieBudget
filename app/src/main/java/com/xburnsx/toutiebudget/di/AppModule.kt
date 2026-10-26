@@ -44,8 +44,12 @@ import android.content.Context
      
     // ===== BASE DE DONNÉES ROOM =====
      private lateinit var database: ToutieBudgetDatabase
-     
+     private lateinit var appContext: Context
+
      fun initializeDatabase(context: Context) {
+         if (!::appContext.isInitialized) {
+             appContext = context.applicationContext
+         }
          if (!::database.isInitialized) {
              database = ToutieBudgetDatabase.getDatabase(context)
          }
@@ -80,7 +84,7 @@ import android.content.Context
               database.syncJobDao()
           )
       }
-     private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl() }
+     private val preferenceRepository: PreferenceRepository by lazy { PreferenceRepositoryImpl(appContext) }
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { 
          AllocationMensuelleRepositoryRoomImpl(
              database.allocationMensuelleDao(),
@@ -275,6 +279,12 @@ import android.content.Context
     // Initialisation de cache supprimée
 
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
+     private val planResetService: com.xburnsx.toutiebudget.domain.services.PlanResetService by lazy {
+         com.xburnsx.toutiebudget.domain.services.PlanResetService(
+             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService
+         )
+     }
+     fun providePlanResetService(): com.xburnsx.toutiebudget.domain.services.PlanResetService = planResetService
      
      fun provideSyncJobDao(context: Context): com.xburnsx.toutiebudget.data.room.daos.SyncJobDao {
          initializeDatabase(context)

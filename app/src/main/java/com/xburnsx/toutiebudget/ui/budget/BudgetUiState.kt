@@ -41,5 +41,12 @@ data class BudgetUiState(
     val bandeauxPretAPlacer: List<PretAPlacerUi> = emptyList(),
     val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList(),
     val figerPretAPlacer: Boolean = false,
-    val categoriesOuvertes: Map<String, Boolean> = emptyMap() // État ouvert/fermé de chaque catégorie
+    val categoriesOuvertes: Map<String, Boolean> = emptyMap(), // État ouvert/fermé de chaque catégorie
+    val enveloppesFavorites: Set<String> = emptySet() // A4 : ids des enveloppes favorites
+)
+
+/** Résultat d'une répartition vers plusieurs enveloppes (A2). */
+data class ResultatRepartition(
+    val reussies: List<String>,
+    val erreur: String? = null
 )

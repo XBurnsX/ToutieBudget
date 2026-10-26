@@ -505,6 +505,16 @@ class RealtimeSyncService @Inject constructor() {
                     // Erreur parsing categories_ouvertes: ${e.message}
                 }
             }
+            if (record.has("enveloppes_favorites")) {
+                try {
+                    val favoritesJson = record.get("enveloppes_favorites")
+                    if (favoritesJson.isJsonArray) {
+                        map["enveloppes_favorites"] = favoritesJson.asJsonArray.map { it.asString }
+                    }
+                } catch (_: Exception) {
+                    // Champ absent ou mal formé : les favoris restent ceux de l'appareil
+                }
+            }
             return@withContext map
         } catch (_: Exception) {
             return@withContext emptyMap<String, Any?>()

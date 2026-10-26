@@ -11,7 +11,19 @@ interface PreferenceRepository {
     suspend fun setFigerPretAPlacer(enabled: Boolean)
     suspend fun getFigerPretAPlacer(): Boolean
 
-    // Préférence UI: état des catégories ouvertes/fermées dans Budget
+    // Préférence UI: état des catégories ouvertes/fermées dans Budget (C2).
+    // Enregistré sur l'appareil d'abord, puis envoyé à PocketBase quand c'est possible.
     suspend fun sauvegarderCategoriesOuvertes(categoriesOuvertes: Map<String, Boolean>)
     suspend fun recupererCategoriesOuvertes(): Map<String, Boolean>
+
+    // Enveloppes favorites de la page Budget (A4)
+    suspend fun sauvegarderEnveloppesFavorites(ids: Set<String>)
+    suspend fun recupererEnveloppesFavorites(): Set<String>
+
+    /** Vrai tant que le dernier choix local n'a pas été envoyé à PocketBase. */
+    suspend fun preferencesBudgetEnAttenteEnvoi(): Boolean
+    suspend fun marquerPreferencesBudgetEnvoyees()
+
+    /** Remplace l'état local par celui du serveur (seulement quand rien n'est en attente). */
+    suspend fun appliquerPreferencesBudgetServeur(categoriesOuvertes: Map<String, Boolean>?, favorites: Set<String>?)
 }
