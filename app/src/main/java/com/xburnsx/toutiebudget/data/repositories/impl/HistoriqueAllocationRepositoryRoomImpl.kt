@@ -30,14 +30,9 @@ class HistoriqueAllocationRepositoryRoomImpl(
     }
     
     override suspend fun insertHistorique(historique: HistoriqueAllocation) {
-        try {
-            android.util.Log.d("ToutieBudget", "🔄 REPOSITORY : Tentative d'insertion dans l'historique - ${historique.enveloppeNom} - ${historique.montant}$")
-            historiqueAllocationDao.insertHistorique(historique)
-            android.util.Log.d("ToutieBudget", "✅ REPOSITORY : Insertion réussie dans l'historique")
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ REPOSITORY : Erreur lors de l'insertion dans l'historique: ${e.message}")
-            throw e
-        }
+        // HG3 : Room remonte ses exceptions à l'appelant. Ne jamais annoncer
+        // un succès avant l'écriture, ni journaliser montants et noms privés.
+        historiqueAllocationDao.insertHistorique(historique)
     }
     
     override suspend fun insertAllHistorique(historique: List<HistoriqueAllocation>) {
