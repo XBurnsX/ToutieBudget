@@ -120,7 +120,19 @@ class StatistiquesViewModel(
             }
             
             // Calculer les totaux financiers
-            val totauxFinanciers = calculerTotauxFinanciers()
+            val totauxFinanciers = try {
+                calculerTotauxFinanciers()
+            } catch (e: Exception) {
+                if (generation != generationChargement) return@launch
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    erreur = "Patrimoine indisponible : " + (e.message ?: "chargement des comptes ou prêts échoué"),
+                    calculIncomplet = true,
+                    donneesIndisponibles = listOf("Comptes / prêts personnels"),
+                    periode = periode
+                )
+                return@launch
+            }
 
             // IF2 / IF12 / CC2 : les anciennes écritures techniques ne sont ni des revenus ni des dépenses
             // (réconciliations enregistrées « Mise à jour : … », paiements de carte enregistrés « Emprunt »)
@@ -487,6 +499,7 @@ class StatistiquesViewModel(
         try {
             // 1. Récupérer tous les comptes et filtrer par type
             val tousLesComptes = compteRepository.recupererTousLesComptes()
+            if (tousLesComptes.isFailure) throw IllegalStateException("Impossible de charger les comptes", tousLesComptes.exceptionOrNull())
             if (tousLesComptes.isSuccess) {
                 // IF16 : patrimoine COURANT = comptes actifs + dettes archivées encore dues (archivée ≠ remboursée) ;
                 // les comptes archivés (anciens placements, chèques fermés) ne comptent plus
@@ -494,11 +507,9 @@ class StatistiquesViewModel(
                     !compte.estArchive || (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005)
                 }
                 
-                println("🔍 DEBUG: ${comptes.size} comptes trouvés")
                 
                 // Filtrer les comptes par type
                 comptes.forEach { compte ->
-                    println("🔍 DEBUG: Compte ${compte.nom} - Type: ${compte.collection} - Solde: ${compte.solde}")
                     
                     when (compte.collection) {
                         "comptes_dettes" -> {
@@ -508,10 +519,8 @@ class StatistiquesViewModel(
                             // Si soldeDette est positif, c'est un crédit (on a de l'argent)
                             if (compteDette.soldeDette < 0) {
                                 totalDette += kotlin.math.abs(compteDette.soldeDette)
-                                println("🔍 DEBUG: Dette ajoutée: ${kotlin.math.abs(compteDette.soldeDette)} (Total dette: $totalDette)")
                             } else {
                                 totalValeur += compteDette.soldeDette
-                                println("🔍 DEBUG: Crédit ajouté: ${compteDette.soldeDette} (Total valeur: $totalValeur)")
                             }
                         }
                         "comptes_credits" -> {
@@ -521,90 +530,72 @@ class StatistiquesViewModel(
                             // Si soldeUtilise est positif, c'est un crédit (on a de l'argent)
                             if (compteCredit.soldeUtilise < 0) {
                                 totalDette += kotlin.math.abs(compteCredit.soldeUtilise)
-                                println("🔍 DEBUG: Crédit dette ajouté: ${kotlin.math.abs(compteCredit.soldeUtilise)} (Total dette: $totalDette)")
                             } else {
                                 totalValeur += compteCredit.soldeUtilise
-                                println("🔍 DEBUG: Crédit positif ajouté: ${compteCredit.soldeUtilise} (Total valeur: $totalValeur)")
                             }
                         }
                         "comptes_cheques" -> {
                             // Pour les comptes chèques, ajouter le solde (positif ou négatif)
                             if (compte.solde >= 0) {
                                 totalValeur += compte.solde
-                                println("🔍 DEBUG: Chèque positif ajouté: ${compte.solde} (Total valeur: $totalValeur)")
                             } else {
                                 totalDette += kotlin.math.abs(compte.solde)
-                                println("🔍 DEBUG: Chèque négatif ajouté: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
                             }
                         }
                         "comptes_investissement" -> {
                             // Pour les comptes d'investissement, ajouter le solde
                             if (compte.solde >= 0) {
                                 totalValeur += compte.solde
-                                println("🔍 DEBUG: Investissement positif ajouté: ${compte.solde} (Total valeur: $totalValeur)")
                             } else {
                                 totalDette += kotlin.math.abs(compte.solde)
-                                println("🔍 DEBUG: Investissement négatif ajouté: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
                             }
                         }
                         "comptes_epargne" -> {
                             // Pour les comptes d'épargne, ajouter le solde
                             if (compte.solde >= 0) {
                                 totalValeur += compte.solde
-                                println("🔍 DEBUG: Épargne positive ajoutée: ${compte.solde} (Total valeur: $totalValeur)")
                             } else {
                                 totalDette += kotlin.math.abs(compte.solde)
-                                println("🔍 DEBUG: Épargne négative ajoutée: ${kotlin.math.abs(compte.solde)} (Total dette: $totalDette)")
                             }
                         }
                         else -> {
                             // Pour tous les autres types de comptes, ajouter le solde
                             if (compte.solde >= 0) {
                                 totalValeur += compte.solde
-                                println("🔍 DEBUG: Autre compte positif ajouté: ${compte.solde} (Type: ${compte.collection}) (Total valeur: $totalValeur)")
                             } else {
                                 totalDette += kotlin.math.abs(compte.solde)
-                                println("🔍 DEBUG: Autre compte négatif ajouté: ${kotlin.math.abs(compte.solde)} (Type: ${compte.collection}) (Total dette: $totalDette)")
                             }
                         }
                     }
                 }
             } else {
-                println("❌ ERREUR: Impossible de récupérer les comptes: ${tousLesComptes.exceptionOrNull()?.message}")
             }
             
             // 2. Calculer le total des prêts personnels
             val pretsPersonnels = pretPersonnelRepository.lister()
+            if (pretsPersonnels.isFailure) throw IllegalStateException("Impossible de charger les prêts personnels", pretsPersonnels.exceptionOrNull())
             if (pretsPersonnels.isSuccess) {
                 val prets = pretsPersonnels.getOrNull().orEmpty()
-                println("🔍 DEBUG: ${prets.size} prêts personnels trouvés")
                 
                 prets.forEach { pret ->
                     if (pret.solde < 0) {
                         totalDette += kotlin.math.abs(pret.solde)
-                        println("🔍 DEBUG: Prêt personnel dette ajouté: ${kotlin.math.abs(pret.solde)} (Total dette: $totalDette)")
                     } else {
                         totalValeur += pret.solde
-                        println("🔍 DEBUG: Prêt personnel crédit ajouté: ${pret.solde} (Total valeur: $totalValeur)")
                     }
                 }
             } else {
-                println("❌ ERREUR: Impossible de récupérer les prêts personnels: ${pretsPersonnels.exceptionOrNull()?.message}")
             }
             
         } catch (e: Exception) {
-            println("❌ ERREUR dans calculerTotauxFinanciers: ${e.message}")
-            e.printStackTrace()
-            // En cas d'erreur, retourner des valeurs par défaut
-            totalDette = 0.0
-            totalValeur = 0.0
+            // ST5 : un patrimoine partiellement chargé ne doit jamais être affiché comme 0 $.
+            throw e
         }
         
         // 3. Calculer la valeur nette (total valeur - total dette)
         // Si tu as 1000$ en cash et 500$ de dettes, ta valeur nette = 1000$ - 500$ = 500$
         val valeurNette = totalValeur - totalDette
         
-        println("🔍 DEBUG FINAL: Total Dette: $totalDette, Total Valeur: $totalValeur, Valeur Nette: $valeurNette")
         
         return Triple(totalDette, totalValeur, valeurNette)
     }
