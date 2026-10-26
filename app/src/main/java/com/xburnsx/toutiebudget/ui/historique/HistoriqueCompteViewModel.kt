@@ -219,15 +219,15 @@ class HistoriqueCompteViewModel(
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
 
-                if (resultTransactions.isFailure) {
-                    throw resultTransactions.exceptionOrNull() ?: Exception("Erreur lors du chargement des transactions")
-                }
+                // HC : aucune erreur de repository ne doit produire un faux historique vide.
+                resultTransactions.getOrThrow()
+                resultEnveloppes.getOrThrow()
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 // HC/HE1 : résoudre par ID sur toutes les périodes, jamais uniquement le mois courant.
                 val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
+                    enveloppeRepository.recupererAllocationParId(id).getOrThrow()
                 }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
