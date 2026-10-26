@@ -413,10 +413,9 @@ class StatistiquesViewModel(
     fun ouvrirModalTransactionsPourEnveloppe(enveloppeId: String) {
         val txPeriode = _uiState.value.transactionsPeriode
         val selection = txPeriode.filter { tx ->
-            if (tx.type != TypeTransaction.Depense && 
-                tx.type != TypeTransaction.Pret && 
-                tx.type != TypeTransaction.RemboursementDonne && 
-                tx.type != TypeTransaction.PaiementEffectue) return@filter false
+            // ST1/ST3 : les mouvements de capital ne sont pas des dépenses de consommation.
+            // Utiliser exactement la même règle que le total et les tops.
+            if (!ReglesStatistiques.estDepenseBudget(tx)) return@filter false
             // 1) Cas simple: allocation -> enveloppe
             val allocId = tx.allocationMensuelleId
             val matchSimple = allocId != null && allocationIdToEnveloppeId[allocId] == enveloppeId
