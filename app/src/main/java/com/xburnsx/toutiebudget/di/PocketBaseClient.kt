@@ -55,7 +55,8 @@ object PocketBaseClient {
     private var utilisateurConnecte: EnregistrementUtilisateur? = null
 
     private const val PREFS_NAME = "pocketbase_prefs"
-    private const val KEY_TOKEN = "token_auth"
+    private const val KEY_TOKEN = "token_auth" // ancien stockage en clair, converti au chargement
+    private const val KEY_TOKEN_CHIFFRE = "token_auth_chiffre"
     private const val KEY_USER = "user_auth"
 
     /**
@@ -295,7 +296,7 @@ object PocketBaseClient {
      */
     fun chargerAuthentificationSauvegardee(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val token = prefs.getString(KEY_TOKEN, null)
+        val token = lireTokenSauvegarde(prefs)
         val userJson = prefs.getString(KEY_USER, null)
 
         return if (token != null && userJson != null) {
@@ -318,6 +319,7 @@ object PocketBaseClient {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
             remove(KEY_TOKEN)
+            remove(KEY_TOKEN_CHIFFRE)
             remove(KEY_USER)
             apply()
         }
@@ -330,8 +332,8 @@ object PocketBaseClient {
      */
     fun chargerToken(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        tokenAuthentification = prefs.getString(KEY_TOKEN, null)
-        
+        tokenAuthentification = lireTokenSauvegarde(prefs)
+
         val userJson = prefs.getString(KEY_USER, null)
         if (userJson != null) {
             try {
@@ -348,7 +350,34 @@ object PocketBaseClient {
     private fun sauvegarderToken(context: Context, token: String) {
         tokenAuthentification = token
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit { putString(KEY_TOKEN, token) }
+        enregistrerTokenChiffre(prefs, token)
+    }
+
+    /**
+     * Jeton de session sauvegardé, chiffré avec le Keystore Android (LD4).
+     * Un ancien jeton en clair est converti puis effacé ; un jeton illisible
+     * (ex. restauré d'un autre appareil) est ignoré et l'utilisateur se reconnecte.
+     */
+    private fun lireTokenSauvegarde(prefs: android.content.SharedPreferences): String? {
+        prefs.getString(KEY_TOKEN_CHIFFRE, null)?.let { chiffre ->
+            return com.xburnsx.toutiebudget.utils.ChiffrementSession.dechiffrer(chiffre)
+        }
+        val ancienEnClair = prefs.getString(KEY_TOKEN, null) ?: return null
+        enregistrerTokenChiffre(prefs, ancienEnClair)
+        return ancienEnClair
+    }
+
+    private fun enregistrerTokenChiffre(prefs: android.content.SharedPreferences, token: String) {
+        val chiffre = try {
+            com.xburnsx.toutiebudget.utils.ChiffrementSession.chiffrer(token)
+        } catch (e: Exception) {
+            Log.e("PocketBaseClient", "Chiffrement de la session impossible (${e.javaClass.simpleName})")
+            null
+        }
+        prefs.edit {
+            remove(KEY_TOKEN) // ne jamais laisser le jeton en clair
+            if (chiffre != null) putString(KEY_TOKEN_CHIFFRE, chiffre) else remove(KEY_TOKEN_CHIFFRE)
+        }
     }
 
     /**

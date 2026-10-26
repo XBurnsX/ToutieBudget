@@ -84,8 +84,6 @@ class LoginViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             Log.d("LoginViewModel", "🔐 Début de la gestion de connexion Google")
-            Log.d("LoginViewModel", "📧 Email: $email")
-            Log.d("LoginViewModel", "👤 Nom: $nom")
             Log.d("LoginViewModel", "🔑 Code autorisation: ${if (codeAutorisation.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
             Log.d("LoginViewModel", "🎫 ID Token: ${if (idToken.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
             

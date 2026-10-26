@@ -97,8 +97,6 @@ fun LoginScreen(
                     val email = compte?.email ?: "utilisateur@gmail.com"
                     val nom = compte?.displayName
                     
-                    Log.d("LoginScreen", "📧 Email: $email")
-                    Log.d("LoginScreen", "👤 Nom: $nom")
                     Log.d("LoginScreen", "🔑 Code serveur: ${if (codeServeur.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
                     Log.d("LoginScreen", "🎫 ID Token: ${if (idToken.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
                     
@@ -131,7 +129,7 @@ fun LoginScreen(
                 try {
                     val tache = GoogleSignIn.getSignedInAccountFromIntent(resultat.data)
                     val compte = tache.getResult(ApiException::class.java)
-                    Log.d("LoginScreen", "⚠️ Compte récupéré malgré CANCELED: ${compte?.email}")
+                    Log.d("LoginScreen", "⚠️ Compte récupéré malgré CANCELED")
                     val codeServeur = compte?.serverAuthCode
                     val idToken = compte?.idToken
                     if (!codeServeur.isNullOrBlank() || !idToken.isNullOrBlank()) {
