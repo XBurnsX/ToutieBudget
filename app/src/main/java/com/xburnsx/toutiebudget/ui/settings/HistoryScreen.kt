@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.xburnsx.toutiebudget.data.modeles.CompteCheque
+import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.room.entities.HistoriqueAllocation
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -34,8 +34,8 @@ fun HistoryScreen(
     onBack: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var compteSelectionne by remember { mutableStateOf<CompteCheque?>(null) }
-    var comptesCheques by remember { mutableStateOf<List<CompteCheque>>(emptyList()) }
+    var compteSelectionne by remember { mutableStateOf<Compte?>(null) }
+    var comptesCheques by remember { mutableStateOf<List<Compte>>(emptyList()) }
     var historiqueAllocations by remember { mutableStateOf<List<HistoriqueAllocation>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -48,8 +48,10 @@ fun HistoryScreen(
         try {
             isLoading = true
             comptesViewModel.uiState.collect { uiState ->
-                val tousComptes = uiState.comptesGroupes.values.flatten()
-                comptesCheques = tousComptes.filterIsInstance<CompteCheque>()
+                // HG8/HG9 : permettre les historiques des autres types de comptes
+                // et des comptes archivés, sans les réactiver.
+                val tousComptes = uiState.comptesGroupes.values.flatten() + uiState.comptesArchives
+                comptesCheques = tousComptes.distinctBy { it.id }
                 isLoading = false // Mettre à false dès qu'on a les comptes
             }
         } catch (e: Exception) {
@@ -59,7 +61,9 @@ fun HistoryScreen(
     }
     
     // Charger l'historique quand un compte est sélectionné
-    LaunchedEffect(compteSelectionne) {
+    LaunchedEffect(compteSelectionne?.id) {
+        historiqueAllocations = emptyList()
+        error = null
         if (compteSelectionne != null) {
             try {
                 val historiqueRepository = AppModule.provideHistoriqueAllocationRepository()
