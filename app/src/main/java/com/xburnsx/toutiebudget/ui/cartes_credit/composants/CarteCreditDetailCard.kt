@@ -3,247 +3,149 @@ package com.xburnsx.toutiebudget.ui.cartes_credit.composants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
-import com.xburnsx.toutiebudget.ui.cartes_credit.StatistiquesCarteCredit
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
-import kotlin.math.abs
-import androidx.core.graphics.toColorInt
+import java.text.SimpleDateFormat
+import java.util.Locale
 
+private val couleurAlerte = Color(0xFFEF4444)
+private val couleurOk = Color(0xFF10B981)
+
+/**
+ * Résumé de la carte : tous les chiffres viennent de MoteurCarteCredit (CC1).
+ * « Officiel » = relevé de la banque ; « estimé » = calcul de l'app, jamais présenté comme confirmé.
+ */
 @Composable
 fun CarteCreditDetailCard(
     carte: CompteCredit,
-    statistiques: StatistiquesCarteCredit
+    transactionsCarte: List<Transaction>
 ) {
+    val formatJour = SimpleDateFormat("d MMM yyyy", Locale.CANADA_FRENCH)
+    val dette = MoteurCarteCredit.dette(carte)
+    val disponible = MoteurCarteCredit.creditDisponible(carte)
+    val utilisation = MoteurCarteCredit.tauxUtilisation(carte)
+    val minimum = MoteurCarteCredit.minimumAPayer(carte)
+    val releve = MoteurCarteCredit.dernierReleve(carte)
+    val cycle = MoteurCarteCredit.interetsCycleCourant(carte, transactionsCarte)
+    val d = carte.details
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2C2C2E)
-        )
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // En-tête avec nom et couleur
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                "${carte.nom} · ${d.emetteur.libelle}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            // Solde courant SIGNÉ (CC3)
+            Ligne(
+                "Solde actuel",
+                MoneyFormatter.formatAmount(carte.solde),
+                couleur = when {
+                    carte.solde < -0.005 -> couleurAlerte
+                    carte.solde > 0.005 -> couleurOk
+                    else -> Color.White
+                },
+                gras = true
+            )
+            if (carte.solde > 0.005) {
+                Text("Solde créditeur (trop-payé) : aucune dette.", color = couleurOk, style = MaterialTheme.typography.bodySmall)
+            }
+            Ligne("Limite", MoneyFormatter.formatAmount(carte.limiteCredit))
+            Ligne(
+                "Crédit disponible",
+                MoneyFormatter.formatAmount(disponible),
+                couleur = if (disponible < 0) couleurAlerte else Color.White
+            )
+
+            // Utilisation non plafonnée : un dépassement reste visible
+            LinearProgressIndicator(
+                progress = { utilisation.toFloat().coerceIn(0f, 1f) },
+                color = if (utilisation > 1.0) couleurAlerte else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth().height(6.dp)
+            )
+            Text(
+                "Utilisation : ${"%.1f".format(utilisation * 100)} %" + if (utilisation > 1.0) " — limite dépassée" else "",
+                color = if (utilisation > 1.0) couleurAlerte else Color.Gray,
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
+            // Montant dû au relevé, distinct du solde courant (CC1, CC4)
+            if (releve != null) {
+                Ligne("Solde du relevé (${releve.dateEmission})", MoneyFormatter.formatAmount(releve.soldeOfficiel) + " · officiel")
+            }
+            if (minimum != null) {
+                Ligne(
+                    "Minimum à payer",
+                    MoneyFormatter.formatAmount(minimum.montant) + if (minimum.officiel) " · officiel" else " · estimé",
+                    gras = true
+                )
+                Text(minimum.source, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            }
+            MoteurCarteCredit.prochaineEcheance(carte)?.let { Ligne("Prochaine échéance", formatJour.format(it)) }
+            MoteurCarteCredit.prochaineCloture(carte)?.let { Ligne("Prochain relevé", formatJour.format(it)) }
+
+            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+
+            // Taux (CC10)
+            Ligne("Taux achats", taux(MoteurCarteCredit.tauxAchats(carte)))
+            d.tauxAvances?.let { Ligne("Taux avances de fonds", taux(it)) }
+            d.tauxTransferts?.let { Ligne("Taux transferts de solde", taux(it)) }
+            d.tauxPromo?.let { Ligne("Taux promotionnel", taux(it) + (d.finPromo?.let { f -> " jusqu'au $f" } ?: "")) }
+            d.tauxRetard?.let { Ligne("Taux de retard", taux(it)) }
+
+            // Intérêts : estimation seulement (CC5)
+            if (dette > 0.005) {
+                Ligne("Intérêts estimés (30 prochains jours)", MoneyFormatter.formatAmount(MoteurCarteCredit.interetsMensuelsEstimes(carte)))
+                cycle?.let {
+                    Ligne(
+                        "Intérêts estimés du cycle (${it.jours} j)",
+                        if (it.graceProbable) "0,00 $ · délai de grâce" else MoneyFormatter.formatAmount(it.montant)
+                    )
+                }
                 Text(
-                    text = carte.nom,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = try {
-                        Color(carte.couleur.toColorInt())
-                    } catch (_: Exception) {
-                        Color.White
-                    }
-                )
-                
-                Icon(
-                    imageVector = Icons.Default.CreditCard,
-                    contentDescription = "Carte de crédit",
-                    tint = try {
-                        Color(carte.couleur.toColorInt())
-                    } catch (_: Exception) {
-                        Color(0xFF2196F3)
-                    },
-                    modifier = Modifier.size(24.dp)
+                    "Estimations à partir d'aujourd'hui : elles ne sont jamais ajoutées au solde.",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Informations principales
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Solde utilisé
-                Column {
-                    Text(
-                        text = "Solde utilisé",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(abs(carte.solde)),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.Red,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Limite de crédit
-                Column {
-                    Text(
-                        text = "Limite",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(carte.limiteCredit),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Crédit disponible
-                Column {
-                    Text(
-                        text = "Disponible",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(statistiques.creditDisponible),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.Green,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Barre de progression pour l'utilisation
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Utilisation",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = "${(statistiques.tauxUtilisation * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = when {
-                            statistiques.tauxUtilisation > 0.8 -> Color.Red
-                            statistiques.tauxUtilisation > 0.6 -> Color.Yellow
-                            else -> Color.Green
-                        }
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LinearProgressIndicator(
-                    progress = { statistiques.tauxUtilisation.toFloat() },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = when {
-                        statistiques.tauxUtilisation > 0.8 -> Color.Red
-                        statistiques.tauxUtilisation > 0.6 -> Color.Yellow
-                        else -> Color.Green
-                    },
-                    trackColor = Color.Gray
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Informations supplémentaires
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Taux d'intérêt
-                Column {
-                    Text(
-                        text = "Taux d'intérêt",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = carte.tauxInteret?.let { "${it}%" } ?: "Non défini",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                }
-
-                // Paiement minimum
-                Column {
-                    Text(
-                        text = "Paiement min.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(statistiques.paiementMinimum),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                }
-
-                // Intérêts mensuels
-                Column {
-                    Text(
-                        text = "Intérêts/mois",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = MoneyFormatter.formatAmount(statistiques.interetsMensuels),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Red
-                    )
-                }
-            }
-
-
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF121212)
+private fun taux(valeur: Double) = "${"%.2f".format(valeur)} %"
+
 @Composable
-fun CarteCreditDetailCardPreview() {
-    val carteCredit = CompteCredit(
-        id = "1",
-        utilisateurId = "user1",
-        nom = "Carte Visa",
-        soldeUtilise = -2500.0,
-        couleur = "#2196F3",
-        estArchive = false,
-        ordre = 1,
-        limiteCredit = 10000.0,
-        tauxInteret = 19.99
-    )
-    
-    val statistiques = StatistiquesCarteCredit(
-        creditDisponible = 7500.0,
-        tauxUtilisation = 0.25,
-        interetsMensuels = 41.65,
-        paiementMinimum = 541.65,
-        tempsRemboursementMinimum = 5,
-        totalInteretsAnnuels = 499.8
-    )
-    
-    CarteCreditDetailCard(
-        carte = carteCredit,
-        statistiques = statistiques
-    )
+private fun Ligne(libelle: String, valeur: String, couleur: Color = Color.White, gras: Boolean = false) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(libelle, color = Color.LightGray, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(
+            valeur,
+            color = couleur,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (gras) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }

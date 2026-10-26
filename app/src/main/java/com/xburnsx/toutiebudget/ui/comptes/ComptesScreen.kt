@@ -228,6 +228,7 @@ fun ComptesScreen(
     if (uiState.isAjoutDialogVisible) {
         AjoutCompteDialog(
             formState = uiState.formState,
+            onCarteChange = viewModel::onFormCarteChange,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,
             onSave = { viewModel.onSauvegarderCompte() },

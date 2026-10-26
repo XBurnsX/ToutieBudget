@@ -28,7 +28,8 @@ fun AjoutCompteDialog(
     onDismissRequest: () -> Unit,
     onValueChange: (String?, String?, String?, String?, String?) -> Unit, // AJOUT DU 5ème PARAMÈTRE
     onSave: () -> Unit,
-    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit
+    onOpenKeyboard: (Long, (Long) -> Unit) -> Unit,
+    onCarteChange: (String?, String?, com.xburnsx.toutiebudget.data.modeles.EmetteurCarte?) -> Unit = { _, _, _ -> }
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
     val couleursDisponibles = COULEURS_COMPTES
@@ -128,6 +129,31 @@ fun AjoutCompteDialog(
                     modifier = Modifier
                 )
                 
+                // CC3 : configuration minimale d'une carte (émetteur, solde SIGNÉ, taux des achats)
+                if (formState.type == "Carte de crédit") {
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.entries.forEach { e ->
+                            FilterChip(
+                                selected = formState.emetteurCarte == e,
+                                onClick = { onCarteChange(null, null, e) },
+                                label = { Text(e.libelle) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = formState.soldeCarte,
+                        onValueChange = { onCarteChange(it, null, null) },
+                        label = { Text("Solde actuel (dette en négatif, ex. -400,00)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = formState.tauxCarte,
+                        onValueChange = { onCarteChange(null, it, null) },
+                        label = { Text("Taux annuel des achats (%)") },
+                        singleLine = true
+                    )
+                }
+
                 // Sélecteur de couleur (sauf pour les dettes qui sont toujours rouges)
                 if (formState.type != "Dette") {
                     CouleurSelecteur(

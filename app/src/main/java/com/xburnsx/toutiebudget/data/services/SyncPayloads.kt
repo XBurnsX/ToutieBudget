@@ -73,7 +73,11 @@ object SyncPayloads {
             "taux_interet" to entite.tauxInteret,
             "paiement_minimum" to entite.paiementMinimum,
             "frais_mensuels_json" to entite.fraisMensuelsJson,
-            "collection" to entite.collection
+            "collection" to entite.collection,
+            // Objet JSON (et non texte) pour le champ JSON PocketBase ; ignoré tant que le champ n'existe pas
+            "details_carte_json" to entite.detailsCarteJson?.let {
+                try { com.google.gson.JsonParser.parseString(it) } catch (_: Exception) { null }
+            }
         ))
         is CompteDetteEntity -> gsonAvecNulls.toJson(mapOf(
             "id" to entite.id,

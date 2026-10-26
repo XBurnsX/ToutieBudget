@@ -130,7 +130,12 @@ fun FraisMensuelsCard(
                                         color = Color.White
                                     )
                                     Text(
-                                        text = MoneyFormatter.formatAmount(frais.montant),
+                                        // CC10 : nature et date du frais ; jamais facturé automatiquement
+                                        text = MoneyFormatter.formatAmount(frais.montant) + " · " + when (frais.type) {
+                                            com.xburnsx.toutiebudget.data.modeles.TypeFrais.MENSUEL -> "mensuel"
+                                            com.xburnsx.toutiebudget.data.modeles.TypeFrais.ANNUEL -> "annuel"
+                                            com.xburnsx.toutiebudget.data.modeles.TypeFrais.PONCTUEL -> "ponctuel"
+                                        } + (frais.dateApplication?.let { " · $it" } ?: ""),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )

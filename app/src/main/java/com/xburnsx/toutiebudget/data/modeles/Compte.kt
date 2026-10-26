@@ -41,7 +41,8 @@ data class FraisMensuel(
     val nom: String, // Nom du frais (ex: "Assurance", "AccordD")
     val montant: Double, // Montant du frais
     val description: String? = null, // Description optionnelle
-    val type: TypeFrais = TypeFrais.MENSUEL // Type de frais
+    val type: TypeFrais = TypeFrais.MENSUEL, // Type de frais
+    val dateApplication: String? = null // CC10 : date réelle d'application (yyyy-MM-dd), si connue
 )
 
 enum class TypeFrais {
@@ -69,11 +70,16 @@ data class CompteCredit(
     val paiementMinimum: Double? = null,
     @SerializedName("frais_mensuels_json")
     val fraisMensuelsJson: com.google.gson.JsonElement? = null, // Peut être String ou Array
-    override val collection: String = "comptes_credits"
+    override val collection: String = "comptes_credits",
+    @SerializedName("details_carte_json")
+    val detailsCarteJson: String? = null // Section 10 : JSON de DetailsCarte
 ) : Compte {
     // Pour compatibilité avec l'interface Compte, on map soldeUtilise vers solde
     override val solde: Double get() = soldeUtilise
-    
+
+    /** Profil, taux détaillés, cycle et relevés (valeurs par défaut si rien n'est configuré). */
+    val details: DetailsCarte get() = DetailsCarte.depuis(detailsCarteJson)
+
     // Propriété calculée pour parser les frais mensuels depuis JSON
     val fraisMensuels: List<FraisMensuel> get() {
         return try {

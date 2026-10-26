@@ -76,7 +76,8 @@ object PocketBaseMapper {
         tauxInteret = item.taux_interet?.toDoubleOrNull(),
         paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
         fraisMensuelsJson = item.frais_mensuels_json?.let { gson.toJson(it) },
-        collection = item.collection ?: "comptes_credits"
+        collection = item.collection ?: "comptes_credits",
+        detailsCarteJson = item.details_carte_json?.let { if (it is String) it else gson.toJson(it) }
     )
 
     fun versCompteDette(item: ItemPocketBase) = CompteDette(

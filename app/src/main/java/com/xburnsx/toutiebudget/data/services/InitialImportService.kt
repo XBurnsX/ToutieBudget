@@ -207,7 +207,7 @@ data class ItemPocketBase(
     val limite_credit: String?,
     val taux_interet: String?,
     val paiement_minimum: String?,
-    val frais_mensuels_json: List<Any>?,
+    val frais_mensuels_json: Any?, // tableau JSON ou texte JSON selon la façon dont il a été enregistré
     val montant_initial: String?,
     val paiement_effectue: Int?,
     val duree_mois_pret: String?,
@@ -241,5 +241,6 @@ data class ItemPocketBase(
     val collectionId: String?,
     val collectionName: String?,
     val nom_tiers: String?,
-    val date_creation: String?
+    val date_creation: String?,
+    val details_carte_json: Any? = null // Cartes de crédit (section 10)
 )

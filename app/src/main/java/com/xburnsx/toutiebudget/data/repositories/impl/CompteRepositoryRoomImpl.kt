@@ -619,7 +619,8 @@ class CompteRepositoryRoomImpl(
             tauxInteret = this.tauxInteret,
             paiementMinimum = this.paiementMinimum,
             fraisMensuelsJson = this.fraisMensuelsJson?.let { JsonParser.parseString(it) },
-            collection = this.collection
+            collection = this.collection,
+            detailsCarteJson = this.detailsCarteJson
         )
     }
 
@@ -636,7 +637,8 @@ class CompteRepositoryRoomImpl(
             tauxInteret = this.tauxInteret,
             paiementMinimum = this.paiementMinimum,
             fraisMensuelsJson = this.fraisMensuelsJson?.toString(),
-            collection = this.collection
+            collection = this.collection,
+            detailsCarteJson = this.detailsCarteJson
         )
     }
 

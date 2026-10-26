@@ -918,8 +918,13 @@ class ArgentServiceImpl @Inject constructor(
     }
 
     /**
-     * Effectue un paiement de carte de crédit ou de dette.
-     * Crée deux transactions : une sortie du compte qui paie et une entrée sur la carte/dette.
+     * Paiement d'une carte de crédit ou d'une dette (CC2).
+     *
+     * - Une seule sortie sur le compte payeur et une seule entrée « Paiement » sur la carte/dette.
+     * - Le « Prêt à placer » n'est pas touché : l'argent était déjà placé dans l'enveloppe de la
+     *   carte/dette, dont le solde du mois diminue du montant payé (provenance respectée).
+     * - Les frais de carte ne remboursent JAMAIS une autre dette, même s'ils portent le même nom.
+     * - Tout est validé avant d'écrire ; si l'écriture sur la carte échoue, le compte payeur est remis.
      */
     override suspend fun effectuerPaiementCarteOuDette(
         compteQuiPaieId: String,
@@ -930,289 +935,146 @@ class ArgentServiceImpl @Inject constructor(
         note: String?
     ): Result<Unit> = runCatching {
         if (montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif.")
-        
-        // 1. Récupérer les comptes
+        val montantArrondi = MoneyFormatter.roundAmount(montant)
+
+        // 1. Comptes
         val compteQuiPaie = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie)
             ?: throw IllegalArgumentException("Compte qui paie non trouvé: $compteQuiPaieId")
-            
         val carteOuDette = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette)
             ?: throw IllegalArgumentException("Carte/Dette non trouvée: $carteOuDetteId")
-        
-        // 2. Vérifier que le compte qui paie a suffisamment de fonds
-        if (compteQuiPaie.solde < montant) {
+        val estDette = collectionCarteOuDette == "comptes_dettes"
+        val collectionCible = if (estDette) "comptes_dettes" else "comptes_credits"
+
+        if (compteQuiPaie.solde < montantArrondi) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
         }
 
-        // 3. Si la cible est une carte de crédit, déterminer les remboursements automatiques de dettes via frais mensuels
-        var montantPourDettes = 0.0
-        val remboursementsDettes: MutableList<Pair<CompteDette, Double>> = mutableListOf()
-        if (collectionCarteOuDette == "comptes_credits" && carteOuDette is CompteCredit) {
-            // Récupérer les dettes existantes
-            val tousLesComptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
-            val dettes = tousLesComptes.filterIsInstance<CompteDette>()
-
-            // Associer frais -> dette par nom exact
-            val frais = carteOuDette.fraisMensuels
-            var restant = montant
-            frais.forEach { f: com.xburnsx.toutiebudget.data.modeles.FraisMensuel ->
-                if (restant <= 0) return@forEach
-                val detteCible = dettes.firstOrNull { it.nom.equals(f.nom, ignoreCase = true) }
-                if (detteCible != null) {
-                    val aPayer = minOf(restant, f.montant)
-                    if (aPayer > 0) {
-                        remboursementsDettes += detteCible to aPayer
-                        montantPourDettes += aPayer
-                        restant -= aPayer
-                    }
-                }
-            }
+        // 2. Enveloppe de la carte/dette : même nom, dans sa catégorie (« Cartes de crédit » / « Dettes »)
+        val mois = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val nomCategorie = if (estDette) "Dettes" else "Cartes de crédit"
+        val categorie = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+            .firstOrNull { it.nom.equals(nomCategorie, ignoreCase = true) }
+        val enveloppeCible = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+            .filter { it.nom.equals(carteOuDette.nom, ignoreCase = true) && !it.estArchive }
+            .let { candidates -> candidates.firstOrNull { categorie != null && it.categorieId == categorie.id } ?: candidates.singleOrNull() }
+        val allocationAvant = enveloppeCible?.let { allocationMensuelleRepository.recupererOuCreerAllocation(it.id, mois) }
+        if (allocationAvant != null && allocationAvant.solde > 0.01 &&
+            allocationAvant.compteSourceId != null && allocationAvant.compteSourceId != compteQuiPaieId
+        ) {
+            val nomProvenance = compteRepository.recupererCompteParIdToutesCollections(allocationAvant.compteSourceId).getOrNull()?.nom ?: "un autre compte"
+            throw IllegalStateException(
+                "L'argent de l'enveloppe ${enveloppeCible.nom} vient de $nomProvenance : payez depuis ce compte."
+            )
         }
 
-        // Toute la somme va sur la carte; les dettes sont remboursées EN PLUS sans impacter la carte
-        val montantPourCarte = montant
-
-        // 4. Mettre à jour le solde du compte payeur (sort -montant)
-        if (collectionCompteQuiPaie == "comptes_cheques" && compteQuiPaie is CompteCheque) {
-            // ❌ Ne pas toucher au prêt à placer (l'argent a déjà été placé dans l'enveloppe)
+        // 3. Compte payeur (le Prêt à placer ne bouge pas)
+        if (compteQuiPaie is CompteCheque) {
             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
                 compteId = compteQuiPaieId,
                 collectionCompte = collectionCompteQuiPaie,
-                variationSolde = -montant,
+                variationSolde = -montantArrondi,
                 mettreAJourPretAPlacer = false
+            ).getOrThrow()
+        } else {
+            compteRepository.mettreAJourSolde(
+                compteQuiPaieId, collectionCompteQuiPaie, MoneyFormatter.roundAmount(compteQuiPaie.solde - montantArrondi)
             )
-        } else {
-            val nouveauSoldeCompteQuiPaieArrondi = MoneyFormatter.roundAmount(compteQuiPaie.solde - montant)
-            compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, nouveauSoldeCompteQuiPaieArrondi)
         }
 
-        // 5. Mettre à jour le solde de la cible (carte OU dette)
-        // Paiement d'une dette doit AJOUTER le montant (rapprocher de zéro)
-        // Paiement d'une carte de crédit doit AJOUTER le montant (augmenter le solde disponible)
-        val deltaCible = if (collectionCarteOuDette == "comptes_dettes" || collectionCarteOuDette == "comptes_credits") {
-            montantPourCarte  // AJOUTER le montant pour rapprocher de zéro
-        } else {
-            montantPourCarte
-        }
-        val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + deltaCible)
-        // Utiliser la collection réellement sélectionnée (carte de crédit ou dette)
-        val collectionCible = when (collectionCarteOuDette) {
-            "comptes_dettes" -> "comptes_dettes"
-            else -> "comptes_credits"
-        }
-        compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
-
-        // ✅ Paiement dette: incrémenter le compteur de paiements et auto-archiver si soldée
-        if (collectionCible == "comptes_dettes") {
-            val compteActuel = compteRepository.getCompteById(carteOuDetteId, collectionCible) as? CompteDette
-            if (compteActuel != null) {
-                // Incrémenter le nombre de paiements effectués
-                val compteMaj = compteActuel.copy(paiementEffectue = (compteActuel.paiementEffectue + 1))
-                compteRepository.mettreAJourCompte(compteMaj)
-
-                // Archiver si la dette est soldée
-                val estSoldee = kotlin.math.abs(nouveauSoldeCible) < 0.01
-                if (estSoldee && !compteMaj.estArchive) {
-                    val detteArchivee = compteMaj.copy(estArchive = true)
-                    compteRepository.mettreAJourCompte(detteArchivee)
-                    
-                    // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
-                    try {
-                        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-                        
-                        // Trouver l'enveloppe correspondante à la dette
-                        val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(compteActuel.nom, ignoreCase = true) }
-                        if (enveloppeDette != null) {
-                            // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
-                            // Delay pour laisser le temps à l'allocation d'être créée dans Room
-                            kotlinx.coroutines.delay(1000)
-                            val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
-                            if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
-                                // Supprimer l'enveloppe
-                                enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
-                                
-                                // Vérifier s'il reste d'autres dettes actives
-                                val toutesDettes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
-                                    .filterIsInstance<CompteDette>()
-                                    .filter { !it.estArchive }
-                                
-                                // Si c'était la dernière dette, supprimer la catégorie "Dette"
-                                if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
-                                    val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                                    val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
-                                    if (categorieDette != null) {
-                                        categorieRepository.supprimerCategorie(categorieDette.id)
-                                    }
-                                }
-                            }
-                        }
-                    } catch (_: Exception) { /* silencieux */ }
-                }
-            }
-        }
-
-        // 6. Mettre à jour les soldes des dettes correspondantes + incrémenter paiement_effectue (en plus)
-        for ((dette, part) in remboursementsDettes) {
-            // Un remboursement AJOUTE le montant au solde de la dette (rapproche de zéro)
-            val nouveauSoldeDette = MoneyFormatter.roundAmount(dette.solde + part)
-            // Forcer la collection explicite pour éviter tout contexte invalide
-            compteRepository.mettreAJourSolde(dette.id, "comptes_dettes", nouveauSoldeDette)
-
-            val detteActuelle = compteRepository.getCompteById(dette.id, dette.collection) as? CompteDette
-            if (detteActuelle != null) {
-                val detteMiseAJour = detteActuelle.copy(paiementEffectue = (detteActuelle.paiementEffectue + 1))
-                compteRepository.mettreAJourCompte(detteMiseAJour)
-
-                // Auto-archiver si soldée
-                val estSoldee = kotlin.math.abs(nouveauSoldeDette) < 0.01
-                if (estSoldee && !detteActuelle.estArchive) {
-                    val detteArchivee = detteMiseAJour.copy(estArchive = true)
-                    compteRepository.mettreAJourCompte(detteArchivee)
-                    
-                    // ✅ Supprimer l'enveloppe et la catégorie si la dette est soldée
-                    try {
-                        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-                        
-                        // Trouver l'enveloppe correspondante à la dette
-                        val enveloppeDette = toutesEnveloppes.firstOrNull { it.nom.equals(detteActuelle.nom, ignoreCase = true) }
-                        if (enveloppeDette != null) {
-                            // Si la dette est archivée et l'enveloppe a un solde de 0 (remboursée), on la supprime
-                            // Delay pour laisser le temps à l'allocation d'être créée dans Room
-                            kotlinx.coroutines.delay(1000)
-                            val allocationEnveloppe = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeDette.id, Date())
-                            if (allocationEnveloppe.solde >= 0 && kotlin.math.abs(allocationEnveloppe.solde) < 0.01) {
-                                // Supprimer l'enveloppe
-                                enveloppeRepository.supprimerEnveloppe(enveloppeDette.id)
-                                
-                                // Vérifier s'il reste d'autres dettes actives
-                                val toutesDettes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
-                                    .filterIsInstance<CompteDette>()
-                                    .filter { !it.estArchive }
-                                
-                                // Si c'était la dernière dette, supprimer la catégorie "Dette"
-                                if (toutesDettes.size <= 1) { // <= 1 car on compte la dette actuelle qui vient d'être archivée
-                                    val toutesCategories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                                    val categorieDette = toutesCategories.firstOrNull { it.nom.equals("Dette", ignoreCase = true) }
-                                    if (categorieDette != null) {
-                                        categorieRepository.supprimerCategorie(categorieDette.id)
-                                    }
-                                }
-                            }
-                        }
-                    } catch (_: Exception) { /* silencieux */ }
-                }
-            }
-        }
-
-        // 7. Créer les transactions
-        // 7.1 Une seule transaction sortante depuis le compte payeur pour le montant total
-        val txSortanteCarte = Transaction(
-            id = IdGenerator.generateId(),
-            utilisateurId = compteQuiPaie.utilisateurId,
-            type = TypeTransaction.PaiementEffectue,
-            montant = montantPourCarte,
-            date = Date(),
-            compteId = compteQuiPaieId,
-            collectionCompte = collectionCompteQuiPaie,
-            allocationMensuelleId = null,
-            tiersUtiliser = note, // Utiliser le nom de la dette comme tiersUtiliser
-            note = null
-        )
-        transactionRepository.creerTransaction(txSortanteCarte).getOrThrow()
-
-        // 📝 ENREGISTRER DANS L'HISTORIQUE POUR PAIEMENT EFFECTUÉ
+        // 4. Carte/dette : le paiement rapproche le solde de zéro
+        val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + montantArrondi)
         try {
-            if (compteQuiPaie is CompteCheque) {
-                android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour paiement effectué")
-                // Récupérer le solde APRÈS la mise à jour
-                val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque
-                if (compteApres != null) {
-                    val soldeApres = compteApres.solde
-                    val pretAPlacerApres = compteApres.pretAPlacer
-                    // Calculer le solde AVANT (argent qui SORT : soldeAvant = soldeApres + montant)
-                    val soldeAvant = soldeApres + montant
-                    val pretAPlacerAvant = pretAPlacerApres // Le prêt à placer ne change pas pour les paiements
-                    
-                    historiqueAllocationService.enregistrerTransactionDirecte(
-                        compte = compteApres,
-                        enveloppe = null,
-                        typeTransaction = "PAIEMENT_EFFECTUE",
-                        montant = -montant, // Négatif car c'est de l'argent qui sort
-                        soldeAvant = soldeAvant,
-                        soldeApres = soldeApres,
-                        pretAPlacerAvant = pretAPlacerAvant,
-                        pretAPlacerApres = pretAPlacerApres,
-                        note = "Paiement vers ${note ?: carteOuDette.nom}"
-                    )
-                    android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (paiement effectué)")
-                }
-            }
+            compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
         } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (paiement effectué): ${e.message}")
+            // Remettre le compte payeur comme avant
+            if (compteQuiPaie is CompteCheque) {
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteQuiPaieId, collectionCompteQuiPaie, montantArrondi, false)
+            } else {
+                compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, compteQuiPaie.solde)
+            }
+            throw e
         }
 
-        // 7.2 Transactions sur la carte et sur les dettes (reçues comme remboursement)
-        if (montantPourCarte > 0) {
-            // Pour une dette, utiliser Paiement (diminue le solde négatif)
-            // Pour une carte de crédit, utiliser Emprunt (augmente le solde disponible)
-            val typeTransactionCible = if (collectionCarteOuDette == "comptes_dettes") {
-                TypeTransaction.Paiement
-            } else {
-                TypeTransaction.Emprunt
-            }
-            
-            val txEntranteCarte = Transaction(
+        // 5. Enveloppe : l'argent réservé pour ce paiement est utilisé
+        val allocationApres = allocationAvant?.copy(
+            depense = MoneyFormatter.roundAmount(allocationAvant.depense + montantArrondi),
+            solde = MoneyFormatter.roundAmount(allocationAvant.solde - montantArrondi)
+        )
+        if (allocationApres != null) {
+            allocationMensuelleRepository.mettreAJourAllocation(allocationApres)
+        }
+
+        // 6. Transactions : une sortie, une entrée « Paiement » (jamais « Emprunt », qui est un prêt personnel)
+        transactionRepository.creerTransaction(
+            Transaction(
+                id = IdGenerator.generateId(),
+                utilisateurId = compteQuiPaie.utilisateurId,
+                type = TypeTransaction.PaiementEffectue,
+                montant = montantArrondi,
+                date = Date(),
+                compteId = compteQuiPaieId,
+                collectionCompte = collectionCompteQuiPaie,
+                allocationMensuelleId = allocationApres?.id,
+                tiersUtiliser = note ?: carteOuDette.nom,
+                note = null
+            )
+        ).getOrThrow()
+        transactionRepository.creerTransaction(
+            Transaction(
                 id = IdGenerator.generateId(),
                 utilisateurId = carteOuDette.utilisateurId,
-                type = typeTransactionCible,
-                montant = montantPourCarte,
+                type = TypeTransaction.Paiement,
+                montant = montantArrondi,
                 date = Date(),
                 compteId = carteOuDetteId,
-                collectionCompte = collectionCarteOuDette,
+                collectionCompte = collectionCible,
                 allocationMensuelleId = null,
-                tiersUtiliser = note, // Utiliser le nom de la dette comme tiersUtiliser
+                tiersUtiliser = note ?: carteOuDette.nom,
                 note = null
             )
-            transactionRepository.creerTransaction(txEntranteCarte).getOrThrow()
+        ).getOrThrow()
+
+        // 7. Historique du compte payeur
+        try {
+            val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque
+            if (compteApres != null) {
+                historiqueAllocationService.enregistrerTransactionDirecte(
+                    compte = compteApres,
+                    enveloppe = enveloppeCible,
+                    typeTransaction = "PAIEMENT_EFFECTUE",
+                    montant = -montantArrondi,
+                    soldeAvant = compteApres.solde + montantArrondi,
+                    soldeApres = compteApres.solde,
+                    pretAPlacerAvant = compteApres.pretAPlacer,
+                    pretAPlacerApres = compteApres.pretAPlacer,
+                    note = "Paiement vers ${note ?: carteOuDette.nom}"
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "Historique du paiement non enregistré: ${e.message}")
         }
 
-        for ((dette, part) in remboursementsDettes) {
-            val txEntranteDette = Transaction(
-                id = IdGenerator.generateId(),
-                utilisateurId = dette.utilisateurId,
-                type = TypeTransaction.Paiement, // Pour une dette, utiliser Paiement
-                montant = part,
-                date = Date(),
-                compteId = dette.id,
-                collectionCompte = "comptes_dettes",
-                allocationMensuelleId = null,
-                tiersUtiliser = dette.nom, // Utiliser le nom de la dette comme tiersUtiliser
-                note = null
-            )
-            transactionRepository.creerTransaction(txEntranteDette).getOrThrow()
-        }
-
-        // 8. Si la cible est une dette OU une carte de crédit, incrémenter "dépense" sur l'allocation de l'enveloppe associée
-        if (collectionCarteOuDette == "comptes_dettes" || collectionCarteOuDette == "comptes_credits") {
-            try {
-                val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-                // Associer la dette à une enveloppe par nom (même nom)
-                val enveloppeCible = toutesEnveloppes.firstOrNull { it.nom.equals(carteOuDette.nom, ignoreCase = true) }
-                if (enveloppeCible != null) {
-                    // Mois courant (premier jour)
-                    val cal = Calendar.getInstance().apply {
-                        set(Calendar.DAY_OF_MONTH, 1)
-                        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                    }
-                    val allocation = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeCible.id, cal.time)
-                    val allocationMaj = allocation.copy(
-                        depense = allocation.depense + montant,
-                        solde = allocation.solde - montant
+        // 8. Dette soldée : compteur de paiements, archivage ; son enveloppe est archivée si elle est vide
+        //    (jamais supprimée, et la catégorie Dettes reste en place)
+        if (estDette) {
+            val detteActuelle = compteRepository.getCompteById(carteOuDetteId, collectionCible) as? CompteDette
+            if (detteActuelle != null) {
+                val estSoldee = kotlin.math.abs(nouveauSoldeCible) < 0.01
+                compteRepository.mettreAJourCompte(
+                    detteActuelle.copy(
+                        paiementEffectue = detteActuelle.paiementEffectue + 1,
+                        estArchive = detteActuelle.estArchive || estSoldee
                     )
-                    allocationMensuelleRepository.mettreAJourAllocation(allocationMaj)
+                )
+                if (estSoldee && enveloppeCible != null && allocationApres != null &&
+                    kotlin.math.abs(allocationApres.solde) < 0.01
+                ) {
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeCible.copy(estArchive = true))
                 }
-            } catch (_: Exception) { /* silencieux */ }
+            }
         }
     }
 }
-
-

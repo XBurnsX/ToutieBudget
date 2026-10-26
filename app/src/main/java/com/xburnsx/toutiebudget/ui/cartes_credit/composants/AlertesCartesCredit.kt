@@ -84,6 +84,7 @@ private fun AlerteItem(
         TypeAlerte.UTILISATION_ELEVEE -> Icons.AutoMirrored.Filled.TrendingUp
         TypeAlerte.LIMITE_ATTEINTE -> Icons.Default.Warning
         TypeAlerte.INTERETS_APPLIQUES -> Icons.Default.AttachMoney
+        TypeAlerte.PROCHAIN_RELEVE -> Icons.Default.Schedule
     }
 
     Card(

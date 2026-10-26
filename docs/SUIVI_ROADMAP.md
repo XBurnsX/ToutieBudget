@@ -98,6 +98,22 @@ Hors maître (demandé directement) :
 | CA4 | FAIT | Paramètres › « Masquer les comptes à zéro » |
 | CA5 | FAIT | Réconciliation : solde actuel, solde réel, différence, mention du Prêt à placer avant de confirmer |
 
+| CC1 | FAIT | `MoteurCarteCredit` : un seul moteur pour carte, détails, minimum, simulateur et tableau ; dette = max(0, -solde), avoir jamais traité comme dette ; utilisation non plafonnée |
+| CC2 | FAIT | Paiement : plus de remboursement d'une dette parce qu'un frais porte son nom ; côté carte « Paiement » au lieu d'« Emprunt » (comptait comme revenu) ; enveloppe cherchée dans « Cartes de crédit »/« Dettes » et provenance vérifiée ; enveloppe de dette archivée, plus supprimée ; compte payeur remis si l'écriture sur la carte échoue |
+| CC3 | FAIT | Solde SIGNÉ affiché et saisi tel quel (création et modification) ; correction tracée « CORRECTION_SOLDE_CARTE » sans faux paiement ; création : émetteur, solde, limite, taux |
+| CC4 | FAIT | Jour de clôture + délai d'échéance ; prochaine clôture/échéance ; relevé distinct du solde courant |
+| CC5 | FAIT | Intérêts estimés jour par jour depuis le début du cycle (soldes reconstitués avec les transactions datées, délai de grâce si relevé payé en entier) ; plus jamais ajoutés au solde automatiquement |
+| CC6 | FAIT | Relevés officiels (solde, minimum, échéance, intérêts, frais, paiements) ; doublon de date refusé ; intérêts facturés ajoutés au solde seulement sur confirmation, une fois |
+| CC7 | FAIT | Profil Desjardins 5 % (configurable, plancher optionnel) ; minimum officiel du relevé prioritaire ; estimation sur le solde du RELEVÉ |
+| CC8 | FAIT | Simulateur : minimum dégressif, montant fixe, % du solde, date cible ; tableau mensuel (début, intérêts, frais, paiement, capital, fin) ; avertit quand le versement ne couvre pas intérêts + frais |
+| CC9 | FAIT | Alertes réelles : limite dépassée, crédit faible, échéance proche, échéance passée sans paiement trouvé, intérêts facturés, prochain relevé |
+| CC10 | FAIT | Taux avances / transferts / promo (+ fin) / retard ; frais mensuels, annuels, ponctuels avec date ; même nom + type = remplacé ; jamais facturés automatiquement |
+| CC11 | FAIT | Par relevé : intérêts facturés vs estimés ; cumul réel par année ; gain d'intérêts et de temps par rapport au minimum |
+
+À savoir : les nouveaux champs `comptes_credits.details_carte_json` et `user_preferences.enveloppes_favorites`
+doivent être ajoutés à PocketBase avec `migrer-pocketbase.ps1` (identifiants admin saisis par l'utilisateur).
+Base Room passée en version 5 (migration sans perte).
+
 À savoir : les favoris s'envoient à PocketBase dans `user_preferences.enveloppes_favorites` ; tant que ce champ
 (JSON) n'existe pas dans la collection, ils restent seulement sur l'appareil.
 

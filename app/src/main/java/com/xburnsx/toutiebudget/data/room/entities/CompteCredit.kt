@@ -47,6 +47,11 @@ data class CompteCredit(
     @ColumnInfo(name = "frais_mensuels_json")
     @SerializedName("frais_mensuels_json")
     val fraisMensuelsJson: String? = null, // On garde String pour Room, on convertira en JSON
-    
-    val collection: String = "comptes_credits"
+
+    val collection: String = "comptes_credits",
+
+    // Section 10 : profil, taux détaillés, cycle et relevés officiels (JSON de DetailsCarte)
+    @ColumnInfo(name = "details_carte_json")
+    @SerializedName("details_carte_json")
+    val detailsCarteJson: String? = null
 )

@@ -9,7 +9,11 @@ data class CompteFormState(
     val type: String = "Compte chèque",
     val solde: String = "",
     val pretAPlacer: String = "",
-    val couleur: String = "#2196F3"
+    val couleur: String = "#2196F3",
+    // CC3 : création d'une carte de crédit
+    val soldeCarte: String = "",
+    val tauxCarte: String = "",
+    val emetteurCarte: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte = com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.AUTRE
 )
 
 data class ComptesUiState(

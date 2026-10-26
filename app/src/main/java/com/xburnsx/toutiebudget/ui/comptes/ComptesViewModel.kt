@@ -318,6 +318,18 @@ class ComptesViewModel(
         }
     }
 
+    fun onFormCarteChange(solde: String?, taux: String?, emetteur: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte?) {
+        _uiState.update { s ->
+            s.copy(
+                formState = s.formState.copy(
+                    soldeCarte = solde ?: s.formState.soldeCarte,
+                    tauxCarte = taux ?: s.formState.tauxCarte,
+                    emetteurCarte = emetteur ?: s.formState.emetteurCarte
+                )
+            )
+        }
+    }
+
     fun onSauvegarderCompte() {
         if (_uiState.value.enregistrementEnCours) return
         // CO6 : chaque sauvegarde ferme son dialogue elle-même, seulement après réussite
@@ -344,11 +356,14 @@ class ComptesViewModel(
                 )
                 "Carte de crédit" -> CompteCredit(
                     nom = formState.nom,
-                    soldeUtilise = 0.0, // Pas de dette initiale - utiliser soldeUtilise
+                    // CC3 : solde SIGNÉ tel que saisi (dette négative), sans inversion
+                    soldeUtilise = formState.soldeCarte.replace(',', '.').replace(" ", "").toDoubleOrNull() ?: 0.0,
                     couleur = formState.couleur,
                     estArchive = false,
                     ordre = 0,
-                    limiteCredit = soldeInitial // Le montant saisi devient la limite de crédit
+                    limiteCredit = soldeInitial, // Le montant saisi devient la limite de crédit
+                    tauxInteret = formState.tauxCarte.replace(',', '.').toDoubleOrNull(),
+                    detailsCarteJson = com.xburnsx.toutiebudget.data.modeles.DetailsCarte(emetteur = formState.emetteurCarte).versJson()
                 )
                 "Dette" -> CompteDette(
                     nom = formState.nom,
