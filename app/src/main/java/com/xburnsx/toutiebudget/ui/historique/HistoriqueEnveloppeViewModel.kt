@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.historique
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,6 +35,9 @@ class HistoriqueEnveloppeViewModel(
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouSuppression = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(HistoriqueEnveloppeUiState())
     val uiState: StateFlow<HistoriqueEnveloppeUiState> = _uiState.asStateFlow()
@@ -83,7 +87,7 @@ class HistoriqueEnveloppeViewModel(
      * Supprime une transaction.
      */
     fun supprimerTransaction(transactionId: String) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouSuppression) {
             try {
                 supprimerTransactionUseCase.executer(transactionId)
                 // Recharger les transactions après suppression

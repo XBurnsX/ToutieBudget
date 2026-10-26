@@ -566,9 +566,9 @@ fun MainAppScaffold(
                 VirerArgentScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
-                        // Le temps réel va automatiquement actualiser les données !
-                        // Plus besoin d'appeler manuellement rafraichirDonnees()
-                        bottomBarNavController.popBackStack()
+                        // AT17 : un seul retour, et seulement si on est encore sur Virer argent
+                        // (deux retours retiraient aussi la page Budget et laissaient un écran vide)
+                        bottomBarNavController.retourDepuis(Screen.VirerArgent.route)
                     }
                 )
             }
@@ -591,7 +591,7 @@ fun MainAppScaffold(
                 VirerArgentScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
-                        bottomBarNavController.popBackStack()
+                        bottomBarNavController.retourDepuis("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}")
                     },
                     enveloppePreselectionnee = enveloppeId,
                     montantPreselectionne = montantNegatif.toDoubleOrNull() ?: 0.0,
@@ -629,4 +629,9 @@ private fun PlaceholderScreen(name: String) {
     ) {
         Text("Écran $name")
     }
+}
+
+/** Revient en arrière seulement si l'écran affiché est bien [route] : un deuxième appel ne fait rien. */
+private fun androidx.navigation.NavController.retourDepuis(route: String) {
+    if (currentBackStackEntry?.destination?.route == route) popBackStack()
 }

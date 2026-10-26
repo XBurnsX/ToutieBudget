@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.budget
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
@@ -49,6 +50,9 @@ class BudgetViewModel(
     private val objectifCalculator: ObjectifCalculator,
     private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouAssignation = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     // Service de reset automatique des objectifs bihebdomadaires
     private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
@@ -563,7 +567,7 @@ class BudgetViewModel(
         compteSourceId: String,
         montantCentimes: Long
     ) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouAssignation) {
             try {
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Assignation de l'argent...") }
 
@@ -609,7 +613,7 @@ class BudgetViewModel(
      * et chaque enveloppe garde la provenance de ce compte.
      */
     fun assignerAPlusieursEnveloppes(compteSourceId: String, montantsCentimes: Map<String, Long>) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouAssignation) {
             val reussies = mutableListOf<String>()
             try {
                 val montants = montantsCentimes.filterValues { it > 0 }

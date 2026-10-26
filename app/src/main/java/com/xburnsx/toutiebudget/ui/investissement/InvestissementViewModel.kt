@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.investissement
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
@@ -40,6 +41,9 @@ class InvestissementViewModel(
     private val historiqueAllocationService: HistoriqueAllocationService,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouPlacement = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(InvestissementUiState())
     val uiState: StateFlow<InvestissementUiState> = _uiState.asStateFlow()
@@ -112,7 +116,7 @@ class InvestissementViewModel(
     ) {
         val id = compteId ?: return
         if (_uiState.value.enCours) return
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouPlacement) {
             _uiState.update { it.copy(enCours = true) }
             try {
                 val aJour = compteRepository.getCompteById(id, "comptes_investissement") as? CompteInvestissement

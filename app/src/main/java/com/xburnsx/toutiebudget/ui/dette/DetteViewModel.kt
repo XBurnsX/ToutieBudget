@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.dette
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.AjustementDette
@@ -12,7 +13,6 @@ import com.xburnsx.toutiebudget.data.repositories.CategorieRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
-import com.xburnsx.toutiebudget.di.AppModule
 import com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -38,6 +38,9 @@ class DetteViewModel(
     private val categorieRepository: CategorieRepository,
     private val historiqueAllocationService: HistoriqueAllocationService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouDette = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(DetteUiState())
     val uiState: StateFlow<DetteUiState> = _uiState.asStateFlow()
@@ -101,7 +104,7 @@ class DetteViewModel(
         if (etat.isSaving) return
         val id = etat.dette?.id ?: return
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouDette) {
             _uiState.update { it.copy(isSaving = true, messageErreur = null) }
             try {
                 val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
@@ -125,7 +128,7 @@ class DetteViewModel(
                     // soldeDette, paiementEffectue et estArchive restent ceux de la version à jour
                 )
                 compteRepository.mettreAJourCompte(aSauver).getOrThrow()
-                AppModule.provideComptesViewModel().rafraichirComptes()
+                com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated() // la page Comptes se recharge sur cet événement
 
                 val avertissement = if (etat.dette != null && abs(aJour.soldeDette - etat.dette.soldeDette) > 0.005) {
                     "Le solde a changé entre-temps (paiement ailleurs) : le solde réel a été conservé."
@@ -155,7 +158,7 @@ class DetteViewModel(
     fun ajusterSolde(type: TypeAjustementDette, montantSaisi: Double, date: String, note: String?) {
         val id = _uiState.value.dette?.id ?: return
         if (_uiState.value.isSaving) return
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouDette) {
             _uiState.update { it.copy(isSaving = true, messageErreur = null) }
             try {
                 val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
@@ -186,7 +189,7 @@ class DetteViewModel(
                 } catch (e: Exception) {
                     android.util.Log.e("ToutieBudget", "Trace d'ajustement de dette non enregistrée: ${e.message}")
                 }
-                AppModule.provideComptesViewModel().rafraichirComptes()
+                com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated() // la page Comptes se recharge sur cet événement
                 _uiState.update { it.copy(isSaving = false, dette = aSauver, messageInfo = "Solde de la dette mis à jour.") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, messageErreur = "Échec de l'ajustement : ${e.message}") }

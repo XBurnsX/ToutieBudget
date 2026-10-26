@@ -223,3 +223,49 @@ class BanqueEnMemoire {
         override suspend fun enregistrerAjustementCompte(compte: Compte, typeAction: String, description: String, montant: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double) { historique += typeAction }
     }
 }
+
+/** Tiers, prêts personnels et préférences en mémoire (pour les tests des écrans). */
+class AutresDepotsEnMemoire {
+    val tiers = linkedMapOf<String, com.xburnsx.toutiebudget.data.modeles.Tiers>()
+    val prets = linkedMapOf<String, com.xburnsx.toutiebudget.data.modeles.PretPersonnel>()
+    private var n = 1
+
+    val depotTiers = object : com.xburnsx.toutiebudget.data.repositories.TiersRepository {
+        override suspend fun recupererTousLesTiers() = Result.success(tiers.values.toList())
+        override suspend fun creerTiers(tiers: com.xburnsx.toutiebudget.data.modeles.Tiers) = runCatching {
+            val t = tiers.copy(id = tiers.id.ifBlank { "tiers${n++}" }); this@AutresDepotsEnMemoire.tiers[t.id] = t; t
+        }
+        override suspend fun rechercherTiersParNom(recherche: String) =
+            Result.success(tiers.values.filter { it.nom.contains(recherche, ignoreCase = true) })
+        override suspend fun mettreAJourTiers(tiers: com.xburnsx.toutiebudget.data.modeles.Tiers) = runCatching { this@AutresDepotsEnMemoire.tiers[tiers.id] = tiers }
+        override suspend fun supprimerTiers(tiersId: String) = runCatching { tiers.remove(tiersId); Unit }
+    }
+
+    val depotPrets = object : com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository {
+        override suspend fun lister() = Result.success(prets.values.toList())
+        override suspend fun creer(pret: com.xburnsx.toutiebudget.data.modeles.PretPersonnel) = runCatching {
+            val p = pret.copy(id = pret.id.ifBlank { "pret${n++}" }, created = pret.created ?: "2026-01-${(n).toString().padStart(2, '0')}")
+            prets[p.id] = p; p
+        }
+        override suspend fun mettreAJour(pret: com.xburnsx.toutiebudget.data.modeles.PretPersonnel) = runCatching { prets[pret.id] = pret }
+        override suspend fun supprimer(id: String) = runCatching { prets.remove(id); Unit }
+    }
+
+    val preferences = object : com.xburnsx.toutiebudget.data.repositories.PreferenceRepository {
+        private var categories = emptyMap<String, Boolean>()
+        private var favorites = emptySet<String>()
+        private var enAttente = false
+        private var rollover: java.util.Date? = java.util.Date()
+        override suspend fun sauvegarderDernierRollover(date: java.util.Date) { rollover = date }
+        override suspend fun recupererDernierRollover() = rollover
+        override suspend fun setFigerPretAPlacer(enabled: Boolean) {}
+        override suspend fun getFigerPretAPlacer() = false
+        override suspend fun sauvegarderCategoriesOuvertes(categoriesOuvertes: Map<String, Boolean>) { categories = categoriesOuvertes; enAttente = true }
+        override suspend fun recupererCategoriesOuvertes() = categories
+        override suspend fun sauvegarderEnveloppesFavorites(ids: Set<String>) { favorites = ids; enAttente = true }
+        override suspend fun recupererEnveloppesFavorites() = favorites
+        override suspend fun preferencesBudgetEnAttenteEnvoi() = enAttente
+        override suspend fun marquerPreferencesBudgetEnvoyees() { enAttente = false }
+        override suspend fun appliquerPreferencesBudgetServeur(categoriesOuvertes: Map<String, Boolean>?, favorites: Set<String>?) {}
+    }
+}

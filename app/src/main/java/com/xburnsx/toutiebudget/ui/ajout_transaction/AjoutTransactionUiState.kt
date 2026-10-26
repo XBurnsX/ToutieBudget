@@ -67,6 +67,14 @@ data class AjoutTransactionUiState(
     val enveloppesDisponibles: List<EnveloppeUi> = emptyList(),
     val enveloppesFiltrees: Map<String, List<EnveloppeUi>> = emptyMap() // Groupées par catégorie
 ) {
+    /** Somme des fractions = montant saisi, en cents exacts, chaque fraction positive et avec une enveloppe. */
+    fun fractionsCorrespondentAuMontant(): Boolean {
+        val totalCents = montant.toDoubleOrNull()?.let { Math.round(it) } ?: return false
+        if (fractionsSauvegardees.isEmpty()) return false
+        if (fractionsSauvegardees.any { it.montant <= 0 || it.enveloppeId.isBlank() }) return false
+        return fractionsSauvegardees.sumOf { Math.round(it.montant) } == totalCents
+    }
+
     /**
      * Vérifie si le formulaire est valide pour la sauvegarde et le fractionnement.
      */
@@ -98,10 +106,19 @@ data class AjoutTransactionUiState(
             else -> true // Pas d'enveloppe requise pour les autres modes
         }
         
-        val peutSauvegarde = montantEstValide && 
-                            compteEstSelectionne && 
+        // AT7 / AT11 : des fractions qui ne font plus exactement le total (au cent) bloquent l'enregistrement
+        val fractionsValides = !fractionnementEffectue || fractionsCorrespondentAuMontant()
+
+        // AT19 : un compte ne peut pas se payer lui-même
+        val sourceDifferenteDeLaCible = modeOperation != "Paiement" ||
+            comptePaiementSelectionne?.id != compteSelectionne?.id
+
+        val peutSauvegarde = montantEstValide &&
+                            compteEstSelectionne &&
                             validationPaiement &&
-                            enveloppeEstValideOuPasRequise
+                            enveloppeEstValideOuPasRequise &&
+                            fractionsValides &&
+                            sourceDifferenteDeLaCible
         
         val estValide = peutSauvegarde
         

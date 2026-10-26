@@ -1,6 +1,7 @@
 // chemin/simule: /ui/comptes/ComptesViewModel.kt
 package com.xburnsx.toutiebudget.ui.comptes
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.Compte
@@ -37,6 +38,9 @@ class ComptesViewModel(
     private val transactionRepository: TransactionRepository,
     private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouCompte = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     // Callback pour notifier les autres ViewModels des changements
     var onCompteChange: (() -> Unit)? = null
@@ -142,12 +146,12 @@ class ComptesViewModel(
         typeValorisation: com.xburnsx.toutiebudget.data.modeles.TypeValorisation = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE
     ) {
         val compte = _uiState.value.compteSelectionne ?: return
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCompte) {
             try {
                 val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(nouveauSolde - compte.solde)
                 if (kotlin.math.abs(ecart) < 0.005) {
                     _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
-                    return@launch
+                    return@lancerUneFois
                 }
 
                 val (compteReconcilie, pretAvant, pretApres) = when (compte) {
@@ -167,7 +171,7 @@ class ComptesViewModel(
                     }
                     else -> {
                         _uiState.update { it.copy(erreur = "La réconciliation n'est pas offerte pour ce type de compte.") }
-                        return@launch
+                        return@lancerUneFois
                     }
                 }
 
@@ -211,7 +215,7 @@ class ComptesViewModel(
      */
     fun onArchiverCompte() {
         val compte = _uiState.value.compteSelectionne ?: return
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCompte) {
             try {
                 val compteArchive = when (compte) {
                     is CompteCheque -> compte.copy(estArchive = true)
@@ -355,7 +359,7 @@ class ComptesViewModel(
 
     /** IF15 : réactiver le même compte (même ID), avec tout son historique. */
     fun reactiverCompte(compte: Compte) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCompte) {
             val actif = when (compte) {
                 is CompteCheque -> compte.copy(estArchive = false)
                 is CompteCredit -> compte.copy(estArchive = false)
@@ -385,7 +389,7 @@ class ComptesViewModel(
     }
 
     private fun creerNouveauCompte() {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCompte) {
             val formState = _uiState.value.formState
             val soldeInitial = formState.solde.toDoubleOrNull() ?: 0.0
             val nouveauCompte = when(formState.type) {
@@ -588,10 +592,10 @@ class ComptesViewModel(
      * CO6 : le dialogue reste ouvert avec les valeurs saisies si la sauvegarde échoue.
      */
     private fun sauvegarderModification() {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCompte) {
             try {
                 val form = _uiState.value.formState
-                val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
+                val compteOriginal = _uiState.value.compteSelectionne ?: return@lancerUneFois
                 val soldeDouble = form.solde.replace(',', '.').toDoubleOrNull()
                     ?: throw Exception("Solde invalide")
                 val pretAPlacerDouble = if (compteOriginal is CompteCheque) {

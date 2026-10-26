@@ -333,10 +333,12 @@ class VirerArgentViewModel(
                 return
             }
         }
-        if (_uiState.value.isLoading) return // pas de double envoi
+        // AT14 : verrou pris AU MOMENT de l'appui (un deuxième appui 100 ms plus tard est ignoré).
+        // Libéré sur échec, ou quand l'écran a traité la réussite (sélections vidées).
+        if (!verrouVirement.prendre()) return
+        _uiState.update { it.copy(isLoading = true, erreur = null) }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, erreur = null) }
             val mois = _uiState.value.moisSelectionne
             val sourcePretAPlacer = compteIdPretAPlacer(source!!)
             val destPretAPlacer = compteIdPretAPlacer(destination!!)
@@ -380,9 +382,12 @@ class VirerArgentViewModel(
                     _uiState.update {
                         it.copy(isLoading = false, virementReussi = false, erreur = e.message ?: "Erreur inconnue lors du virement")
                     }
+                    verrouVirement.liberer()
                 }
         }
     }
+
+    private val verrouVirement = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     // ===== UTILITAIRES =====
 
@@ -419,6 +424,7 @@ class VirerArgentViewModel(
                 isVirementButtonEnabled = false
             )
         }
+        verrouVirement.liberer()
     }
 
     companion object {

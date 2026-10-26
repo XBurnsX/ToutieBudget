@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.pret_personnel
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
@@ -23,6 +24,9 @@ class PretPersonnelViewModel(
     private val transactionRepository: TransactionRepository,
     private val compteRepository: CompteRepository
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouPret = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(PretPersonnelUiState(isLoading = true))
     val uiState: StateFlow<PretPersonnelUiState> = _uiState.asStateFlow()
@@ -130,11 +134,11 @@ class PretPersonnelViewModel(
 
     /** PP2 / PP3 : archiver ou réactiver un dossier, sans toucher au solde ni à l'historique. */
     fun changerArchivage(pretId: String, archiver: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouPret) {
             val dossier = pretPersonnelRepository.lister().getOrElse { emptyList() }.firstOrNull { it.id == pretId }
             if (dossier == null) {
                 _uiState.update { it.copy(erreurAction = "Dossier introuvable") }
-                return@launch
+                return@lancerUneFois
             }
             pretPersonnelRepository.mettreAJour(dossier.copy(estArchive = archiver))
                 .onSuccess {

@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle
@@ -46,6 +47,9 @@ class ModifierTransactionViewModel(
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouModification = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
     val uiState: StateFlow<AjoutTransactionUiState> = _uiState.asStateFlow()
@@ -260,7 +264,7 @@ class ModifierTransactionViewModel(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouModification) {
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
             
             try {

@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
@@ -46,6 +47,9 @@ class AjoutTransactionViewModel(
     private val realtimeSyncService: RealtimeSyncService,
     private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouSauvegarde = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
     val uiState: StateFlow<AjoutTransactionUiState> = _uiState.asStateFlow()
@@ -303,7 +307,8 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             val newState = state.copy(
                 modeOperation = nouveauMode,
-                enveloppeSelectionnee = null
+                enveloppeSelectionnee = null,
+                fractionnementEffectue = false // AT7 : le fractionnement est à revoir dans le nouveau mode
             )
             // Si on entre en mode Paiement et qu'une dette est déjà sélectionnée, préremplir
             val dette = newState.comptePaiementSelectionne as? CompteDette
@@ -323,7 +328,8 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(
                 typeTransaction = nouveauType,
-                enveloppeSelectionnee = null // Reset de l'enveloppe si on change de type
+                enveloppeSelectionnee = null, // Reset de l'enveloppe si on change de type
+                fractionnementEffectue = false // AT7
             ).calculerValidite()
         }
     }
@@ -360,7 +366,7 @@ class AjoutTransactionViewModel(
      */
     fun onCompteSelected(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            state.copy(compteSelectionne = nouveauCompte).calculerValidite()
+            state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
         }
     }
 
@@ -410,7 +416,7 @@ class AjoutTransactionViewModel(
      */
     fun onCompteChanged(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            state.copy(compteSelectionne = nouveauCompte).calculerValidite()
+            state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
         }
     }
 
@@ -576,7 +582,7 @@ class AjoutTransactionViewModel(
             return
         }
         
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouSauvegarde) {
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
 
             try {
@@ -593,6 +599,10 @@ class AjoutTransactionViewModel(
                 if (state.modeOperation == "Paiement") {
                     val comptePaiement = state.comptePaiementSelectionne
                         ?: throw Exception("Aucune carte de crédit ou dette sélectionnée pour le paiement")
+                    // AT19 : pas de paiement vers soi-même, vers un compte archivé ou vers un type non admissible
+                    if (comptePaiement.id == compte.id) throw Exception("Un compte ne peut pas se payer lui-même.")
+                    if (comptePaiement !is CompteCredit && comptePaiement !is CompteDette) throw Exception("Seules une carte de crédit ou une dette peuvent recevoir un paiement.")
+                    if (comptePaiement.estArchive || compte.estArchive) throw Exception("Un des comptes est archivé.")
                     
                     // Effectuer le paiement de carte/dette
                     // DEBUG: Début paiement carte/dette - Compte: ${compte.nom}, Carte: ${comptePaiement.nom}, Montant: ${montant / 100.0}
@@ -686,7 +696,7 @@ class AjoutTransactionViewModel(
                     } else {
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
                     }
-                    return@launch
+                    return@lancerUneFois
                 }
                 
                 // Gestion spécifique PRÊT/EMPRUNT via collection pret_personnel
@@ -776,13 +786,13 @@ class AjoutTransactionViewModel(
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Prêt enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
-                        return@launch
+                        return@lancerUneFois
                     } else if (state.typePret == "Remboursement reçu") {
                         enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() })
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
-                        return@launch
+                        return@lancerUneFois
                     }
                 }
                 if (state.modeOperation == "Emprunt") {
@@ -866,13 +876,13 @@ class AjoutTransactionViewModel(
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Emprunt enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
-                        return@launch
+                        return@lancerUneFois
                     } else if (state.typeDette == "Remboursement donné") {
                         enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() })
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
-                        return@launch
+                        return@lancerUneFois
                     }
                 }
 
@@ -885,6 +895,12 @@ class AjoutTransactionViewModel(
                 if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
                     // Transaction fractionnée
                     val fractions = state.fractionsSauvegardees
+                    // AT11 : dernière vérification juste avant d'écrire (somme au cent, enveloppes actives)
+                    if (!state.fractionsCorrespondentAuMontant()) throw Exception("Les fractions ne font plus le total : revoyez le fractionnement.")
+                    fractions.forEach { f ->
+                        val env = allEnveloppes.find { it.id == f.enveloppeId }
+                        if (env == null || env.estArchive) throw Exception("Une enveloppe du fractionnement n'est plus disponible.")
+                    }
                     
                     // Convertir les fractions en JSON pour sousItems
                         val sousItems = fractions.mapIndexed { index, fraction ->
@@ -1040,7 +1056,7 @@ class AjoutTransactionViewModel(
                                 ).calculerValidite()
                             }
                             chargerDonneesInitiales()
-                            return@launch
+                            return@lancerUneFois
                         } else if (typeTransaction == TypeTransaction.RemboursementDonne) {
                             enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTransaction, note = state.note.takeIf { it.isNotBlank() })
                             _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
@@ -1056,7 +1072,7 @@ class AjoutTransactionViewModel(
                                 ).calculerValidite()
                             }
                             chargerDonneesInitiales()
-                            return@launch
+                            return@lancerUneFois
                         }
                     }
 
@@ -1119,7 +1135,7 @@ class AjoutTransactionViewModel(
                         //         ).calculerValidite()
                         //     }
                         //     chargerDonneesInitiales()
-                        //     return@launch
+                        //     return@lancerUneFois
                         // }
                         // }
                         // 🚨 DÉSACTIVÉ : Cette logique auto-liage transforme les DÉPENSES en REMBOURSEMENTDONNE !
@@ -1172,7 +1188,7 @@ class AjoutTransactionViewModel(
                             //         ).calculerValidite()
                             //     }
                             //     chargerDonneesInitiales()
-                            //     return@launch
+                            //     return@lancerUneFois
                             // }
                         // }
                     }

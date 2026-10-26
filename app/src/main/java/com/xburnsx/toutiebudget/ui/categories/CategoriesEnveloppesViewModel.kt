@@ -3,6 +3,7 @@
 
 package com.xburnsx.toutiebudget.ui.categories
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.Categorie
@@ -31,6 +32,9 @@ class CategoriesEnveloppesViewModel(
     private val categorieRepository: CategorieRepository,
     private val realtimeSyncService: RealtimeSyncService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouEcriture = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(CategoriesEnveloppesUiState())
     val uiState: StateFlow<CategoriesEnveloppesUiState> = _uiState.asStateFlow()
@@ -183,7 +187,7 @@ class CategoriesEnveloppesViewModel(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
                     ?: throw Exception("Utilisateur non connecté")
@@ -284,7 +288,7 @@ class CategoriesEnveloppesViewModel(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 val utilisateurId = PocketBaseClient.obtenirUtilisateurConnecte()?.id
                     ?: throw Exception("Utilisateur non connecté")
@@ -451,7 +455,7 @@ class CategoriesEnveloppesViewModel(
         val formState = _uiState.value.objectifFormState
         val montant = formState.montant.toDoubleOrNull() ?: 0.0
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 // 🔥 CALCULER LA DATE DE DÉBUT SELON LE TYPE D'OBJECTIF
                 val dateDebutCalculee = when (formState.type) {
@@ -585,7 +589,7 @@ class CategoriesEnveloppesViewModel(
      * Supprime uniquement l'objectif d'une enveloppe (remet à zéro) sans supprimer l'enveloppe.
      */
     fun onSupprimerObjectifEnveloppe(enveloppe: Enveloppe) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 // Créer une copie de l'enveloppe sans objectif
                 val enveloppeSansObjectif = enveloppe.copy(
@@ -654,7 +658,7 @@ class CategoriesEnveloppesViewModel(
 
         onFermerConfirmationSuppressionEnveloppe()
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 // Mise à jour instantanée de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
@@ -708,7 +712,7 @@ class CategoriesEnveloppesViewModel(
 
         onFermerConfirmationSuppressionCategorie()
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 val categorieObj = categoriesMap.values.find { it.nom == nomCategorie }
                     ?: throw Exception("Catégorie '$nomCategorie' introuvable")
@@ -717,7 +721,7 @@ class CategoriesEnveloppesViewModel(
                 val enveloppes = _uiState.value.enveloppesGroupees[nomCategorie] ?: emptyList()
                 if (enveloppes.isNotEmpty()) {
                     _uiState.update { it.copy(erreur = "Impossible de supprimer une catégorie contenant des enveloppes") }
-                    return@launch
+                    return@lancerUneFois
                 }
 
                 // Mise à jour instantanée de l'interface

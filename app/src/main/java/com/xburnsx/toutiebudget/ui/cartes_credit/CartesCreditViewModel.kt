@@ -1,5 +1,6 @@
 package com.xburnsx.toutiebudget.ui.cartes_credit
 
+import com.xburnsx.toutiebudget.utils.lancerUneFois
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
@@ -30,6 +31,9 @@ class CartesCreditViewModel(
     private val realtimeSyncService: RealtimeSyncService,
     private val historiqueAllocationService: HistoriqueAllocationService
 ) : ViewModel() {
+
+    // AT14 : une seule exécution à la fois (double appui)
+    private val verrouCarte = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(CartesCreditUiState())
     val uiState: StateFlow<CartesCreditUiState> = _uiState.asStateFlow()
@@ -153,7 +157,7 @@ class CartesCreditViewModel(
         _formulaire.value = f
         if (!f.estValide || _uiState.value.enregistrementEnCours) return
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCarte) {
             _uiState.update { it.copy(enregistrementEnCours = true) }
             val details = carteOriginale.details.copy(
                 emetteur = f.emetteur,
@@ -248,7 +252,7 @@ class CartesCreditViewModel(
         val releve = carte.details.releves.find { it.id == releveId } ?: return
         if (releve.interetsComptabilises || releve.interetsFactures <= 0.005) return
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCarte) {
             val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - releve.interetsFactures)
             val details = carte.details.copy(
                 releves = carte.details.releves.map { if (it.id == releveId) it.copy(interetsComptabilises = true) else it }
@@ -281,7 +285,7 @@ class CartesCreditViewModel(
         details: DetailsCarte,
         apresSucces: (CartesCreditUiState) -> CartesCreditUiState = { it }
     ) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCarte) {
             val carteMaj = carte.copy(detailsCarteJson = details.versJson())
             carteCreditRepository.mettreAJourCarteCredit(carteMaj)
                 .onSuccess {
@@ -326,7 +330,7 @@ class CartesCreditViewModel(
         frais: List<FraisMensuel>,
         apresSucces: (CartesCreditUiState) -> CartesCreditUiState = { it }
     ) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCarte) {
             val gson = com.google.gson.Gson()
             val json = if (frais.isEmpty()) null else gson.toJsonTree(frais.toTypedArray())
             val carteMaj = carte.copy(fraisMensuelsJson = json)
