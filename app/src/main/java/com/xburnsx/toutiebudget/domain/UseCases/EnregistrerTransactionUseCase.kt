@@ -53,7 +53,8 @@ class EnregistrerTransactionUseCase(
         note: String? = null,
         date: Date = Date(),
         estFractionnee: Boolean = false,
-        sousItems: String? = null
+        sousItems: String? = null,
+        id: String? = null // MT1 : réutiliser l'ID d'une transaction modifiée
     ): Result<Unit> {
         
         if (montant <= 0) {
@@ -95,6 +96,7 @@ class EnregistrerTransactionUseCase(
                 // DEBUG: enveloppeId = $enveloppeId
                 
                 val transaction = Transaction(
+                    id = id ?: "",
                     type = typeTransaction,
                     // Forcer arrondi exact
                     montant = MoneyFormatter.roundAmount(montant),

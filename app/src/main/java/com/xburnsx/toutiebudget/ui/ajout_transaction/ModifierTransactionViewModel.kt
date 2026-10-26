@@ -199,7 +199,7 @@ class ModifierTransactionViewModel(
         _uiState.update { state ->
             state.copy(
                 typeTransaction = transaction.type,
-                montant = (transaction.montant * 100).toLong().toString(), // Convertir en centimes
+                montant = Math.round(transaction.montant * 100).toString(), // GN5 : centimes exacts (19,99 $ -> 1999)
                 compteSelectionne = allComptes.find { it.id == transaction.compteId },
                 enveloppeSelectionnee = if (transaction.allocationMensuelleId != null && !transaction.estFractionnee) {
                     // Essayer de trouver l'allocation dans les allocations chargées
@@ -284,11 +284,14 @@ class ModifierTransactionViewModel(
                 // Plus besoin de rembourser manuellement les allocations
 
                 // ÉTAPE 2: Supprimer l'ancienne transaction avec remboursement correct
-                val resultSuppression = supprimerTransactionUseCase.executer(transactionAModifier!!.id)
+                val original = transactionAModifier!!
+                verifierModifiable(original)
+                val resultSuppression = supprimerTransactionUseCase.executer(original.id)
                 if (resultSuppression.isFailure) {
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
                 }
-                
+
+                try {
                 // ÉTAPE 3: Créer une nouvelle transaction avec les nouveaux détails
                 if (state.fractionnementEffectue && state.fractionsSauvegardees.isNotEmpty()) {
                     // Créer une nouvelle transaction fractionnée
@@ -332,6 +335,7 @@ class ModifierTransactionViewModel(
 
                     // Créer une nouvelle transaction avec estFractionnee = true
                     val result = enregistrerTransactionUseCase.executer(
+                        id = original.id, // MT1 : la transaction garde son ID
                          typeTransaction = state.typeTransaction,
                          montant = montantEnDollars, // Utiliser montantEnDollars, pas montantEnCentimes
                          compteId = state.compteSelectionne.id,
@@ -378,12 +382,7 @@ class ModifierTransactionViewModel(
                         // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
                         _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
                     } else {
-                        _uiState.update { 
-                            it.copy(
-                                estEnTrainDeSauvegarder = false,
-                                messageErreur = result.exceptionOrNull()?.message ?: "Erreur lors de la modification"
-                            )
-                        }
+                        throw result.exceptionOrNull() ?: Exception("Erreur lors de la modification")
                     }
                 } else {
                     // Créer une nouvelle transaction normale
@@ -398,6 +397,7 @@ class ModifierTransactionViewModel(
                     
                     // Créer la nouvelle transaction
                     val result = enregistrerTransactionUseCase.executer(
+                        id = original.id, // MT1 : la transaction garde son ID
                         typeTransaction = state.typeTransaction,
                         montant = montantEnDollars,
                         compteId = state.compteSelectionne.id,
@@ -422,13 +422,13 @@ class ModifierTransactionViewModel(
                         // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
                         _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
                     } else {
-                        _uiState.update { 
-                            it.copy(
-                                estEnTrainDeSauvegarder = false,
-                                messageErreur = result.exceptionOrNull()?.message ?: "Erreur lors de la modification"
-                            )
-                        }
+                        throw result.exceptionOrNull() ?: Exception("Erreur lors de la modification")
                     }
+                }
+                } catch (e: Exception) {
+                    // MT2 : la nouvelle version n'a pas pu être écrite, l'original revient avec tous ses effets
+                    restaurerOriginal(original)
+                    throw e
                 }
             } catch (e: Exception) {
                 _uiState.update { 
@@ -437,6 +437,54 @@ class ModifierTransactionViewModel(
                         messageErreur = e.message ?: "Erreur inconnue"
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * MT4 : cet écran ne sait modifier que les dépenses et revenus ordinaires. Un paiement, un virement,
+     * un prêt ou un emprunt deviendrait une dépense ordinaire et perdrait son lien : on refuse avant d'écrire quoi que ce soit.
+     */
+    private fun verifierModifiable(transaction: Transaction) {
+        val ordinaire = transaction.type == TypeTransaction.Depense || transaction.type == TypeTransaction.Revenu
+        val lie = transaction.sousItems?.let {
+            it.contains("pret_personnel_id") || it.contains(com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl.CLE_OPERATION_PAIEMENT)
+        } ?: false
+        if (!ordinaire || lie) {
+            throw Exception(
+                "Ce type d'opération (paiement, virement, prêt ou emprunt) ne se modifie pas ici : " +
+                    "supprimez-le puis refaites-le. Rien n'a été changé."
+            )
+        }
+    }
+
+    /** MT2 : remet l'original (même ID, mêmes effets sur le compte et les enveloppes) après un échec. */
+    private suspend fun restaurerOriginal(original: Transaction) {
+        val enveloppeId = if (!original.estFractionnee) {
+            original.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it)?.enveloppeId }
+        } else null
+        enregistrerTransactionUseCase.executer(
+            id = original.id,
+            typeTransaction = original.type,
+            montant = original.montant,
+            compteId = original.compteId,
+            collectionCompte = original.collectionCompte,
+            enveloppeId = enveloppeId,
+            tiersUtiliser = original.tiersUtiliser ?: "Transaction",
+            note = original.note,
+            date = original.date,
+            estFractionnee = original.estFractionnee,
+            sousItems = original.sousItems
+        ).getOrThrow()
+        if (original.estFractionnee && !original.sousItems.isNullOrBlank()) {
+            val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
+            com.google.gson.Gson().fromJson<List<Map<String, Any>>>(original.sousItems, type).forEach { sousItem ->
+                val allocation = (sousItem["allocation_mensuelle_id"] as? String)
+                    ?.let { allocationMensuelleRepository.getAllocationById(it) } ?: return@forEach
+                val montant = (sousItem["montant"] as? Double) ?: 0.0
+                allocationMensuelleRepository.mettreAJourAllocation(
+                    allocation.copy(depense = allocation.depense + montant, solde = allocation.solde - montant)
+                )
             }
         }
     }

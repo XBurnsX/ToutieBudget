@@ -232,9 +232,13 @@ class CategoriesEnveloppesViewModel(
                     val groupesCorriges = _uiState.value.enveloppesGroupees.toMutableMap()
                     groupesCorriges.remove(nom)
 
+                    // CE7 : la vraie erreur est affichée et la saisie est rendue
                     _uiState.update { currentState ->
                         currentState.copy(
-                            enveloppesGroupees = groupesCorriges
+                            enveloppesGroupees = groupesCorriges,
+                            isAjoutCategorieDialogVisible = true,
+                            nomNouvelleCategorie = nom,
+                            erreur = "Erreur lors de la création de la catégorie : ${erreur.message}"
                         )
                     }
                 }
@@ -297,6 +301,15 @@ class CategoriesEnveloppesViewModel(
                 val categorie = categoriesMap.values.find { it.nom == categorieNom }
                     ?: throw Exception("Catégorie '$categorieNom' introuvable")
 
+                // CE8 : pas deux enveloppes au même nom dans une catégorie ; CE10 : ordre stable dès la création
+                val voisines = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                    .filter { it.categorieId == categorie.id && !it.estArchive }
+                if (voisines.any { it.nom.trim().equals(nom, ignoreCase = true) }) {
+                    _uiState.update { it.copy(erreur = "L'enveloppe « $nom » existe déjà dans $categorieNom") }
+                    return@lancerUneFois
+                }
+                val ordre = (voisines.maxOfOrNull { it.ordre } ?: -1) + 1
+
                 // ✅ CRÉATION D'UNE ENVELOPPE COMPLÈTEMENT VIDE
                 val enveloppeVide = Enveloppe(
                     id = IdGenerator.generateId(),
@@ -304,7 +317,7 @@ class CategoriesEnveloppesViewModel(
                     nom = nom,
                     categorieId = categorie.id, // IMPORTANT: Lien avec la catégorie
                     estArchive = false,
-                    ordre = 0,
+                    ordre = ordre, // CE10
                     // ✅ OBJECTIFS VIDES PAR DÉFAUT avec nouveaux noms
                     typeObjectif = TypeObjectif.Aucun,  // Pas d'objectif
                     objectifMontant = 0.0,             // Pas de montant objectif
@@ -453,7 +466,13 @@ class CategoriesEnveloppesViewModel(
     fun onSauvegarderObjectif() {
         val enveloppe = _uiState.value.enveloppePourObjectif ?: return
         val formState = _uiState.value.objectifFormState
-        val montant = formState.montant.toDoubleOrNull() ?: 0.0
+        val montant = formState.montant.replace(',', '.').toDoubleOrNull() ?: 0.0
+
+        // CE14 : un objectif exige un montant positif
+        if (formState.type != TypeObjectif.Aucun && montant <= 0.0) {
+            _uiState.update { it.copy(erreur = "Le montant de l'objectif doit être plus grand que 0 $") }
+            return
+        }
 
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
@@ -660,6 +679,21 @@ class CategoriesEnveloppesViewModel(
 
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
+                // CE2 : aucun argent ne disparaît. Une enveloppe qui garde un solde (n'importe quel mois) est refusée.
+                val allocations = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
+                val soldeRestant = allocations.sumOf { it.solde }
+                if (allocations.any { kotlin.math.abs(it.solde) >= 0.01 }) {
+                    _uiState.update {
+                        it.copy(
+                            erreur = "« ${enveloppe.nom} » contient encore ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeRestant)}. " +
+                                "Virez cet argent ailleurs avant de la retirer."
+                        )
+                    }
+                    return@lancerUneFois
+                }
+                // CE1 : déjà utilisée = archivée (historique gardé) ; jamais utilisée = supprimée
+                val dejaUtilisee = allocations.isNotEmpty()
+
                 // Mise à jour instantanée de l'interface
                 val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
                 nouveauxGroupes.forEach { (categorie, enveloppes) ->
@@ -672,8 +706,13 @@ class CategoriesEnveloppesViewModel(
                 }
 
                 // Envoyer à PocketBase
-                enveloppeRepository.supprimerEnveloppe(enveloppe.id).onSuccess {
-
+                val resultat = if (dejaUtilisee) {
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppe.copy(estArchive = true))
+                } else {
+                    enveloppeRepository.supprimerEnveloppe(enveloppe.id)
+                }
+                resultat.onSuccess {
+                    realtimeSyncService.declencherMiseAJourBudget()
                 }.onFailure { erreur ->
                     _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
                     chargerDonnees() // Recharger en cas d'erreur
@@ -717,10 +756,20 @@ class CategoriesEnveloppesViewModel(
                 val categorieObj = categoriesMap.values.find { it.nom == nomCategorie }
                     ?: throw Exception("Catégorie '$nomCategorie' introuvable")
 
-                // Vérifier qu'elle est vide
-                val enveloppes = _uiState.value.enveloppesGroupees[nomCategorie] ?: emptyList()
+                // CE3 : vide pour de vrai, y compris les enveloppes archivées (elles gardent leur historique)
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                    .filter { it.categorieId == categorieObj.id }
                 if (enveloppes.isNotEmpty()) {
-                    _uiState.update { it.copy(erreur = "Impossible de supprimer une catégorie contenant des enveloppes") }
+                    val archivees = enveloppes.count { it.estArchive }
+                    _uiState.update {
+                        it.copy(
+                            erreur = if (archivees == enveloppes.size) {
+                                "Impossible de supprimer « $nomCategorie » : elle contient encore $archivees enveloppe(s) archivée(s)."
+                            } else {
+                                "Impossible de supprimer une catégorie contenant des enveloppes"
+                            }
+                        )
+                    }
                     return@lancerUneFois
                 }
 

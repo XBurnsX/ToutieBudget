@@ -8,6 +8,13 @@ import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.domain.services.RolloverService
 import java.util.Date
 
+/**
+ * Reporte le solde de chaque enveloppe (surplus ou déficit) du mois précédent vers le nouveau mois.
+ *
+ * Aucun argent ne disparaît : si le nouveau mois ne peut pas être écrit, l'ancien mois est remis tel
+ * quel et le service rend un échec, pour que le rollover soit refait plus tard. Une enveloppe déjà
+ * reportée (solde ancien à 0) est sautée, donc refaire le rollover ne double rien.
+ */
 class RolloverServiceImpl(
     private val enveloppeRepository: EnveloppeRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository
@@ -15,83 +22,38 @@ class RolloverServiceImpl(
     override suspend fun effectuerRolloverMensuel(moisPrecedent: Date, nouveauMois: Date): Result<Unit> {
         return try {
             val allocationsPrecedentes = enveloppeRepository.recupererAllocationsPourMois(moisPrecedent).getOrThrow()
+            var premiereErreur: Exception? = null
 
             for (allocationAncienne in allocationsPrecedentes) {
                 // ⚠️ IGNORER les erreurs d'arrondi microscopiques (moins de 1 centime)
-                if (kotlin.math.abs(allocationAncienne.solde) < 0.01) {
-                    continue
-                }
-                
-                if (allocationAncienne.solde > 0) {
-                    val montantATransferer = allocationAncienne.solde
-                    
-                    // Test : D'abord récupérer l'allocation par ID pour vérifier qu'elle existe
-                    try {
-                        val allocationVerif = allocationMensuelleRepository.getAllocationById(allocationAncienne.id)
-                        if (allocationVerif != null) {
-                            // 1. ✅ Mettre à jour août : solde à 0 ET alloué = dépenses (pour couvrir les dépenses réelles)
-                            val allocationAoutMiseAJour = allocationVerif.copy(
-                                solde = 0.0, // Solde remis à zéro
-                                alloue = allocationVerif.depense // Alloué = dépenses (pour couvrir les dépenses réelles)
-                            )
-                            allocationMensuelleRepository.mettreAJourAllocation(allocationAoutMiseAJour)
-                            
-                            // 2. ✅ Créer septembre : solde ET alloué augmentés du montant transféré
-                            val nouvelleAllocationSeptembre = allocationAncienne.copy(
-                                id = "", // Nouveau ID généré
-                                mois = nouveauMois, // Septembre
-                                solde = montantATransferer, // Montant transféré d'août
-                                alloue = montantATransferer, // Surplus alloué mais pas dépensé = alloué pour septembre
-                                depense = 0.0 // Pas de dépense en septembre pour l'instant
-                            )
-                            
-                            allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationSeptembre)
-                            
-                        } else {
-                            continue // Passer à l'allocation suivante
-                        }
-                    } catch (_: Exception) {
-                        continue // Passer à l'allocation suivante au lieu de planter
-                    }
-                } else if (allocationAncienne.solde < 0) {
-                    val montantNegatif = allocationAncienne.solde // Ex: -20€
-                    
-                    // Test : D'abord récupérer l'allocation par ID pour vérifier qu'elle existe
-                    try {
-                        val allocationVerif = allocationMensuelleRepository.getAllocationById(allocationAncienne.id)
-                        if (allocationVerif != null) {
-                            // 1. ✅ Mettre à jour août : solde remis à 0 ET alloué = dépenses (pour couvrir les dépenses réelles)
-                            val allocationAoutMiseAJour = allocationVerif.copy(
-                                solde = 0.0, // Solde remis à zéro (compense le négatif)
-                                alloue = allocationVerif.depense // Alloué = dépenses (pour couvrir les dépenses réelles)
-                            )
-                            allocationMensuelleRepository.mettreAJourAllocation(allocationAoutMiseAJour)
-                            
-                            // 2. ✅ Créer septembre : solde ET alloué négatifs pour le remboursement
-                            val nouvelleAllocationSeptembre = allocationAncienne.copy(
-                                id = "", // Nouveau ID généré
-                                mois = nouveauMois, // Septembre
-                                solde = montantNegatif, // Solde négatif d'août transféré (ex: -20€)
-                                alloue = montantNegatif, // Déficit alloué mais pas dépensé = alloué négatif pour septembre
-                                depense = 0.0 // Pas de dépense en septembre pour l'instant
-                            )
-                            
-                            allocationMensuelleRepository.creerNouvelleAllocation(nouvelleAllocationSeptembre)
-                            
-                        } else {
-                            continue // Passer à l'allocation suivante
-                        }
-                    } catch (_: Exception) {
-                        continue // Passer à l'allocation suivante au lieu de planter
-                    }
+                if (kotlin.math.abs(allocationAncienne.solde) < 0.01) continue
+
+                val avant = allocationMensuelleRepository.getAllocationById(allocationAncienne.id) ?: continue
+                val montantATransferer = avant.solde // surplus (+) ou déficit (-)
+
+                // 1. Ancien mois : solde remis à zéro, alloué = dépenses (pour couvrir les dépenses réelles)
+                allocationMensuelleRepository.mettreAJourAllocation(avant.copy(solde = 0.0, alloue = avant.depense))
+
+                // 2. Nouveau mois : le surplus ou le déficit, alloué mais pas encore dépensé
+                try {
+                    allocationMensuelleRepository.creerNouvelleAllocation(
+                        allocationAncienne.copy(
+                            id = "", // Nouveau ID généré
+                            mois = nouveauMois,
+                            solde = montantATransferer,
+                            alloue = montantATransferer,
+                            depense = 0.0
+                        )
+                    )
+                } catch (e: Exception) {
+                    // L'argent reste dans l'ancien mois ; le rollover sera refait
+                    allocationMensuelleRepository.mettreAJourAllocation(avant)
+                    if (premiereErreur == null) premiereErreur = e
                 }
             }
-            Result.success(Unit)
+            premiereErreur?.let { Result.failure(it) } ?: Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 }
-
-
-

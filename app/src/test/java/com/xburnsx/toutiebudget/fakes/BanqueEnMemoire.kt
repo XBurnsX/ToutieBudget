@@ -179,7 +179,7 @@ class BanqueEnMemoire {
             allocations[id] = allocations.getValue(id).copy(compteSourceId = compteSourceId, collectionCompteSource = collectionCompteSource)
         }
         override suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle) =
-            allocation.copy(id = allocation.id.ifBlank { id("a") }).also { allocations[it.id] = it }
+            run { verifier("creerNouvelleAllocation"); allocation.copy(id = allocation.id.ifBlank { id("a") }).also { allocations[it.id] = it } }
         override suspend fun recupererAllocationsEnveloppe(enveloppeId: String) = allocations.values.filter { it.enveloppeId == enveloppeId }
     }
 
@@ -187,9 +187,9 @@ class BanqueEnMemoire {
         override suspend fun recupererToutesLesEnveloppes() = Result.success(enveloppes.values.toList())
         override suspend fun recupererAllocationsPourMois(mois: Date) = Result.success(allocations.values.filter { memeMois(it.mois, mois) })
         override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle) = runCatching { allocations[allocation.id] = allocation }
-        override suspend fun creerEnveloppe(enveloppe: Enveloppe) = runCatching { enveloppes[enveloppe.id] = enveloppe; enveloppe }
+        override suspend fun creerEnveloppe(enveloppe: Enveloppe) = runCatching { verifier("creerEnveloppe"); enveloppes[enveloppe.id] = enveloppe; enveloppe }
         override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe) = runCatching { enveloppes[enveloppe.id] = enveloppe }
-        override suspend fun supprimerEnveloppe(id: String) = runCatching { enveloppes.remove(id); Unit }
+        override suspend fun supprimerEnveloppe(id: String) = runCatching { verifier("supprimerEnveloppe"); enveloppes.remove(id); Unit }
         override suspend fun ajouterDepenseAllocation(allocationMensuelleId: String, montantDepense: Double) = runCatching {
             val a = allocations.getValue(allocationMensuelleId)
             allocations[a.id] = a.copy(depense = a.depense + montantDepense, solde = a.solde - montantDepense)
@@ -210,7 +210,7 @@ class BanqueEnMemoire {
 
     val depotCategories = object : CategorieRepository {
         override suspend fun recupererToutesLesCategories() = Result.success(categories.values.toList())
-        override suspend fun creerCategorie(categorie: Categorie) = runCatching { categories[categorie.id] = categorie; categorie }
+        override suspend fun creerCategorie(categorie: Categorie) = runCatching { verifier("creerCategorie"); categories[categorie.id] = categorie; categorie }
         override suspend fun mettreAJourCategorie(categorie: Categorie) = runCatching { categories[categorie.id] = categorie; categorie }
         override suspend fun supprimerCategorie(id: String) = runCatching { categories.remove(id); Unit }
     }
@@ -229,6 +229,8 @@ class AutresDepotsEnMemoire {
     val tiers = linkedMapOf<String, com.xburnsx.toutiebudget.data.modeles.Tiers>()
     val prets = linkedMapOf<String, com.xburnsx.toutiebudget.data.modeles.PretPersonnel>()
     private var n = 1
+    /** Date du dernier rollover (null = jamais fait). */
+    var dernierRollover: java.util.Date? = java.util.Date()
 
     val depotTiers = object : com.xburnsx.toutiebudget.data.repositories.TiersRepository {
         override suspend fun recupererTousLesTiers() = Result.success(tiers.values.toList())
@@ -255,7 +257,9 @@ class AutresDepotsEnMemoire {
         private var categories = emptyMap<String, Boolean>()
         private var favorites = emptySet<String>()
         private var enAttente = false
-        private var rollover: java.util.Date? = java.util.Date()
+        private var rollover: java.util.Date?
+            get() = dernierRollover
+            set(v) { dernierRollover = v }
         override suspend fun sauvegarderDernierRollover(date: java.util.Date) { rollover = date }
         override suspend fun recupererDernierRollover() = rollover
         override suspend fun setFigerPretAPlacer(enabled: Boolean) {}

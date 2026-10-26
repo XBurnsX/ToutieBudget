@@ -42,7 +42,7 @@ class EcransArgentTest {
     private val b get() = app.b
 
     @Before fun avant() { Dispatchers.setMain(main); app = AppliEnMemoire() }
-    @After fun apres() { attendreSansScope(); Dispatchers.resetMain() }
+    @After fun apres() { attendreSansScope(); app.fermer(); Dispatchers.resetMain() }
 
     /**
      * Le code de prod saute sur Dispatchers.IO (vrais fils) puis revient sur Main : on laisse ces

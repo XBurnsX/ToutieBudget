@@ -4,6 +4,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlin.math.abs
 
 /**
@@ -12,12 +13,17 @@ import kotlin.math.abs
  *
  * DF9 : un paiement de carte/dette a deux moitiés (sortie du compte payeur, entrée sur la
  * carte/dette). Elles sont toujours annulées ENSEMBLE ; supprimer une seule moitié est refusé.
+ *
+ * HC2 : tout ou rien. Chaque écriture déjà faite est notée avec son inverse ; si une étape
+ * échoue, les inverses sont rejoués et l'état d'origine revient.
+ * HC4 : supprimer un prêt, un emprunt ou un remboursement personnel remet aussi le dossier du tiers.
  */
 class SupprimerTransactionUseCase(
     private val transactionRepository: TransactionRepository,
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val allocationMensuelleRepository: AllocationMensuelleRepository
+    private val allocationMensuelleRepository: AllocationMensuelleRepository,
+    private val pretPersonnelRepository: PretPersonnelRepository? = null
 ) {
 
     /**
@@ -44,30 +50,60 @@ class SupprimerTransactionUseCase(
             listOf(transaction)
         }
 
-        // 3. Annuler l'effet sur chaque compte et sur les enveloppes
-        aAnnuler.forEach { tx ->
-            val detteAvant = if (tx.collectionCompte == "comptes_dettes") {
-                compteRepository.getCompteById(tx.compteId, tx.collectionCompte) as? CompteDette
-            } else null
+        // 3. Dossiers de prêt personnel : calculés (et éventuellement refusés) avant toute écriture
+        val dossiers = aAnnuler.mapNotNull { preparerDossierPret(it) }
 
-            annulerTransactionCompte(tx.compteId, tx.collectionCompte, tx.type, tx.montant).getOrThrow()
+        val retours = mutableListOf<suspend () -> Unit>()
+        try {
+            // 4. Annuler l'effet sur chaque compte et sur les enveloppes
+            aAnnuler.forEach { tx ->
+                val detteAvant = if (tx.collectionCompte == "comptes_dettes") {
+                    compteRepository.getCompteById(tx.compteId, tx.collectionCompte) as? CompteDette
+                } else null
 
-            when {
-                tx.estFractionnee && tx.sousItems != null -> rembourserTransactionFractionnee(tx.sousItems).getOrThrow()
-                tx.allocationMensuelleId != null &&
-                    (tx.type == TypeTransaction.Depense || tx.type == TypeTransaction.PaiementEffectue) ->
-                    enveloppeRepository.annulerDepenseAllocation(tx.allocationMensuelleId, tx.montant).getOrThrow()
+                val (variation, avecPretAPlacer) = inverseSurCompte(tx.type, tx.montant)
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(tx.compteId, tx.collectionCompte, variation, avecPretAPlacer).getOrThrow()
+                retours += {
+                    compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(tx.compteId, tx.collectionCompte, -variation, avecPretAPlacer).getOrThrow()
+                }
+
+                when {
+                    tx.estFractionnee && tx.sousItems != null -> rembourserTransactionFractionnee(tx.sousItems, retours)
+                    tx.allocationMensuelleId != null &&
+                        (tx.type == TypeTransaction.Depense || tx.type == TypeTransaction.PaiementEffectue) -> {
+                        enveloppeRepository.annulerDepenseAllocation(tx.allocationMensuelleId, tx.montant).getOrThrow()
+                        retours += { enveloppeRepository.ajouterDepenseAllocation(tx.allocationMensuelleId, tx.montant).getOrThrow() }
+                    }
+                }
+
+                // Dette : compteur de versements et archive remis comme avant le paiement
+                if (detteAvant != null && tx.type == TypeTransaction.Paiement) {
+                    val avantRestauration = compteRepository.getCompteById(tx.compteId, tx.collectionCompte)
+                    restaurerDette(detteAvant)
+                    if (avantRestauration != null) retours += { compteRepository.mettreAJourCompte(avantRestauration).getOrThrow() }
+                }
             }
 
-            // Dette : compteur de versements et archive remis comme avant le paiement
-            if (detteAvant != null && tx.type == TypeTransaction.Paiement) {
-                restaurerDette(detteAvant)
+            // 5. Dossiers du tiers
+            dossiers.forEach { (avant, apres) ->
+                val depot = pretPersonnelRepository ?: return@forEach
+                if (apres == null) {
+                    depot.supprimer(avant.id).getOrThrow()
+                    retours += { depot.creer(avant).getOrThrow() }
+                } else {
+                    depot.mettreAJour(apres).getOrThrow()
+                    retours += { depot.mettreAJour(avant).getOrThrow() }
+                }
             }
-        }
 
-        // 4. Supprimer les écritures
-        aAnnuler.forEach { tx ->
-            transactionRepository.supprimerTransaction(tx.id).getOrThrow()
+            // 6. Supprimer les écritures
+            aAnnuler.forEach { tx ->
+                transactionRepository.supprimerTransaction(tx.id).getOrThrow()
+                retours += { transactionRepository.creerTransaction(tx).getOrThrow() }
+            }
+        } catch (e: Exception) {
+            retours.asReversed().forEach { retour -> runCatching { retour() } }
+            throw e
         }
 
         // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
@@ -138,47 +174,31 @@ class SupprimerTransactionUseCase(
     }
 
     /**
-     * Rembourse toutes les allocations d'une transaction fractionnée.
+     * Rembourse toutes les allocations d'une transaction fractionnée ; chaque allocation touchée
+     * est notée dans [retours] avec sa valeur d'avant.
      */
-    private suspend fun rembourserTransactionFractionnee(sousItemsJson: String): Result<Unit> {
-        return try {
-            val gson = com.google.gson.Gson()
-            val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
-            val sousItems = gson.fromJson<List<Map<String, Any>>>(sousItemsJson, type)
+    private suspend fun rembourserTransactionFractionnee(sousItemsJson: String, retours: MutableList<suspend () -> Unit>) {
+        val gson = com.google.gson.Gson()
+        val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
+        val sousItems = gson.fromJson<List<Map<String, Any>>>(sousItemsJson, type)
 
-            // Rembourser chaque fraction
-            for (sousItem in sousItems) {
-                val allocationId = sousItem["allocation_mensuelle_id"] as? String
-                val montantEnDollars = (sousItem["montant"] as? Double) ?: 0.0
-
-                if (allocationId != null) {
-                    val allocation = allocationMensuelleRepository.getAllocationById(allocationId)
-                    if (allocation != null) {
-                        // Rembourser en soustrayant le montant (déjà en dollars dans le JSON)
-                        val allocationRemboursee = allocation.copy(
-                            depense = allocation.depense - montantEnDollars,
-                            solde = allocation.solde + montantEnDollars
-                        )
-                        allocationMensuelleRepository.mettreAJourAllocation(allocationRemboursee)
-                    }
-                }
-            }
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+        for (sousItem in sousItems) {
+            val allocationId = sousItem["allocation_mensuelle_id"] as? String ?: continue
+            val montantEnDollars = (sousItem["montant"] as? Double) ?: 0.0
+            val allocation = allocationMensuelleRepository.getAllocationById(allocationId) ?: continue
+            // Rembourser (montant déjà en dollars dans le JSON)
+            allocationMensuelleRepository.mettreAJourAllocation(
+                allocation.copy(depense = allocation.depense - montantEnDollars, solde = allocation.solde + montantEnDollars)
+            )
+            retours += { allocationMensuelleRepository.mettreAJourAllocation(allocation) }
         }
     }
 
     /**
-     * Annule l'effet d'une transaction sur un compte (exactement l'inverse de son enregistrement).
+     * L'inverse exact de l'effet d'une transaction sur son compte : variation du solde, et si le
+     * « Prêt à placer » avait bougé avec (tout sauf les dépenses et les paiements, comme à l'enregistrement).
      */
-    private suspend fun annulerTransactionCompte(
-        compteId: String,
-        collectionCompte: String,
-        typeTransaction: TypeTransaction,
-        montant: Double
-    ): Result<Unit> {
+    private fun inverseSurCompte(typeTransaction: TypeTransaction, montant: Double): Pair<Double, Boolean> {
         val variationSolde = when (typeTransaction) {
             TypeTransaction.Depense -> montant  // Annuler une dépense = addition
             TypeTransaction.Revenu -> -montant  // Annuler un revenu = soustraction
@@ -192,14 +212,45 @@ class SupprimerTransactionUseCase(
             TypeTransaction.TransfertSortant -> montant  // Annuler un transfert sortant = addition
             TypeTransaction.TransfertEntrant -> -montant // Annuler un transfert entrant = soustraction
         }
+        // MT3/HC2 : revenus, prêts, emprunts, remboursements et virements avaient aussi déplacé le Prêt à placer
+        val avecPretAPlacer = typeTransaction != TypeTransaction.Depense &&
+            typeTransaction != TypeTransaction.Paiement &&
+            typeTransaction != TypeTransaction.PaiementEffectue
+        return variationSolde to avecPretAPlacer
+    }
 
-        // Un virement entre comptes avait aussi déplacé le « Prêt à placer » des comptes chèques : on le remet
-        val annulerPretAPlacer = typeTransaction == TypeTransaction.TransfertSortant || typeTransaction == TypeTransaction.TransfertEntrant
-        return compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-            compteId,
-            collectionCompte,
-            variationSolde,
-            annulerPretAPlacer
-        )
+    /**
+     * HC4 : le dossier du tiers avant et après la suppression (après = null : le dossier disparaît).
+     * Un prêt ou un emprunt déjà en partie remboursé est refusé : il faut d'abord supprimer ses remboursements.
+     */
+    private suspend fun preparerDossierPret(tx: Transaction): Pair<PretPersonnel, PretPersonnel?>? {
+        val depot = pretPersonnelRepository ?: return null
+        val idDossier = idDossierPret(tx.sousItems) ?: return null
+        val dossier = depot.lister().getOrThrow().firstOrNull { it.id == idDossier } ?: return null
+        return when (tx.type) {
+            TypeTransaction.Pret, TypeTransaction.Emprunt -> {
+                if (abs(abs(dossier.solde) - abs(dossier.montantInitial)) > 0.005) {
+                    throw Exception(
+                        "Ce ${if (tx.type == TypeTransaction.Pret) "prêt" else "emprunt"} a déjà des remboursements : " +
+                            "supprimez-les d'abord. Rien n'a été supprimé."
+                    )
+                }
+                dossier to null
+            }
+            TypeTransaction.RemboursementRecu ->
+                dossier to dossier.copy(solde = MoneyFormatter.roundAmount(dossier.solde + tx.montant), estArchive = false)
+            TypeTransaction.RemboursementDonne ->
+                dossier to dossier.copy(solde = MoneyFormatter.roundAmount(dossier.solde - tx.montant), estArchive = false)
+            else -> null
+        }
+    }
+
+    private fun idDossierPret(sousItems: String?): String? {
+        if (sousItems.isNullOrBlank() || !sousItems.contains("pret_personnel_id")) return null
+        return try {
+            com.google.gson.JsonParser.parseString(sousItems).asJsonObject.get("pret_personnel_id")?.asString
+        } catch (_: Exception) {
+            null
+        }
     }
 }

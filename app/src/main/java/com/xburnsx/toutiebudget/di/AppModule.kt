@@ -152,7 +152,7 @@ import android.content.Context
          EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService)
      }
      private val supprimerTransactionUseCase: SupprimerTransactionUseCase by lazy {
-         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository)
+         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, pretPersonnelRepository)
      }
      private val modifierTransactionUseCase: ModifierTransactionUseCase by lazy {
          ModifierTransactionUseCase()
