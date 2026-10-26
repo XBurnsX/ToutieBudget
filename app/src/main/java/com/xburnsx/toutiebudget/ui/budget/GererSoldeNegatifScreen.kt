@@ -37,7 +37,7 @@ fun GererSoldeNegatifScreen(
     // Filtrer uniquement les enveloppes avec solde négatif
     val enveloppesNegatives = uiState.categoriesEnveloppes
         .map { categorie ->
-            val enveloppesFiltrees = categorie.enveloppes.filter { it.solde < -0.001 }
+            val enveloppesFiltrees = categorie.enveloppes.filter { kotlin.math.round(it.solde * 100.0).toLong() < 0L }
             if (enveloppesFiltrees.isNotEmpty()) {
                 categorie.copy(enveloppes = enveloppesFiltrees)
             } else null
@@ -49,7 +49,10 @@ fun GererSoldeNegatifScreen(
     
     // Initialiser toutes les catégories comme ouvertes par défaut
     LaunchedEffect(enveloppesNegatives) {
-        categoriesOuvertes = enveloppesNegatives.associate { it.nomCategorie to true }
+        // GN14 : conserver le choix à travers les mises à jour de solde.
+        categoriesOuvertes = categoriesOuvertes.toMutableMap().apply {
+            enveloppesNegatives.forEach { categorie -> putIfAbsent(categorie.nomCategorie, true) }
+        }
     }
     
     Scaffold(
@@ -91,7 +94,15 @@ fun GererSoldeNegatifScreen(
             )
         }
     ) { paddingValues ->
-        if (enveloppesNegatives.isEmpty()) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (uiState.erreur != null) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Text(text = "Impossible de charger les enveloppes : ${uiState.erreur}", color = MaterialTheme.colorScheme.error)
+            }
+        } else if (enveloppesNegatives.isEmpty()) {
             // Aucune enveloppe négative
             Box(
                 modifier = Modifier
@@ -164,14 +175,14 @@ fun GererSoldeNegatifScreen(
                             val totalEnveloppes = enveloppesNegatives.sumOf { it.enveloppes.size }
                             val totalMontantNegatif = enveloppesNegatives
                                 .flatMap { it.enveloppes }
-                                .sumOf { it.solde }
+                                .sumOf { -kotlin.math.round(it.solde * 100.0).toLong() } / 100.0
                             Text(
                                 text = "$totalEnveloppes enveloppe${if (totalEnveloppes > 1) "s" else ""} concernée${if (totalEnveloppes > 1) "s" else ""}",
                                 color = Color.White,
                                 fontSize = 16.sp
                             )
                             Text(
-                                text = "Total des soldes négatifs : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(totalMontantNegatif)}",
+                                text = "À couvrir : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(totalMontantNegatif)}",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
@@ -231,7 +242,7 @@ fun GererSoldeNegatifScreen(
                                         .clickable {
                                             onVirementClick(
                                                 enveloppe.id,
-                                                -enveloppe.solde, // Montant positif à transférer
+                                                -kotlin.math.round(enveloppe.solde * 100.0).toLong() / 100.0, // GN5 : montant positif au cent
                                                 moisSelectionne
                                             )
                                         }
