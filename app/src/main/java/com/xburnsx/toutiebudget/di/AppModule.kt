@@ -131,7 +131,8 @@ import android.content.Context
             database.enveloppeDao(),
             database.allocationMensuelleDao(),
             database.tiersDao(),
-            database.pretPersonnelDao()
+            database.pretPersonnelDao(),
+            database.syncJobDao()
         )
     }
      private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository) }

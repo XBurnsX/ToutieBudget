@@ -107,7 +107,13 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateToBudget = {
-                        navController.navigate("main_flow") {
+                        // Session mémorisée : si l'import complet n'a jamais réussi, le reprendre (LD9, LD10)
+                        val destination = if (AppModule.provideInitialImportService().importEstComplet()) {
+                            "main_flow"
+                        } else {
+                            "post_login_startup"
+                        }
+                        navController.navigate(destination) {
                             popUpTo("startup_check") { inclusive = true }
                         }
                     },

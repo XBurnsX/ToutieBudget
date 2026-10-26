@@ -15,15 +15,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -75,66 +80,53 @@ fun PostLoginStartupScreen(
         label = "alpha_animation"
     )
 
-    // Lancer l'import initial des données depuis PocketBase
-    LaunchedEffect(Unit) {
-        // 🚀 DÉBUT DE L'INITIALISATION POST-LOGIN
-        delay(1000) // Délai initial pour l'animation du logo
-        
+    // Échec d'import : message + choix explicite (LD8, LD10, LD19) au lieu d'aller au Budget en silence
+    var erreurImport by remember { mutableStateOf<String?>(null) }
+    var donneesLocalesDisponibles by remember { mutableStateOf(false) }
+    var tentativeImport by remember { mutableIntStateOf(0) }
+    var navigationFaite by remember { mutableStateOf(false) }
+    val terminer = {
+        // Un seul parcours de navigation, même en cas de double appui (LD14)
+        if (!navigationFaite) {
+            navigationFaite = true
+            onInitializationComplete()
+        }
+    }
+
+    // Lancer l'import initial des données depuis PocketBase (relancé par « Réessayer »)
+    LaunchedEffect(tentativeImport) {
+        erreurImport = null
+        currentStepState.value = 0
+        delay(if (tentativeImport == 0) 1000 else 300) // Délai initial pour l'animation du logo
+
+        val importService = AppModule.provideInitialImportService()
         try {
-            Log.d("PostLoginStartup", "🚀 Début de l'import initial")
-            
             // Vérifier que l'utilisateur est bien connecté avant de lancer l'import
             var tentatives = 0
             while (tentatives < 5 && !PocketBaseClient.estConnecte()) {
-                Log.d("PostLoginStartup", "⏳ Attente de la connexion... (tentative ${tentatives + 1}/5)")
                 delay(500)
                 tentatives++
             }
-            
             if (!PocketBaseClient.estConnecte()) {
-                Log.e("PostLoginStartup", "❌ Utilisateur non connecté après 5 tentatives")
-                currentStepState.value = -1
-                onInitializationComplete()
+                donneesLocalesDisponibles = false
+                erreurImport = "Session introuvable. Reconnecte-toi."
                 return@LaunchedEffect
             }
-            
-            val utilisateur = PocketBaseClient.obtenirUtilisateurConnecte()
-            Log.d("PostLoginStartup", "✅ Utilisateur connecté: ${utilisateur?.id}")
-            
-            // 📱 Tentative de récupération du service d'import...
-            val importService = AppModule.provideInitialImportService()
-            Log.d("PostLoginStartup", "✅ Service d'import récupéré")
-            
-            // Configurer le callback de progression
-            importService.onProgressUpdate = { step, message ->
-                // 📊 PROGRESSION: Étape $step - $message
-                currentStepState.value = step
-            }
-            
-            // 🔥 LANCEMENT DE L'IMPORT RÉEL DES DONNÉES...
-            // Lancer l'import réel des données
+
+            importService.onProgressUpdate = { step, _ -> currentStepState.value = step }
             val result = importService.importerDonneesInitiales()
-            // 📋 RÉSULTAT IMPORT: $result
-            
+
             if (result.isSuccess) {
-                // 🎉 IMPORT RÉUSSI! Navigation vers l'écran principal
-                Log.d("PostLoginStartup", "✅ Import réussi!")
-                onInitializationComplete()
+                terminer()
             } else {
-                val erreur = result.exceptionOrNull()
-                Log.e("PostLoginStartup", "❌ ERREUR IMPORT: ${erreur?.message}", erreur)
-                // En cas d'erreur, on continue quand même (mode offline)
-                // ⚠️ Mode offline - continuation sans import
-                // Mais on affiche l'erreur à l'utilisateur
-                currentStepState.value = -1 // Code d'erreur
-                onInitializationComplete()
+                Log.e("PostLoginStartup", "Import incomplet: ${result.exceptionOrNull()?.javaClass?.simpleName}")
+                donneesLocalesDisponibles = importService.possedeDonneesLocales()
+                erreurImport = result.exceptionOrNull()?.message ?: "L'import des données a échoué."
             }
-            
         } catch (e: Exception) {
-            Log.e("PostLoginStartup", "❌ Exception lors de l'import: ${e.message}", e)
-            // En cas d'erreur, on continue quand même (mode offline)
-            currentStepState.value = -1 // Code d'erreur
-            onInitializationComplete()
+            Log.e("PostLoginStartup", "Exception lors de l'import: ${e.javaClass.simpleName}")
+            donneesLocalesDisponibles = runCatching { importService.possedeDonneesLocales() }.getOrDefault(false)
+            erreurImport = e.message ?: "L'import des données a échoué."
         }
     }
 
@@ -172,11 +164,13 @@ fun PostLoginStartupScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = Color.White,
-                strokeWidth = 2.dp
-            )
+            if (erreurImport == null) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -200,12 +194,37 @@ fun PostLoginStartupScreen(
                 else -> "Initialisation en cours..."
             }
             
-            Text(
-                text = stepText,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f),
-                textAlign = TextAlign.Center
-            )
+            val erreur = erreurImport
+            if (erreur == null) {
+                Text(
+                    text = stepText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Text(
+                    text = erreur,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFFF8A80),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { tentativeImport++ }) { Text("Réessayer") }
+                if (donneesLocalesDisponibles) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = { terminer() }) {
+                        Text("Continuer avec les données locales", color = Color.White)
+                    }
+                    Text(
+                        text = "Certaines données du serveur pourraient manquer.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
