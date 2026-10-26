@@ -7,9 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.di.PocketBaseClient
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import com.xburnsx.toutiebudget.utils.toutOuRien
 import java.util.Calendar
 import java.util.Date
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -62,7 +60,8 @@ class EnregistrerTransactionUseCase(
         }
 
         return try {
-            coroutineScope {
+            // AT4 : transaction, compte et enveloppe réussissent ensemble ou sont tous défaits
+            toutOuRien {
 
                 // 1. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
@@ -114,6 +113,8 @@ class EnregistrerTransactionUseCase(
                 if (resultTransaction.isFailure) {
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
                 }
+                val idCree = resultTransaction.getOrThrow().id
+                siEchec { transactionRepository.supprimerTransaction(idCree) }
 
                 // 📝 ENREGISTRER DANS L'HISTORIQUE
                 try {
@@ -186,27 +187,11 @@ class EnregistrerTransactionUseCase(
                     android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
                 }
 
-                // 3. Mettre à jour les soldes en parallèle
-                val tachesMiseAJour = listOf(
-                    async { 
-                        mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant) 
-                    },
-                    async { 
-                        if (!allocationMensuelleId.isNullOrBlank()) {
-                            mettreAJourSoldeEnveloppe(allocationMensuelleId, montant, collectionCompte)
-                        } else {
-                            Result.success(Unit)
-                        }
-                    }
-                )
-
-                val resultats = tachesMiseAJour.awaitAll()
-                
-                                // Vérifier que toutes les mises à jour ont réussi
-                resultats.forEach { resultat ->
-                    if (resultat.isFailure) {
-                        throw resultat.exceptionOrNull() ?: Exception("Erreur lors de la mise à jour des soldes")
-                    }
+                // 3. Mettre à jour les soldes, l'un après l'autre pour pouvoir défaire le premier si le second échoue
+                mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant).getOrThrow()
+                siEchec { mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant, sens = -1.0).getOrThrow() }
+                if (!allocationMensuelleId.isNullOrBlank()) {
+                    mettreAJourSoldeEnveloppe(allocationMensuelleId, montant, collectionCompte).getOrThrow()
                 }
 
                 // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
@@ -286,7 +271,8 @@ class EnregistrerTransactionUseCase(
         compteId: String,
         collectionCompte: String,
         typeTransaction: TypeTransaction,
-        montant: Double
+        montant: Double,
+        sens: Double = 1.0 // -1 : défait l'effet
     ): Result<Unit> {
 
         // Calculer la variation du solde
@@ -317,7 +303,7 @@ class EnregistrerTransactionUseCase(
         val resultat = compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
             compteId,
             collectionCompte,
-            variationSolde,
+            variationSolde * sens,
             mettreAJourPretAPlacer
         )
 

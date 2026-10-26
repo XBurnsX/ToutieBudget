@@ -65,7 +65,13 @@ data class AjoutTransactionUiState(
     // --- Données disponibles ---
     val comptesDisponibles: List<Compte> = emptyList(),
     val enveloppesDisponibles: List<EnveloppeUi> = emptyList(),
-    val enveloppesFiltrees: Map<String, List<EnveloppeUi>> = emptyMap() // Groupées par catégorie
+    val enveloppesFiltrees: Map<String, List<EnveloppeUi>> = emptyMap(), // Groupées par catégorie
+    /** AT21 : les soldes du mois n'ont pas pu être lus ; ne pas les montrer comme 0 $. */
+    val allocationsIndisponibles: Boolean = false,
+    /** AT12 : l'argent de l'enveloppe vient d'un autre compte que celui qui paie (avertissement, pas un refus). */
+    val avertissementProvenance: String? = null,
+    /** AA6 : la date choisie est dans le futur (avertissement seulement). */
+    val dateFuture: Boolean = false
 ) {
     /** Somme des fractions = montant saisi, en cents exacts, chaque fraction positive et avec une enveloppe. */
     fun fractionsCorrespondentAuMontant(): Boolean {
@@ -113,7 +119,11 @@ data class AjoutTransactionUiState(
         val sourceDifferenteDeLaCible = modeOperation != "Paiement" ||
             comptePaiementSelectionne?.id != compteSelectionne?.id
 
+        // AT21 : une dépense ne se décide pas sur des soldes d'enveloppes illisibles
+        val soldesConnus = !(allocationsIndisponibles && modeOperation == "Standard" && typeTransaction == TypeTransaction.Depense)
+
         val peutSauvegarde = montantEstValide &&
+                            soldesConnus &&
                             compteEstSelectionne &&
                             validationPaiement &&
                             enveloppeEstValideOuPasRequise &&
@@ -126,7 +136,8 @@ data class AjoutTransactionUiState(
             montantValide = montantEstValide,
             peutSauvegarder = peutSauvegarde,
             peutFractionner = peutFractionner,
-            estValide = estValide
+            estValide = estValide,
+            dateFuture = dateTransaction.isAfter(LocalDate.now())
         )
     }
 }

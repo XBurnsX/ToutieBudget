@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -109,13 +110,6 @@ fun AjoutTransactionScreen(
         }
     }
 
-    // Détecter le succès de la transaction
-    LaunchedEffect(uiState.transactionReussie, uiState.messageConfirmation) {
-        // Si succès sans message, on déclenche tout de suite le callback
-        if (uiState.transactionReussie && uiState.messageConfirmation.isNullOrBlank()) {
-            onTransactionSuccess()
-        }
-    }
 
     // Fonction pour ouvrir le clavier - NOMS CORRIGÉS
     val ouvrirClavier = { montantInitial: Long, onMontantChange: (Long) -> Unit ->
@@ -283,6 +277,47 @@ fun AjoutTransactionScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             obligatoire = true
+                        )
+
+                        // AT21 : soldes illisibles = le dire, pas afficher 0 $
+                        if (uiState.allocationsIndisponibles) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Soldes des enveloppes indisponibles pour ce mois.",
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(onClick = viewModel::rechargerDonnees) { Text("Réessayer") }
+                                }
+                            }
+                        }
+
+                        // AT12 : l'argent vient d'un autre compte (avertissement seulement)
+                        uiState.avertissementProvenance?.let { avertissement ->
+                            Text(
+                                text = "⚠ $avertissement",
+                                color = Color(0xFFFFB74D),
+                                fontSize = 13.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    // AA6 : date future permise, mais signalée
+                    if (uiState.dateFuture) {
+                        Text(
+                            text = "Date dans le futur : ${uiState.dateTransaction}",
+                            color = Color(0xFFFFB74D),
+                            fontSize = 13.sp,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 

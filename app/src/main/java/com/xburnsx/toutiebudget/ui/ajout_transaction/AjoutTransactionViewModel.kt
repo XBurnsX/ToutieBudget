@@ -4,6 +4,7 @@
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import com.xburnsx.toutiebudget.utils.lancerUneFois
+import com.xburnsx.toutiebudget.utils.toutOuRien
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
@@ -60,6 +61,8 @@ class AjoutTransactionViewModel(
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var allCategories: List<Categorie> = emptyList()
     private var allTiers: List<Tiers> = emptyList()
+    /** AT21 : allocations du mois impossibles à lire (différent de « 0 $ »). */
+    private var allocationsIndisponibles = false
 
     init {
         chargerDonneesInitiales()
@@ -97,19 +100,8 @@ class AjoutTransactionViewModel(
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 val resultTiers = tiersRepository.recupererTousLesTiers()
 
-                // Calculer le mois actuel pour les allocations
-                val maintenant = Date()
-                val calendrier = Calendar.getInstance().apply {
-                    time = maintenant
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                val premierJourMoisActuel = calendrier.time
-                
-                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourMoisActuel)
+                // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
+                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
                 
                 // Vérifier les erreurs
                 if (resultComptes.isFailure) {
@@ -127,6 +119,7 @@ class AjoutTransactionViewModel(
                 allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 allCategories = resultCategories.getOrNull() ?: emptyList()
                 allAllocations = resultAllocations.getOrNull() ?: emptyList()
+                allocationsIndisponibles = resultAllocations.isFailure
                 allTiers = resultTiers.getOrNull() ?: emptyList()
 
                 // Construire les enveloppes UI
@@ -152,7 +145,8 @@ class AjoutTransactionViewModel(
                         comptesDisponibles = allComptes.filter { !it.estArchive },
                         enveloppesDisponibles = enveloppesUi,
                         enveloppesFiltrees = enveloppesFiltrees,
-                        tiersDisponibles = allTiers
+                        tiersDisponibles = allTiers,
+                        allocationsIndisponibles = allocationsIndisponibles
                     ).calculerValidite()
                 }
                 
@@ -215,24 +209,14 @@ class AjoutTransactionViewModel(
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 
-                // Calculer le mois actuel pour les allocations
-                val maintenant = Date()
-                val calendrier = Calendar.getInstance().apply {
-                    time = maintenant
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                val premierJourMoisActuel = calendrier.time
-                
-                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourMoisActuel)
+                // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
+                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
                 
                 if (resultEnveloppes.isSuccess && resultCategories.isSuccess) {
                     allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                     allCategories = resultCategories.getOrNull() ?: emptyList()
                     allAllocations = resultAllocations.getOrNull() ?: emptyList()
+                    allocationsIndisponibles = resultAllocations.isFailure
                     
                     // Construire les enveloppes UI
                     val enveloppesUi = construireEnveloppesUi()
@@ -253,8 +237,11 @@ class AjoutTransactionViewModel(
                     _uiState.update { state ->
                         state.copy(
                             enveloppesDisponibles = enveloppesUi,
-                            enveloppesFiltrees = enveloppesFiltrees
-                        )
+                            enveloppesFiltrees = enveloppesFiltrees,
+                            allocationsIndisponibles = allocationsIndisponibles,
+                            // L'enveloppe choisie garde sa sélection mais montre le solde du bon mois
+                            enveloppeSelectionnee = state.enveloppeSelectionnee?.let { choisie -> enveloppesUi.find { it.id == choisie.id } ?: choisie }
+                        ).calculerValidite()
                     }
                 }
             } catch (e: Exception) {
@@ -269,12 +256,14 @@ class AjoutTransactionViewModel(
     private fun construireEnveloppesUi(): List<EnveloppeUi> {
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
             val categorie = allCategories.find { it.id == enveloppe.categorieId }
-            val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
+            // GN4 : toutes les allocations du mois de cette enveloppe, additionnées
+            val allocations = allAllocations.filter { it.enveloppeId == enveloppe.id }
+            val solde = allocations.sumOf { it.solde }
             
             // Récupérer la couleur du compte source depuis l'allocation
             // 🎨 CORRECTION : Reset la couleur de provenance quand solde = 0
-            val compteSource = if ((allocation?.solde ?: 0.0) > 0.001) {
-                allocation?.compteSourceId?.let { compteId ->
+            val compteSource = if (solde > 0.001) {
+                allocations.filter { it.solde > 0 }.maxByOrNull { it.solde }?.compteSourceId?.let { compteId ->
                     allComptes.find { it.id == compteId }
                 }
             } else {
@@ -284,10 +273,10 @@ class AjoutTransactionViewModel(
             EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
-                solde = allocation?.solde ?: 0.0,
-                depense = allocation?.depense ?: 0.0,
-                alloue = allocation?.alloue ?: 0.0, // Alloué ce mois
-                alloueCumulatif = allocation?.alloue ?: 0.0, // ← NOUVEAU : Pour simplifier, on utilise la même valeur
+                solde = solde,
+                depense = allocations.sumOf { it.depense },
+                alloue = allocations.sumOf { it.alloue }, // Alloué ce mois
+                alloueCumulatif = allocations.sumOf { it.alloue }, // ← NOUVEAU : Pour simplifier, on utilise la même valeur
                 objectif = enveloppe.objectifMontant,
                 couleurProvenance = compteSource?.couleur, // ✅ VRAIE COULEUR DU COMPTE
                 statutObjectif = StatutObjectif.GRIS
@@ -368,6 +357,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
         }
+        _uiState.update { it.avecAvertissementProvenance() }
     }
 
     /**
@@ -377,6 +367,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
         }
+        _uiState.update { it.avecAvertissementProvenance() }
     }
 
     /**
@@ -418,6 +409,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
         }
+        _uiState.update { it.avecAvertissementProvenance() }
     }
 
     /**
@@ -427,6 +419,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(enveloppeSelectionnee = nouvelleEnveloppe).calculerValidite()
         }
+        _uiState.update { it.avecAvertissementProvenance() }
     }
 
     /**
@@ -466,9 +459,58 @@ class AjoutTransactionViewModel(
      * Met à jour la date de la transaction.
      */
     fun onDateChanged(nouvelleDate: LocalDate) {
+        val ancienne = _uiState.value.dateTransaction
         _uiState.update { state ->
             state.copy(dateTransaction = nouvelleDate).calculerValidite()
         }
+        // AT6 : autre mois = autres soldes d'enveloppes
+        if (ancienne.year != nouvelleDate.year || ancienne.monthValue != nouvelleDate.monthValue) {
+            chargerEnveloppesSeulement()
+        }
+    }
+
+    /**
+     * AT17 / AT20 : fin commune de toute opération réussie. Le formulaire est vidé une seule fois
+     * (pas de 2e enregistrement possible du même brouillon), le message reste affiché et « réussie »
+     * ne reste pas vrai : l'écran ne relance donc pas la navigation une 2e fois.
+     */
+    private fun terminerAvecSucces(message: String, detteSoldee: Boolean = false) {
+        val avant = _uiState.value
+        _uiState.update {
+            AjoutTransactionUiState(
+                isLoading = false,
+                comptesDisponibles = avant.comptesDisponibles,
+                enveloppesDisponibles = avant.enveloppesDisponibles,
+                enveloppesFiltrees = avant.enveloppesFiltrees,
+                tiersDisponibles = avant.tiersDisponibles,
+                messageConfirmation = message,
+                detteSoldee = detteSoldee
+            ).calculerValidite()
+        }
+        BudgetEvents.refreshBudget.tryEmit(Unit)
+        realtimeSyncService.declencherMiseAJourBudget()
+        // Recharger les soldes affichés
+        chargerDonneesInitiales()
+    }
+
+    private fun premierJourDuMois(date: LocalDate): Date =
+        Date.from(date.withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant())
+
+    /** AT12 : prévient (sans bloquer) quand l'argent de l'enveloppe vient d'un autre compte chèque que celui qui paie. */
+    private fun AjoutTransactionUiState.avecAvertissementProvenance(): AjoutTransactionUiState {
+        val compte = compteSelectionne as? CompteCheque
+        val enveloppe = enveloppeSelectionnee
+        val message = if (compte != null && enveloppe != null && enveloppe.solde > 0.001 &&
+            modeOperation == "Standard" && typeTransaction == TypeTransaction.Depense
+        ) {
+            val provenance = allAllocations.filter { it.enveloppeId == enveloppe.id && it.solde > 0 }
+                .maxByOrNull { it.solde }?.compteSourceId
+            if (provenance != null && provenance != compte.id) {
+                val nomProvenance = allComptes.find { it.id == provenance }?.nom ?: "un autre compte"
+                "L'argent de « ${enveloppe.nom} » vient de $nomProvenance, mais cette dépense sort de ${compte.nom}."
+            } else null
+        } else null
+        return copy(avertissementProvenance = message)
     }
 
     // === MÉTHODES POUR LA GESTION DES TIERS ===
@@ -665,34 +707,10 @@ class AjoutTransactionViewModel(
                                 else -> { }
                             }
                         } catch (_: Exception) {}
-                        _uiState.update { it.copy(
-                            estEnTrainDeSauvegarder = false,
-                            transactionReussie = true,
-                            messageConfirmation = if (detteTerminee) message + "\nVotre dette est terminée, félicitations!" else message,
+                        terminerAvecSucces(
+                            if (detteTerminee) message + "\nVotre dette est terminée, félicitations!" else message,
                             detteSoldee = detteTerminee
-                        ) }
-
-                        // Émettre l'événement global de rafraîchissement du budget
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-
-                        // Déclencher la mise à jour des comptes dans les autres écrans
-                        realtimeSyncService.declencherMiseAJourBudget()
-
-                        // Réinitialiser le formulaire après succès en PRÉSERVANT le message de confirmation
-                        val lastMessage = _uiState.value.messageConfirmation
-                        val lastDone = _uiState.value.detteSoldee
-                        _uiState.update { 
-                            AjoutTransactionUiState(
-                                isLoading = false,
-                                comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles,
-                                messageConfirmation = lastMessage,
-                                detteSoldee = lastDone
-                            ).calculerValidite()
-                        }
-                        
-                        // Recharger les données pour mettre à jour les soldes
-                        chargerDonneesInitiales()
+                        )
                     } else {
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
                     }
@@ -724,33 +742,33 @@ class AjoutTransactionViewModel(
                             type = com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET,
                             estArchive = false
                         )
-                        val res = pretPersonnelRepository.creer(record)
-                        val created = res.getOrElse { throw it }
-                        // Débiter le compte et le prêt à placer
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = -montantDollars,
-                            mettreAJourPretAPlacer = true
-                        ).getOrThrow()
-                        // persister la transaction pour historique
-                        val transactionPret = Transaction(
-                            id = IdGenerator.generateId(),
-                            utilisateurId = utilisateurId,
-                            type = TypeTransaction.Pret,
-                            montant = montantDollars,
-                            date = dateTx,
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            note = state.note.takeIf { it.isNotBlank() },
-                            tiersUtiliser = nomTiers,
-                            sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
-                        )
-                        // DEBUG: Tentative de création de transaction PRET: ${transactionPret}
-                        val resultTransaction = transactionRepository.creerTransaction(transactionPret)
-                        if (resultTransaction.isFailure) {
-                            // ERREUR: Échec création transaction PRET: ${resultTransaction.exceptionOrNull()?.message}
-                            throw resultTransaction.exceptionOrNull() ?: Exception("Échec création transaction PRET")
+                        // AT4 : dossier, compte et transaction ensemble ou pas du tout
+                        toutOuRien {
+                            val created = pretPersonnelRepository.creer(record).getOrThrow()
+                            siEchec { pretPersonnelRepository.supprimer(created.id) }
+                            // Débiter le compte et le prêt à placer
+                            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                                compteId = compte.id,
+                                collectionCompte = collectionCompte,
+                                variationSolde = -montantDollars,
+                                mettreAJourPretAPlacer = true
+                            ).getOrThrow()
+                            siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, montantDollars, true) }
+                            // persister la transaction pour historique
+                            transactionRepository.creerTransaction(
+                                Transaction(
+                                    id = IdGenerator.generateId(),
+                                    utilisateurId = utilisateurId,
+                                    type = TypeTransaction.Pret,
+                                    montant = montantDollars,
+                                    date = dateTx,
+                                    compteId = compte.id,
+                                    collectionCompte = collectionCompte,
+                                    note = state.note.takeIf { it.isNotBlank() },
+                                    tiersUtiliser = nomTiers,
+                                    sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
+                                )
+                            ).getOrThrow()
                         }
                         
                         // 📝 ENREGISTRER DANS L'HISTORIQUE
@@ -783,15 +801,11 @@ class AjoutTransactionViewModel(
                         }
                         
                         // DEBUG: Transaction PRET créée avec succès: ${resultTransaction.getOrNull()}
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Prêt enregistré") }
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-                        realtimeSyncService.declencherMiseAJourBudget()
+                        terminerAvecSucces("Prêt enregistré")
                         return@lancerUneFois
                     } else if (state.typePret == "Remboursement reçu") {
                         enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() })
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-                        realtimeSyncService.declencherMiseAJourBudget()
+                        terminerAvecSucces("Remboursement reçu enregistré")
                         return@lancerUneFois
                     }
                 }
@@ -819,29 +833,33 @@ class AjoutTransactionViewModel(
                             type = com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE,
                             estArchive = false
                         )
-                        val res = pretPersonnelRepository.creer(record)
-                        val created = res.getOrElse { throw it }
-                        // Créditer le compte et le prêt à placer
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = montantDollars,
-                            mettreAJourPretAPlacer = true
-                        ).getOrThrow()
-                        transactionRepository.creerTransaction(
-                            Transaction(
-                                id = IdGenerator.generateId(),
-                                utilisateurId = utilisateurId,
-                                type = TypeTransaction.Emprunt,
-                                montant = montantDollars,
-                                date = dateTx2,
+                        // AT4 : dossier, compte et transaction ensemble ou pas du tout
+                        toutOuRien {
+                            val created = pretPersonnelRepository.creer(record).getOrThrow()
+                            siEchec { pretPersonnelRepository.supprimer(created.id) }
+                            // Créditer le compte et le prêt à placer
+                            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
                                 compteId = compte.id,
                                 collectionCompte = collectionCompte,
-                                note = state.note.takeIf { it.isNotBlank() },
-                                tiersUtiliser = nomTiers,
-                                sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
-                            )
-                        ).getOrThrow()
+                                variationSolde = montantDollars,
+                                mettreAJourPretAPlacer = true
+                            ).getOrThrow()
+                            siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, -montantDollars, true) }
+                            transactionRepository.creerTransaction(
+                                Transaction(
+                                    id = IdGenerator.generateId(),
+                                    utilisateurId = utilisateurId,
+                                    type = TypeTransaction.Emprunt,
+                                    montant = montantDollars,
+                                    date = dateTx2,
+                                    compteId = compte.id,
+                                    collectionCompte = collectionCompte,
+                                    note = state.note.takeIf { it.isNotBlank() },
+                                    tiersUtiliser = nomTiers,
+                                    sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
+                                )
+                            ).getOrThrow()
+                        }
                         // P5 : le compte est crédité une seule fois (un second crédit doublait le montant)
 
                         // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
@@ -873,15 +891,11 @@ class AjoutTransactionViewModel(
                             android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction EMPRUNT): ${e.message}")
                         }
                         
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Emprunt enregistré") }
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-                        realtimeSyncService.declencherMiseAJourBudget()
+                        terminerAvecSucces("Emprunt enregistré")
                         return@lancerUneFois
                     } else if (state.typeDette == "Remboursement donné") {
                         enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() })
-                        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-                        realtimeSyncService.declencherMiseAJourBudget()
+                        terminerAvecSucces("Remboursement donné enregistré")
                         return@lancerUneFois
                     }
                 }
@@ -947,77 +961,72 @@ class AjoutTransactionViewModel(
                     val gson = com.google.gson.Gson()
                     val sousItemsJson = gson.toJson(sousItems)
 
-                    // Créer la transaction principale avec estFractionnee = true
-                    val transactionPrincipale = enregistrerTransactionUseCase.executer(
-                        typeTransaction = typeTransaction,
-                        montant = MoneyFormatter.roundAmount(montant / 100.0), // Convertir centimes en dollars et arrondir
-                        compteId = compte.id,
-                        collectionCompte = when (compte) {
-                            is CompteCheque -> "comptes_cheques"
-                            is CompteCredit -> "comptes_credits"
-                            is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissement"
-                            else -> "comptes_cheques"
-                        },
-                        enveloppeId = null, // Pas d'enveloppe pour la transaction principale
-                        tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
-                        note = state.note.takeIf { it.isNotBlank() },
-                        date = dateTransaction,
-                        estFractionnee = true,
-                        sousItems = sousItemsJson
-                    )
+                    val collectionPrincipale = when (compte) {
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissement"
+                        else -> "comptes_cheques"
+                    }
+                    val montantDollars = MoneyFormatter.roundAmount(montant / 100.0)
+                    val idTransaction = IdGenerator.generateId()
 
-                    if (transactionPrincipale.isSuccess) {
-                        // Mettre à jour les allocations mensuelles en utilisant les données du JSON
-                        for (sousItem in sousItems) {
-                            val allocationId = sousItem["allocation_mensuelle_id"] as String
-                                                         val montantEnDollars = sousItem["montant"] as Double
-                            
-                            // Récupérer l'allocation par son ID
-                            val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
-                            
-                            if (resultAllocation.isSuccess) {
-                                val allocationActuelle = resultAllocation.getOrThrow()
-                                                                 // Mettre à jour l'allocation avec le montant en dollars (déjà en dollars dans le JSON)
-                                 val nouvelleAllocation = allocationActuelle.copy(
-                                     depense = allocationActuelle.depense + montantEnDollars,
-                                     solde = allocationActuelle.solde - montantEnDollars
-                                 )
-                                
-                                allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
+                    // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
+                    val transactionPrincipale = runCatching {
+                        toutOuRien {
+                            enregistrerTransactionUseCase.executer(
+                                typeTransaction = typeTransaction,
+                                montant = montantDollars,
+                                compteId = compte.id,
+                                collectionCompte = collectionPrincipale,
+                                enveloppeId = null, // Pas d'enveloppe pour la transaction principale
+                                tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction fractionnée",
+                                note = state.note.takeIf { it.isNotBlank() },
+                                date = dateTransaction,
+                                estFractionnee = true,
+                                sousItems = sousItemsJson,
+                                id = idTransaction
+                            ).getOrThrow()
+                            siEchec {
+                                transactionRepository.supprimerTransaction(idTransaction)
+                                val (variation, avecPretAPlacer) = when (typeTransaction) {
+                                    TypeTransaction.Revenu -> -montantDollars to true
+                                    else -> montantDollars to false
+                                }
+                                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionPrincipale, variation, avecPretAPlacer)
+                            }
+
+                            // Chaque fraction touche son allocation ; une allocation introuvable arrête tout
+                            for (sousItem in sousItems) {
+                                val allocationId = sousItem["allocation_mensuelle_id"] as String
+                                val montantEnDollars = sousItem["montant"] as Double
+                                val avant = enveloppeRepository.recupererAllocationParId(allocationId).getOrThrow()
+                                // AT8 : même règle qu'un achat simple ; sur carte de crédit, le solde de l'enveloppe ne bouge pas
+                                val apres = if (collectionPrincipale == "comptes_credits") {
+                                    avant.copy(
+                                        depense = MoneyFormatter.roundAmount(avant.depense + montantEnDollars),
+                                        alloue = MoneyFormatter.roundAmount(avant.alloue + montantEnDollars)
+                                    )
+                                } else {
+                                    avant.copy(
+                                        depense = MoneyFormatter.roundAmount(avant.depense + montantEnDollars),
+                                        solde = MoneyFormatter.roundAmount(avant.solde - montantEnDollars)
+                                    )
+                                }
+                                allocationMensuelleRepository.mettreAJourAllocation(apres)
+                                siEchec { allocationMensuelleRepository.mettreAJourAllocation(avant) }
                             }
                         }
-                        
+                    }
+
+                    if (transactionPrincipale.isSuccess) {
+
                         val message = when (typeTransaction) {
                             TypeTransaction.Depense -> "Votre dépense a été enregistrée"
                             TypeTransaction.Revenu -> "Votre revenu a été enregistré"
                             else -> "Votre transaction a été enregistrée"
                         }
-                        _uiState.update { it.copy(
-                            estEnTrainDeSauvegarder = false,
-                            transactionReussie = true,
-                            messageConfirmation = message
-                        ) }
-
-                        // Émettre l'événement global de rafraîchissement du budget
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-
-                        // Déclencher la mise à jour des comptes dans les autres écrans
-                        realtimeSyncService.declencherMiseAJourBudget()
-
-                        // Réinitialiser le formulaire après succès en PRÉSERVANT le message de confirmation
-                        val lastMessage = _uiState.value.messageConfirmation
-                        _uiState.update { 
-                            AjoutTransactionUiState(
-                                isLoading = false,
-                                comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles,
-                                messageConfirmation = lastMessage
-                            ).calculerValidite()
-                        }
-                        
-                        // Recharger les données pour mettre à jour les soldes
-                        chargerDonneesInitiales()
+                        terminerAvecSucces(message)
                     } else {
                         _uiState.update { 
                             it.copy(
@@ -1043,35 +1052,11 @@ class AjoutTransactionViewModel(
 
                         if (typeTransaction == TypeTransaction.RemboursementRecu) {
                             enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTransaction, note = state.note.takeIf { it.isNotBlank() })
-                            _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
-                            BudgetEvents.refreshBudget.tryEmit(Unit)
-                            realtimeSyncService.declencherMiseAJourBudget()
-                            val lastMessage = _uiState.value.messageConfirmation
-                            _uiState.update {
-                                AjoutTransactionUiState(
-                                    isLoading = false,
-                                    comptesDisponibles = state.comptesDisponibles,
-                                    enveloppesDisponibles = state.enveloppesDisponibles,
-                                    messageConfirmation = lastMessage
-                                ).calculerValidite()
-                            }
-                            chargerDonneesInitiales()
+                            terminerAvecSucces("Remboursement reçu enregistré")
                             return@lancerUneFois
                         } else if (typeTransaction == TypeTransaction.RemboursementDonne) {
                             enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTransaction, note = state.note.takeIf { it.isNotBlank() })
-                            _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
-                            BudgetEvents.refreshBudget.tryEmit(Unit)
-                            realtimeSyncService.declencherMiseAJourBudget()
-                            val lastMessage = _uiState.value.messageConfirmation
-                            _uiState.update {
-                                AjoutTransactionUiState(
-                                    isLoading = false,
-                                    comptesDisponibles = state.comptesDisponibles,
-                                    enveloppesDisponibles = state.enveloppesDisponibles,
-                                    messageConfirmation = lastMessage
-                                ).calculerValidite()
-                            }
-                            chargerDonneesInitiales()
+                            terminerAvecSucces("Remboursement donné enregistré")
                             return@lancerUneFois
                         }
                     }
@@ -1243,24 +1228,7 @@ class AjoutTransactionViewModel(
                             TypeTransaction.Revenu -> "Votre revenu a été enregistré"
                             else -> "Votre transaction a été enregistrée"
                         }
-                        _uiState.update { it.copy(
-                            estEnTrainDeSauvegarder = false,
-                            transactionReussie = true,
-                            messageConfirmation = message
-                        ) }
-
-                        BudgetEvents.refreshBudget.tryEmit(Unit)
-                        realtimeSyncService.declencherMiseAJourBudget()
-                        val lastMessage = _uiState.value.messageConfirmation
-                        _uiState.update {
-                            AjoutTransactionUiState(
-                                isLoading = false,
-                                comptesDisponibles = state.comptesDisponibles,
-                                enveloppesDisponibles = state.enveloppesDisponibles,
-                                messageConfirmation = lastMessage
-                            ).calculerValidite()
-                        }
-                        chargerDonneesInitiales()
+                        terminerAvecSucces(message)
                     } else {
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = result.exceptionOrNull()?.message) }
                     }
@@ -1327,13 +1295,17 @@ class AjoutTransactionViewModel(
             dossier to aPayer
         }
 
+        // AT4 : compte, dossiers et transactions ensemble ou pas du tout
+        toutOuRien {
         // 1) Le compte bouge une seule fois pour le total
+        val variationCompte = if (recu) montantDollars else -montantDollars
         compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
             compteId = compte.id,
             collectionCompte = collectionCompte,
-            variationSolde = if (recu) montantDollars else -montantDollars,
+            variationSolde = variationCompte,
             mettreAJourPretAPlacer = true
         ).getOrThrow()
+        siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, -variationCompte, true) }
 
         // 2) Chaque dossier et sa transaction
         portions.forEach { (dossier, aPayer) ->
@@ -1342,9 +1314,11 @@ class AjoutTransactionViewModel(
             pretPersonnelRepository.mettreAJour(
                 dossier.copy(solde = nouveauSolde, estArchive = reste < 0.005)
             ).getOrThrow()
+            siEchec { pretPersonnelRepository.mettreAJour(dossier) }
+            val idTransaction = IdGenerator.generateId()
             transactionRepository.creerTransaction(
                 Transaction(
-                    id = IdGenerator.generateId(),
+                    id = idTransaction,
                     utilisateurId = utilisateurId,
                     type = if (recu) TypeTransaction.RemboursementRecu else TypeTransaction.RemboursementDonne,
                     montant = aPayer,
@@ -1356,6 +1330,8 @@ class AjoutTransactionViewModel(
                     sousItems = "{\"pret_personnel_id\":\"${dossier.id}\"}"
                 )
             ).getOrThrow()
+            siEchec { transactionRepository.supprimerTransaction(idTransaction) }
+        }
         }
 
         // 3) Historique du compte, une seule fois

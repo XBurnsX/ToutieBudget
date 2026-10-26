@@ -185,7 +185,7 @@ class BanqueEnMemoire {
 
     val depotEnveloppes = object : EnveloppeRepository {
         override suspend fun recupererToutesLesEnveloppes() = Result.success(enveloppes.values.toList())
-        override suspend fun recupererAllocationsPourMois(mois: Date) = Result.success(allocations.values.filter { memeMois(it.mois, mois) })
+        override suspend fun recupererAllocationsPourMois(mois: Date) = runCatching { verifier("recupererAllocationsPourMois"); allocations.values.filter { memeMois(it.mois, mois) } }
         override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle) = runCatching { allocations[allocation.id] = allocation }
         override suspend fun creerEnveloppe(enveloppe: Enveloppe) = runCatching { verifier("creerEnveloppe"); enveloppes[enveloppe.id] = enveloppe; enveloppe }
         override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe) = runCatching { enveloppes[enveloppe.id] = enveloppe }

@@ -360,11 +360,12 @@ class ModifierTransactionViewModel(
                             
                                 if (resultAllocation.isSuccess) {
                                     val allocationActuelle = resultAllocation.getOrThrow()
-                                    // Mettre à jour l'allocation avec le montant en centimes (convertir en dollars)
-                                                                         val nouvelleAllocation = allocationActuelle.copy(
-                                         depense = allocationActuelle.depense + montantEnDollars,
-                                         solde = allocationActuelle.solde - montantEnDollars
-                                     )
+                                    // AT8 : sur carte de crédit, le solde de l'enveloppe ne bouge pas (dépensé et alloué +montant)
+                                    val nouvelleAllocation = if (collectionCompte == "comptes_credits") {
+                                        allocationActuelle.copy(depense = allocationActuelle.depense + montantEnDollars, alloue = allocationActuelle.alloue + montantEnDollars)
+                                    } else {
+                                        allocationActuelle.copy(depense = allocationActuelle.depense + montantEnDollars, solde = allocationActuelle.solde - montantEnDollars)
+                                    }
                                     
                                     allocationMensuelleRepository.mettreAJourAllocation(nouvelleAllocation)
                                 }
@@ -483,7 +484,8 @@ class ModifierTransactionViewModel(
                     ?.let { allocationMensuelleRepository.getAllocationById(it) } ?: return@forEach
                 val montant = (sousItem["montant"] as? Double) ?: 0.0
                 allocationMensuelleRepository.mettreAJourAllocation(
-                    allocation.copy(depense = allocation.depense + montant, solde = allocation.solde - montant)
+                    if (original.collectionCompte == "comptes_credits") allocation.copy(depense = allocation.depense + montant, alloue = allocation.alloue + montant)
+                    else allocation.copy(depense = allocation.depense + montant, solde = allocation.solde - montant)
                 )
             }
         }

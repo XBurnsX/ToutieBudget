@@ -68,7 +68,22 @@ class SupprimerTransactionUseCase(
                 }
 
                 when {
-                    tx.estFractionnee && tx.sousItems != null -> rembourserTransactionFractionnee(tx.sousItems, retours)
+                    tx.estFractionnee && tx.sousItems != null ->
+                        rembourserTransactionFractionnee(tx.sousItems, retours, surCarte = tx.collectionCompte == "comptes_credits")
+                    // AT8 : un achat sur carte n'avait pas baissé le solde de l'enveloppe (dépensé et alloué +montant) ;
+                    // l'annuler retire donc le dépensé et l'alloué, sans créer d'argent dans l'enveloppe
+                    tx.allocationMensuelleId != null && tx.type == TypeTransaction.Depense && tx.collectionCompte == "comptes_credits" -> {
+                        val avant = allocationMensuelleRepository.getAllocationById(tx.allocationMensuelleId)
+                        if (avant != null) {
+                            allocationMensuelleRepository.mettreAJourAllocation(
+                                avant.copy(
+                                    depense = MoneyFormatter.roundAmount(avant.depense - tx.montant),
+                                    alloue = MoneyFormatter.roundAmount(avant.alloue - tx.montant)
+                                )
+                            )
+                            retours += { allocationMensuelleRepository.mettreAJourAllocation(avant) }
+                        }
+                    }
                     tx.allocationMensuelleId != null &&
                         (tx.type == TypeTransaction.Depense || tx.type == TypeTransaction.PaiementEffectue) -> {
                         enveloppeRepository.annulerDepenseAllocation(tx.allocationMensuelleId, tx.montant).getOrThrow()
@@ -177,7 +192,7 @@ class SupprimerTransactionUseCase(
      * Rembourse toutes les allocations d'une transaction fractionnée ; chaque allocation touchée
      * est notée dans [retours] avec sa valeur d'avant.
      */
-    private suspend fun rembourserTransactionFractionnee(sousItemsJson: String, retours: MutableList<suspend () -> Unit>) {
+    private suspend fun rembourserTransactionFractionnee(sousItemsJson: String, retours: MutableList<suspend () -> Unit>, surCarte: Boolean) {
         val gson = com.google.gson.Gson()
         val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
         val sousItems = gson.fromJson<List<Map<String, Any>>>(sousItemsJson, type)
@@ -188,7 +203,11 @@ class SupprimerTransactionUseCase(
             val allocation = allocationMensuelleRepository.getAllocationById(allocationId) ?: continue
             // Rembourser (montant déjà en dollars dans le JSON)
             allocationMensuelleRepository.mettreAJourAllocation(
-                allocation.copy(depense = allocation.depense - montantEnDollars, solde = allocation.solde + montantEnDollars)
+                if (surCarte) {
+                    allocation.copy(depense = MoneyFormatter.roundAmount(allocation.depense - montantEnDollars), alloue = MoneyFormatter.roundAmount(allocation.alloue - montantEnDollars))
+                } else {
+                    allocation.copy(depense = allocation.depense - montantEnDollars, solde = allocation.solde + montantEnDollars)
+                }
             )
             retours += { allocationMensuelleRepository.mettreAJourAllocation(allocation) }
         }
