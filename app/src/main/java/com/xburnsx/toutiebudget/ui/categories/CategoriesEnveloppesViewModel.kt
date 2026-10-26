@@ -327,58 +327,26 @@ class CategoriesEnveloppesViewModel(
                 )
 
 
-                // Mise à jour optimiste de l'interface
-                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                val enveloppesDeCategorie =
-                    (nouveauxGroupes[categorieNom] ?: emptyList()).toMutableList()
-                enveloppesDeCategorie.add(enveloppeVide)
-                nouveauxGroupes[categorieNom] = enveloppesDeCategorie
-
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        enveloppesGroupees = nouveauxGroupes,
+                // CE7 : ne pas fermer la fenêtre ni effacer le formulaire avant
+                // que Room ait confirmé la création. Le résultat d'un repository
+                // en échec doit rester visible et saisissable pour une nouvelle tentative.
+                enveloppeRepository.creerEnveloppe(enveloppeVide).getOrThrow()
+                _uiState.update { current ->
+                    current.copy(
                         isAjoutEnveloppeDialogVisible = false,
                         nomNouvelleEnveloppe = "",
                         categoriePourAjout = null,
                         erreur = null
                     )
                 }
-
-                // Envoyer à PocketBase
-                val resultat = enveloppeRepository.creerEnveloppe(enveloppeVide)
-
-                resultat.onSuccess { enveloppeCreee ->
-                    // Mettre à jour le cache avec la vraie enveloppe
-                    enveloppesList = enveloppesList.map { enveloppe ->
-                        if (enveloppe.id == enveloppeVide.id) enveloppeCreee else enveloppe
-                    }
-
-                    // Recharger pour s'assurer de la cohérence
-                    chargerDonnees()
-
-                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier tous les autres ViewModels
-                    realtimeSyncService.declencherMiseAJourBudget()
-
-                }.onFailure { erreur ->
-                    // Supprimer l'enveloppe temporaire en cas d'erreur
-                    val groupesCorrigees = _uiState.value.enveloppesGroupees.toMutableMap()
-                    val enveloppesCorrigees = (groupesCorrigees[categorieNom] ?: emptyList())
-                        .filterNot { it.id == enveloppeVide.id }
-                    groupesCorrigees[categorieNom] = enveloppesCorrigees
-
-                    _uiState.update { currentState ->
-                        currentState.copy(
-                            enveloppesGroupees = groupesCorrigees,
-                            erreur = "Erreur lors de la création: ${erreur.message}"
-                        )
-                    }
-                }
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
 
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        erreur = "Erreur: ${e.message}",
-                        isAjoutEnveloppeDialogVisible = false
+                        erreur = "Erreur lors de la création : ${e.message}",
+                        isAjoutEnveloppeDialogVisible = true
                     )
                 }
             }
