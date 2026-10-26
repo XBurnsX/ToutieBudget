@@ -63,7 +63,7 @@ fun PretPersonnelScreen(
         ) {
             Tab(selected = uiState.currentTab == PretTab.PRET, onClick = { viewModel.setTab(PretTab.PRET) }, text = { Text("Prêt") })
             Tab(selected = uiState.currentTab == PretTab.EMPRUNT, onClick = { viewModel.setTab(PretTab.EMPRUNT) }, text = { Text("Emprunt") })
-            Tab(selected = uiState.currentTab == PretTab.ARCHIVER, onClick = { viewModel.setTab(PretTab.ARCHIVER) }, text = { Text("Archiver") })
+            Tab(selected = uiState.currentTab == PretTab.ARCHIVER, onClick = { viewModel.setTab(PretTab.ARCHIVER) }, text = { Text("Archivés") })
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -102,6 +102,9 @@ fun PretPersonnelScreen(
                             visible = true,
                             nomTiers = openDialogNomTiers!!,
                             uiState = uiState,
+                            onChangerArchivage = { archiver ->
+                                openDialogPretId?.let { viewModel.changerArchivage(it, archiver) }
+                            },
                             onDismiss = {
                                 openDialogPretId = null
                                 openDialogNomTiers = null
@@ -160,7 +163,8 @@ fun PretPersonnelScreen(
                                         }
                                         
                                         val solde = MoneyFormatter.formatAmount(item.soldeRestant)
-                                        val isPret = uiState.currentTab == PretTab.PRET
+                                        // P3 : couleurs et libellés selon le VRAI type du dossier, pas l'onglet
+                                        val isPret = item.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
                                         val color = if (isPret) {
                                             if (item.soldeRestant > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                         } else {
@@ -173,7 +177,7 @@ fun PretPersonnelScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        val label = if (uiState.currentTab == PretTab.PRET) "Montant prêté" else "Montant emprunté"
+                                        val label = if (item.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) "Montant prêté" else "Montant emprunté"
                                         Text("$label: ${MoneyFormatter.formatAmount(item.montantPrete)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }

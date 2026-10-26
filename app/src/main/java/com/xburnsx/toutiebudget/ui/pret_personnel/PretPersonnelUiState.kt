@@ -33,7 +33,9 @@ data class PretPersonnelUiState(
     val currentTab: PretTab = PretTab.PRET,
     val isLoadingHistorique: Boolean = false,
     val historique: List<HistoriqueItem> = emptyList(),
-    val detailPret: PretPersonnel? = null
+    val detailPret: PretPersonnel? = null,
+    val montantRembourse: Double = 0.0, // PP6
+    val erreurAction: String? = null // PP2 / PP3
 )
 
 

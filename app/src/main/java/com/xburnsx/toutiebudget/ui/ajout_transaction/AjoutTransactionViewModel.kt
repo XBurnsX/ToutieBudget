@@ -717,7 +717,7 @@ class AjoutTransactionViewModel(
                             collectionCompte = collectionCompte,
                             variationSolde = -montantDollars,
                             mettreAJourPretAPlacer = true
-                        )
+                        ).getOrThrow()
                         // persister la transaction pour historique
                         val transactionPret = Transaction(
                             id = IdGenerator.generateId(),
@@ -773,107 +773,7 @@ class AjoutTransactionViewModel(
                         realtimeSyncService.declencherMiseAJourBudget()
                         return@launch
                     } else if (state.typePret == "Remboursement reçu") {
-                        // Remboursement reçu: distribuer sur TOUS les prêts actifs de ce tiers (FIFO)
-                        val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                            .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
-                            .sortedBy { it.created ?: "" } // plus ancien d'abord
-                        var restant = montantDollars
-                        if (existants.isEmpty()) throw Exception("Aucun prêt actif pour ce tiers")
-                        // Créditer le compte et prêt à placer UNE fois pour le total
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = montantDollars,
-                            mettreAJourPretAPlacer = true
-                        )
-                        
-                        // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
-                        try {
-                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
-                            if (compte is CompteCheque) {
-                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_RECU")
-                                // Récupérer le solde APRÈS la mise à jour
-                                val soldeApres = compte.solde
-                                val pretAPlacerApres = compte.pretAPlacer
-                                // Calculer le solde AVANT (argent qui RENTRE : soldeAvant = soldeApres - montant)
-                                val soldeAvant = soldeApres - montantDollars
-                                val pretAPlacerAvant = pretAPlacerApres - montantDollars
-                                
-                                historiqueAllocationService.enregistrerTransactionDirecte(
-                                    compte = compte,
-                                    enveloppe = null,
-                                    typeTransaction = "REMBOURSEMENT_RECU",
-                                    montant = montantDollars, // Positif car c'est de l'argent qui arrive
-                                    soldeAvant = soldeAvant,
-                                    soldeApres = soldeApres,
-                                    pretAPlacerAvant = pretAPlacerAvant,
-                                    pretAPlacerApres = pretAPlacerApres,
-                                    note = "Remboursement reçu de ${nomTiers}"
-                                )
-                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_RECU)")
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_RECU): ${e.message}")
-                        }
-                        for (pret in existants) {
-                            if (restant <= 0) break
-                            val aPayer = kotlin.math.min(restant, pret.solde)
-                            val nouveauSolde = kotlin.math.max(0.0, pret.solde - aPayer)
-                            val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                            val maj = pret.copy(solde = nouveauSolde, estArchive = archiver)
-                            pretPersonnelRepository.mettreAJour(maj)
-                            // Créer UNE transaction par portion appliquée à ce prêt
-                            val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"}"
-                            val transactionARendre = Transaction(
-                                id = IdGenerator.generateId(),
-                                utilisateurId = utilisateurId,
-                                type = TypeTransaction.RemboursementRecu,
-                                montant = aPayer,
-                                date = dateTx,
-                                compteId = compte.id,
-                                collectionCompte = collectionCompte,
-                                note = state.note.takeIf { it.isNotBlank() },
-                                tiersUtiliser = nomTiers,
-                                sousItems = sous
-                            )
-                            // DEBUG: Tentative de création de transaction: ${transactionARendre}
-                            val resultTransaction = transactionRepository.creerTransaction(transactionARendre)
-                            if (resultTransaction.isFailure) {
-                                // ERREUR: Échec création transaction: ${resultTransaction.exceptionOrNull()?.message}
-                                throw resultTransaction.exceptionOrNull() ?: Exception("Échec création transaction")
-                            }
-                            // DEBUG: Transaction créée avec succès: ${resultTransaction.getOrNull()}
-                            restant -= aPayer
-                        }
-                        
-                        // 📝 ENREGISTRER DANS L'HISTORIQUE
-                        try {
-                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
-                            if (compte is CompteCheque) {
-                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_RECU")
-                                // Utiliser les vraies valeurs AVANT la mise à jour (solde actuel)
-                                val soldeAvant = compte.solde
-                                val soldeApres = compte.solde + montantDollars
-                                val pretAPlacerAvant = compte.pretAPlacer
-                                val pretAPlacerApres = compte.pretAPlacer + montantDollars
-                                
-                                historiqueAllocationService.enregistrerTransactionDirecte(
-                                    compte = compte,
-                                    enveloppe = null,
-                                    typeTransaction = "REMBOURSEMENT_RECU",
-                                    montant = montantDollars, // Positif car c'est de l'argent qui arrive
-                                    soldeAvant = soldeAvant,
-                                    soldeApres = soldeApres,
-                                    pretAPlacerAvant = pretAPlacerAvant,
-                                    pretAPlacerApres = pretAPlacerApres, // Le prêt à placer augmente aussi !
-                                    note = "Remboursement reçu de ${nomTiers}"
-                                )
-                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_RECU)")
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_RECU): ${e.message}")
-                        }
-                        
+                        enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() })
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
@@ -912,7 +812,7 @@ class AjoutTransactionViewModel(
                             collectionCompte = collectionCompte,
                             variationSolde = montantDollars,
                             mettreAJourPretAPlacer = true
-                        )
+                        ).getOrThrow()
                         transactionRepository.creerTransaction(
                             Transaction(
                                 id = IdGenerator.generateId(),
@@ -926,16 +826,9 @@ class AjoutTransactionViewModel(
                                 tiersUtiliser = nomTiers,
                                 sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                             )
-                        )
-                        
-                        // Créditer le compte et le prêt à placer
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = montantDollars,
-                            mettreAJourPretAPlacer = true
-                        )
-                        
+                        ).getOrThrow()
+                        // P5 : le compte est crédité une seule fois (un second crédit doublait le montant)
+
                         // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
                         try {
                             val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
@@ -970,82 +863,7 @@ class AjoutTransactionViewModel(
                         realtimeSyncService.declencherMiseAJourBudget()
                         return@launch
                     } else if (state.typeDette == "Remboursement donné") {
-                        // Remboursement donné: distribuer sur TOUTES les dettes actives de ce tiers (FIFO)
-                        val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                            .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
-                            .sortedBy { it.created ?: "" }
-                        if (existants.isEmpty()) throw Exception("Aucun emprunt actif pour ce tiers")
-                        var restant = montantDollars
-                        // Débiter le compte UNE fois
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = -montantDollars,
-                            mettreAJourPretAPlacer = true
-                        )
-                        for (det in existants) {
-                            if (restant <= 0) break
-                            val besoin = kotlin.math.abs(det.solde)
-                            val aPayer = kotlin.math.min(restant, besoin)
-                            val nouveauSolde = -(kotlin.math.max(0.0, besoin - aPayer))
-                            val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                            val maj = det.copy(solde = nouveauSolde, estArchive = archiver)
-                            pretPersonnelRepository.mettreAJour(maj)
-                            val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
-                            transactionRepository.creerTransaction(
-                                Transaction(
-                                    id = IdGenerator.generateId(),
-                                    utilisateurId = utilisateurId,
-                                    type = TypeTransaction.RemboursementDonne,
-                                    montant = aPayer,
-                                    date = dateTx2,
-                                    compteId = compte.id,
-                                    collectionCompte = collectionCompte,
-                                    note = state.note.takeIf { it.isNotBlank() },
-                                    tiersUtiliser = nomTiers,
-                                    sousItems = sous
-                                )
-                            )
-                            restant -= aPayer
-                        }
-                        
-                        // Débiter le compte UNE fois
-                        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                            compteId = compte.id,
-                            collectionCompte = collectionCompte,
-                            variationSolde = -montantDollars,
-                            mettreAJourPretAPlacer = true
-                        )
-                        
-                        // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
-                        try {
-                            val compte = compteRepository.getCompteById(state.compteSelectionne!!.id, state.compteSelectionne!!.collection)
-                            if (compte is CompteCheque) {
-                                android.util.Log.d("ToutieBudget", "🔄 AJOUT_TRANSACTION_VIEWMODEL : Tentative d'enregistrement dans l'historique pour transaction REMBOURSEMENT_DONNE")
-                                // Récupérer le solde APRÈS la mise à jour
-                                val soldeApres = compte.solde
-                                val pretAPlacerApres = compte.pretAPlacer
-                                // Calculer le solde AVANT (argent qui SORT : soldeAvant = soldeApres + montant)
-                                val soldeAvant = soldeApres + montantDollars
-                                val pretAPlacerAvant = pretAPlacerApres + montantDollars
-                                
-                                historiqueAllocationService.enregistrerTransactionDirecte(
-                                    compte = compte,
-                                    enveloppe = null,
-                                    typeTransaction = "REMBOURSEMENT_DONNE",
-                                    montant = -montantDollars, // Négatif car c'est de l'argent qui sort
-                                    soldeAvant = soldeAvant,
-                                    soldeApres = soldeApres,
-                                    pretAPlacerAvant = pretAPlacerAvant,
-                                    pretAPlacerApres = pretAPlacerApres,
-                                    note = "Remboursement donné à ${nomTiers}"
-                                )
-                                android.util.Log.d("ToutieBudget", "✅ AJOUT_TRANSACTION_VIEWMODEL : Enregistrement dans l'historique réussi (transaction REMBOURSEMENT_DONNE)")
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("ToutieBudget", "❌ AJOUT_TRANSACTION_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique (transaction REMBOURSEMENT_DONNE): ${e.message}")
-                        }
-                        
+                        enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() })
                         _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
                         BudgetEvents.refreshBudget.tryEmit(Unit)
                         realtimeSyncService.declencherMiseAJourBudget()
@@ -1203,39 +1021,7 @@ class AjoutTransactionViewModel(
                         }
 
                         if (typeTransaction == TypeTransaction.RemboursementRecu) {
-                            val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                                .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
-                                .sortedBy { it.created ?: "" }
-                            if (existants.isEmpty()) throw Exception("Aucun prêt actif pour ce tiers")
-                            // Créditer le compte une seule fois
-                            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                                compteId = compte.id,
-                                collectionCompte = collectionCompte,
-                                variationSolde = montantDollars,
-                                mettreAJourPretAPlacer = true
-                            )
-                            var restant = montantDollars
-                            for (pret in existants) {
-                                if (restant <= 0) break
-                                val aPayer = kotlin.math.min(restant, pret.solde)
-                                val nouveauSolde = kotlin.math.max(0.0, pret.solde - aPayer)
-                                val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                                pretPersonnelRepository.mettreAJour(pret.copy(solde = nouveauSolde, estArchive = archiver))
-                                val sous = "{" + "\"pret_personnel_id\":\"${pret.id}\"" + "}"
-                                transactionRepository.creerTransaction(
-                                    Transaction(
-                                        type = TypeTransaction.RemboursementRecu,
-                                        montant = aPayer,
-                                        date = dateTransaction,
-                                        compteId = compte.id,
-                                        collectionCompte = collectionCompte,
-                                        note = state.note.takeIf { it.isNotBlank() },
-                                        tiersUtiliser = nomTiers,
-                                        sousItems = sous
-                                    )
-                                )
-                                restant -= aPayer
-                            }
+                            enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTransaction, note = state.note.takeIf { it.isNotBlank() })
                             _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement reçu enregistré") }
                             BudgetEvents.refreshBudget.tryEmit(Unit)
                             realtimeSyncService.declencherMiseAJourBudget()
@@ -1251,40 +1037,7 @@ class AjoutTransactionViewModel(
                             chargerDonneesInitiales()
                             return@launch
                         } else if (typeTransaction == TypeTransaction.RemboursementDonne) {
-                            val existants = pretPersonnelRepository.lister().getOrElse { emptyList() }
-                                .filter { it.nomTiers.equals(nomTiers, true) && it.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
-                                .sortedBy { it.created ?: "" }
-                            if (existants.isEmpty()) throw Exception("Aucun emprunt actif pour ce tiers")
-                            // Débiter le compte une seule fois
-                            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                                compteId = compte.id,
-                                collectionCompte = collectionCompte,
-                                variationSolde = -montantDollars,
-                                mettreAJourPretAPlacer = true
-                            )
-                            var restant = montantDollars
-                            for (det in existants) {
-                                if (restant <= 0) break
-                                val besoin = kotlin.math.abs(det.solde)
-                                val aPayer = kotlin.math.min(restant, besoin)
-                                val nouveauSolde = -(kotlin.math.max(0.0, besoin - aPayer))
-                                val archiver = kotlin.math.abs(nouveauSolde) < 0.005
-                                pretPersonnelRepository.mettreAJour(det.copy(solde = nouveauSolde, estArchive = archiver))
-                                val sous = "{" + "\"pret_personnel_id\":\"${det.id}\"" + "}"
-                                transactionRepository.creerTransaction(
-                                    Transaction(
-                                        type = TypeTransaction.RemboursementDonne,
-                                        montant = aPayer,
-                                        date = dateTransaction,
-                                        compteId = compte.id,
-                                        collectionCompte = collectionCompte,
-                                        note = state.note.takeIf { it.isNotBlank() },
-                                        tiersUtiliser = nomTiers,
-                                        sousItems = sous
-                                    )
-                                )
-                                restant -= aPayer
-                            }
+                            enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTransaction, note = state.note.takeIf { it.isNotBlank() })
                             _uiState.update { it.copy(estEnTrainDeSauvegarder = false, transactionReussie = true, messageConfirmation = "Remboursement donné enregistré") }
                             BudgetEvents.refreshBudget.tryEmit(Unit)
                             realtimeSyncService.declencherMiseAJourBudget()
@@ -1500,6 +1253,109 @@ class AjoutTransactionViewModel(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Remboursement d'un prêt (reçu) ou d'un emprunt (donné) à un tiers, réparti du plus ancien au plus récent.
+     *
+     * P6 : tout est validé AVANT de toucher au compte ; un montant supérieur au total restant
+     * des dossiers actifs de ce tiers est refusé.
+     * P5 : le compte est modifié une seule fois, chaque portion crée une seule transaction,
+     * et toute erreur d'écriture interrompt l'opération avec un message au lieu d'être ignorée.
+     */
+    private suspend fun enregistrerRemboursementPersonnel(
+        nomTiers: String,
+        recu: Boolean,
+        montantDollars: Double,
+        compte: Compte,
+        collectionCompte: String,
+        date: Date,
+        note: String?
+    ) {
+        val typePret = if (recu) com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
+        else com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE
+        val dossiers = pretPersonnelRepository.lister().getOrThrow()
+            .filter {
+                it.nomTiers.equals(nomTiers, true) && it.type == typePret && !it.estArchive &&
+                    kotlin.math.abs(it.solde) > 0.005
+            }
+            .sortedBy { it.created ?: "" } // plus ancien d'abord
+        if (dossiers.isEmpty()) {
+            throw Exception(if (recu) "Aucun prêt actif pour ce tiers" else "Aucun emprunt actif pour ce tiers")
+        }
+        if (montantDollars <= 0.0) throw Exception(VirementErrorMessages.General.MONTANT_INVALIDE)
+
+        val totalRestant = MoneyFormatter.roundAmount(dossiers.sumOf { kotlin.math.abs(it.solde) })
+        if (montantDollars > totalRestant + 0.005) {
+            val quoi = if (recu) "à recevoir de" else "dû à"
+            throw Exception(
+                "Montant trop élevé : il reste ${MoneyFormatter.formatAmount(totalRestant)} $quoi $nomTiers."
+            )
+        }
+
+        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+            ?: throw Exception("Utilisateur non connecté")
+
+        // Répartition calculée entièrement avant la première écriture
+        var restant = montantDollars
+        val portions = dossiers.mapNotNull { dossier ->
+            if (restant <= 0.005) return@mapNotNull null
+            val aPayer = MoneyFormatter.roundAmount(kotlin.math.min(restant, kotlin.math.abs(dossier.solde)))
+            restant = MoneyFormatter.roundAmount(restant - aPayer)
+            dossier to aPayer
+        }
+
+        // 1) Le compte bouge une seule fois pour le total
+        compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+            compteId = compte.id,
+            collectionCompte = collectionCompte,
+            variationSolde = if (recu) montantDollars else -montantDollars,
+            mettreAJourPretAPlacer = true
+        ).getOrThrow()
+
+        // 2) Chaque dossier et sa transaction
+        portions.forEach { (dossier, aPayer) ->
+            val reste = MoneyFormatter.roundAmount(kotlin.math.abs(dossier.solde) - aPayer).coerceAtLeast(0.0)
+            val nouveauSolde = if (recu) reste else -reste
+            pretPersonnelRepository.mettreAJour(
+                dossier.copy(solde = nouveauSolde, estArchive = reste < 0.005)
+            ).getOrThrow()
+            transactionRepository.creerTransaction(
+                Transaction(
+                    id = IdGenerator.generateId(),
+                    utilisateurId = utilisateurId,
+                    type = if (recu) TypeTransaction.RemboursementRecu else TypeTransaction.RemboursementDonne,
+                    montant = aPayer,
+                    date = date,
+                    compteId = compte.id,
+                    collectionCompte = collectionCompte,
+                    note = note,
+                    tiersUtiliser = nomTiers,
+                    sousItems = "{\"pret_personnel_id\":\"${dossier.id}\"}"
+                )
+            ).getOrThrow()
+        }
+
+        // 3) Historique du compte, une seule fois
+        try {
+            val compteApres = compteRepository.getCompteById(compte.id, collectionCompte)
+            if (compteApres is CompteCheque) {
+                val variation = if (recu) montantDollars else -montantDollars
+                historiqueAllocationService.enregistrerTransactionDirecte(
+                    compte = compteApres,
+                    enveloppe = null,
+                    typeTransaction = if (recu) "REMBOURSEMENT_RECU" else "REMBOURSEMENT_DONNE",
+                    montant = variation,
+                    soldeAvant = compteApres.solde - variation,
+                    soldeApres = compteApres.solde,
+                    pretAPlacerAvant = compteApres.pretAPlacer - variation,
+                    pretAPlacerApres = compteApres.pretAPlacer,
+                    note = if (recu) "Remboursement reçu de $nomTiers" else "Remboursement donné à $nomTiers"
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ToutieBudget", "Historique du remboursement non enregistré: ${e.message}")
         }
     }
 

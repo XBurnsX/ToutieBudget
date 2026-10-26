@@ -52,6 +52,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -81,17 +86,27 @@ fun HistoriqueDetteEmpruntItem(
 	visible: Boolean,
 	nomTiers: String,
 	uiState: PretPersonnelUiState,
+    onChangerArchivage: (archiver: Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
 	if (!visible) return
 
 	val cs = MaterialTheme.colorScheme
+	val d = uiState.detailPret
+	// P4 : tant que le BON dossier n'est pas chargé, on n'affiche que le chargement
+	val enChargement = uiState.isLoadingHistorique || d == null
+	val isPret = d?.type == TypePretPersonnel.PRET
+	var confirmerArchivage by remember { mutableStateOf(false) }
 
 	AlertDialog(
 		onDismissRequest = onDismiss,
 		title = {
 			Text(
-				text = "Détails du prêt",
+				text = when {
+					d == null -> "Détails"
+					isPret -> "Détails du prêt"
+					else -> "Détails de l'emprunt"
+				},
 				style = MaterialTheme.typography.titleLarge,
 				color = cs.onSurface
 			)
@@ -103,15 +118,29 @@ fun HistoriqueDetteEmpruntItem(
 					.padding(top = 4.dp),
 				verticalArrangement = Arrangement.spacedBy(14.dp)
 			) {
-				val d = uiState.detailPret
+                if (enChargement) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) { CircularProgressIndicator() }
+                    return@Column
+                }
+
                 HeaderCard(
                     nomTiers = nomTiers,
-                    montantInitial = d?.montantInitial ?: 0.0,
-                    solde = d?.solde ?: 0.0,
-                    isPret = d?.type == TypePretPersonnel.PRET
+                    montantInitial = d!!.montantInitial,
+                    montantRembourse = uiState.montantRembourse,
+                    solde = d.solde,
+                    isPret = isPret,
+                    estArchive = d.estArchive
                 )
 
-                val isPret = d?.type == TypePretPersonnel.PRET
+                uiState.erreurAction?.let {
+                    Text(it, color = cs.error, style = MaterialTheme.typography.bodySmall)
+                }
+
                 Text(
                     text = "Historique — " + if (isPret) "Prêt" else "Emprunt",
                     style = MaterialTheme.typography.titleMedium,
@@ -140,8 +169,43 @@ fun HistoriqueDetteEmpruntItem(
 				}
 			}
 		},
-		confirmButton = { TextButton(onClick = onDismiss) { Text("Fermer") } }
+		confirmButton = { TextButton(onClick = onDismiss) { Text("Fermer") } },
+		dismissButton = {
+			// PP2 / PP3 : archivage manuel ou réactivation, sans paiement ni changement de solde
+			if (!enChargement) {
+				TextButton(onClick = {
+					if (d!!.estArchive) onChangerArchivage(false) else confirmerArchivage = true
+				}) {
+					Text(if (d!!.estArchive) "Réactiver" else "Archiver")
+				}
+			}
+		}
 	)
+
+	if (confirmerArchivage && d != null) {
+		val resteTexte = MoneyFormatter.formatAmount(kotlin.math.abs(d.solde))
+		AlertDialog(
+			onDismissRequest = { confirmerArchivage = false },
+			title = { Text("Archiver ce dossier ?") },
+			text = {
+				Text(
+					if (kotlin.math.abs(d.solde) > 0.005) {
+						"Le solde restant de $resteTexte est conservé tel quel : aucun remboursement n'est créé. " +
+							"Le dossier passe dans « Archivés » et peut être réactivé."
+					} else {
+						"Le dossier passe dans « Archivés » et peut être réactivé."
+					}
+				)
+			},
+			confirmButton = {
+				TextButton(onClick = {
+					confirmerArchivage = false
+					onChangerArchivage(true)
+				}) { Text("Archiver") }
+			},
+			dismissButton = { TextButton(onClick = { confirmerArchivage = false }) { Text("Annuler") } }
+		)
+	}
 }
 
 // ---------------------------------------------------------------
@@ -152,8 +216,10 @@ fun HistoriqueDetteEmpruntItem(
 private fun HeaderCard(
 	nomTiers: String,
 	montantInitial: Double,
+	montantRembourse: Double,
 	solde: Double,
 	isPret: Boolean,
+	estArchive: Boolean,
 	modifier: Modifier = Modifier
 ) {
 	val cs = MaterialTheme.colorScheme
@@ -173,13 +239,27 @@ private fun HeaderCard(
                 Column(modifier = Modifier.weight(1f)) {
 					Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 						AssistChip(onClick = {}, label = {
-							Text(if (isPret) "Prêt" else "Emprunt", style = MaterialTheme.typography.labelLarge)
+							Text(
+								(if (isPret) "Prêt" else "Emprunt") + if (estArchive) " · archivé" else "",
+								style = MaterialTheme.typography.labelLarge
+							)
 						})
                         Text(nomTiers, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
 					}
 					Spacer(Modifier.height(6.dp))
                     KeyValueRow(cle = "Montant initial", valeur = MoneyFormatter.formatAmount(montantInitial))
+                    // PP6 : montant déjà remboursé + progression discrète
+                    KeyValueRow(cle = "Déjà remboursé", valeur = MoneyFormatter.formatAmount(montantRembourse))
                     KeyValueRow(cle = "Solde restant", valeur = MoneyFormatter.formatAmount(solde), valeurEmphase = true)
+                    val total = montantRembourse + kotlin.math.abs(solde)
+                    if (total > 0.005) {
+                        LinearProgressIndicator(
+                            progress = { (montantRembourse / total).toFloat().coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
 				}
         }
 		Divider(color = cs.outline.copy(alpha = 0.25f))

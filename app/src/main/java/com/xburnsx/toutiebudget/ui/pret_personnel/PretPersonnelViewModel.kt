@@ -11,13 +11,13 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.ParseException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import com.xburnsx.toutiebudget.utils.IdGenerator
 
+/**
+ * Prêt personnel : consultation seulement. Les paiements et remboursements se font
+ * exclusivement dans Transactions ; ici on peut seulement archiver ou réactiver un dossier.
+ */
 class PretPersonnelViewModel(
     private val pretPersonnelRepository: PretPersonnelRepository,
     private val transactionRepository: TransactionRepository,
@@ -27,53 +27,56 @@ class PretPersonnelViewModel(
     private val _uiState = MutableStateFlow(PretPersonnelUiState(isLoading = true))
     val uiState: StateFlow<PretPersonnelUiState> = _uiState.asStateFlow()
 
+    // P4 : dossier dont le détail est attendu ; une réponse d'un autre dossier est ignorée
+    private var dossierDemande: String? = null
+
     init {
         // Ne rien faire ici; l'écran déclenchera charger() dans LaunchedEffect pour garantir un refresh à chaque ouverture
     }
 
     fun charger() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
+            _uiState.update { it.copy(isLoading = true, erreur = null) }
             val result = pretPersonnelRepository.lister()
             result.onSuccess { entries ->
-                // DEBUG: Total entries: ${entries.size}
-                // DEBUG: Entries avec estArchive=true: ${entries.count { it.estArchive }}
-                entries.filter { it.estArchive }.forEach { 
-                    // DEBUG: Archive trouvé: ${it.nomTiers} - Solde: ${it.solde} - Type: ${it.type}
-                }
-                
+                // Un dossier actif reste visible même à 0 $ (ex. réactivé) ; l'archivage le retire
                 val itemsPret = entries
-                    .filter { it.type == TypePretPersonnel.PRET && !it.estArchive && it.solde > 0 }
+                    .filter { it.type == TypePretPersonnel.PRET && !it.estArchive }
                     .map { it.toItem() }
                 val itemsEmprunt = entries
-                    .filter { it.type == TypePretPersonnel.DETTE && !it.estArchive && it.solde < 0 }
+                    .filter { it.type == TypePretPersonnel.DETTE && !it.estArchive }
                     .map { it.toItem() }
                 val itemsArchives = entries
                     .filter { it.estArchive }
                     .map { it.toItem() }
-                
-                // DEBUG: itemsArchives count: ${itemsArchives.size}
-                
-                _uiState.value = PretPersonnelUiState(
-                    isLoading = false,
-                    items = itemsPret + itemsEmprunt,
-                    itemsPret = itemsPret,
-                    itemsEmprunt = itemsEmprunt,
-                    itemsArchives = itemsArchives
-                )
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        erreur = null,
+                        items = itemsPret + itemsEmprunt,
+                        itemsPret = itemsPret,
+                        itemsEmprunt = itemsEmprunt,
+                        itemsArchives = itemsArchives
+                    )
+                }
             }.onFailure { e ->
-                _uiState.value = PretPersonnelUiState(isLoading = false, erreur = e.message)
+                _uiState.update { it.copy(isLoading = false, erreur = e.message) }
             }
         }
     }
 
     fun setTab(tab: PretTab) {
-        _uiState.value = _uiState.value.copy(currentTab = tab)
+        _uiState.update { it.copy(currentTab = tab) }
     }
 
     fun chargerHistoriquePourPret(pretId: String, nomTiers: String) {
+        dossierDemande = pretId
+        // P4 : vider le détail précédent AVANT de charger le nouveau
+        _uiState.update {
+            it.copy(isLoadingHistorique = true, historique = emptyList(), detailPret = null, erreurAction = null)
+        }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingHistorique = true)
             val txs = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
                 .filter { t ->
                     (t.type == TypeTransaction.Pret || t.type == TypeTransaction.RemboursementRecu ||
@@ -99,87 +102,50 @@ class PretPersonnelViewModel(
             val recordActif = pretPersonnelRepository.lister().getOrElse { emptyList() }
                 .firstOrNull { it.id == pretId }
 
-            // ✅ Ne plus ajouter l'événement initial car il est déjà dans les transactions
-            val itemsTries = items.sortedByDescending { it.date }
+            // Un autre dossier a été ouvert entre-temps : ne pas afficher ces données
+            if (dossierDemande != pretId) return@launch
 
-            _uiState.value = _uiState.value.copy(
-                isLoadingHistorique = false,
-                historique = itemsTries,
-                detailPret = recordActif
-            )
+            // PP6 : montant déjà remboursé selon les remboursements liés à ce dossier
+            val rembourse = txs
+                .filter { it.type == TypeTransaction.RemboursementRecu || it.type == TypeTransaction.RemboursementDonne }
+                .sumOf { kotlin.math.abs(it.montant) }
+
+            _uiState.update {
+                it.copy(
+                    isLoadingHistorique = false,
+                    historique = items,
+                    detailPret = recordActif,
+                    montantRembourse = rembourse
+                )
+            }
         }
     }
 
     fun clearHistorique() {
-        _uiState.value = _uiState.value.copy(historique = emptyList(), isLoadingHistorique = false)
+        dossierDemande = null
+        _uiState.update {
+            it.copy(historique = emptyList(), isLoadingHistorique = false, detailPret = null, erreurAction = null)
+        }
     }
 
-    fun enregistrerRemboursement(
-        pretId: String,
-        nomTiers: String,
-        montant: Double,
-        compteId: String? = null,
-        collectionCompte: String? = null
-    ) {
-        if (montant <= 0) return
+    /** PP2 / PP3 : archiver ou réactiver un dossier, sans toucher au solde ni à l'historique. */
+    fun changerArchivage(pretId: String, archiver: Boolean) {
         viewModelScope.launch {
-            try {
-                val pret = pretPersonnelRepository.lister().getOrElse { emptyList() }.firstOrNull { it.id == pretId } ?: return@launch
-                val typeTx = if (pret.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) TypeTransaction.RemboursementRecu else TypeTransaction.RemboursementDonne
-                val variationSoldeCompte = if (typeTx == TypeTransaction.RemboursementRecu) montant else -montant
-
-                // 0) Choisir le compte par défaut si non fourni
-                val (compteUtiliseId, collectionUtilisee) = if (compteId.isNullOrBlank() || collectionCompte.isNullOrBlank()) {
-                    val comptes = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
-                    val compteParDefaut = comptes.firstOrNull { it.collection == "comptes_cheques" } ?: comptes.firstOrNull()
-                    val coll = compteParDefaut?.collection ?: "comptes_cheques"
-                    val id = compteParDefaut?.id ?: ""
-                    id to coll
-                } else compteId to collectionCompte
-
-                // 1) Créer la transaction
-                val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                    ?: throw Exception("Utilisateur non connecté")
-                transactionRepository.creerTransaction(
-                    com.xburnsx.toutiebudget.data.modeles.Transaction(
-                        id = IdGenerator.generateId(),
-                        utilisateurId = utilisateurId,
-                        type = typeTx,
-                        montant = montant,
-                        date = java.util.Date(),
-                        note = null,
-                        compteId = compteUtiliseId,
-                        collectionCompte = collectionUtilisee,
-                        allocationMensuelleId = null,
-                        estFractionnee = false,
-                        sousItems = "{\"pret_personnel_id\":\"$pretId\"}",
-                        tiersUtiliser = nomTiers
-                    )
-                )
-
-                // 2) Mettre à jour le compte (solde et prêt à placer si entrée)
-                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
-                    compteId = compteUtiliseId,
-                    collectionCompte = collectionUtilisee,
-                    variationSolde = variationSoldeCompte,
-                    mettreAJourPretAPlacer = (typeTx == TypeTransaction.RemboursementRecu)
-                )
-
-                // 3) Mettre à jour le prêt
-                val nouveauSolde = if (pret.type == com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET) {
-                    (pret.solde - montant).coerceAtLeast(0.0)
-                } else {
-                    (pret.solde + montant).coerceAtMost(0.0)
-                }
-                val pretMaj = pret.copy(solde = nouveauSolde, estArchive = kotlin.math.abs(nouveauSolde) < 0.005)
-                pretPersonnelRepository.mettreAJour(pretMaj)
-
-                // 4) Rafraîchir l'historique
-                chargerHistoriquePourPret(pretId, nomTiers)
-            } catch (e: Exception) { 
-                // Erreur lors de l'enregistrement du remboursement: ${e.message}
-                e.printStackTrace()
+            val dossier = pretPersonnelRepository.lister().getOrElse { emptyList() }.firstOrNull { it.id == pretId }
+            if (dossier == null) {
+                _uiState.update { it.copy(erreurAction = "Dossier introuvable") }
+                return@launch
             }
+            pretPersonnelRepository.mettreAJour(dossier.copy(estArchive = archiver))
+                .onSuccess {
+                    if (dossierDemande == pretId) {
+                        _uiState.update { it.copy(detailPret = dossier.copy(estArchive = archiver), erreurAction = null) }
+                    }
+                    charger()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(erreurAction = "Échec : ${e.message}") }
+                }
         }
     }
 
@@ -192,25 +158,4 @@ class PretPersonnelViewModel(
         derniereDate = null,
         type = this.type
     )
-
-    private fun parseDate(raw: String?): Date? {
-        if (raw.isNullOrBlank()) return null
-        val formats = listOf(
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd"
-        )
-        for (pattern in formats) {
-            try {
-                val sdf = SimpleDateFormat(pattern, Locale.getDefault())
-                sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
-                return sdf.parse(raw)
-            } catch (_: ParseException) {
-            }
-        }
-        return null
-    }
 }
-
-
