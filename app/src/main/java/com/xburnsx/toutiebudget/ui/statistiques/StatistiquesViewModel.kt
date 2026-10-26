@@ -102,6 +102,19 @@ class StatistiquesViewModel(
                     cal.add(Calendar.MONTH, 1)
                 }
             }
+            // ST15 : une allocation manquante rend les tops incomplets ; ne pas présenter
+            // des résultats partiels comme des chiffres fiables.
+            if (erreursAllocations.isNotEmpty()) {
+                if (generation != generationChargement) return@launch
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    erreur = "Allocations indisponibles : " + erreursAllocations.joinToString(", "),
+                    calculIncomplet = true,
+                    donneesIndisponibles = erreursAllocations.map { "Allocations $it" },
+                    periode = periode
+                )
+                return@launch
+            }
             val tiersResult = tiersRepository.recupererTousLesTiers()
             val categoriesResult = categorieRepository.recupererToutesLesCategories()
 
