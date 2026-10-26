@@ -174,11 +174,11 @@ fun HistoriqueEnveloppeScreen(
 }
 
 /**
- * Formate une date au format "yyyy-MM-dd" en format lisible.
+ * Formate les clés de regroupement « d MMMM yyyy » en français (HE6).
  */
 private fun formaterDate(dateString: String): String {
     return try {
-        val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val inputFormat = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.FRENCH).apply { isLenient = false }
         val date = inputFormat.parse(dateString)
         val outputFormat = java.text.SimpleDateFormat("EEEE d MMMM yyyy", java.util.Locale.FRENCH)
         outputFormat.format(date!!).replaceFirstChar { it.uppercase() }
