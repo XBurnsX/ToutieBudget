@@ -107,7 +107,8 @@ fun CategoriesEnveloppesScreen(
         if (enveloppe != null) {
             ConfirmationSuppressionDialog(
                 titre = "Supprimer l'enveloppe",
-                message = "Êtes-vous sûr de vouloir supprimer l'enveloppe '${enveloppe.nom}' ?\n\nCette action est irréversible et supprimera toutes les données associées.",
+                message = "Êtes-vous sûr de vouloir retirer l'enveloppe '${enveloppe.nom}' ?\n\n" +
+                    "Elle doit être vide. Si elle a déjà servi, elle sera archivée et son historique gardé.",
                 onConfirm = viewModel::onConfirmerSuppressionEnveloppe,
                 onDismiss = viewModel::onFermerConfirmationSuppressionEnveloppe
             )
@@ -125,6 +126,16 @@ fun CategoriesEnveloppesScreen(
                 onDismiss = viewModel::onFermerConfirmationSuppressionCategorie
             )
         }
+    }
+
+    // CE19 : l'erreur reste affichée jusqu'à ce qu'on la ferme (refus, doublon, échec de création...)
+    uiState.erreur?.let { erreur ->
+        AlertDialog(
+            onDismissRequest = viewModel::onEffacerErreur,
+            title = { Text("Action impossible") },
+            text = { Text(erreur) },
+            confirmButton = { TextButton(onClick = viewModel::onEffacerErreur) { Text("OK") } }
+        )
     }
 
     // ===== INTERFACE PRINCIPALE =====
