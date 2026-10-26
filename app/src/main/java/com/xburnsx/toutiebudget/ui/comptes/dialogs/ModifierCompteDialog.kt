@@ -33,7 +33,7 @@ fun ModifierCompteDialog(
 
     // Conversion entre format centimes et format texte pour ChampArgent
     val soldeEnCentimes = remember(formState.solde) {
-        (formState.solde.toDoubleOrNull() ?: 0.0) * 100
+        Math.round((formState.solde.toDoubleOrNull() ?: 0.0) * 100).toDouble()
     }
 
     AlertDialog(
@@ -82,7 +82,7 @@ fun ModifierCompteDialog(
                 // *** NOUVEAU : Champ prêt à placer (seulement pour les comptes chèques) ***
                 if (formState.type == "Compte chèque") {
                     val pretAPlacerEnCentimes = remember(formState.pretAPlacer) {
-                        (formState.pretAPlacer.toDoubleOrNull() ?: 0.0) * 100
+                        Math.round((formState.pretAPlacer.toDoubleOrNull() ?: 0.0) * 100).toDouble()
                     }
 
                     ChampUniversel(

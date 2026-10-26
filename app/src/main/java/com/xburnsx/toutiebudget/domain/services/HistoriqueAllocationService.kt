@@ -71,4 +71,20 @@ interface HistoriqueAllocationService {
         pretAPlacerApres: Double,
         note: String?
     )
+
+    /**
+     * Trace d'un ajustement de compte (réconciliation ou modification manuelle), reconnaissable
+     * comme tel et jamais comptée comme un revenu ou une dépense (CO5, CO9).
+     * Contrairement aux autres méthodes, une erreur est relancée pour que l'appelant puisse annuler.
+     */
+    suspend fun enregistrerAjustementCompte(
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        typeAction: String,
+        description: String,
+        montant: Double,
+        soldeAvant: Double,
+        soldeApres: Double,
+        pretAPlacerAvant: Double,
+        pretAPlacerApres: Double
+    )
 }

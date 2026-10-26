@@ -34,7 +34,8 @@ class ComptesViewModel(
     private val realtimeSyncService: RealtimeSyncService,
     private val categorieRepository: CategorieRepository,
     private val enveloppeRepository: EnveloppeRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 ) : ViewModel() {
 
     // Callback pour notifier les autres ViewModels des changements
@@ -45,8 +46,8 @@ class ComptesViewModel(
 
     init {
         chargerComptes()
-        // Démarrer le rafraîchissement automatique toutes les 2 secondes
-        demarrerRafraichissementAutomatique()
+        // CO8 : plus de sondage toutes les 2 secondes ; les événements ci-dessous
+        // (temps réel PocketBase, modifications locales) et l'ouverture de l'écran suffisent.
 
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
@@ -64,7 +65,7 @@ class ComptesViewModel(
         }
     }
 
-    private fun chargerComptesInternal(showArchived: Boolean) {
+    fun chargerComptes() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             compteRepository.recupererTousLesComptes().onSuccess { comptes ->
@@ -76,14 +77,10 @@ class ComptesViewModel(
                         is CompteInvestissement -> "Investissements"
                     }
                 }.mapValues { (_, comptesType) ->
-                    comptesType.filter { showArchived || !it.estArchive }.sortedBy { it.ordre }
+                    comptesType.filter { !it.estArchive }.sortedBy { it.ordre }
                 }.filter { (typeDeCompte, comptesType) ->
                     // Ne pas afficher la catégorie "Dettes" s'il n'y a plus de dettes actives
-                    if (typeDeCompte == "Dettes") {
-                        comptesType.isNotEmpty()
-                    } else {
-                        true
-                    }
+                    typeDeCompte != "Dettes" || comptesType.isNotEmpty()
                 }
                 _uiState.update {
                     it.copy(isLoading = false, comptesGroupes = comptesGroupes)
@@ -96,63 +93,24 @@ class ComptesViewModel(
         }
     }
 
-    fun chargerComptes() = chargerComptesInternal(showArchived = false)
-
-    fun chargerComptesArchives() = chargerComptesInternal(showArchived = true)
+    /** CO3 : liste séparée, qu'un rafraîchissement des comptes actifs ne peut pas écraser. */
+    fun chargerComptesArchives() {
+        viewModelScope.launch(Dispatchers.IO) {
+            compteRepository.recupererTousLesComptes().onSuccess { comptes ->
+                _uiState.update { it.copy(comptesArchives = comptes.filter { c -> c.estArchive }.sortedBy { c -> c.nom.lowercase() }) }
+            }.onFailure { erreur ->
+                _uiState.update { it.copy(erreur = "Impossible de charger les comptes archivés: ${erreur.message}") }
+            }
+        }
+    }
 
     // 🔄 NOUVELLE MÉTHODE : Rafraîchir les comptes
     fun rafraichirComptes() {
         chargerComptes()
     }
 
-    /**
-     * Démarre un rafraîchissement automatique des données toutes les 2 secondes.
-     * Cela permet de détecter les changements faits depuis d'autres écrans (virements, etc.).
-     */
-    private fun demarrerRafraichissementAutomatique() {
-        viewModelScope.launch {
-            while (true) {
-                delay(2000) // Attendre 2 secondes
-                try {
-                    // Recharger silencieusement les comptes
-                    val nouveauxComptes = compteRepository.recupererTousLesComptes()
-                        .getOrThrow()
-                    
-                    // Vérifier si les données ont changé (comparaison des soldes et prêts à placer)
-                    val comptesActuels = _uiState.value.comptesGroupes.values.flatten()
-                    var donneesOntChange = false
-                    
-                    // 🔍 DEBUG : Vérifier chaque compte individuellement
-                    nouveauxComptes.forEach { nouveauCompte ->
-                        val compteActuel = comptesActuels.find { it.id == nouveauCompte.id }
-                        if (compteActuel != null) {
-                            val soldeChange = compteActuel.solde != nouveauCompte.solde
-                            val pretAPlacerChange = if (compteActuel is CompteCheque && nouveauCompte is CompteCheque) {
-                                compteActuel.pretAPlacer != nouveauCompte.pretAPlacer
-                            } else false
-                            
-                            if (soldeChange || pretAPlacerChange) {
-                                // 🔄 Changement détecté pour ${nouveauCompte.nom}:
-                                //   Solde: ${compteActuel.solde} → ${nouveauCompte.solde}
-                                //   Prêt à placer: ${(compteActuel as CompteCheque).pretAPlacer} → ${(nouveauCompte as CompteCheque).pretAPlacer}
-                                donneesOntChange = true
-                            }
-                        } else {
-                            // Nouveau compte
-                            donneesOntChange = true
-                        }
-                    }
-                    
-                    if (donneesOntChange) {
-                        // 🔄 Changements détectés - Mise à jour automatique des comptes
-                        chargerComptes()
-                    }
-                } catch (e: Exception) {
-                    // Gérer l'erreur silencieusement
-                    // Erreur lors du rafraîchissement automatique: ${e.message}
-                }
-            }
-        }
+    fun effacerErreur() {
+        _uiState.update { it.copy(erreur = null) }
     }
 
     fun onCompteLongPress(compte: Compte) {
@@ -172,189 +130,137 @@ class ComptesViewModel(
         }
     }
 
+    /**
+     * CO5 : écart = solde réel - solde actuel, appliqué au compte choisi seulement.
+     * Pour un compte chèque, le « Prêt à placer » bouge du MÊME écart.
+     * Une seule trace « Réconciliation » est écrite dans l'historique (pas de faux revenu
+     * ni de fausse dépense) ; si elle échoue, l'ajustement du compte est annulé.
+     */
     fun onReconcilierCompte(nouveauSolde: Double) {
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
-                // Calculer la différence de solde
-                val difference = when (compte) {
-                    is CompteCheque -> nouveauSolde - compte.solde
-                    is CompteCredit -> nouveauSolde - compte.soldeUtilise
-                    is CompteDette -> nouveauSolde - compte.soldeDette
-                    is CompteInvestissement -> nouveauSolde - compte.solde
-                    else -> 0.0
+                val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(nouveauSolde - compte.solde)
+                if (kotlin.math.abs(ecart) < 0.005) {
+                    _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
+                    return@launch
                 }
 
-                // Créer une transaction de réconciliation si il y a une différence
-                if (difference != 0.0) {
-                    val typeTransaction = if (difference > 0) TypeTransaction.Revenu else TypeTransaction.Depense
-                    val montantTransaction = kotlin.math.abs(difference)
-                    
-                    val transactionReconciliation = Transaction(
-                        type = typeTransaction,
-                        montant = montantTransaction,
-                        date = java.util.Date(),
-                        compteId = compte.id,
-                        collectionCompte = when (compte) {
-                            is CompteCheque -> "comptes_cheques"
-                            is CompteCredit -> "comptes_credits"
-                            is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
-                            else -> "comptes_cheques"
-                        },
-                        tiersUtiliser = "Mise à jour : ${compte.nom}"
-                    )
-
-                    // Créer la transaction
-                    transactionRepository.creerTransaction(transactionReconciliation)
-                }
-
-                when (compte) {
+                val (compteReconcilie, pretAvant, pretApres) = when (compte) {
                     is CompteCheque -> {
-                        // CALCUL CORRECT : Si solde augmente de 100$, prêt à placer augmente de 100$
-                        val nouveauPretAPlacer = compte.pretAPlacer + difference
-
-                        val compteReconcilie = CompteCheque(
-                            id = compte.id,
-                            utilisateurId = compte.utilisateurId,
-                            nom = compte.nom,
-                            solde = nouveauSolde,
-                            pretAPlacerRaw = nouveauPretAPlacer,
-                            couleur = compte.couleur,
-                            estArchive = compte.estArchive,
-                            ordre = compte.ordre,
-                            collection = "comptes_cheques"
-                        )
-
-                        compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
-                            _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
-                            chargerComptes()
-                            onCompteChange?.invoke()
-                        }.onFailure { erreur ->
-                            _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
-                        }
+                        val nouveauPret = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(compte.pretAPlacer + ecart)
+                        Triple(compte.copy(solde = nouveauSolde, pretAPlacerRaw = nouveauPret), compte.pretAPlacer, nouveauPret)
                     }
+                    is CompteInvestissement -> Triple(compte.copy(solde = nouveauSolde), 0.0, 0.0)
                     else -> {
-                        // Pour les autres types de comptes, juste changer le solde
-                        val compteReconcilie = when (compte) {
-                            is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde, collection = "comptes_credits") // Changé solde vers soldeUtilise
-                                                         is CompteDette -> compte.copy(soldeDette = nouveauSolde)
-                            is CompteInvestissement -> compte.copy(solde = nouveauSolde)
-                            else -> return@launch
-                        }
-
-                        compteRepository.mettreAJourCompte(compteReconcilie).onSuccess {
-                            _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
-                            chargerComptes()
-                            onCompteChange?.invoke()
-                        }.onFailure { erreur ->
-                            _uiState.update { it.copy(erreur = "Erreur réconciliation: ${erreur.message}") }
-                        }
+                        _uiState.update { it.copy(erreur = "La réconciliation n'est pas offerte pour ce type de compte.") }
+                        return@launch
                     }
                 }
+
+                compteRepository.mettreAJourCompte(compteReconcilie).getOrThrow()
+                try {
+                    historiqueAllocationService.enregistrerAjustementCompte(
+                        compte = compteReconcilie,
+                        typeAction = "RECONCILIATION",
+                        description = "Réconciliation ${compte.nom} : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compte.solde)} → " +
+                            "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(nouveauSolde)} (écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
+                        montant = ecart,
+                        soldeAvant = compte.solde,
+                        soldeApres = nouveauSolde,
+                        pretAPlacerAvant = pretAvant,
+                        pretAPlacerApres = pretApres
+                    )
+                } catch (e: Exception) {
+                    // Réussir ou échouer ensemble : on remet le compte comme avant
+                    compteRepository.mettreAJourCompte(compte)
+                    throw Exception("trace d'historique impossible (${e.message}), rien n'a été modifié")
+                }
+
+                _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
+                chargerComptes()
+                realtimeSyncService.declencherMiseAJourBudget()
+                onCompteChange?.invoke()
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur réconciliation: ${e.message}") }
             }
         }
     }
 
+    /**
+     * CO2 : mise à jour ciblée (copy) — minimums, taux, frais, durée, valeurs initiales restent intacts.
+     * CO1 : une dette archivée garde tout son historique ; son enveloppe n'est jamais supprimée :
+     *       elle est archivée seulement si la dette est terminée ET qu'il n'y reste pas de fonds.
+     */
     fun onArchiverCompte() {
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
                 val compteArchive = when (compte) {
-                    is CompteCheque -> {
-                        CompteCheque(
-                            id = compte.id,
-                            utilisateurId = compte.utilisateurId,
-                            nom = compte.nom,
-                            solde = compte.solde,
-                            pretAPlacerRaw = compte.pretAPlacerRaw,
-                            couleur = compte.couleur,
-                            estArchive = true, // ← FORCER à true
-                            ordre = compte.ordre,
-                            collection = "comptes_cheques"
-                        )
-                    }
-                    is CompteCredit -> {
-                        CompteCredit(
-                            id = compte.id,
-                            utilisateurId = compte.utilisateurId,
-                            nom = compte.nom,
-                            soldeUtilise = compte.soldeUtilise, // Utiliser soldeUtilise au lieu de solde
-                            couleur = compte.couleur,
-                            estArchive = true, // ← FORCER à true
-                            ordre = compte.ordre,
-                            limiteCredit = compte.limiteCredit,
-                            tauxInteret = compte.tauxInteret, // Corriger interet vers tauxInteret
-                            collection = "comptes_credits"
-                        )
-                    }
-                                         is CompteDette -> {
-                         CompteDette(
-                             id = compte.id,
-                             utilisateurId = compte.utilisateurId,
-                             nom = compte.nom,
-                             soldeDette = compte.soldeDette,
-                             estArchive = true, // ← FORCER à true
-                             ordre = compte.ordre,
-                             montantInitial = compte.montantInitial,
-                             tauxInteret = compte.tauxInteret,
-                             collection = "comptes_dettes"
-                         )
-                     }
-                    is CompteInvestissement -> {
-                        CompteInvestissement(
-                            id = compte.id,
-                            utilisateurId = compte.utilisateurId,
-                            nom = compte.nom,
-                            solde = compte.solde,
-                            couleur = compte.couleur,
-                            estArchive = true, // ← FORCER à true
-                            ordre = compte.ordre,
-                            collection = "comptes_investissement"
-                        )
-                    }
+                    is CompteCheque -> compte.copy(estArchive = true)
+                    is CompteCredit -> compte.copy(estArchive = true)
+                    is CompteDette -> compte.copy(estArchive = true)
+                    is CompteInvestissement -> compte.copy(estArchive = true)
                 }
 
-                compteRepository.mettreAJourCompte(compteArchive).onSuccess {
-                    // Si dette archivée: supprimer enveloppe associée et nettoyer la catégorie si vide
-                    try {
-                        if (compte is CompteDette) {
-                            // Trouver l'enveloppe portant le même nom dans la catégorie Dettes
-                            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-                            val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                            val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
-                            val envDette = enveloppes.firstOrNull { it.nom.equals(compte.nom, ignoreCase = true) && (catDettes == null || it.categorieId == catDettes.id) }
-                            envDette?.let { enveloppeRepository.supprimerEnveloppe(it.id) }
-                            // Si la catégorie Dettes est vide après suppression, la supprimer
-                            if (catDettes != null) {
-                                val reste = enveloppes.any { it.id != envDette?.id && it.categorieId == catDettes.id }
-                                if (!reste) {
-                                    categorieRepository.supprimerCategorie(catDettes.id)
-                                }
-                            }
-                        }
-                    } catch (_: Exception) { }
-                    _uiState.update { it.copy(isMenuContextuelVisible = false, compteSelectionne = null) }
+                compteRepository.mettreAJourCompte(compteArchive).getOrThrow()
 
-                    // FORCER LE RAFRAÎCHISSEMENT IMMÉDIAT DES DEUX ÉCRANS
-                    chargerComptes() // Rafraîchit CompteScreen
-
-                    // DÉCLENCHER LA MISE À JOUR TEMPS RÉEL POUR LE BUDGET
-                    realtimeSyncService.declencherMiseAJourBudget()
-                    realtimeSyncService.declencherMiseAJourComptes()
-
-                    // FORCER LE CALLBACK POUR BUDGET SCREEN
-                    onCompteChange?.invoke()
-
-                }.onFailure { erreur ->
-                    _uiState.update { it.copy(erreur = "Erreur archivage: ${erreur.message}") }
+                var message: String? = null
+                if (compte is CompteDette) {
+                    message = archiverEnveloppeDetteSiTerminee(compte)
                 }
+
+                _uiState.update {
+                    it.copy(
+                        isMenuContextuelVisible = false,
+                        isConfirmationArchivageVisible = false,
+                        compteSelectionne = null,
+                        erreur = message
+                    )
+                }
+                chargerComptes()
+                realtimeSyncService.declencherMiseAJourBudget()
+                realtimeSyncService.declencherMiseAJourComptes()
+                onCompteChange?.invoke()
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur archivage: ${e.message}") }
+                _uiState.update { it.copy(isConfirmationArchivageVisible = false, erreur = "Erreur archivage: ${e.message}") }
             }
         }
+    }
+
+    /** Retourne un message à afficher si l'enveloppe de la dette a été laissée active. */
+    private suspend fun archiverEnveloppeDetteSiTerminee(dette: CompteDette): String? {
+        val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+        val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
+        val envDette = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+            .firstOrNull { it.nom.equals(dette.nom, ignoreCase = true) && (catDettes == null || it.categorieId == catDettes.id) && !it.estArchive }
+            ?: return null
+
+        val terminee = kotlin.math.abs(dette.soldeDette) < 0.01
+        if (!terminee) {
+            return "Dette archivée. Son enveloppe « ${envDette.nom} » reste active : la dette n'est pas terminée."
+        }
+
+        val soldeEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(envDette.id).getOrElse { emptyList() }
+            .groupBy { it.mois.time }
+            .maxByOrNull { it.key }?.value?.sumOf { it.solde } ?: 0.0
+        if (kotlin.math.abs(soldeEnveloppe) > 0.009) {
+            return "Dette archivée. Son enveloppe « ${envDette.nom} » contient encore " +
+                "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeEnveloppe)} : elle reste active."
+        }
+
+        // Archiver (jamais supprimer) : l'historique d'allocation et les références restent intacts
+        enveloppeRepository.mettreAJourEnveloppe(envDette.copy(estArchive = true))
+        return null
+    }
+
+    /** CO7 : demander confirmation avant d'archiver. */
+    fun onDemanderArchivage() {
+        _uiState.update { it.copy(isConfirmationArchivageVisible = true, isMenuContextuelVisible = false) }
+    }
+
+    fun onAnnulerArchivage() {
+        _uiState.update { it.copy(isConfirmationArchivageVisible = false) }
     }
 
     fun onOuvrirAjoutDialog() {
@@ -391,7 +297,9 @@ class ComptesViewModel(
                 isModificationDialogVisible = false,
                 isReconciliationDialogVisible = false,
                 isMenuContextuelVisible = false,
-                isClavierNumeriqueVisible = false
+                isClavierNumeriqueVisible = false,
+                isConfirmationArchivageVisible = false,
+                enregistrementEnCours = false
             )
         }
     }
@@ -411,12 +319,14 @@ class ComptesViewModel(
     }
 
     fun onSauvegarderCompte() {
+        if (_uiState.value.enregistrementEnCours) return
+        // CO6 : chaque sauvegarde ferme son dialogue elle-même, seulement après réussite
         if (_uiState.value.formState.id != null) {
             sauvegarderModification()
         } else {
+            _uiState.update { it.copy(enregistrementEnCours = true) }
             creerNouveauCompte()
         }
-        onFermerTousLesDialogues() // Fermer tout après la sauvegarde
     }
 
     private fun creerNouveauCompte() {
@@ -590,86 +500,77 @@ class ComptesViewModel(
                         // Les catégories/enveloppes seront créées plus tard si nécessaire
                     }
                 }
-            }.onFailure {
-                // Gérer l'erreur
+            }.onFailure { e ->
+                // CO6 : erreur visible, le formulaire reste ouvert avec les valeurs saisies
+                _uiState.update { it.copy(enregistrementEnCours = false, erreur = "Erreur création: ${e.message}") }
             }
         }
     }
 
+    /**
+     * CO2 : copie ciblée, tous les autres champs du compte sont conservés.
+     * CO9 : solde et « Prêt à placer » restent deux champs indépendants ; un changement est
+     *       tracé comme « Modification du compte », jamais comme une dépense ou un revenu.
+     * CO6 : le dialogue reste ouvert avec les valeurs saisies si la sauvegarde échoue.
+     */
     private fun sauvegarderModification() {
         viewModelScope.launch {
             try {
                 val form = _uiState.value.formState
                 val compteOriginal = _uiState.value.compteSelectionne ?: return@launch
-                val soldeDouble = form.solde.toDoubleOrNull() ?: 0.0
-                val pretAPlacerDouble = form.pretAPlacer.toDoubleOrNull() ?: 0.0
+                val soldeDouble = form.solde.replace(',', '.').toDoubleOrNull()
+                    ?: throw Exception("Solde invalide")
+                val pretAPlacerDouble = if (compteOriginal is CompteCheque) {
+                    form.pretAPlacer.replace(',', '.').toDoubleOrNull() ?: throw Exception("Prêt à placer invalide")
+                } else 0.0
 
                 val compteModifie = when (compteOriginal) {
-                    is CompteCheque -> {
-                        CompteCheque(
-                            id = compteOriginal.id,
-                            utilisateurId = compteOriginal.utilisateurId,
-                            nom = form.nom,
-                            solde = soldeDouble,
-                            pretAPlacerRaw = pretAPlacerDouble,
-                            couleur = form.couleur,
-                            estArchive = compteOriginal.estArchive,
-                            ordre = compteOriginal.ordre,
-                            collection = "comptes_cheques"
+                    is CompteCheque -> compteOriginal.copy(
+                        nom = form.nom,
+                        solde = soldeDouble,
+                        pretAPlacerRaw = pretAPlacerDouble,
+                        couleur = form.couleur
+                    )
+                    is CompteCredit -> compteOriginal.copy(nom = form.nom, soldeUtilise = soldeDouble, couleur = form.couleur)
+                    is CompteDette -> compteOriginal.copy(nom = form.nom, soldeDette = soldeDouble)
+                    is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                }
+
+                _uiState.update { it.copy(enregistrementEnCours = true) }
+                compteRepository.mettreAJourCompte(compteModifie).getOrThrow()
+
+                val pretAvant = (compteOriginal as? CompteCheque)?.pretAPlacer ?: 0.0
+                val pretApres = (compteModifie as? CompteCheque)?.pretAPlacer ?: 0.0
+                val soldeChange = kotlin.math.abs(compteModifie.solde - compteOriginal.solde) > 0.005
+                val pretChange = kotlin.math.abs(pretApres - pretAvant) > 0.005
+                if (soldeChange || pretChange) {
+                    try {
+                        historiqueAllocationService.enregistrerAjustementCompte(
+                            compte = compteModifie,
+                            typeAction = "MODIFICATION_COMPTE",
+                            description = "Modification manuelle de ${compteModifie.nom}" +
+                                (if (soldeChange) " — solde ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compteOriginal.solde)} → ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compteModifie.solde)}" else "") +
+                                (if (pretChange) " — prêt à placer ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(pretAvant)} → ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(pretApres)}" else ""),
+                            montant = compteModifie.solde - compteOriginal.solde,
+                            soldeAvant = compteOriginal.solde,
+                            soldeApres = compteModifie.solde,
+                            pretAPlacerAvant = pretAvant,
+                            pretAPlacerApres = pretApres
                         )
-                    }
-                    is CompteCredit -> {
-                        CompteCredit(
-                            id = compteOriginal.id,
-                            utilisateurId = compteOriginal.utilisateurId,
-                            nom = form.nom,
-                            soldeUtilise = soldeDouble, // Changé solde vers soldeUtilise
-                            couleur = form.couleur,
-                            estArchive = compteOriginal.estArchive,
-                            ordre = compteOriginal.ordre,
-                            limiteCredit = compteOriginal.limiteCredit,
-                            tauxInteret = compteOriginal.tauxInteret, // Changé interet vers tauxInteret
-                            collection = "comptes_credits"
-                        )
-                    }
-                    is CompteDette -> {
-                        CompteDette(
-                            id = compteOriginal.id,
-                            utilisateurId = compteOriginal.utilisateurId,
-                            nom = form.nom,
-                            soldeDette = soldeDouble,
-                            estArchive = compteOriginal.estArchive,
-                            ordre = compteOriginal.ordre,
-                            montantInitial = compteOriginal.montantInitial,
-                            tauxInteret = compteOriginal.tauxInteret,
-                            collection = "comptes_dettes"
-                        )
-                    }
-                    is CompteInvestissement -> {
-                        CompteInvestissement(
-                            id = compteOriginal.id,
-                            utilisateurId = compteOriginal.utilisateurId,
-                            nom = form.nom,
-                            solde = soldeDouble,
-                            couleur = form.couleur,
-                            estArchive = compteOriginal.estArchive,
-                            ordre = compteOriginal.ordre,
-                            collection = "comptes_investissement"
-                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("ToutieBudget", "Trace de modification du compte non enregistrée: ${e.message}")
                     }
                 }
 
-                compteRepository.mettreAJourCompte(compteModifie).onSuccess {
-                    _uiState.update { it.copy(isModificationDialogVisible = false, compteSelectionne = null) }
-                    chargerComptes()
-                    realtimeSyncService.declencherMiseAJourBudget()
-                    realtimeSyncService.declencherMiseAJourComptes()
-                    onCompteChange?.invoke()
-                }.onFailure { e ->
-                    _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
+                _uiState.update {
+                    it.copy(isModificationDialogVisible = false, compteSelectionne = null, enregistrementEnCours = false)
                 }
+                chargerComptes()
+                realtimeSyncService.declencherMiseAJourBudget()
+                realtimeSyncService.declencherMiseAJourComptes()
+                onCompteChange?.invoke()
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur modification: ${e.message}") }
+                _uiState.update { it.copy(enregistrementEnCours = false, erreur = "Erreur modification: ${e.message}") }
             }
         }
     }

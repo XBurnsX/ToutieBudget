@@ -268,7 +268,7 @@ class ModifierTransactionViewModel(
                     is com.xburnsx.toutiebudget.data.modeles.CompteCheque -> "comptes_cheques"
                     is com.xburnsx.toutiebudget.data.modeles.CompteCredit -> "comptes_credits"
                     is com.xburnsx.toutiebudget.data.modeles.CompteDette -> "comptes_dettes"
-                    is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement -> "comptes_investissements"
+                    is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement -> "comptes_investissement"
                     else -> "comptes_cheques"
                 }
                 

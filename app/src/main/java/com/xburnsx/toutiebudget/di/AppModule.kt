@@ -180,10 +180,11 @@ import android.content.Context
              realtimeSyncService = realtimeSyncService,
              categorieRepository = categorieRepository,
              enveloppeRepository = enveloppeRepository,
-             transactionRepository = transactionRepository
+             transactionRepository = transactionRepository,
+             historiqueAllocationService = historiqueAllocationService
          )
      }
-     
+
          private val cartesCreditRepository: CarteCreditRepository by lazy {
              CarteCreditRepositoryImpl(compteRepository, transactionRepository)
          }

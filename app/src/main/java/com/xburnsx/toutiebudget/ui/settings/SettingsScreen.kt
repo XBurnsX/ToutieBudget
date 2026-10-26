@@ -255,6 +255,31 @@ fun SettingsScreen(
                     )
                 }
             }
+            // CA4 : masquer les comptes à zéro dans la page Comptes
+            item {
+                val contextLocal = LocalContext.current
+                var masquer by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getMasquerComptesAZero(contextLocal)) }
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Refresh,
+                        titre = "Masquer les comptes à zéro",
+                        description = "Dans la page Comptes, sans les archiver (un compte avec du Prêt à placer reste visible)",
+                        trailing = {
+                            Switch(
+                                checked = masquer,
+                                onCheckedChange = { value ->
+                                    masquer = value
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setMasquerComptesAZero(contextLocal, value)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                )
+                            )
+                        }
+                    )
+                }
+            }
             // VA6 : confirmation facultative des gros virements
             item {
                 val contextLocal = LocalContext.current

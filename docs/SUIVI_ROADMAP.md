@@ -75,6 +75,29 @@ Hors maître (demandé directement) :
 | PP2 / PP3 | FAIT | Archiver (confirmation, solde conservé) / Réactiver dans Détails |
 | PP6 | FAIT | Montant déjà remboursé + progression dans Détails |
 
+| V1 / V2 / V3 | FAIT | Virements de budget toujours dans le mois choisi, allocation par enveloppe ET mois (fusionnée), solde bancaire intact (avant : Prêt à placer → enveloppe baissait le solde bancaire via l'ancien service) |
+| V4 | FAIT (compensation) | Validation complète avant écriture ; la 1re écriture est annulée si la 2e échoue ; succès seulement après écriture |
+| V5 | FAIT | Menu des comptes : se ferme au clic extérieur ou sur lui-même |
+| V6 | FAIT | Erreur de chargement visible + « Réessayer » ; plus d'erreurs avalées |
+| V7 | FAIT | Provenance suivie ; mélanges de comptes refusés |
+| V8 | FAIT | Enveloppe peut passer sous 0 $ (déficit annoncé) ; Prêt à placer jamais négatif |
+| VA4 | FAIT | Couples récents (4) proposés tant que rien n'est choisi |
+| VA5 | FAIT | Destinations compatibles d'abord ; impossibles grisées avec la raison ; négatives toujours permises |
+| VA6 | FAIT | Paramètres › « Confirmer les gros virements » (désactivé par défaut, seuil 100 à 2 500 $) |
+
+| CO1 | FAIT | Dette archivée : historique gardé ; son enveloppe n'est plus SUPPRIMÉE (ni la catégorie Dettes) — archivée seulement si la dette est terminée et l'enveloppe vide, sinon laissée active avec un message |
+| CO2 | FAIT | Archivage et modification par `copy()` : taux, minimums, frais, durée, valeurs initiales conservés |
+| CO3 | FAIT | Archives : liste séparée (`comptesArchives`), non écrasée par les rafraîchissements |
+| CO4 | FAIT | « comptes_investissement » (singulier) partout |
+| CO5 | FAIT | Écart appliqué au solde (+ Prêt à placer pour un chèque) ; trace « RECONCILIATION » dans l'historique au lieu d'un faux Revenu/Dépense ; compte remis comme avant si la trace échoue |
+| CO6 | FAIT | Erreurs de création/modification/archivage affichées ; le dialogue reste ouvert avec les valeurs |
+| CO7 | FAIT | Confirmation avant archivage (solde, Prêt à placer, sort de l'enveloppe de dette) |
+| CO8 | FAIT | Sondage toutes les 2 s supprimé ; rechargement sur événements et à l'ouverture de l'écran |
+| CO9 | FAIT | Solde et Prêt à placer indépendants ; changement tracé « MODIFICATION_COMPTE » ; arrondi au cent corrigé dans le dialogue |
+| CA3 | FAIT | Groupes de comptes repliables (mémorisé sur l'appareil) |
+| CA4 | FAIT | Paramètres › « Masquer les comptes à zéro » |
+| CA5 | FAIT | Réconciliation : solde actuel, solde réel, différence, mention du Prêt à placer avant de confirmer |
+
 À savoir : les favoris s'envoient à PocketBase dans `user_preferences.enveloppes_favorites` ; tant que ce champ
 (JSON) n'existe pas dans la collection, ils restent seulement sur l'appareil.
 

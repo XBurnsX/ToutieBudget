@@ -26,5 +26,8 @@ data class ComptesUiState(
     // 🆕 PROPRIÉTÉS POUR LA RÉORGANISATION
     val isModeReorganisation: Boolean = false,
     val compteEnDeplacement: String? = null,
-    val versionUI: Int = 0 // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
+    val versionUI: Int = 0, // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
+    val comptesArchives: List<Compte> = emptyList(), // CO3 : liste propre à l'écran Archives
+    val isConfirmationArchivageVisible: Boolean = false, // CO7
+    val enregistrementEnCours: Boolean = false // CO6
 )

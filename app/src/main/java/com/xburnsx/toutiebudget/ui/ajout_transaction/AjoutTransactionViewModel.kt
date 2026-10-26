@@ -603,7 +603,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         },
                         carteOuDetteId = comptePaiement.id,
@@ -611,7 +611,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         },
                         montant = montant / 100.0, // Convertir centimes en dollars
@@ -695,7 +695,7 @@ class AjoutTransactionViewModel(
                         is CompteCheque -> "comptes_cheques"
                         is CompteCredit -> "comptes_credits"
                         is CompteDette -> "comptes_dettes"
-                        is CompteInvestissement -> "comptes_investissements"
+                        is CompteInvestissement -> "comptes_investissement"
                         else -> "comptes_cheques"
                     }
                     val nowLocal = java.time.LocalDateTime.now()
@@ -790,7 +790,7 @@ class AjoutTransactionViewModel(
                         is CompteCheque -> "comptes_cheques"
                         is CompteCredit -> "comptes_credits"
                         is CompteDette -> "comptes_dettes"
-                        is CompteInvestissement -> "comptes_investissements"
+                        is CompteInvestissement -> "comptes_investissement"
                         else -> "comptes_cheques"
                     }
                     val nowLocal2 = java.time.LocalDateTime.now()
@@ -897,7 +897,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         }
                         
@@ -935,7 +935,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         },
                         enveloppeId = null, // Pas d'enveloppe pour la transaction principale
@@ -1016,7 +1016,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         }
 
@@ -1063,7 +1063,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         }
                         // 🚨 DÉSACTIVÉ : Cette logique auto-liage transforme les REVENUS en REMBOURSEMENTRECU !
@@ -1189,7 +1189,7 @@ class AjoutTransactionViewModel(
                     // 🔍 LOG DEBUG : Tracer les paramètres de la transaction
                     // 🔍 DEBUG - Montant de la transaction: ${state.montant} centimes (${state.montant.toDoubleOrNull()?.div(100.0)} dollars)
                     // 🔍 DEBUG - Compte sélectionné: ${compte.nom} (ID: ${compte.id})
-                    // 🔍 DEBUG - Collection du compte: ${when (compte) { is CompteCheque -> "comptes_cheques"; is CompteCredit -> "comptes_credits"; is CompteDette -> "comptes_dettes"; is CompteInvestissement -> "comptes_investissements"; else -> "comptes_cheques" }}
+                    // 🔍 DEBUG - Collection du compte: ${when (compte) { is CompteCheque -> "comptes_cheques"; is CompteCredit -> "comptes_credits"; is CompteDette -> "comptes_dettes"; is CompteInvestissement -> "comptes_investissement"; else -> "comptes_cheques" }}
 
                     // Enregistrer la transaction standard
                     val result = enregistrerTransactionUseCase.executer(
@@ -1200,7 +1200,7 @@ class AjoutTransactionViewModel(
                             is CompteCheque -> "comptes_cheques"
                             is CompteCredit -> "comptes_credits"
                             is CompteDette -> "comptes_dettes"
-                            is CompteInvestissement -> "comptes_investissements"
+                            is CompteInvestissement -> "comptes_investissement"
                             else -> "comptes_cheques"
                         },
                         enveloppeId = enveloppeId,

@@ -180,4 +180,36 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
             android.util.Log.e("ToutieBudget", "❌ HISTORIQUE : Erreur lors de l'enregistrement de la transaction directe: ${e.message}")
         }
     }
+
+    override suspend fun enregistrerAjustementCompte(
+        compte: com.xburnsx.toutiebudget.data.modeles.Compte,
+        typeAction: String,
+        description: String,
+        montant: Double,
+        soldeAvant: Double,
+        soldeApres: Double,
+        pretAPlacerAvant: Double,
+        pretAPlacerApres: Double
+    ) {
+        historiqueAllocationRepository.insertHistorique(
+            HistoriqueAllocation(
+                id = IdGenerator.generateId(),
+                utilisateurId = compte.utilisateurId,
+                compteId = compte.id,
+                collectionCompte = compte.collection,
+                enveloppeId = "",
+                enveloppeNom = compte.nom,
+                typeAction = typeAction,
+                description = description,
+                montant = montant,
+                soldeAvant = soldeAvant,
+                soldeApres = soldeApres,
+                pretAPlacerAvant = pretAPlacerAvant,
+                pretAPlacerApres = pretAPlacerApres,
+                dateAction = dateFormatter.format(Date()),
+                allocationId = "",
+                details = description
+            )
+        )
+    }
 }

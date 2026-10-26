@@ -25,6 +25,26 @@ object PreferencesManager {
     private const val KEY_VIREMENTS_RECENTS = "virements_recents"
     private const val NB_VIREMENTS_RECENTS = 4
 
+    private const val KEY_MASQUER_COMPTES_ZERO = "masquer_comptes_zero"
+    private const val KEY_GROUPES_COMPTES_FERMES = "groupes_comptes_fermes"
+
+    // CA4 : masquer les comptes à zéro dans la page Comptes (désactivé par défaut)
+    fun setMasquerComptesAZero(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putBoolean(KEY_MASQUER_COMPTES_ZERO, enabled) }
+    }
+
+    fun getMasquerComptesAZero(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_MASQUER_COMPTES_ZERO, false)
+
+    // CA3 : groupes de comptes repliés
+    fun setGroupesComptesFermes(context: Context, groupes: Set<String>) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putStringSet(KEY_GROUPES_COMPTES_FERMES, groupes) }
+    }
+
+    fun getGroupesComptesFermes(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(KEY_GROUPES_COMPTES_FERMES, null)?.toSet()
+            ?: emptySet()
+
     // VA6 : confirmation facultative des gros virements (désactivée par défaut)
     fun setConfirmerGrosVirements(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putBoolean(KEY_CONFIRMER_GROS_VIREMENTS, enabled) }

@@ -67,7 +67,8 @@ fun ArchivesScreen(
             when (tabIndex) {
                 0 -> {
                     LaunchedEffect(Unit) { comptesViewModel.chargerComptesArchives() }
-                    val comptesArchivesDyn = comptesState.comptesGroupes.values.flatten().filter { it.estArchive }
+                    // CO3 : liste propre aux archives, non écrasée par les rafraîchissements des comptes actifs
+                    val comptesArchivesDyn = comptesState.comptesArchives
                     LazyColumn { items(comptesArchivesDyn) { c ->
                         CompteItem(compte = c, onClick = {}, onLongClick = {})
                     } }

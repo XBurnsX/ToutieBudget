@@ -17,6 +17,13 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.ui.platform.LocalContext
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.PreferencesManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -51,6 +58,15 @@ fun ComptesScreen(
     onDetteLongClick: (String) -> Unit = {} // Nouveau paramètre pour la navigation vers l'écran de gestion des dettes
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // CO8 : données relues à l'ouverture de l'écran (plus de sondage permanent)
+    LaunchedEffect(Unit) { viewModel.chargerComptes() }
+
+    // CA3 : groupes repliés, mémorisés sur l'appareil
+    var groupesFermes by remember { mutableStateOf(PreferencesManager.getGroupesComptesFermes(context)) }
+    // CA4 : option des Paramètres
+    val masquerComptesAZero = remember { PreferencesManager.getMasquerComptesAZero(context) }
 
     // États pour le clavier numérique
     var showKeyboard by remember { mutableStateOf(false) }
@@ -120,17 +136,48 @@ fun ComptesScreen(
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                uiState.comptesGroupes.forEach { (typeDeCompte, listeDeComptes) ->
+                uiState.comptesGroupes.forEach { (typeDeCompte, tousLesComptes) ->
+                    // CA4 : masquer les comptes à zéro (jamais en réorganisation ; un compte chèque
+                    // qui a encore du « Prêt à placer » reste visible)
+                    val listeDeComptes = if (masquerComptesAZero && !uiState.isModeReorganisation) {
+                        tousLesComptes.filter { compte ->
+                            kotlin.math.abs(compte.solde) > 0.005 ||
+                                (compte is com.xburnsx.toutiebudget.data.modeles.CompteCheque && kotlin.math.abs(compte.pretAPlacer) > 0.005)
+                        }
+                    } else tousLesComptes
+                    if (listeDeComptes.isEmpty()) return@forEach
+                    val estOuvert = uiState.isModeReorganisation || typeDeCompte !in groupesFermes
+
                     stickyHeader {
-                        Text(
-                            text = typeDeCompte,
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth().background(Color(0xFF121212))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF121212))
+                                .clickable(enabled = !uiState.isModeReorganisation) {
+                                    groupesFermes = if (typeDeCompte in groupesFermes) groupesFermes - typeDeCompte
+                                    else groupesFermes + typeDeCompte
+                                    PreferencesManager.setGroupesComptesFermes(context, groupesFermes)
+                                }
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
+                        ) {
+                            Text(
+                                text = typeDeCompte,
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (!uiState.isModeReorganisation) {
+                                Icon(
+                                    imageVector = if (estOuvert) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                    contentDescription = if (estOuvert) "Replier $typeDeCompte" else "Déplier $typeDeCompte",
+                                    tint = Color.White
+                                )
+                            }
+                        }
                     }
+                    if (!estOuvert) return@forEach
                     items(listeDeComptes, key = { it.id }) { compte ->
                         if (uiState.isModeReorganisation) {
                             // Mode réorganisation : utiliser le composant spécialisé
@@ -153,7 +200,7 @@ fun ComptesScreen(
                                         "CompteCheque" -> "comptes_cheques"
                                         "CompteCredit" -> "comptes_credits"
                                         "CompteDette" -> "comptes_dettes"
-                                        "CompteInvestissement" -> "comptes_investissements"
+                                        "CompteInvestissement" -> "comptes_investissement"
                                         else -> "comptes_cheques" // Fallback par défaut
                                     }
 
@@ -240,10 +287,11 @@ fun ComptesScreen(
 
                     var nouveauSolde by remember {
                         mutableStateOf(
-                            ((uiState.compteSelectionne?.solde ?: 0.0) * 100).toLong()
+                            Math.round((uiState.compteSelectionne?.solde ?: 0.0) * 100)
                         )
                     }
 
+                    val compteReconcilie = uiState.compteSelectionne
                     ChampUniversel(
                         valeur = nouveauSolde,
                         onValeurChange = { nouveauSolde = it },
@@ -264,6 +312,42 @@ fun ComptesScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // CA5 : aperçu avant confirmation
+                    if (compteReconcilie != null) {
+                        val soldeActuel = compteReconcilie.solde
+                        val soldeReel = nouveauSolde / 100.0
+                        val ecart = soldeReel - soldeActuel
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("Solde actuel", color = Color.LightGray, modifier = Modifier.weight(1f))
+                            Text(MoneyFormatter.formatAmount(soldeActuel), color = Color.White)
+                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("Solde réel", color = Color.LightGray, modifier = Modifier.weight(1f))
+                            Text(MoneyFormatter.formatAmount(soldeReel), color = Color.White)
+                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("Différence", color = Color.LightGray, modifier = Modifier.weight(1f))
+                            Text(
+                                (if (ecart > 0.004) "+" else "") + MoneyFormatter.formatAmount(ecart),
+                                color = when {
+                                    ecart > 0.004 -> Color(0xFF10B981)
+                                    ecart < -0.004 -> Color(0xFFEF4444)
+                                    else -> Color.White
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (compteReconcilie is com.xburnsx.toutiebudget.data.modeles.CompteCheque && kotlin.math.abs(ecart) > 0.004) {
+                            Text(
+                                "Le même écart s'applique au « Prêt à placer » et sera noté dans l'historique.",
+                                color = Color.LightGray,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -424,7 +508,7 @@ fun ComptesScreen(
 
                     // 🗃️ ARCHIVER (pour tous les types de comptes)
                     TextButton(
-                        onClick = { viewModel.onArchiverCompte() },
+                        onClick = { viewModel.onDemanderArchivage() }, // CO7 : confirmation d'abord
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -448,6 +532,44 @@ fun ComptesScreen(
                 }
             }
         }
+    }
+
+    // CO7 : confirmation avant archivage, avec ce qui reste sur le compte
+    if (uiState.isConfirmationArchivageVisible) {
+        val compte = uiState.compteSelectionne
+        AlertDialog(
+            onDismissRequest = { viewModel.onAnnulerArchivage() },
+            title = { Text("Archiver ${compte?.nom ?: "ce compte"} ?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (compte != null && kotlin.math.abs(compte.solde) > 0.005) {
+                        Text("Solde : ${MoneyFormatter.formatAmount(compte.solde)}")
+                    }
+                    if (compte is com.xburnsx.toutiebudget.data.modeles.CompteCheque && kotlin.math.abs(compte.pretAPlacer) > 0.005) {
+                        Text("Prêt à placer : ${MoneyFormatter.formatAmount(compte.pretAPlacer)}")
+                    }
+                    if (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette) {
+                        Text(
+                            if (kotlin.math.abs(compte.soldeDette) < 0.01) "Dette terminée : son enveloppe sera archivée si elle est vide."
+                            else "Dette non terminée : son enveloppe reste active."
+                        )
+                    }
+                    Text("Les transactions et l'historique sont conservés.", fontSize = 13.sp, color = Color.LightGray)
+                }
+            },
+            confirmButton = { TextButton(onClick = { viewModel.onArchiverCompte() }) { Text("Archiver") } },
+            dismissButton = { TextButton(onClick = { viewModel.onAnnulerArchivage() }) { Text("Annuler") } }
+        )
+    }
+
+    // CO6 : erreurs réelles visibles (le formulaire en cours reste ouvert)
+    uiState.erreur?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.effacerErreur() },
+            title = { Text("Comptes") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { viewModel.effacerErreur() }) { Text("OK") } }
+        )
     }
 
     // Clavier numérique par-dessus tout - utiliser Dialog pour garantir le z-index maximal
