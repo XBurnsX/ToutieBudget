@@ -20,6 +20,39 @@ object PreferencesManager {
     private const val KEY_WELCOME_SHOWN = "welcome_animation_shown"
     private const val KEY_WELCOME_SHOWN_V2 = "welcome_animation_shown_v2"
 
+    private const val KEY_CONFIRMER_GROS_VIREMENTS = "confirmer_gros_virements"
+    private const val KEY_SEUIL_GROS_VIREMENT = "seuil_gros_virement"
+    private const val KEY_VIREMENTS_RECENTS = "virements_recents"
+    private const val NB_VIREMENTS_RECENTS = 4
+
+    // VA6 : confirmation facultative des gros virements (désactivée par défaut)
+    fun setConfirmerGrosVirements(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putBoolean(KEY_CONFIRMER_GROS_VIREMENTS, enabled) }
+    }
+
+    fun getConfirmerGrosVirements(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(KEY_CONFIRMER_GROS_VIREMENTS, false)
+
+    fun setSeuilGrosVirement(context: Context, dollars: Int) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putInt(KEY_SEUIL_GROS_VIREMENT, dollars) }
+    }
+
+    fun getSeuilGrosVirement(context: Context): Int =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getInt(KEY_SEUIL_GROS_VIREMENT, 500)
+
+    // VA4 : couples source → destination récemment utilisés (« mode|source|destination »), le plus récent d'abord
+    fun ajouterVirementRecent(context: Context, cle: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val liste = (listOf(cle) + getVirementsRecents(context).filter { it != cle }).take(NB_VIREMENTS_RECENTS)
+        prefs.edit { putString(KEY_VIREMENTS_RECENTS, liste.joinToString("\n")) }
+    }
+
+    fun getVirementsRecents(context: Context): List<String> =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_VIREMENTS_RECENTS, null)
+            ?.split("\n")?.filter { it.isNotBlank() }
+            ?: emptyList()
+
     fun setFigerPretAPlacer(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit { putBoolean(KEY_FIGER_PRET_A_PLACER, enabled) }

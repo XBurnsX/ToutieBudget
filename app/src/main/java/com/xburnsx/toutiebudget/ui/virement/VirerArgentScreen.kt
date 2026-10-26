@@ -14,7 +14,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalContext
+import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.PreferencesManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -96,9 +105,18 @@ fun VirerArgentScreen(
         }
     }
 
+    val context = LocalContext.current
+    var confirmationGrosVirement by remember { mutableStateOf(false) }
+
     // 🚀 NAVIGATION **INSTANTANÉE** - ZÉRO DÉLAI
     LaunchedEffect(uiState.virementReussi) {
         if (uiState.virementReussi) {
+            // VA4 : retenir le couple utilisé (aucun virement automatique, seulement un raccourci)
+            val src = uiState.sourceSelectionnee
+            val dst = uiState.destinationSelectionnee
+            if (src != null && dst != null) {
+                PreferencesManager.ajouterVirementRecent(context, "${uiState.mode.name}|${cleItem(src)}|${cleItem(dst)}")
+            }
             viewModel.onVirementReussiHandled() // 🧹 Nettoyage
             onNavigateBack()                   // ⚡ Navigation IMMÉDIATE
         }
@@ -178,6 +196,68 @@ fun VirerArgentScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // V6 : chargement en échec → message clair + reprise sans tout ressaisir
+            uiState.erreurChargement?.let { message ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            message,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { viewModel.rechargerDonnees() }) { Text("Réessayer") }
+                    }
+                }
+            }
+
+            // VA4 : couples récents, seulement tant que rien n'est choisi
+            if (uiState.sourceSelectionnee == null && uiState.destinationSelectionnee == null) {
+                val recents = remember(uiState.mode, uiState.sourcesDisponibles, uiState.destinationsDisponibles) {
+                    PreferencesManager.getVirementsRecents(context).mapNotNull { cle ->
+                        val parties = cle.split("|")
+                        if (parties.size != 3 || parties[0] != uiState.mode.name) return@mapNotNull null
+                        val src = retrouverItem(parties[1], uiState.sourcesDisponibles) ?: return@mapNotNull null
+                        val dst = retrouverItem(parties[2], uiState.destinationsDisponibles) ?: return@mapNotNull null
+                        src to dst
+                    }
+                }
+                if (recents.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        recents.forEach { (src, dst) ->
+                            AssistChip(
+                                onClick = { viewModel.selectionnerCouple(src, dst) },
+                                label = { Text("${nomCourt(src)} → ${nomCourt(dst)}") }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // V8 : une enveloppe peut passer sous 0 $, mais le déficit est annoncé clairement
+            val montantDollars = (uiState.montant.toLongOrNull() ?: 0L) / 100.0
+            (uiState.sourceSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe
+                ?.takeIf { !it.id.startsWith(VirerArgentViewModel.PREFIXE_PRET_A_PLACER) && montantDollars > it.solde + 0.005 }
+                ?.let { env ->
+                    Text(
+                        text = "${env.nom} passera à ${MoneyFormatter.formatAmount(env.solde - montantDollars)} : à renflouer ensuite.",
+                        color = Color(0xFFFFB74D),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
             // Champs de sélection source et destination
             if (uiState.mode == VirementMode.ENVELOPPES) {
                 // INTERFACE ORIGINALE DES ENVELOPPES
@@ -193,7 +273,17 @@ fun VirerArgentScreen(
 
             // Bouton de virement
             Button(
-                onClick = { viewModel.onVirementExecute() },
+                onClick = {
+                    // VA6 : confirmation facultative au-delà du seuil choisi dans Paramètres
+                    val montantDollarsBouton = (uiState.montant.toLongOrNull() ?: 0L) / 100.0
+                    if (PreferencesManager.getConfirmerGrosVirements(context) &&
+                        montantDollarsBouton >= PreferencesManager.getSeuilGrosVirement(context)
+                    ) {
+                        confirmationGrosVirement = true
+                    } else {
+                        viewModel.onVirementExecute()
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
@@ -228,6 +318,27 @@ fun VirerArgentScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
+            }
+
+            if (confirmationGrosVirement) {
+                AlertDialog(
+                    onDismissRequest = { confirmationGrosVirement = false },
+                    title = { Text("Confirmer le virement") },
+                    text = {
+                        Text(
+                            "${MoneyFormatter.formatAmountFromCents(uiState.montant.toLongOrNull() ?: 0L)}\n" +
+                                "${uiState.sourceSelectionnee?.let { nomCourt(it) } ?: ""} → " +
+                                (uiState.destinationSelectionnee?.let { nomCourt(it) } ?: "")
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            confirmationGrosVirement = false
+                            viewModel.onVirementExecute()
+                        }) { Text("Virer") }
+                    },
+                    dismissButton = { TextButton(onClick = { confirmationGrosVirement = false }) { Text("Annuler") } }
+                )
             }
 
             // Affichage d'erreur avec dialogue pour les erreurs de provenance
@@ -417,7 +528,13 @@ private fun ContenuModeEnveloppesOriginal(
                 viewModel.onEnveloppeSelected(enveloppeUi, isSource = false)
             },
             obligatoire = true,
-            comptesPretAPlacer = comptesPretAPlacerDestination
+            comptesPretAPlacer = comptesPretAPlacerDestination,
+            incompatibles = destinationsIncompatibles(
+                source = (uiState.sourceSelectionnee as? ItemVirement.EnveloppeItem)?.enveloppe,
+                destinations = destinationsEnveloppes.values.flatten(),
+                comptes = comptesPretAPlacerDestination,
+                provenances = uiState.provenanceParEnveloppe
+            )
         )
     }
 }
@@ -440,7 +557,8 @@ private fun ContenuModeComptes(
                 viewModel.onItemSelected(item)
             },
             onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.SOURCE) },
-            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.SOURCE
+            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.SOURCE,
+            onFermerSelecteur = { viewModel.fermerSelecteur() }
         )
 
         Icon(
@@ -460,8 +578,80 @@ private fun ContenuModeComptes(
                 viewModel.onItemSelected(item)
             },
             onOuvrirSelecteur = { viewModel.ouvrirSelecteur(SelecteurOuvert.DESTINATION) },
-            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.DESTINATION
+            selecteurOuvert = uiState.selecteurOuvert == SelecteurOuvert.DESTINATION,
+            onFermerSelecteur = { viewModel.fermerSelecteur() }
         )
     }
+}
+
+// ===== Aides VA4 / VA5 =====
+
+private fun cleItem(item: ItemVirement): String = when (item) {
+    is ItemVirement.CompteItem -> "compte:${item.compte.id}"
+    is ItemVirement.EnveloppeItem -> item.enveloppe.id
+}
+
+private fun nomCourt(item: ItemVirement): String = item.nom.removeSuffix(" - Prêt à placer")
+
+/** Même représentation que le sélecteur pour le « Prêt à placer » d'un compte. */
+private fun enveloppePretAPlacer(compte: CompteCheque) = EnveloppeUi(
+    id = "${VirerArgentViewModel.PREFIXE_PRET_A_PLACER}${compte.id}",
+    nom = "${compte.nom} - Prêt à placer",
+    solde = compte.pretAPlacer,
+    depense = 0.0,
+    alloue = 0.0,
+    alloueCumulatif = 0.0,
+    objectif = 0.0,
+    couleurProvenance = compte.couleur,
+    statutObjectif = StatutObjectif.VERT
+)
+
+private fun retrouverItem(cle: String, groupes: Map<String, List<ItemVirement>>): ItemVirement? {
+    val items = groupes.values.flatten()
+    return when {
+        cle.startsWith("compte:") -> items.filterIsInstance<ItemVirement.CompteItem>()
+            .find { it.compte.id == cle.removePrefix("compte:") }
+        cle.startsWith(VirerArgentViewModel.PREFIXE_PRET_A_PLACER) -> items.filterIsInstance<ItemVirement.CompteItem>()
+            .map { it.compte }.filterIsInstance<CompteCheque>()
+            .find { it.id == cle.removePrefix(VirerArgentViewModel.PREFIXE_PRET_A_PLACER) }
+            ?.let { ItemVirement.EnveloppeItem(enveloppePretAPlacer(it)) }
+        else -> items.filterIsInstance<ItemVirement.EnveloppeItem>().find { it.enveloppe.id == cle }
+    }
+}
+
+/**
+ * VA5 : destinations impossibles avec l'argent choisi, et pourquoi.
+ * Une enveloppe vide ou NÉGATIVE reste toujours possible (on doit pouvoir combler un déficit).
+ */
+private fun destinationsIncompatibles(
+    source: EnveloppeUi?,
+    destinations: List<EnveloppeUi>,
+    comptes: List<CompteCheque>,
+    provenances: Map<String, String?>
+): Map<String, String> {
+    if (source == null) return emptyMap()
+    val prefixe = VirerArgentViewModel.PREFIXE_PRET_A_PLACER
+    val sourceEstPretAPlacer = source.id.startsWith(prefixe)
+    val provenanceSource = if (sourceEstPretAPlacer) source.id.removePrefix(prefixe) else provenances[source.id]
+    val nomCompte = { id: String? -> comptes.find { it.id == id }?.nom ?: "un autre compte" }
+    val resultat = mutableMapOf<String, String>()
+
+    comptes.forEach { compte ->
+        val cle = "$prefixe${compte.id}"
+        when {
+            sourceEstPretAPlacer -> resultat[cle] = "Choisissez une enveloppe"
+            provenanceSource != null && compte.id != provenanceSource ->
+                resultat[cle] = "L'argent vient de ${nomCompte(provenanceSource)}"
+        }
+    }
+    if (provenanceSource != null) {
+        destinations.forEach { dest ->
+            val provenanceDest = provenances[dest.id]
+            if (dest.solde > 0.01 && provenanceDest != null && provenanceDest != provenanceSource) {
+                resultat[dest.id] = "Contient l'argent de ${nomCompte(provenanceDest)}"
+            }
+        }
+    }
+    return resultat
 }
 

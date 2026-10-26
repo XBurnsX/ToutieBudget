@@ -255,6 +255,39 @@ fun SettingsScreen(
                     )
                 }
             }
+            // VA6 : confirmation facultative des gros virements
+            item {
+                val contextLocal = LocalContext.current
+                var confirmer by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getConfirmerGrosVirements(contextLocal)) }
+                var seuil by remember { mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getSeuilGrosVirement(contextLocal)) }
+                val seuils = listOf(100, 250, 500, 1000, 2500)
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Refresh,
+                        titre = "Confirmer les gros virements",
+                        description = if (confirmer) "À partir de $seuil $ — toucher pour changer le seuil" else "Désactivé",
+                        onClick = if (confirmer) {
+                            {
+                                seuil = seuils[(seuils.indexOf(seuil) + 1) % seuils.size]
+                                com.xburnsx.toutiebudget.utils.PreferencesManager.setSeuilGrosVirement(contextLocal, seuil)
+                            }
+                        } else null,
+                        trailing = {
+                            Switch(
+                                checked = confirmer,
+                                onCheckedChange = { value ->
+                                    confirmer = value
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setConfirmerGrosVirements(contextLocal, value)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                )
+                            )
+                        }
+                    )
+                }
+            }
 
             // Section Notifications
             item { SectionHeader(titre = "Notifications", icone = Icons.Default.Notifications) }

@@ -31,7 +31,8 @@ fun SelecteurCompteVirement(
     itemSelectionne: ItemVirement?,
     onItemSelected: (ItemVirement) -> Unit,
     onOuvrirSelecteur: () -> Unit,
-    selecteurOuvert: Boolean
+    selecteurOuvert: Boolean,
+    onFermerSelecteur: () -> Unit = {}
 ) {
     val nomAffiche = when (itemSelectionne) {
         is ItemVirement.CompteItem -> itemSelectionne.compte.nom
@@ -41,7 +42,8 @@ fun SelecteurCompteVirement(
 
     ExposedDropdownMenuBox(
         expanded = selecteurOuvert,
-        onExpandedChange = { onOuvrirSelecteur() },
+        // V5 : un clic sur le sélecteur ouvert le ferme (avant : il se rouvrait aussitôt)
+        onExpandedChange = { ouvrir -> if (ouvrir && !selecteurOuvert) onOuvrirSelecteur() else onFermerSelecteur() },
         modifier = Modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
@@ -56,7 +58,7 @@ fun SelecteurCompteVirement(
         )
         ExposedDropdownMenu(
             expanded = selecteurOuvert,
-            onDismissRequest = { onOuvrirSelecteur() } // Ferme le menu
+            onDismissRequest = onFermerSelecteur // Clic extérieur : ferme le menu
         ) {
             groupesDeComptes.forEach { (categorie, comptes) ->
                 if (comptes.isNotEmpty()) {

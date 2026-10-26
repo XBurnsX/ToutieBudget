@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,9 @@ fun SelecteurEnveloppeVirement(
     onEnveloppeChange: (EnveloppeUi) -> Unit,
     modifier: Modifier = Modifier,
     obligatoire: Boolean = true,
-    comptesPretAPlacer: List<CompteCheque> = emptyList()
+    comptesPretAPlacer: List<CompteCheque> = emptyList(),
+    // VA5 : destinations impossibles (id → raison), affichées après les autres et non sélectionnables
+    incompatibles: Map<String, String> = emptyMap()
 ) {
     var dialogOuvert by remember { mutableStateOf(false) }
 
@@ -128,6 +131,7 @@ fun SelecteurEnveloppeVirement(
         DialogSelectionEnveloppeVirement(
             enveloppes = enveloppes,
             comptesPretAPlacer = comptesPretAPlacer,
+            incompatibles = incompatibles,
             onEnveloppeSelectionnee = {
                 onEnveloppeChange(it)
                 dialogOuvert = false
@@ -141,6 +145,7 @@ fun SelecteurEnveloppeVirement(
 private fun DialogSelectionEnveloppeVirement(
     enveloppes: Map<String, List<EnveloppeUi>>,
     comptesPretAPlacer: List<CompteCheque>,
+    incompatibles: Map<String, String>,
     onEnveloppeSelectionnee: (EnveloppeUi) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -176,9 +181,10 @@ private fun DialogSelectionEnveloppeVirement(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
-                        items(comptesChequeAvecPretAPlacer) { compte ->
+                        items(comptesChequeAvecPretAPlacer.sortedBy { "pret_a_placer_${it.id}" in incompatibles }) { compte ->
                             ItemComptePretAPlacerVirement(
                                 compte = compte,
+                                raisonIncompatible = incompatibles["pret_a_placer_${compte.id}"],
                                 onClick = {
                                     // Créer une EnveloppeUi virtuelle pour représenter ce compte spécifique
                                     val enveloppeCompte = EnveloppeUi(
@@ -209,9 +215,11 @@ private fun DialogSelectionEnveloppeVirement(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
-                        items(enveloppesCategorie) { enveloppe ->
+                        // VA5 : compatibles avec la provenance d'abord
+                        items(enveloppesCategorie.sortedBy { it.id in incompatibles }) { enveloppe ->
                             ItemEnveloppeVirement(
                                 enveloppe = enveloppe,
+                                raisonIncompatible = incompatibles[enveloppe.id],
                                 onClick = { onEnveloppeSelectionnee(enveloppe) }
                             )
                         }
@@ -225,13 +233,15 @@ private fun DialogSelectionEnveloppeVirement(
 @Composable
 private fun ItemEnveloppeVirement(
     enveloppe: EnveloppeUi,
+    raisonIncompatible: String? = null,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
-            .clickable { onClick() },
+            .alpha(if (raisonIncompatible != null) 0.45f else 1f)
+            .clickable(enabled = raisonIncompatible == null) { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
         shape = RoundedCornerShape(8.dp)
     ) {
@@ -248,6 +258,9 @@ private fun ItemEnveloppeVirement(
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
+                raisonIncompatible?.let {
+                    Text(text = it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))
+                }
             }
             
             // 🎨 AFFICHAGE DU MONTANT AVEC COULEUR DE PROVENANCE
@@ -288,6 +301,7 @@ private fun ItemEnveloppeVirement(
 @Composable
 private fun ItemComptePretAPlacerVirement(
     compte: CompteCheque,
+    raisonIncompatible: String? = null,
     onClick: () -> Unit
 ) {
     // Convertir la couleur hexadécimale du compte en Color
@@ -302,7 +316,8 @@ private fun ItemComptePretAPlacerVirement(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
-            .clickable { onClick() },
+            .alpha(if (raisonIncompatible != null) 0.45f else 1f)
+            .clickable(enabled = raisonIncompatible == null) { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
         shape = RoundedCornerShape(8.dp)
     ) {
@@ -320,7 +335,7 @@ private fun ItemComptePretAPlacerVirement(
                     color = couleurCompte
                 )
                 Text(
-                    text = "Prêt à placer",
+                    text = raisonIncompatible ?: "Prêt à placer",
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.6f)
                 )

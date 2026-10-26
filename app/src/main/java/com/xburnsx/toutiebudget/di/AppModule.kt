@@ -233,11 +233,15 @@ import android.content.Context
          VirerArgentViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
-             allocationMensuelleRepository = allocationMensuelleRepository,
              categorieRepository = categorieRepository,
              argentService = argentService,
              realtimeSyncService = realtimeSyncService,
-             validationProvenanceService = validationProvenanceService
+             virementBudgetService = virementBudgetService
+         )
+     }
+     private val virementBudgetService: com.xburnsx.toutiebudget.domain.services.VirementBudgetService by lazy {
+         com.xburnsx.toutiebudget.domain.services.VirementBudgetService(
+             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService
          )
      }
      

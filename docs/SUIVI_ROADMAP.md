@@ -54,6 +54,30 @@ Hors maître (demandé directement) :
 | LD4 | FAIT | Jeton de session chiffré (Android Keystore, AES-GCM) ; ancien jeton en clair converti |
 | LD5 | FAIT | Plus de courriel ni de nom dans les logs de connexion |
 
+## Fait — 26 oct. 2026, dans l'ordre du TXT des pages, branche `release/1.6.1`, pas encore publié
+
+| ID | État | Portée réalisée |
+|---|---|---|
+| A2 | FAIT | Menu ☰ « Répartir l'argent » : un compte → plusieurs enveloppes, aperçu puis confirmation, provenance validée pour chaque enveloppe avant toute écriture |
+| A3 | FAIT | Filtres à la demande (favorites, négatives, sans fonds, objectif à financer, avec objectif, solde disponible) |
+| A4 | FAIT | Étoile dans le clavier d'enveloppe ; section « Favoris » repliable en tête, catégories inchangées |
+| A5 | FAIT | Icône loupe : recherche par nom, rien d'affiché quand fermé |
+| A7 | FAIT | Menu ☰ « Prévisions » : reste à prévoir avant la fin du mois ou une date choisie |
+| A8 / BUD-01 | FAIT | Paramètres › « Refaire la répartition d'un mois » : rend l'assigné non dépensé au Prêt à placer de son compte, aperçu + confirmation ; rollover, autres mois et transactions intacts |
+| C2 | FAIT | Catégories ouvertes/fermées gardées sur l'appareil (hors ligne), envoyées à PocketBase ensuite |
+| C3 | FAIT | Le clavier se ferme seulement sur la réussite de SON assignation ; erreurs en dialogue, champs conservés |
+| C4 | FAIT | « Gérer solde négatif » en $ CA |
+| P3 | FAIT | Archivés : couleurs/libellés selon le vrai type |
+| P4 | FAIT | Détail vidé avant chargement ; réponse d'un autre dossier ignorée |
+| P5 | FAIT (partiel) | Double crédit (Dette contractée) et double débit (Remboursement donné) corrigés ; erreurs d'écriture remontées. Pas de transaction Room unique : la synchro immédiate fait du réseau pendant l'écriture |
+| P6 | FAIT | Remboursement > total restant du tiers refusé avant toute modification de compte |
+| P7 | FAIT | Onglet « Archivés » |
+| PP2 / PP3 | FAIT | Archiver (confirmation, solde conservé) / Réactiver dans Détails |
+| PP6 | FAIT | Montant déjà remboursé + progression dans Détails |
+
+À savoir : les favoris s'envoient à PocketBase dans `user_preferences.enveloppes_favorites` ; tant que ce champ
+(JSON) n'existe pas dans la collection, ils restent seulement sur l'appareil.
+
 ## En cours
 
 | ID | État | Notes |
