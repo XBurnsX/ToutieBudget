@@ -262,7 +262,7 @@ fun HistoriqueAllocationCard(historique: HistoriqueAllocation) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "${if (historique.montant > 0) "+" else ""}${MoneyFormatter.formatAmount(historique.montant)}$",
+                    text = "${if (historique.montant > 0) "+" else ""}${MoneyFormatter.formatAmount(historique.montant)}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (historique.montant > 0) Color.Green else Color.Red
@@ -286,7 +286,7 @@ fun HistoriqueAllocationCard(historique: HistoriqueAllocation) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${MoneyFormatter.formatAmount(historique.soldeAvant)}$ → ${MoneyFormatter.formatAmount(historique.soldeApres)}$",
+                        text = "${MoneyFormatter.formatAmount(historique.soldeAvant)} → ${MoneyFormatter.formatAmount(historique.soldeApres)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -302,7 +302,7 @@ fun HistoriqueAllocationCard(historique: HistoriqueAllocation) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${MoneyFormatter.formatAmount(historique.pretAPlacerAvant)}$ → ${MoneyFormatter.formatAmount(historique.pretAPlacerApres)}$",
+                        text = "${MoneyFormatter.formatAmount(historique.pretAPlacerAvant)} → ${MoneyFormatter.formatAmount(historique.pretAPlacerApres)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
