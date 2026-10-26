@@ -26,7 +26,9 @@ import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 fun ArchivesScreen(
     comptesViewModel: ComptesViewModel,
     budgetViewModel: BudgetViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onVoirHistoriqueCompte: (String, String, String) -> Unit = { _, _, _ -> },
+    onVoirHistoriqueEnveloppe: (String, String) -> Unit = { _, _ -> }
 ) {
     val comptesState by comptesViewModel.uiState.collectAsState()
     val budgetState by budgetViewModel.uiState.collectAsState()
@@ -37,6 +39,7 @@ fun ArchivesScreen(
         .filter { env -> env.estArchive }
 
     var tabIndex by remember { mutableStateOf(0) }
+    var recherche by remember { mutableStateOf("") }
     val tabs = listOf("Comptes archivés", "Enveloppes archivées")
 
     LaunchedEffect(Unit) {
@@ -71,19 +74,30 @@ fun ArchivesScreen(
         },
         containerColor = Color(0xFF121212)
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // ARA1 : recherche locale dans les éléments déjà archivés, sans écriture.
+            OutlinedTextField(
+                value = recherche,
+                onValueChange = { recherche = it },
+                label = { Text("Rechercher dans les archives") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            )
 
             when (tabIndex) {
                 0 -> {
                     // CO3 : liste propre aux archives, non écrasée par les rafraîchissements des comptes actifs
-                    val comptesArchivesDyn = comptesState.comptesArchives
+                    val comptesArchivesDyn = comptesState.comptesArchives.filter {
+                        it.nom.contains(recherche.trim(), ignoreCase = true)
+                    }
                     // IF15 : un placement archivé peut être réactivé (même compte, même historique)
                     var aReactiver by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Compte?>(null) }
-                    LazyColumn { items(comptesArchivesDyn) { c ->
+                    Text("${comptesArchivesDyn.size} compte(s) archivé(s)", modifier = Modifier.padding(horizontal = 16.dp))
+                    LazyColumn { items(comptesArchivesDyn, key = { it.id }) { c ->
                         CompteItem(
                             compte = c,
-                            onClick = { aReactiver = c },
-                            onLongClick = {}
+                            onClick = { onVoirHistoriqueCompte(c.id, c.collection, c.nom) },
+                            onLongClick = { aReactiver = c }
                         )
                     } }
                     aReactiver?.let { compte ->
@@ -100,11 +114,16 @@ fun ArchivesScreen(
                 }
                 1 -> {
                     var aReactiver by remember { mutableStateOf<EnveloppeUi?>(null) }
-                    LazyColumn { items(enveloppesArchives) { env ->
+                    val enveloppesFiltrees = enveloppesArchives.filter {
+                        it.nom.contains(recherche.trim(), ignoreCase = true)
+                    }
+                    Text("${enveloppesFiltrees.size} enveloppe(s) archivée(s)", modifier = Modifier.padding(horizontal = 16.dp))
+                    LazyColumn { items(enveloppesFiltrees, key = { it.id }) { env ->
                         ListItem(
-                            modifier = Modifier.clickable { aReactiver = env },
+                            modifier = Modifier.clickable { onVoirHistoriqueEnveloppe(env.id, env.nom) },
                             headlineContent = { Text(env.nom, color = Color.White) },
-                            supportingContent = { Text("Objectif: ${env.objectif}", color = Color.LightGray) }
+                            supportingContent = { Text("Objectif: ${env.objectif}", color = Color.LightGray) },
+                            trailingContent = { TextButton(onClick = { aReactiver = env }) { Text("Réactiver") } }
                         )
                     } }
                     aReactiver?.let { env ->
