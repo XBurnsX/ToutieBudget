@@ -78,6 +78,50 @@ class EcransArgentTest {
         assertEquals(60.0, b.allocationDe("loyer", java.util.Date()).sumOf { it.solde })
     }
 
+    @Test
+    fun `enveloppe pleine vers enveloppe a 0 jamais utilisee`() = test {
+        b.cheque("bleu", 1000.0, 0.0)
+        b.enveloppe("loyer"); b.enveloppe("epargne")
+        b.allocation("loyer", java.util.Date(), solde = 55.0, provenance = "bleu")
+        val vm = app.virer(); attendre()
+        vm.onEnveloppeSelected(enveloppeUi("loyer", 55.0), isSource = true)
+        vm.onEnveloppeSelected(enveloppeUi("epargne", 0.0), isSource = false)
+        vm.onMontantChange("2000"); vm.onVirementExecute(); attendre()
+        assertNull(vm.uiState.value.erreur, vm.uiState.value.erreur)
+        assertEquals(35.0, b.allocationDe("loyer", java.util.Date()).sumOf { it.solde })
+        assertEquals(20.0, b.allocationDe("epargne", java.util.Date()).sumOf { it.solde })
+    }
+
+    @Test
+    fun `enveloppe pleine vers enveloppe a 0 qui a deja servi - autre compte, vide`() = test {
+        b.cheque("bleu", 1000.0, 0.0); b.cheque("rouge", 500.0, 0.0)
+        b.enveloppe("loyer"); b.enveloppe("epargne")
+        b.allocation("loyer", java.util.Date(), solde = 55.0, provenance = "bleu")
+        b.allocation("epargne", java.util.Date(), solde = 0.0, alloue = 30.0, depense = 30.0, provenance = "rouge")
+        val vm = app.virer(); attendre()
+        vm.onEnveloppeSelected(enveloppeUi("loyer", 55.0), isSource = true)
+        vm.onEnveloppeSelected(enveloppeUi("epargne", 0.0), isSource = false)
+        vm.onMontantChange("2000"); vm.onVirementExecute(); attendre()
+        assertNull(vm.uiState.value.erreur, vm.uiState.value.erreur)
+        assertEquals(20.0, b.allocationDe("epargne", java.util.Date()).sumOf { it.solde })
+    }
+
+    @Test
+    fun `enveloppe reportee du mois passe vers enveloppe a 0`() = test {
+        b.cheque("bleu", 1000.0, 0.0)
+        b.enveloppe("loyer"); b.enveloppe("epargne")
+        val passe = java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH, -1) }.time
+        b.allocation("loyer", passe, solde = 55.0, provenance = "bleu")
+        app.autres.dernierRollover = passe
+        assertTrue(app.rollover().isSuccess)
+        val vm = app.virer(); attendre()
+        vm.onEnveloppeSelected(enveloppeUi("loyer", 55.0), isSource = true)
+        vm.onEnveloppeSelected(enveloppeUi("epargne", 0.0), isSource = false)
+        vm.onMontantChange("2000"); vm.onVirementExecute(); attendre()
+        assertNull(vm.uiState.value.erreur, vm.uiState.value.erreur)
+        assertEquals(20.0, b.allocationDe("epargne", java.util.Date()).sumOf { it.solde })
+    }
+
     // ===== Ajouter transaction =====
 
     private suspend fun TestScope.formulaire() = app.ajoutTransaction().also { attendre() }
