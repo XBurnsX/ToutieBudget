@@ -298,6 +298,18 @@ fun AppNavigation() {
                 )
             }
             
+            // Route « Gérer le placement » (section 12)
+            composable(
+                route = "gestion_investissement/{compteId}",
+                arguments = listOf(navArgument("compteId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                com.xburnsx.toutiebudget.ui.investissement.InvestissementScreen(
+                    compteId = backStackEntry.arguments?.getString("compteId") ?: "",
+                    viewModel = AppModule.provideInvestissementViewModel(),
+                    onRetour = { navController.popBackStack() }
+                )
+            }
+
             // Route pour l'écran de gestion des dettes
             composable(
                 route = "gestion_dette/{detteId}",
@@ -524,6 +536,9 @@ fun MainAppScaffold(
                     },
                     onDetteLongClick = { detteId ->
                         mainNavController.navigate("gestion_dette/$detteId")
+                    },
+                    onInvestissementLongClick = { compteId ->
+                        mainNavController.navigate("gestion_investissement/$compteId")
                     }
                 )
             }

@@ -4,6 +4,7 @@
 package com.xburnsx.toutiebudget.ui.comptes.dialogs
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -29,7 +30,8 @@ fun AjoutCompteDialog(
     onValueChange: (String?, String?, String?, String?, String?) -> Unit, // AJOUT DU 5ème PARAMÈTRE
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit,
-    onCarteChange: (String?, String?, com.xburnsx.toutiebudget.data.modeles.EmetteurCarte?) -> Unit = { _, _, _ -> }
+    onCarteChange: (String?, String?, com.xburnsx.toutiebudget.data.modeles.EmetteurCarte?) -> Unit = { _, _, _ -> },
+    onTypePlacementChange: (com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement) -> Unit = {}
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
     val couleursDisponibles = COULEURS_COMPTES
@@ -152,6 +154,22 @@ fun AjoutCompteDialog(
                         label = { Text("Taux annuel des achats (%)") },
                         singleLine = true
                     )
+                }
+
+                // IA7 : type de compte de placement (CELI, REER…)
+                if (formState.type == "Investissement") {
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState())
+                    ) {
+                        com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement.entries.forEach { t ->
+                            FilterChip(
+                                selected = formState.typePlacement == t,
+                                onClick = { onTypePlacementChange(t) },
+                                label = { Text(t.libelle) }
+                            )
+                        }
+                    }
                 }
 
                 // Sélecteur de couleur (sauf pour les dettes qui sont toujours rouges)

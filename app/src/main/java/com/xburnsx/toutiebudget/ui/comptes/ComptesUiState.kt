@@ -13,7 +13,9 @@ data class CompteFormState(
     // CC3 : création d'une carte de crédit
     val soldeCarte: String = "",
     val tauxCarte: String = "",
-    val emetteurCarte: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte = com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.AUTRE
+    val emetteurCarte: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte = com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.AUTRE,
+    // IA7 : type de compte de placement (métadonnée)
+    val typePlacement: com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement = com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement.NON_PRECISE
 )
 
 data class ComptesUiState(

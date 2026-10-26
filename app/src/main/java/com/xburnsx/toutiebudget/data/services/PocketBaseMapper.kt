@@ -105,7 +105,8 @@ object PocketBaseMapper {
         couleur = item.couleur ?: "#FF0000",
         estArchive = item.archive ?: false,
         ordre = item.ordre ?: 0,
-        collection = item.collection ?: "comptes_investissement"
+        collection = item.collection ?: "comptes_investissement",
+        detailsInvestissementJson = item.details_investissement_json?.let { if (it is String) it else gson.toJson(it) }
     )
 
     fun versCategorie(item: ItemPocketBase) = Categorie(

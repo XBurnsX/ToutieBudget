@@ -136,7 +136,11 @@ class ComptesViewModel(
      * Une seule trace « Réconciliation » est écrite dans l'historique (pas de faux revenu
      * ni de fausse dépense) ; si elle échoue, l'ajustement du compte est annulé.
      */
-    fun onReconcilierCompte(nouveauSolde: Double) {
+    fun onReconcilierCompte(
+        nouveauSolde: Double,
+        // IF2 / IF7 : pour un placement, nouvelle valeur de marché ou correction d'erreur (jamais un revenu ni une dépense)
+        typeValorisation: com.xburnsx.toutiebudget.data.modeles.TypeValorisation = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE
+    ) {
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.launch {
             try {
@@ -151,7 +155,16 @@ class ComptesViewModel(
                         val nouveauPret = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(compte.pretAPlacer + ecart)
                         Triple(compte.copy(solde = nouveauSolde, pretAPlacerRaw = nouveauPret), compte.pretAPlacer, nouveauPret)
                     }
-                    is CompteInvestissement -> Triple(compte.copy(solde = nouveauSolde), 0.0, 0.0)
+                    is CompteInvestissement -> {
+                        val valorisation = com.xburnsx.toutiebudget.data.modeles.Valorisation(
+                            date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
+                            valeur = nouveauSolde,
+                            ancienneValeur = compte.solde,
+                            type = typeValorisation
+                        )
+                        val details = compte.details.copy(valorisations = compte.details.valorisations + valorisation)
+                        Triple(compte.copy(solde = nouveauSolde, detailsInvestissementJson = details.versJson()), 0.0, 0.0)
+                    }
                     else -> {
                         _uiState.update { it.copy(erreur = "La réconciliation n'est pas offerte pour ce type de compte.") }
                         return@launch
@@ -162,7 +175,11 @@ class ComptesViewModel(
                 try {
                     historiqueAllocationService.enregistrerAjustementCompte(
                         compte = compteReconcilie,
-                        typeAction = "RECONCILIATION",
+                        typeAction = when {
+                            compte !is CompteInvestissement -> "RECONCILIATION"
+                            typeValorisation == com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE -> "VALORISATION_MARCHE"
+                            else -> "CORRECTION_SOLDE"
+                        },
                         description = "Réconciliation ${compte.nom} : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compte.solde)} → " +
                             "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(nouveauSolde)} (écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
                         montant = ecart,
@@ -332,6 +349,30 @@ class ComptesViewModel(
         }
     }
 
+    fun onTypePlacementChange(type: com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement) {
+        _uiState.update { s -> s.copy(formState = s.formState.copy(typePlacement = type)) }
+    }
+
+    /** IF15 : réactiver le même compte (même ID), avec tout son historique. */
+    fun reactiverCompte(compte: Compte) {
+        viewModelScope.launch {
+            val actif = when (compte) {
+                is CompteCheque -> compte.copy(estArchive = false)
+                is CompteCredit -> compte.copy(estArchive = false)
+                is CompteDette -> compte.copy(estArchive = false)
+                is CompteInvestissement -> compte.copy(estArchive = false)
+            }
+            compteRepository.mettreAJourCompte(actif)
+                .onSuccess {
+                    chargerComptes()
+                    chargerComptesArchives()
+                    realtimeSyncService.declencherMiseAJourComptes()
+                    onCompteChange?.invoke()
+                }
+                .onFailure { e -> _uiState.update { it.copy(erreur = "Erreur de réactivation: ${e.message}") } }
+        }
+    }
+
     fun onSauvegarderCompte() {
         if (_uiState.value.enregistrementEnCours) return
         // CO6 : chaque sauvegarde ferme son dialogue elle-même, seulement après réussite
@@ -376,7 +417,15 @@ class ComptesViewModel(
                     montantInitial = soldeInitial,
                     prixTotal = soldeInitial
                 )
-                "Investissement" -> CompteInvestissement(nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0)
+                "Investissement" -> CompteInvestissement(
+                    nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0,
+                    // IA2 : la valeur à la création est la valeur de départ connue du suivi
+                    detailsInvestissementJson = com.xburnsx.toutiebudget.data.modeles.DetailsInvestissement(
+                        typeCompte = formState.typePlacement,
+                        valeurDepart = soldeInitial,
+                        dateDepart = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date())
+                    ).versJson()
+                )
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
             // OPTIMISATION : Créer le compte immédiatement pour UX fluide
@@ -558,7 +607,20 @@ class ComptesViewModel(
                     )
                     is CompteCredit -> compteOriginal.copy(nom = form.nom, soldeUtilise = soldeDouble, couleur = form.couleur)
                     is CompteDette -> compteOriginal.copy(nom = form.nom, soldeDette = soldeDouble)
-                    is CompteInvestissement -> compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur)
+                    is CompteInvestissement -> {
+                        // IF7 : un changement de solde à la main est noté comme correction datée
+                        val details = if (kotlin.math.abs(soldeDouble - compteOriginal.solde) > 0.005) {
+                            compteOriginal.details.copy(
+                                valorisations = compteOriginal.details.valorisations + com.xburnsx.toutiebudget.data.modeles.Valorisation(
+                                    date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
+                                    valeur = soldeDouble,
+                                    ancienneValeur = compteOriginal.solde,
+                                    type = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.CORRECTION
+                                )
+                            )
+                        } else compteOriginal.details
+                        compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur, detailsInvestissementJson = details.versJson())
+                    }
                 }
 
                 _uiState.update { it.copy(enregistrementEnCours = true) }

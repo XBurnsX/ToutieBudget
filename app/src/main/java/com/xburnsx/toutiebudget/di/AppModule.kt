@@ -313,6 +313,12 @@ import android.content.Context
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
+     private val investissementViewModel by lazy {
+         com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel(
+             compteRepository, transactionRepository, historiqueAllocationService, realtimeSyncService
+         )
+     }
+     fun provideInvestissementViewModel(): com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel = investissementViewModel
              fun provideStatistiquesViewModel(): StatistiquesViewModel = createStatistiquesViewModel()
       fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
       fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel

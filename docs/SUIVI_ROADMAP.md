@@ -133,6 +133,30 @@ Hors maître (demandé directement) :
 | DA6 | FAIT | Restant, versé, intérêts et frais confirmés, estimations identifiées |
 | DA7 | FAIT | Taux variable : changements datés, appliqués aux versements futurs seulement |
 
+| IF1 | FAIT | (avec CO4) « comptes_investissement » partout |
+| IF2 / IF7 | FAIT | Réconciliation d'un placement : « Valeur de marché » ou « Correction », valeur datée enregistrée, trace VALORISATION_MARCHE / CORRECTION_SOLDE ; modification à la main = correction datée ; jamais revenu/dépense/Prêt à placer |
+| IF3 | FAIT | Apports/retraits = virements seulement ; revenus de placement et valeurs séparés |
+| IF4 / IF14 | FAIT (compensation) | Virement compte → compte : chaque écriture vérifiée, étapes précédentes annulées si une échoue (pas de transaction Room unique) |
+| IF5 | FAIT | `mettreAJourSolde` lève l'erreur au lieu de l'ignorer |
+| IF6 | FAIT | Mode simple : avertissement valeur ≠ retirable ; détaillé : encaisse et montant retirable connu |
+| IF8 | FAIT | Date du virement passée aux deux écritures |
+| IF9 | FAIT | Les deux côtés d'un virement partagent un identifiant ; suppression d'une seule moitié refusée, les deux soldes (et Prêt à placer) remis |
+| IF11 | FAIT | Montant fini > 0, comptes distincts, actifs, même utilisateur, relus juste avant |
+| IF12 | FAIT | Statistiques : anciennes réconciliations « Mise à jour : » et anciens paiements de carte « Emprunt » exclus des revenus/dépenses |
+| IF13 | FAIT | Virements arrondis au cent ; quantités de titres non tronquées |
+| IF15 | FAIT | Placement archivé réactivable depuis Archives (même compte, même historique) |
+| IF16 | FAIT | Patrimoine courant : comptes actifs + dettes archivées encore dues |
+| IF17 | FAIT | (avec CO6) dialogues fermés seulement après réussite |
+| IA1 | FAIT | Page « Gérer le placement » (menu du compte) : suivi simple ou détaillé, facultatif |
+| IA2 | FAIT | Valeur de départ (fixée à la création ou saisie), apports, retraits, capital net versé ; « indisponible » si inconnu |
+| IA3 | FAIT | Gain total = valeur − capital net versé ; % simple seulement sans apport/retrait ; réalisé et non réalisé séparés |
+| IA4 | FAIT | Graphique de valeur 1 mois / 3 mois / 1 an / 5 ans / tout, points connus seulement |
+| IA5 | FAIT | Positions : symbole, catégorie, quantité fractionnaire, coût frais inclus, cours, devise |
+| IA6 | FAIT | Mouvements : achat, vente (gain réalisé), dividende, distribution, intérêts, frais, réinvestissement |
+| IA7 | FAIT | Type CELI / REER / CELIAPP / non enregistré / épargne (étiquette seulement) + institution |
+| IA9 | FAIT | Répartition par catégorie, titre, devise, encaisse comprise |
+| IA10 | FAIT | Rendement pondéré dans le temps et TRI (pondéré selon les flux), seulement avec au moins deux valeurs datées |
+
 À savoir : les nouveaux champs `comptes_credits.details_carte_json` et `user_preferences.enveloppes_favorites`
 doivent être ajoutés à PocketBase avec `migrer-pocketbase.ps1` (identifiants admin saisis par l'utilisateur).
 Base Room passée en version 5 (migration sans perte).

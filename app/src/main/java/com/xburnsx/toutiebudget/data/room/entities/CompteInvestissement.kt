@@ -28,5 +28,9 @@ data class CompteInvestissement(
     val ordre: Int = 0,
     
     @ColumnInfo(name = "collection")
-    val collection: String = "comptes_investissement"
+    val collection: String = "comptes_investissement",
+
+    // Section 12 : suivi simple ou détaillé, valorisations, positions, mouvements (JSON de DetailsInvestissement)
+    @ColumnInfo(name = "details_investissement_json")
+    val detailsInvestissementJson: String? = null
 )

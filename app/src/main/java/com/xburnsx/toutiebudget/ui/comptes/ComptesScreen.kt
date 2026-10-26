@@ -55,7 +55,8 @@ fun ComptesScreen(
     viewModel: ComptesViewModel,
     onCompteClick: (String, String, String) -> Unit,
     onCarteCreditLongClick: (String) -> Unit = {}, // Nouveau paramètre pour la navigation vers l'écran de gestion
-    onDetteLongClick: (String) -> Unit = {} // Nouveau paramètre pour la navigation vers l'écran de gestion des dettes
+    onDetteLongClick: (String) -> Unit = {}, // Nouveau paramètre pour la navigation vers l'écran de gestion des dettes
+    onInvestissementLongClick: (String) -> Unit = {} // « Gérer le placement » (section 12)
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -229,6 +230,7 @@ fun ComptesScreen(
         AjoutCompteDialog(
             formState = uiState.formState,
             onCarteChange = viewModel::onFormCarteChange,
+            onTypePlacementChange = viewModel::onTypePlacementChange,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,
             onSave = { viewModel.onSauvegarderCompte() },
@@ -350,6 +352,23 @@ fun ComptesScreen(
                         }
                     }
 
+                    // IF2 : pour un placement, l'écart est une valeur de marché ou une correction, pas un revenu
+                    var typeValorisation by remember {
+                        mutableStateOf(com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE)
+                    }
+                    if (compteReconcilie is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            com.xburnsx.toutiebudget.data.modeles.TypeValorisation.entries.forEach { t ->
+                                FilterChip(
+                                    selected = typeValorisation == t,
+                                    onClick = { typeValorisation = t },
+                                    label = { Text(if (t == com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE) "Valeur de marché" else "Correction") }
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
@@ -365,7 +384,7 @@ fun ComptesScreen(
 
                         Button(
                             onClick = {
-                                viewModel.onReconcilierCompte(nouveauSolde / 100.0)
+                                viewModel.onReconcilierCompte(nouveauSolde / 100.0, typeValorisation)
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -457,6 +476,27 @@ fun ComptesScreen(
                         }
                     } else {
                         // Pour les autres comptes (chèque, investissement) : options normales
+
+                        if (uiState.compteSelectionne is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.onDismissMenu()
+                                    onInvestissementLongClick(uiState.compteSelectionne!!.id)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountBalance,
+                                        contentDescription = "Gérer le placement",
+                                        tint = Color(0xFF60A5FA),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(text = "Gérer le placement", color = Color.White, fontSize = 16.sp)
+                                }
+                            }
+                        }
 
                         // 📝 MODIFIER
                         TextButton(

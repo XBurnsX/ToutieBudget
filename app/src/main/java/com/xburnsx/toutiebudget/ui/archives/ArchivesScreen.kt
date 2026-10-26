@@ -69,9 +69,26 @@ fun ArchivesScreen(
                     LaunchedEffect(Unit) { comptesViewModel.chargerComptesArchives() }
                     // CO3 : liste propre aux archives, non écrasée par les rafraîchissements des comptes actifs
                     val comptesArchivesDyn = comptesState.comptesArchives
+                    // IF15 : un placement archivé peut être réactivé (même compte, même historique)
+                    var aReactiver by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Compte?>(null) }
                     LazyColumn { items(comptesArchivesDyn) { c ->
-                        CompteItem(compte = c, onClick = {}, onLongClick = {})
+                        CompteItem(
+                            compte = c,
+                            onClick = { if (c is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement) aReactiver = c },
+                            onLongClick = {}
+                        )
                     } }
+                    aReactiver?.let { compte ->
+                        AlertDialog(
+                            onDismissRequest = { aReactiver = null },
+                            title = { Text("Réactiver ${compte.nom} ?") },
+                            text = { Text("Le compte revient dans la liste avec ses transactions et ses valeurs passées.") },
+                            confirmButton = {
+                                TextButton(onClick = { comptesViewModel.reactiverCompte(compte); aReactiver = null }) { Text("Réactiver") }
+                            },
+                            dismissButton = { TextButton(onClick = { aReactiver = null }) { Text("Annuler") } }
+                        )
+                    }
                 }
                 1 -> {
                     LazyColumn { items(enveloppesArchives) { env ->

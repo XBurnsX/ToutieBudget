@@ -105,7 +105,10 @@ object SyncPayloads {
             "couleur" to entite.couleur,
             "archive" to entite.estArchive,
             "ordre" to entite.ordre,
-            "collection" to entite.collection
+            "collection" to entite.collection,
+            "details_investissement_json" to entite.detailsInvestissementJson?.let {
+                try { com.google.gson.JsonParser.parseString(it) } catch (_: Exception) { null }
+            }
         ))
         is EnveloppeEntity -> gsonSimple.toJson(mapOf(
             "id" to entite.id,

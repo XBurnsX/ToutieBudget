@@ -805,115 +805,104 @@ class ArgentServiceImpl @Inject constructor(
     }
 
     /**
-     * Effectue un virement entre deux comptes, en créant une transaction pour chaque.
-     * Met à jour les soldes et crée des transactions de type Transfert.
+     * Vrai transfert entre deux comptes (mode Comptes de Virer argent).
+     *
+     * - IF11 : montant positif et fini, comptes distincts, actifs et du même utilisateur, relus juste avant.
+     * - IF13 : montants arrondis au cent, les deux côtés du même montant.
+     * - IF8 : la date choisie sert aux deux écritures.
+     * - IF9 : sortie et entrée partagent un identifiant d'opération (annulation/correction ensemble).
+     * - IF4 / IF5 : chaque écriture est vérifiée ; si une étape échoue, les précédentes sont annulées.
+     * - IF3 / IF12 : ce sont des TransfertSortant/Entrant, ni revenu ni dépense : le patrimoine ne change pas.
      */
     override suspend fun effectuerVirementEntreComptes(
         compteSourceId: String,
         compteDestId: String,
         montant: Double,
         nomCompteSource: String,
-        nomCompteDest: String
+        nomCompteDest: String,
+        date: Date
     ): Result<Unit> = runCatching {
-        
-        if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
+        if (compteSourceId == compteDestId) throw IllegalArgumentException("La source et la destination ne peuvent pas être identiques.")
+        val montantArrondi = MoneyFormatter.roundAmount(montant)
 
-        // 1. Récupérer les comptes et leurs collections
-        val compteSourceResult = compteRepository.recupererCompteParIdToutesCollections(compteSourceId)
-        if (compteSourceResult.isFailure) {
-            throw compteSourceResult.exceptionOrNull() ?: Exception("Erreur récupération compte source")
-        }
-        val compteSource = compteSourceResult.getOrThrow()
-
-        val compteDestResult = compteRepository.recupererCompteParIdToutesCollections(compteDestId)
-        if (compteDestResult.isFailure) {
-            throw compteDestResult.exceptionOrNull() ?: Exception("Erreur récupération compte destination")
-        }
-        val compteDest = compteDestResult.getOrThrow()
-
-        // 2. Vérifier le solde du compte source
-        if (compteSource.solde < montant) {
+        val compteSource = compteRepository.recupererCompteParIdToutesCollections(compteSourceId).getOrThrow()
+        val compteDest = compteRepository.recupererCompteParIdToutesCollections(compteDestId).getOrThrow()
+        if (compteSource.estArchive || compteDest.estArchive) throw IllegalStateException("Un des comptes est archivé.")
+        if (compteSource.utilisateurId.isNotBlank() && compteDest.utilisateurId.isNotBlank() &&
+            compteSource.utilisateurId != compteDest.utilisateurId
+        ) throw IllegalStateException("Les deux comptes n'appartiennent pas au même utilisateur.")
+        if (compteSource.solde + 0.005 < montantArrondi) {
             throw IllegalStateException("Solde insuffisant sur le compte '$nomCompteSource'.")
         }
 
-        // 3. Mettre à jour les soldes
-        val nouveauSoldeSource = compteSource.solde - montant
-        try {
-            compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, nouveauSoldeSource)
-        } catch (e: Exception) {
-            throw Exception("Erreur mise à jour solde source: ${e.message}")
-        }
-
-        val nouveauSoldeDest = compteDest.solde + montant
-        try {
-            compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, nouveauSoldeDest)
-        } catch (e: Exception) {
-            throw Exception("Erreur mise à jour solde destination: ${e.message}")
-        }
-
-        // 4. Gérer le "Prêt à placer" pour les comptes chèque
-        // Mise à jour du prêt à placer du compte source (diminution)
-        if (compteSource is
-                    CompteCheque) {
-            val variationPretAPlacerSource = -montant // Variation négative pour retirer le montant
-            try {
-                compteRepository.mettreAJourPretAPlacerSeulement(compteSource.id, variationPretAPlacerSource).getOrThrow()
-            } catch (e: Exception) {
-                throw Exception("Erreur mise à jour prêt à placer du compte source: ${e.message}")
-            }
-        }
-
-        // Mise à jour du prêt à placer du compte destination (augmentation)
-        if (compteDest is CompteCheque) {
-            val variationPretAPlacerDest = montant // Variation positive pour ajouter le montant
-            try {
-                val result = compteRepository.mettreAJourPretAPlacerSeulement(compteDest.id, variationPretAPlacerDest)
-                if (result.isSuccess) {
-                } else {
-                    throw result.exceptionOrNull() ?: Exception("Erreur inconnue")
-                }
-            } catch (e: Exception) {
-                throw Exception("Erreur mise à jour prêt à placer du compte destination: ${e.message}")
-            }
+        // 1. Source (un compte chèque perd aussi ce montant de son « Prêt à placer »)
+        if (compteSource is CompteCheque) {
+            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteSource.id, compteSource.collection, -montantArrondi, true).getOrThrow()
         } else {
+            compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, MoneyFormatter.roundAmount(compteSource.solde - montantArrondi))
         }
 
-        // 5. Créer la transaction de sortie
-        val transactionSortante = Transaction(
+        val annulerSource: suspend () -> Unit = {
+            if (compteSource is CompteCheque) {
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteSource.id, compteSource.collection, montantArrondi, true)
+            } else {
+                compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, compteSource.solde)
+            }
+        }
+
+        // 2. Destination
+        try {
+            if (compteDest is CompteCheque) {
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteDest.id, compteDest.collection, montantArrondi, true).getOrThrow()
+            } else {
+                compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, MoneyFormatter.roundAmount(compteDest.solde + montantArrondi))
+            }
+        } catch (e: Exception) {
+            annulerSource()
+            throw Exception("Erreur mise à jour du compte destination : ${e.message}")
+        }
+
+        // 3. Les deux écritures liées
+        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${IdGenerator.generateId()}\"}"
+        val sortante = Transaction(
             id = IdGenerator.generateId(),
             utilisateurId = compteSource.utilisateurId,
-            type = TypeTransaction.TransfertSortant, // ✅ Utiliser TransfertSortant pour les virements
-            montant = montant,
-            date = Date(), // Utilise l'heure locale actuelle du téléphone
+            type = TypeTransaction.TransfertSortant,
+            montant = montantArrondi,
+            date = date,
             compteId = compteSource.id,
             collectionCompte = compteSource.collection,
             allocationMensuelleId = null,
-            tiersUtiliser = nomCompteDest, // ✅ NOM du compte qui reçoit l'argent
-            note = null // PAS de note !
+            sousItems = lienOperation,
+            tiersUtiliser = nomCompteDest,
+            note = null
         )
-        try {
-            transactionRepository.creerTransaction(transactionSortante).getOrThrow()
-        } catch (e: Exception) {
-            throw Exception("Erreur création transaction sortante: ${e.message}")
-        }
-
-        // 6. Créer la transaction d'entrée
-        val transactionEntrante = Transaction(
+        val entrante = sortante.copy(
             id = IdGenerator.generateId(),
             utilisateurId = compteDest.utilisateurId,
-            type = TypeTransaction.TransfertEntrant, // ✅ Utiliser TransfertEntrant pour les virements
-            montant = montant,
-            date = Date(), // Utilise l'heure locale actuelle du téléphone
+            type = TypeTransaction.TransfertEntrant,
             compteId = compteDest.id,
             collectionCompte = compteDest.collection,
-            allocationMensuelleId = null,
-            tiersUtiliser = nomCompteSource, // ✅ NOM du compte qui envoie l'argent
-            note = null // PAS de note !
+            tiersUtiliser = nomCompteSource
         )
         try {
-            transactionRepository.creerTransaction(transactionEntrante).getOrThrow()
+            transactionRepository.creerTransaction(sortante).getOrThrow()
+            try {
+                transactionRepository.creerTransaction(entrante).getOrThrow()
+            } catch (e: Exception) {
+                transactionRepository.supprimerTransaction(sortante.id)
+                throw e
+            }
         } catch (e: Exception) {
-            throw Exception("Erreur création transaction entrante: ${e.message}")
+            // Remettre les deux soldes : aucun argent ne doit se perdre ni se créer
+            if (compteDest is CompteCheque) {
+                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteDest.id, compteDest.collection, -montantArrondi, true)
+            } else {
+                compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, compteDest.solde)
+            }
+            annulerSource()
+            throw Exception("Erreur d'enregistrement du virement : ${e.message}")
         }
     }
 

@@ -175,5 +175,10 @@ data class CompteInvestissement(
     @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
-    override val collection: String = "comptes_investissement"
-) : Compte
+    override val collection: String = "comptes_investissement",
+    @SerializedName("details_investissement_json")
+    val detailsInvestissementJson: String? = null // Section 12 : JSON de DetailsInvestissement
+) : Compte {
+    /** Suivi simple ou détaillé (valeurs par défaut si rien n'est configuré). */
+    val details: DetailsInvestissement get() = DetailsInvestissement.depuis(detailsInvestissementJson)
+}

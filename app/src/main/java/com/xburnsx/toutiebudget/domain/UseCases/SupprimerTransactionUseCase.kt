@@ -77,7 +77,8 @@ class SupprimerTransactionUseCase(
     private fun estMoitieDePaiement(tx: Transaction): Boolean =
         tx.type == TypeTransaction.PaiementEffectue ||
             (tx.type == TypeTransaction.Paiement && (tx.collectionCompte == "comptes_dettes" || tx.collectionCompte == "comptes_credits")) ||
-            (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits") // anciens paiements de carte
+            (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits") || // anciens paiements de carte
+            tx.type == TypeTransaction.TransfertSortant || tx.type == TypeTransaction.TransfertEntrant // IF9
 
     /** Même identifiant d'opération ; pour les anciens paiements, même montant, même tiers et même moment. */
     private suspend fun trouverMoitieLiee(tx: Transaction): Transaction? {
@@ -87,10 +88,12 @@ class SupprimerTransactionUseCase(
         if (idOperation != null) {
             return toutes.firstOrNull { idOperation(it.sousItems) == idOperation }
         }
-        val typesContrepartie = if (tx.type == TypeTransaction.PaiementEffectue) {
-            setOf(TypeTransaction.Paiement, TypeTransaction.Emprunt)
-        } else {
-            setOf(TypeTransaction.PaiementEffectue)
+        val estTransfert = tx.type == TypeTransaction.TransfertSortant || tx.type == TypeTransaction.TransfertEntrant
+        val typesContrepartie = when (tx.type) {
+            TypeTransaction.PaiementEffectue -> setOf(TypeTransaction.Paiement, TypeTransaction.Emprunt)
+            TypeTransaction.TransfertSortant -> setOf(TypeTransaction.TransfertEntrant)
+            TypeTransaction.TransfertEntrant -> setOf(TypeTransaction.TransfertSortant)
+            else -> setOf(TypeTransaction.PaiementEffectue)
         }
         return toutes
             .filter {
@@ -98,7 +101,7 @@ class SupprimerTransactionUseCase(
                     it.compteId != tx.compteId &&
                     abs(it.montant - tx.montant) < 0.005 &&
                     abs(it.date.time - tx.date.time) <= 2 * 60 * 1000 &&
-                    (it.tiersUtiliser ?: "") == (tx.tiersUtiliser ?: "") &&
+                    (estTransfert || (it.tiersUtiliser ?: "") == (tx.tiersUtiliser ?: "")) &&
                     idOperation(it.sousItems) == null
             }
             .minByOrNull { abs(it.date.time - tx.date.time) }
@@ -190,11 +193,13 @@ class SupprimerTransactionUseCase(
             TypeTransaction.TransfertEntrant -> -montant // Annuler un transfert entrant = soustraction
         }
 
+        // Un virement entre comptes avait aussi déplacé le « Prêt à placer » des comptes chèques : on le remet
+        val annulerPretAPlacer = typeTransaction == TypeTransaction.TransfertSortant || typeTransaction == TypeTransaction.TransfertEntrant
         return compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
             compteId,
             collectionCompte,
             variationSolde,
-            false // Ne pas mettre à jour le prêt à placer lors de l'annulation
+            annulerPretAPlacer
         )
     }
 }

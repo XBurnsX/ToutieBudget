@@ -110,7 +110,13 @@ class StatistiquesViewModel(
             // Calculer les totaux financiers
             val totauxFinanciers = calculerTotauxFinanciers()
 
-            val transactions6Mois = transactionsResult.getOrNull().orEmpty()
+            // IF2 / IF12 / CC2 : les anciennes écritures techniques ne sont ni des revenus ni des dépenses
+            // (réconciliations enregistrées « Mise à jour : … », paiements de carte enregistrés « Emprunt »)
+            val transactions6Mois = transactionsResult.getOrNull().orEmpty().filterNot { tx ->
+                ((tx.type == TypeTransaction.Revenu || tx.type == TypeTransaction.Depense) &&
+                    tx.tiersUtiliser?.startsWith("Mise à jour : ") == true) ||
+                    (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits")
+            }
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             
@@ -462,7 +468,11 @@ class StatistiquesViewModel(
             // 1. Récupérer tous les comptes et filtrer par type
             val tousLesComptes = compteRepository.recupererTousLesComptes()
             if (tousLesComptes.isSuccess) {
-                val comptes = tousLesComptes.getOrNull().orEmpty()
+                // IF16 : patrimoine COURANT = comptes actifs + dettes archivées encore dues (archivée ≠ remboursée) ;
+                // les comptes archivés (anciens placements, chèques fermés) ne comptent plus
+                val comptes = tousLesComptes.getOrNull().orEmpty().filter { compte ->
+                    !compte.estArchive || (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005)
+                }
                 
                 println("🔍 DEBUG: ${comptes.size} comptes trouvés")
                 

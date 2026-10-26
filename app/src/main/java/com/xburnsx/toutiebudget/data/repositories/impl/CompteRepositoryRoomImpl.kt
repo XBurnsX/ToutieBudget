@@ -370,23 +370,20 @@ class CompteRepositoryRoomImpl(
         }
     }
 
+    /** IF5 : une écriture ratée lève une exception au lieu d'être ignorée (l'appelant ne doit pas annoncer un succès). */
     override suspend fun mettreAJourSolde(compteId: String, collection: String, nouveauSolde: Double) {
-        try {
-            val compte = getCompteById(compteId, collection)
-                ?: throw Exception("Compte non trouvé")
+        val compte = getCompteById(compteId, collection)
+            ?: throw Exception("Compte non trouvé")
 
-            val compteMisAJour = when (compte) {
-                is CompteCheque -> compte.copy(solde = nouveauSolde)
-                is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde)
-                is CompteDette -> compte.copy(soldeDette = nouveauSolde)
-                is CompteInvestissement -> compte.copy(solde = nouveauSolde)
-                else -> throw IllegalArgumentException("Type de compte non supporté")
-            }
-
-            mettreAJourCompte(compteMisAJour)
-        } catch (e: Exception) {
-            // Ignorer l'erreur pour cette méthode qui retourne Unit
+        val compteMisAJour = when (compte) {
+            is CompteCheque -> compte.copy(solde = nouveauSolde)
+            is CompteCredit -> compte.copy(soldeUtilise = nouveauSolde)
+            is CompteDette -> compte.copy(soldeDette = nouveauSolde)
+            is CompteInvestissement -> compte.copy(solde = nouveauSolde)
+            else -> throw IllegalArgumentException("Type de compte non supporté")
         }
+
+        mettreAJourCompte(compteMisAJour).getOrThrow()
     }
 
     override suspend fun mettreAJourSoldeAvecVariation(compteId: String, collectionCompte: String, variationSolde: Double): Result<Unit> = withContext(Dispatchers.IO) {
@@ -689,7 +686,8 @@ class CompteRepositoryRoomImpl(
             couleur = this.couleur,
             estArchive = this.estArchive,
             ordre = this.ordre,
-            collection = this.collection
+            collection = this.collection,
+            detailsInvestissementJson = this.detailsInvestissementJson
         )
     }
 
@@ -702,7 +700,8 @@ class CompteRepositoryRoomImpl(
             couleur = this.couleur,
             estArchive = this.estArchive,
             ordre = this.ordre,
-            collection = this.collection
+            collection = this.collection,
+            detailsInvestissementJson = this.detailsInvestissementJson
         )
     }
     

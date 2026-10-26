@@ -163,7 +163,9 @@ interface ArgentService {
         compteDestId: String,
         montant: Double,
         nomCompteSource: String,
-        nomCompteDest: String
+        nomCompteDest: String,
+        // IF8 : date de l'opération pour les deux écritures
+        date: java.util.Date = java.util.Date()
     ): Result<Unit>
 
     /**
