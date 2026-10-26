@@ -402,8 +402,11 @@ class ModifierTransactionViewModel(
                                 // Récupérer l'allocation par son ID (frais depuis la base de données)
                                 val resultAllocation = enveloppeRepository.recupererAllocationParId(allocationId)
                             
-                                if (resultAllocation.isSuccess) {
-                                    val allocationActuelle = resultAllocation.getOrThrow()
+                                // MT2/MT9 : une allocation introuvable ne peut pas être ignorée.
+                                // L'opération atomique doit échouer plutôt que sauvegarder
+                                // une transaction sans les bons montants d'enveloppes.
+                                val allocationActuelle = resultAllocation.getOrThrow()
+                                run {
                                     // AT8 : sur carte de crédit, le solde de l'enveloppe ne bouge pas (dépensé et alloué +montant)
                                     val nouvelleAllocation = if (collectionCompte == "comptes_credits") {
                                         allocationActuelle.copy(depense = allocationActuelle.depense + montantEnDollars, alloue = allocationActuelle.alloue + montantEnDollars)
