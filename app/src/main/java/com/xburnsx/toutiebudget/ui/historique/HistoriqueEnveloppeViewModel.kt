@@ -275,7 +275,11 @@ class HistoriqueEnveloppeViewModel(
                             JsonParser.parseString(transaction.sousItems).asJsonArray
                                 .filter { it.asJsonObject.get("enveloppeId")?.asString == enveloppeId }
                                 .sumOf { it.asJsonObject.get("montant")?.asDouble ?: 0.0 }
-                        }.getOrDefault(transaction.montant)
+                        }.getOrElse { cause ->
+                            // HE2 : ne jamais présenter le montant total de l'achat
+                            // comme si c'était la portion de cette enveloppe.
+                            throw IllegalStateException("Fractionnement illisible pour la transaction ${transaction.id}", cause)
+                        }
                     } else transaction.montant
 
                     TransactionUi(
