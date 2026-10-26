@@ -38,6 +38,8 @@ fun HistoryScreen(
     var comptesCheques by remember { mutableStateOf<List<Compte>>(emptyList()) }
     var historiqueAllocations by remember { mutableStateOf<List<HistoriqueAllocation>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
+    var historiqueEnChargement by remember { mutableStateOf(false) }
+    var nouvelEssai by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     
     val scope = rememberCoroutineScope()
@@ -61,21 +63,22 @@ fun HistoryScreen(
     }
     
     // Charger l'historique quand un compte est sélectionné
-    LaunchedEffect(compteSelectionne?.id) {
+    LaunchedEffect(compteSelectionne?.id, nouvelEssai) {
         historiqueAllocations = emptyList()
         error = null
+        historiqueEnChargement = compteSelectionne != null
         if (compteSelectionne != null) {
             try {
                 val historiqueRepository = AppModule.provideHistoriqueAllocationRepository()
                 
                 historiqueRepository.getHistoriqueByCompte(compteSelectionne!!.id).collect { historique ->
                     historiqueAllocations = historique
+                    historiqueEnChargement = false
                 }
             } catch (e: Exception) {
-                error = e.message
+                error = e.message ?: "Chargement du journal impossible"
+                historiqueEnChargement = false
             }
-        } else {
-            historiqueAllocations = emptyList()
         }
     }
 
@@ -156,7 +159,7 @@ fun HistoryScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Affichage de l'historique
-            if (isLoading) {
+            if (isLoading || historiqueEnChargement) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -173,6 +176,9 @@ fun HistoryScreen(
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
+                    TextButton(onClick = { nouvelEssai++ }) {
+                        Text("Réessayer")
+                    }
                 }
             } else if (compteSelectionne != null) {
                 // Afficher l'historique des allocations
