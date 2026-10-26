@@ -172,18 +172,19 @@ class HistoriqueEnveloppeViewModel(
             timeZone = TimeZone.getDefault()
         }
 
-        return transactions
-            .groupBy { transaction -> formateurDate.format(transaction.date) }
-            .map { (dateString, transactionsDeLaDate) ->
-                val dateParsee = try {
-                    formateurDate.parse(dateString) ?: Date(0)
-                } catch (_: Exception) {
-                    Date(0)
-                }
-                Triple(dateString, dateParsee, transactionsDeLaDate.sortedByDescending { it.date })
-            }
-            .sortedByDescending { it.second }
-            .associate { it.first to it.third }
+        // Regrouper avec une vraie clé calendaire, plutôt que reparcourir une date
+        // affichée en texte français. Cela évite les regroupements au 1er janvier
+        // 1970 si l'analyse du libellé échoue et garantit l'ordre chronologique.
+        val jours = transactions.groupBy { transaction ->
+            java.time.Instant.ofEpochMilli(transaction.date.time)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+        }
+        return jours.entries.sortedByDescending { it.key }.associate { (jour, lignes) ->
+            formateurDate.format(
+                Date.from(jour.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant())
+            ) to lignes.sortedByDescending { it.date }
+        }
     }
 
     /**
