@@ -89,7 +89,8 @@ class HistoriqueEnveloppeViewModel(
     fun supprimerTransaction(transactionId: String) {
         viewModelScope.lancerUneFois(verrouSuppression) {
             try {
-                supprimerTransactionUseCase.executer(transactionId)
+                // HE4 : un Result.failure ne déclenche pas catch sans getOrThrow().
+                supprimerTransactionUseCase.executer(transactionId).getOrThrow()
                 // Recharger les transactions après suppression
                 val enveloppeId: String? = savedStateHandle["enveloppeId"]
                 if (enveloppeId != null) {
@@ -216,7 +217,7 @@ class HistoriqueEnveloppeViewModel(
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 // HE1 : chaque allocation est retrouvée directement par son ID, quelle que soit sa période.
                 val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
+                    enveloppeRepository.recupererAllocationParId(id).getOrThrow()
                 }
                 val tiers = resultTiers.getOrNull() ?: emptyList()
 
