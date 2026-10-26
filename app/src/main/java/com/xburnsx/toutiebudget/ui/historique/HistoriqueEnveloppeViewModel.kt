@@ -209,9 +209,11 @@ class HistoriqueEnveloppeViewModel(
                 val resultEnveloppes = deferredEnveloppes.await()
                 val resultTiers = deferredTiers.await()
 
-                if (resultTransactions.isFailure) {
-                    throw resultTransactions.exceptionOrNull() ?: Exception("Erreur lors du chargement des transactions")
-                }
+                // HE7/HE12 : aucun repository en échec ne doit être interprété
+                // comme une liste vide d'enveloppes ou de tiers.
+                resultTransactions.getOrThrow()
+                resultEnveloppes.getOrThrow()
+                resultTiers.getOrThrow()
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
