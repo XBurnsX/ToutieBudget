@@ -32,7 +32,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     ) {
-        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement création allocation - ${enveloppe.nom} - ${String.format("%.2f", montant)}$")
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
                 utilisateurId = allocation.utilisateurId,
@@ -53,7 +52,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
             )
             
         historiqueAllocationRepository.insertHistorique(historique)
-        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Création allocation enregistrée avec succès")
     }
     
     override suspend fun enregistrerModificationAllocation(
@@ -67,7 +65,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     ) {
-        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement modification allocation - ${enveloppe.nom} - ${String.format("%.2f", montantModification)}$")
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
                 utilisateurId = allocationApres.utilisateurId,
@@ -88,7 +85,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
             )
             
         historiqueAllocationRepository.insertHistorique(historique)
-        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Modification allocation enregistrée avec succès")
     }
     
     override suspend fun enregistrerSuppressionAllocation(
@@ -133,7 +129,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerApres: Double,
         note: String?
     ) {
-        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement transaction directe - $typeTransaction - ${String.format("%.2f", montant)}$")
             val description = if (enveloppe != null) {
                 "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ vers ${enveloppe.nom}"
             } else {
@@ -160,7 +155,6 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
             )
             
         historiqueAllocationRepository.insertHistorique(historique)
-        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Transaction directe enregistrée avec succès")
     }
 
     override suspend fun enregistrerAjustementCompte(
