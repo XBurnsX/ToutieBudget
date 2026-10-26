@@ -8,6 +8,8 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import java.util.Calendar
 import java.util.Date
 
@@ -27,7 +29,8 @@ class VirementBudgetService(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val historiqueAllocationService: HistoriqueAllocationService
+    private val historiqueAllocationService: HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) {
 
     fun premierJourDuMois(date: Date): Date = Calendar.getInstance().apply {
@@ -60,7 +63,7 @@ class VirementBudgetService(
 
     // ===== PRÊT À PLACER → ENVELOPPE =====
 
-    suspend fun pretAPlacerVersEnveloppe(compteId: String, enveloppeId: String, montant: Double, mois: Date): Result<Unit> = runCatching {
+    suspend fun pretAPlacerVersEnveloppe(compteId: String, enveloppeId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
         require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
@@ -97,10 +100,11 @@ class VirementBudgetService(
 
         historique(avant, apres, compte, env, montant, compte.pretAPlacer, nouveauPretAPlacer)
     }
+    }
 
     // ===== ENVELOPPE → PRÊT À PLACER =====
 
-    suspend fun enveloppeVersPretAPlacer(enveloppeId: String, compteId: String, montant: Double, mois: Date): Result<Unit> = runCatching {
+    suspend fun enveloppeVersPretAPlacer(enveloppeId: String, compteId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
         require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
@@ -132,10 +136,11 @@ class VirementBudgetService(
 
         historique(avant, apres, compte, env, -montant, compte.pretAPlacer, nouveauPretAPlacer)
     }
+    }
 
     // ===== ENVELOPPE → ENVELOPPE =====
 
-    suspend fun enveloppeVersEnveloppe(sourceId: String, destinationId: String, montant: Double, mois: Date): Result<Unit> = runCatching {
+    suspend fun enveloppeVersEnveloppe(sourceId: String, destinationId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
         require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         require(sourceId != destinationId) { VirementErrorMessages.General.SOURCE_DESTINATION_IDENTIQUES }
         val premierJour = premierJourDuMois(mois)
@@ -184,6 +189,7 @@ class VirementBudgetService(
                 historique(destAvant, destApres, compte, envDest, montant, compte.pretAPlacer, compte.pretAPlacer)
             }
         }
+    }
     }
 
     private suspend fun historique(

@@ -1,0 +1,260 @@
+{
+  "started_for": "ToutieBudget Android",
+  "package": "com.xburnsx.toutiebudget",
+  "seed": 20261026,
+  "counts": {
+    "PASS": 12,
+    "BLOCKED": 13
+  },
+  "features": {
+    "navigation": {
+      "PASS": 4
+    },
+    "budget": {
+      "PASS": 4,
+      "BLOCKED": 1
+    },
+    "comptes": {
+      "PASS": 1,
+      "BLOCKED": 6
+    },
+    "categories": {
+      "PASS": 2
+    },
+    "virements": {
+      "BLOCKED": 5
+    },
+    "transactions": {
+      "PASS": 1,
+      "BLOCKED": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "NAV-budget",
+      "feature": "navigation",
+      "status": "PASS",
+      "assertions": 2,
+      "duration_s": 7.75,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "NAV-comptes",
+      "feature": "navigation",
+      "status": "PASS",
+      "assertions": 2,
+      "duration_s": 6.87,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "NAV-ajouter",
+      "feature": "navigation",
+      "status": "PASS",
+      "assertions": 2,
+      "duration_s": 6.91,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "NAV-stats",
+      "feature": "navigation",
+      "status": "PASS",
+      "assertions": 2,
+      "duration_s": 6.91,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-BUDGET-001",
+      "feature": "budget",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.85,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-BUDGET-002",
+      "feature": "budget",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.83,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-BUDGET-003",
+      "feature": "budget",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.83,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-BUDGET-004",
+      "feature": "budget",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.84,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-BUDGET-005",
+      "feature": "budget",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.13,
+      "message": "Fonction absente: Favoris",
+      "evidence": "resultats\\20261026-134309\\evidence\\00009_UI-BUDGET-005"
+    },
+    {
+      "id": "UI-COMPTES-001",
+      "feature": "comptes",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.89,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-COMPTES-002",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.06,
+      "message": "Fonction absente: Réconcilier",
+      "evidence": "resultats\\20261026-134309\\evidence\\00011_UI-COMPTES-002"
+    },
+    {
+      "id": "UI-COMPTES-003",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.06,
+      "message": "Fonction absente: Modifier",
+      "evidence": "resultats\\20261026-134309\\evidence\\00012_UI-COMPTES-003"
+    },
+    {
+      "id": "UI-COMPTES-004",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.04,
+      "message": "Fonction absente: Archiver",
+      "evidence": "resultats\\20261026-134309\\evidence\\00013_UI-COMPTES-004"
+    },
+    {
+      "id": "UI-COMPTES-005",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.05,
+      "message": "Fonction absente: Gérer la carte",
+      "evidence": "resultats\\20261026-134309\\evidence\\00014_UI-COMPTES-005"
+    },
+    {
+      "id": "UI-COMPTES-006",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.06,
+      "message": "Fonction absente: Gérer la dette",
+      "evidence": "resultats\\20261026-134309\\evidence\\00015_UI-COMPTES-006"
+    },
+    {
+      "id": "UI-COMPTES-007",
+      "feature": "comptes",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.08,
+      "message": "Fonction absente: Gérer le placement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00016_UI-COMPTES-007"
+    },
+    {
+      "id": "UI-CATEGORIES-001",
+      "feature": "categories",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 9.36,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-CATEGORIES-002",
+      "feature": "categories",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 6.83,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-VIREMENTS-001",
+      "feature": "virements",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 6.83,
+      "message": "Navigation inaccessible: Virement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00019_UI-VIREMENTS-001"
+    },
+    {
+      "id": "UI-VIREMENTS-002",
+      "feature": "virements",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.88,
+      "message": "Navigation inaccessible: Virement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00020_UI-VIREMENTS-002"
+    },
+    {
+      "id": "UI-VIREMENTS-003",
+      "feature": "virements",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 10.3,
+      "message": "Navigation inaccessible: Virement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00021_UI-VIREMENTS-003"
+    },
+    {
+      "id": "UI-VIREMENTS-004",
+      "feature": "virements",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 10.01,
+      "message": "Navigation inaccessible: Virement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00022_UI-VIREMENTS-004"
+    },
+    {
+      "id": "UI-VIREMENTS-005",
+      "feature": "virements",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 10.02,
+      "message": "Navigation inaccessible: Virement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00023_UI-VIREMENTS-005"
+    },
+    {
+      "id": "UI-TRANSACTIONS-001",
+      "feature": "transactions",
+      "status": "PASS",
+      "assertions": 1,
+      "duration_s": 9.1,
+      "message": "",
+      "evidence": ""
+    },
+    {
+      "id": "UI-TRANSACTIONS-002",
+      "feature": "transactions",
+      "status": "BLOCKED",
+      "assertions": 0,
+      "duration_s": 7.06,
+      "message": "Fonction absente: Effectuer le paiement",
+      "evidence": "resultats\\20261026-134309\\evidence\\00025_UI-TRANSACTIONS-002"
+    }
+  ],
+  "important": "PASS = postcondition explicitly verified. BLOCKED and UNVERIFIED are NOT a success. 48 calendar months require a working in-app month navigation; advancing display does not change system time or recurring scheduler."
+}

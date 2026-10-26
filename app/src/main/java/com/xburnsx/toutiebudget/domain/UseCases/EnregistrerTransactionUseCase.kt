@@ -11,6 +11,8 @@ import com.xburnsx.toutiebudget.utils.toutOuRien
 import java.util.Calendar
 import java.util.Date
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 
 
 /**
@@ -22,7 +24,8 @@ class EnregistrerTransactionUseCase(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) {
 
     /**
@@ -61,7 +64,8 @@ class EnregistrerTransactionUseCase(
 
         return try {
             // AT4 : transaction, compte et enveloppe réussissent ensemble ou sont tous défaits
-            toutOuRien {
+            operationAtomique.executer {
+              toutOuRien {
 
                 // 1. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
@@ -198,6 +202,7 @@ class EnregistrerTransactionUseCase(
                 BudgetEvents.refreshManual()
 
                 Result.success(Unit)
+              }
             }
         } catch (e: Exception) {
             return Result.failure(e)

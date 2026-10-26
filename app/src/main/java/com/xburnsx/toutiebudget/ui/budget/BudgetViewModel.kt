@@ -281,6 +281,21 @@ class BudgetViewModel(
         chargerDonneesBudget(moisSelectionne)
     }
 
+    /** ARC9 : réactive la même enveloppe, avec son ID, ses objectifs et tout son historique. */
+    fun reactiverEnveloppe(enveloppeId: String) {
+        viewModelScope.launch {
+            try {
+                val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                    .firstOrNull { it.id == enveloppeId } ?: throw Exception("Enveloppe archivée introuvable")
+                enveloppeRepository.mettreAJourEnveloppe(enveloppe.copy(estArchive = false)).getOrThrow()
+                chargerDonneesBudget(moisSelectionne)
+                realtimeSyncService.declencherMiseAJourBudget()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Réactivation impossible : ${e.message}") }
+            }
+        }
+    }
+
     /**
      * Crée les enveloppes UI en combinant les données des enveloppes et allocations.
      * Version avec diagnostic détaillé pour identifier le problème de correspondance.

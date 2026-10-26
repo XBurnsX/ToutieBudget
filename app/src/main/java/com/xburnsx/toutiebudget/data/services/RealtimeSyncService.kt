@@ -523,95 +523,54 @@ class RealtimeSyncService @Inject constructor() {
 
     suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
-
-        var totalSupprime = 0
-
-        // Liste de TOUS les noms possibles basés sur l'analyse de ton projet
-        val nomsCollectionsPossibles = listOf(
-            // Nom confirmé dans CategorieRepositoryImpl.kt
-            "categorie",
-
-            // Variations pour enveloppes (utilisé avec Collections.ENVELOPPES)
-            "enveloppe", "enveloppes", "Enveloppe", "Enveloppes",
-
-            // Variations pour allocations (utilisé avec Collections.ALLOCATIONS)
-            "allocation", "allocations", "allocation_mensuelle", "allocations_mensuelles",
-            "Allocation", "Allocations", "Allocation_Mensuelle", "Allocations_Mensuelles",
-
-            // Variations pour transactions (utilisé avec Collections.TRANSACTIONS)
-            "transaction", "transactions", "Transaction", "Transactions",
-
-            // Variations pour comptes
-            "compte", "comptes", "compte_cheque", "comptes_cheque",
-            "compte_epargne", "comptes_epargne", "compte_credit", "comptes_credit",
-            "compte_dette", "comptes_dette"
+        // PR2/PR3 : noms canoniques seulement, toutes les collections utilisateur connues.
+        // Ordre enfants -> parents pour respecter d'éventuelles contraintes de relation.
+        val collections = listOf(
+            "transactions", "allocations_mensuelles", "pret_personnel", "tiers", "enveloppes", "categories",
+            "comptes_investissement", "comptes_dettes", "comptes_credits", "comptes_cheques"
         )
-
-        val collectionsExistantes = mutableListOf<String>()
-
-        // Phase 1: Découvrir quelles collections existent vraiment
-
-        for (nomCollection in nomsCollectionsPossibles) {
-            try {
-                client.effectuerRequeteGet("/api/collections/$nomCollection/records", mapOf("perPage" to "1"))
-                // Si on arrive ici sans erreur 404, la collection existe !
-                collectionsExistantes.add(nomCollection)
-            } catch (e: Exception) {
-                if (e.message?.contains("404") == true) {
-                    // Collection n'existe pas, c'est normal
-                } else {
-                    // Erreur pour $nomCollection: ${e.message}
+        val erreurs = mutableListOf<String>()
+        for (collection in collections) {
+            val page = 1 // toujours la première : les suppressions font remonter la page suivante
+            var itemsCount: Int
+            var suppressionEchouee = false
+            do {
+                val json = try {
+                    gson.fromJson(
+                        client.effectuerRequeteGet(
+                            "/api/collections/$collection/records",
+                            mapOf("page" to page.toString(), "perPage" to "200", "filter" to "utilisateur_id = '$userId'")
+                        ),
+                        JsonObject::class.java
+                    )
+                } catch (e: Exception) {
+                    erreurs += "$collection (lecture page $page : ${e.message})"
+                    break
                 }
-            }
-        }
-
-        // Phase 2: Supprimer SEULEMENT tes données dans chaque collection
-        for (collection in collectionsExistantes) {
-            try {
-                // Récupérer TOUS les éléments de cette collection
-                val response = client.effectuerRequeteGet("/api/collections/$collection/records", mapOf(
-                    "perPage" to "500"
-                ))
-
-                val jsonResponse = gson.fromJson(response, JsonObject::class.java)
-                val items = jsonResponse.getAsJsonArray("items")
-
-                if (items.size() > 0) {
-                    items.forEach { item: JsonElement ->
-                        try {
-                            val obj = item.asJsonObject
-                            val id = obj.get("id").asString
-                            obj.get("nom")?.asString
-                                ?: obj.get("name")?.asString
-                                ?: obj.get("titre")?.asString
-                                ?: "Élément"
-                            val itemUserId = obj.get("utilisateur_id")?.asString
-
-                            // SUPPRIMER SEULEMENT SI C'EST TON UTILISATEUR
-                            if (itemUserId == userId) {
-                                try {
-                                    client.effectuerRequeteDelete("/api/collections/$collection/records/$id")
-                                    totalSupprime++
-                                } catch (_: Exception) {
-                                    // Erreur suppression $nom: ${deleteE.message}
-                                }
-                            }
-
-                        } catch (_: Exception) {
-                            // Erreur traitement élément: ${e.message}
-                        }
+                val items = json.getAsJsonArray("items") ?: com.google.gson.JsonArray()
+                itemsCount = items.size()
+                for (item in items) {
+                    val obj = item.asJsonObject
+                    if (obj.get("utilisateur_id")?.asString != userId) {
+                        erreurs += "$collection/${obj.get("id")?.asString} (propriétaire inattendu)"
+                        suppressionEchouee = true
+                        continue
+                    }
+                    val id = obj.get("id")?.asString.orEmpty()
+                    try {
+                        client.effectuerRequeteDelete("/api/collections/$collection/records/$id")
+                    } catch (e: Exception) {
+                        erreurs += "$collection/$id (${e.message})"
+                        suppressionEchouee = true
                     }
                 }
-
-            } catch (_: Exception) {
-                // Erreur pour collection $collection: ${e.message}
-            }
+            } while (itemsCount > 0 && !suppressionEchouee)
+        }
+        if (erreurs.isNotEmpty()) {
+            throw Exception("Suppression incomplète : ${erreurs.take(8).joinToString()}")
         }
 
-        if (totalSupprime == 0) {
-            // Aucune donnée trouvée pour ton utilisateur $userId
-        } else {
-            // SUCCÈS! $totalSupprime éléments supprimés pour TOI SEULEMENT!
-        }
+        // PR4/PR5 : aucune ancienne tâche ne doit recréer les données supprimées.
+        com.xburnsx.toutiebudget.di.AppModule.effacerToutesLesDonneesLocales()
     }
 }

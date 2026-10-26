@@ -106,7 +106,7 @@ fun BudgetScreen(
     onVirementClick: (() -> Unit)? = null,
     onSettingsClick: (() -> Unit)? = null,
     onPretPersonnelClick: (() -> Unit)? = null,
-    onGererSoldeNegatifClick: (() -> Unit)? = null,
+    onGererSoldeNegatifClick: ((Date) -> Unit)? = null,
     onVoirHistoriqueEnveloppe: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -417,7 +417,7 @@ fun BudgetScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clickable { onGererSoldeNegatifClick?.invoke() }
+                            .clickable { onGererSoldeNegatifClick?.invoke(moisSelectionne) }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

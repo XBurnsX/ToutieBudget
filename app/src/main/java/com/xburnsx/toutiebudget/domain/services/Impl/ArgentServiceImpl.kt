@@ -10,6 +10,8 @@ import com.xburnsx.toutiebudget.domain.services.ArgentService
 import com.xburnsx.toutiebudget.domain.usecases.VirementUseCase
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import java.util.*
 import javax.inject.Inject
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
@@ -26,7 +28,8 @@ class ArgentServiceImpl @Inject constructor(
     private val virementUseCase: VirementUseCase,
     private val enveloppeRepository: com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository,
     private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository,
-    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ArgentService {
 
     /**
@@ -39,7 +42,7 @@ class ArgentServiceImpl @Inject constructor(
         collectionCompteSource: String,
         montant: Double,
         mois: Date
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant de l'allocation doit être positif.")
         
         // 1. Récupérer le compte source
@@ -135,6 +138,7 @@ class ArgentServiceImpl @Inject constructor(
             android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (allocation argent enveloppe): ${e.message}")
         }
     }
+    }
 
     /**
      * Alloue un montant d'un compte source vers une enveloppe pour un mois donné SANS créer de transaction.
@@ -146,7 +150,7 @@ class ArgentServiceImpl @Inject constructor(
         collectionCompteSource: String,
         montant: Double,
         mois: Date
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant de l'allocation doit être positif.")
         
         // 1. Récupérer le compte source
@@ -206,6 +210,7 @@ class ArgentServiceImpl @Inject constructor(
         
         // 5. PAS DE TRANSACTION - C'est un virement interne !
     }
+    }
     
     /**
      * Enregistre une nouvelle transaction (dépense ou revenu) et met à jour les soldes correspondants.
@@ -219,7 +224,7 @@ class ArgentServiceImpl @Inject constructor(
         collectionCompte: String,
         enveloppeId: String?,
         note: String?
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant de la transaction doit être positif.")
         
         // 1. Récupérer le compte
@@ -327,6 +332,7 @@ class ArgentServiceImpl @Inject constructor(
             android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
         }
     }
+    }
     
     /**
      * Transfère de l'argent entre deux comptes.
@@ -344,7 +350,7 @@ class ArgentServiceImpl @Inject constructor(
         compteDestId: String,
         collectionCompteDest: String,
         montant: Double
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant du transfert doit être positif.")
         
         // 1. Récupérer les comptes source et destination
@@ -398,12 +404,13 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transactionSource)
         transactionRepository.creerTransaction(transactionDest)
     }
+    }
 
     override suspend fun effectuerVirementCompteVersCompte(
         compteSource: com.xburnsx.toutiebudget.data.modeles.Compte,
         compteDestination: com.xburnsx.toutiebudget.data.modeles.Compte,
         montant: Double
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
         
         if (compteSource.solde < montant) {
@@ -445,6 +452,7 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transactionSource)
         transactionRepository.creerTransaction(transactionDest)
     }
+    }
 
     /**
      * Effectue un virement d'un compte vers une enveloppe.
@@ -454,7 +462,7 @@ class ArgentServiceImpl @Inject constructor(
         compte: com.xburnsx.toutiebudget.data.modeles.Compte,
         enveloppe: com.xburnsx.toutiebudget.data.modeles.Enveloppe,
         montant: Double
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
         
         if (compte.solde < montant) {
@@ -532,6 +540,7 @@ class ArgentServiceImpl @Inject constructor(
             // ⚠️ Erreur lors de la fusion des allocations après virement compte->enveloppe: ${e.message}
         }
     }
+    }
 
     override suspend fun effectuerVirementPretAPlacerVersEnveloppe(
         compteId: String,
@@ -566,7 +575,7 @@ class ArgentServiceImpl @Inject constructor(
         nomCompteSource: String,
         nomCompteDest: String,
         date: Date
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
         if (compteSourceId == compteDestId) throw IllegalArgumentException("La source et la destination ne peuvent pas être identiques.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
@@ -650,6 +659,7 @@ class ArgentServiceImpl @Inject constructor(
             throw Exception("Erreur d'enregistrement du virement : ${e.message}")
         }
     }
+    }
 
     /**
      * Paiement d'une carte de crédit ou d'une dette (CC2).
@@ -668,7 +678,7 @@ class ArgentServiceImpl @Inject constructor(
         montant: Double,
         note: String?,
         date: Date
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatching { operationAtomique.executer {
         if (montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
 
@@ -837,6 +847,7 @@ class ArgentServiceImpl @Inject constructor(
                 }
             }
         }
+    }
     }
 
     companion object {

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import java.util.*
 
 class StatistiquesViewModel(
@@ -37,6 +38,8 @@ class StatistiquesViewModel(
     private val _pageSize = 50
     private var _currentPage = 0
     private var _hasMoreData = true
+    private var chargement: Job? = null
+    private var generationChargement = 0L
 
     init {
         rafraichirDonneesMoisCourant()
@@ -45,14 +48,14 @@ class StatistiquesViewModel(
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
                 // Recharger les statistiques quand le budget change
-                rafraichirDonneesMoisCourant()
+                rafraichirPeriodeSelectionnee()
             }
         }
         
         viewModelScope.launch {
             realtimeSyncService.transactionsUpdated.collectLatest {
                 // Recharger les statistiques quand les transactions changent
-                rafraichirDonneesMoisCourant()
+                rafraichirPeriodeSelectionnee()
             }
         }
     }
@@ -70,7 +73,10 @@ class StatistiquesViewModel(
 
     fun chargerPeriode(debut: Date, fin: Date, label: String) {
         // DEBUG ViewModel: 🚀 chargerPeriode appelé avec début: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(debut)}, fin: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.FRENCH).format(fin)}, label: $label
-        viewModelScope.launch {
+        chargement?.cancel()
+        val generation = ++generationChargement
+        reinitialiserPagination()
+        chargement = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
             val periode = Periode(debut, fin, label)
 
@@ -86,22 +92,28 @@ class StatistiquesViewModel(
             val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
             // Récupérer les allocations pour chaque mois couvert par la période (stabilise les noms sur 30/90 jours)
             val allocationsToutes = mutableListOf<com.xburnsx.toutiebudget.data.modeles.AllocationMensuelle>()
+            val erreursAllocations = mutableListOf<String>()
             run {
-                val cal = Calendar.getInstance().apply { time = debut; set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+                val cal = Calendar.getInstance().apply { time = debut6Mois }
                 while (cal.time <= fin) {
                     val res = enveloppeRepository.recupererAllocationsPourMois(cal.time)
                     if (res.isSuccess) allocationsToutes += res.getOrNull().orEmpty()
+                    else erreursAllocations += java.text.SimpleDateFormat("MMMM yyyy", Locale.FRENCH).format(cal.time)
                     cal.add(Calendar.MONTH, 1)
                 }
             }
             val tiersResult = tiersRepository.recupererTousLesTiers()
+            val categoriesResult = categorieRepository.recupererToutesLesCategories()
 
-            if (transactionsResult.isFailure || enveloppesResult.isFailure || tiersResult.isFailure) {
+            if (transactionsResult.isFailure || enveloppesResult.isFailure || tiersResult.isFailure || categoriesResult.isFailure) {
+                if (generation != generationChargement) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     erreur = (transactionsResult.exceptionOrNull()
                         ?: enveloppesResult.exceptionOrNull()
-                        ?: tiersResult.exceptionOrNull())?.message,
+                        ?: tiersResult.exceptionOrNull()
+                        ?: categoriesResult.exceptionOrNull())?.message ?: "Calcul incomplet : données indisponibles",
+                    calculIncomplet = true,
                     periode = periode
                 )
                 return@launch
@@ -112,11 +124,12 @@ class StatistiquesViewModel(
 
             // IF2 / IF12 / CC2 : les anciennes écritures techniques ne sont ni des revenus ni des dépenses
             // (réconciliations enregistrées « Mise à jour : … », paiements de carte enregistrés « Emprunt »)
+            val filtreComptes = _uiState.value.comptesFiltres
             val transactions6Mois = transactionsResult.getOrNull().orEmpty().filterNot { tx ->
                 ((tx.type == TypeTransaction.Revenu || tx.type == TypeTransaction.Depense) &&
                     tx.tiersUtiliser?.startsWith("Mise à jour : ") == true) ||
                     (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits")
-            }
+            }.filter { filtreComptes.isEmpty() || it.compteId in filtreComptes }
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             
@@ -134,29 +147,21 @@ class StatistiquesViewModel(
             val tiers = tiersResult.getOrNull().orEmpty()
 
             // Exclure les enveloppes de catégories "Dettes" et "Cartes de crédit" des Top 5
-            val categories = try { categorieRepository.recupererToutesLesCategories().getOrNull().orEmpty() } catch (_: Exception) { emptyList() }
+            val categories = categoriesResult.getOrThrow()
             val categoriesExclues = categories.filter { it.nom.equals("Dettes", ignoreCase = true) || it.nom.equals("Cartes de crédit", ignoreCase = true) }
                 .map { it.id }
                 .toSet()
             val enveloppeIdsExclus = enveloppes.filter { it.categorieId in categoriesExclues }.map { it.id }.toSet()
 
             // Filtrer uniquement les transactions monétaires pertinentes pour les tops
-            val depenses = transactions.filter { 
-                it.type == TypeTransaction.Depense || 
-                it.type == TypeTransaction.Pret || 
-                it.type == TypeTransaction.RemboursementDonne || 
-                it.type == TypeTransaction.PaiementEffectue
-            }
-            val revenus = transactions.filter { 
-                it.type == TypeTransaction.Revenu || 
-                it.type == TypeTransaction.Emprunt || 
-                it.type == TypeTransaction.RemboursementRecu
-                // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
-            }
+            val depenses = transactions.filter(ReglesStatistiques::estDepenseBudget)
+            val revenus = transactions.filter(ReglesStatistiques::estRevenuBudget)
 
-            val totalDepenses = depenses.sumOf { it.montant }
-            val totalRevenus = revenus.sumOf { it.montant }
-            val totalNet = totalRevenus - totalDepenses
+            val totalDepenses = ReglesStatistiques.totalAuCent(depenses) { true }
+            val totalRevenus = ReglesStatistiques.totalAuCent(revenus) { true }
+            val totalNet = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(totalRevenus - totalDepenses)
+            val totalSortiesTresorerie = ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estSortieTresorerie)
+            val totalEntreesTresorerie = ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estEntreeTresorerie)
 
             // Top 5 Enveloppes dépensées (exclure dettes/cartes crédit etc.)
             // Règle: ne considérer que les transactions ayant allocationMensuelleId non null
@@ -231,10 +236,13 @@ class StatistiquesViewModel(
                 }
                 .sortedByDescending { it.montant }
                 .take(5)
-                .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
+                .let { items ->
+                    val totalAdmissible = depenseParEnveloppe.values.sum()
+                    items.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissible)) }
+                }
 
             // 5) Construire la répartition complète avec 20 enveloppes
-            val repartitionEnveloppes = depenseParEnveloppe.entries
+            val repartitionTriee = depenseParEnveloppe.entries
                 .map { (envId, montant) ->
                     val label = when (envId) {
                         "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
@@ -243,8 +251,12 @@ class StatistiquesViewModel(
                     TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
                 }
                 .sortedByDescending { it.montant }
-                .take(20)
-                .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
+            val totalRepartition = repartitionTriee.sumOf { it.montant }
+            val repartitionEnveloppes = buildList {
+                addAll(repartitionTriee.take(20))
+                val autres = repartitionTriee.drop(20).sumOf { it.montant }
+                if (autres > 0.0) add(TopItem("__AUTRES__", "Autres", autres, 0.0))
+            }.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalRepartition)) }
 
             // Top 5 Tiers
             val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
@@ -281,7 +293,10 @@ class StatistiquesViewModel(
                 }
                 .sortedByDescending { it.montant }
                 .take(5)
-                .map { it.copy(pourcentage = it.montant / totalDepenses.coerceAtLeast(0.01)) }
+                .let { items ->
+                    val totalAdmissible = depenseParTiers.values.sum()
+                    items.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissible)) }
+                }
 
             // Dépenses des 6 derniers mois (étiquette MMM)
             val sixMoisLabels = mutableListOf<String>()
@@ -301,33 +316,24 @@ class StatistiquesViewModel(
                 }
             }
             val depenses6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
-                val total = transactions6Mois.filter { 
-                    (it.type == TypeTransaction.Depense || 
-                     it.type == TypeTransaction.Pret || 
-                     it.type == TypeTransaction.RemboursementDonne || 
-                     it.type == TypeTransaction.PaiementEffectue) && 
-                    it.date >= mStart && it.date <= mEnd 
-                }.sumOf { it.montant }
+                val total = ReglesStatistiques.totalAuCent(transactions6Mois.filter { it.date >= mStart && it.date <= mEnd }, ReglesStatistiques::estDepenseBudget)
                 sixMoisLabels[idx] to total
             }
             val revenus6DerniersMois = sixMoisDates.mapIndexed { idx, (mStart, mEnd) ->
-                val total = transactions6Mois.filter { 
-                    (it.type == TypeTransaction.Revenu || 
-                     it.type == TypeTransaction.Emprunt || 
-                     it.type == TypeTransaction.RemboursementRecu) && 
-                    it.date >= mStart && it.date <= mEnd 
-                    // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
-                }.sumOf { it.montant }
+                val total = ReglesStatistiques.totalAuCent(transactions6Mois.filter { it.date >= mStart && it.date <= mEnd }, ReglesStatistiques::estRevenuBudget)
                 sixMoisLabels[idx] to total
             }
 
             // Calculer les moyennes sur 7 jours
-            val moyennes7Jours = calculerMoyennes7Jours(transactions6Mois, fin)
+            val moyennes7Jours = ReglesStatistiques.moyenneDepenses7Jours(transactions6Mois, fin)
 
 
+            if (generation != generationChargement) return@launch
             _uiState.value = StatistiquesUiState(
                 isLoading = false,
                 erreur = null,
+                calculIncomplet = erreursAllocations.isNotEmpty(),
+                donneesIndisponibles = erreursAllocations.map { "Allocations $it" },
                 periode = periode,
                 totalDepenses = totalDepenses,
                 totalRevenus = totalRevenus,
@@ -343,8 +349,31 @@ class StatistiquesViewModel(
                 totalDette = totauxFinanciers.first,
                 totalValeur = totauxFinanciers.second,
                 valeurNette = totauxFinanciers.third
+                ,patrimoineEstActuel = estMoisCourant(debut)
+                ,vue = _uiState.value.vue
+                ,comptesFiltres = filtreComptes
+                ,totalEntreesTresorerie = totalEntreesTresorerie
+                ,totalSortiesTresorerie = totalSortiesTresorerie
             )
         }
+    }
+
+    fun rafraichirPeriodeSelectionnee() {
+        val p = _uiState.value.periode
+        if (p == null) rafraichirDonneesMoisCourant() else chargerPeriode(p.debut, p.fin, p.label)
+    }
+
+    fun changerVue(vue: VueStatistiques) { _uiState.value = _uiState.value.copy(vue = vue) }
+
+    fun filtrerComptes(ids: Set<String>) {
+        _uiState.value = _uiState.value.copy(comptesFiltres = ids)
+        rafraichirPeriodeSelectionnee()
+    }
+
+    private fun estMoisCourant(debut: Date): Boolean {
+        val a = Calendar.getInstance().apply { time = debut }
+        val b = Calendar.getInstance()
+        return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.MONTH) == b.get(Calendar.MONTH)
     }
 
     fun ouvrirModalTransactions(titre: String, transactions: List<Transaction>) {
@@ -389,24 +418,14 @@ class StatistiquesViewModel(
     // Ouvrir la modal pour toutes les dépenses de la période
     fun ouvrirModalDepenses() {
         val txPeriode = _uiState.value.transactionsPeriode
-        val depenses = txPeriode.filter { tx ->
-            tx.type == TypeTransaction.Depense || 
-            tx.type == TypeTransaction.Pret || 
-            tx.type == TypeTransaction.RemboursementDonne || 
-            tx.type == TypeTransaction.PaiementEffectue
-        }
+        val depenses = txPeriode.filter(ReglesStatistiques::estDepenseBudget)
         ouvrirModalTransactions("Toutes les dépenses - ${_uiState.value.periode?.label ?: "Période"}", depenses)
     }
 
     // Ouvrir la modal pour tous les revenus de la période
     fun ouvrirModalRevenus() {
         val txPeriode = _uiState.value.transactionsPeriode
-        val revenus = txPeriode.filter { tx ->
-            tx.type == TypeTransaction.Revenu || 
-            tx.type == TypeTransaction.Emprunt || 
-            tx.type == TypeTransaction.RemboursementRecu
-            // ❌ SUPPRIMÉ : TypeTransaction.Paiement - ce n'est pas un revenu, c'est de l'argent pour payer une dette !
-        }
+        val revenus = txPeriode.filter(ReglesStatistiques::estRevenuBudget)
         ouvrirModalTransactions("Tous les revenus - ${_uiState.value.periode?.label ?: "Période"}", revenus)
     }
     
@@ -436,9 +455,10 @@ class StatistiquesViewModel(
                     // Mettre à jour l'état avec les nouvelles transactions
                     val transactionsActuelles = _uiState.value.transactionsPeriode.toMutableList()
                     transactionsActuelles.addAll(nouvellesTransactions)
+                    val sansDoublons = transactionsActuelles.distinctBy { it.id }
                     
                     _uiState.value = _uiState.value.copy(
-                        transactionsPeriode = transactionsActuelles,
+                        transactionsPeriode = sansDoublons,
                         hasMoreData = _hasMoreData
                     )
                 }
@@ -642,6 +662,4 @@ private fun calculerMoyennes7Jours(transactions: List<Transaction>, dateFin: Dat
     
     return moyennes
 }
-
-
 

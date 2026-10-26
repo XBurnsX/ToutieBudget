@@ -6,6 +6,8 @@ import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlin.math.abs
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 
 /**
  * Use case pour supprimer une transaction existante.
@@ -23,7 +25,8 @@ class SupprimerTransactionUseCase(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val pretPersonnelRepository: PretPersonnelRepository? = null
+    private val pretPersonnelRepository: PretPersonnelRepository? = null,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) {
 
     /**
@@ -33,7 +36,7 @@ class SupprimerTransactionUseCase(
      *
      * @return Result indiquant le succès ou l'échec avec l'exception
      */
-    suspend fun executer(transactionId: String): Result<Unit> = runCatching {
+    suspend fun executer(transactionId: String): Result<Unit> = runCatching { operationAtomique.executer {
         // 1. Récupérer la transaction existante
         val transaction = transactionRepository.recupererTransactionParId(transactionId)
             .getOrNull() ?: throw Exception("Transaction non trouvée")
@@ -123,6 +126,7 @@ class SupprimerTransactionUseCase(
 
         // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
         BudgetEvents.refreshManual()
+    }
     }
 
     private fun estMoitieDePaiement(tx: Transaction): Boolean =

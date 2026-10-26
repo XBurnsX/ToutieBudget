@@ -1,0 +1,1417 @@
+{
+  "cases": [
+    {
+      "id": "NAV-budget",
+      "feature": "navigation",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Budget"
+        }
+      ]
+    },
+    {
+      "id": "NAV-comptes",
+      "feature": "navigation",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Comptes"
+        }
+      ]
+    },
+    {
+      "id": "NAV-ajouter",
+      "feature": "navigation",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "NAV-stats",
+      "feature": "navigation",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-BUDGET-001",
+      "feature": "budget",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "probe",
+          "target": "Rechercher une enveloppe"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-BUDGET-002",
+      "feature": "budget",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "probe",
+          "target": "Catégories"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-BUDGET-003",
+      "feature": "budget",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "probe",
+          "target": "Paramètres"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-BUDGET-004",
+      "feature": "budget",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "probe",
+          "target": "Menu"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-BUDGET-005",
+      "feature": "budget",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "probe",
+          "target": "Favoris"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-001",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Ajouter un compte"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-002",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Réconcilier"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-003",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Modifier"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-004",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Archiver"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-005",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Gérer la carte"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-006",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Gérer la dette"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPTES-007",
+      "feature": "comptes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "probe",
+          "target": "Gérer le placement"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-CATEGORIES-001",
+      "feature": "categories",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Catégories"
+        },
+        {
+          "action": "probe",
+          "target": "Ajouter une catégorie"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-CATEGORIES-002",
+      "feature": "categories",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Catégories"
+        },
+        {
+          "action": "probe",
+          "target": "Retour"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-VIREMENTS-001",
+      "feature": "virements",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Virement"
+        },
+        {
+          "action": "probe",
+          "target": "Enveloppes"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-VIREMENTS-002",
+      "feature": "virements",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Virement"
+        },
+        {
+          "action": "probe",
+          "target": "Comptes"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-VIREMENTS-003",
+      "feature": "virements",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Virement"
+        },
+        {
+          "action": "probe",
+          "target": "Compte source"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-VIREMENTS-004",
+      "feature": "virements",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Virement"
+        },
+        {
+          "action": "probe",
+          "target": "Compte destination"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-VIREMENTS-005",
+      "feature": "virements",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Virement"
+        },
+        {
+          "action": "probe",
+          "target": "Effectuer le virement"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-TRANSACTIONS-001",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "probe",
+          "target": "Fractionner"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-TRANSACTIONS-002",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "probe",
+          "target": "Effectuer le paiement"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-SETTINGS-001",
+      "feature": "settings",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Paramètres"
+        },
+        {
+          "action": "probe",
+          "target": "Déconnexion"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-SETTINGS-002",
+      "feature": "settings",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Paramètres"
+        },
+        {
+          "action": "probe",
+          "target": "Réinitialiser les données"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-001",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Dépenses"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-002",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Revenus"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-003",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Net"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-004",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Valeur Nette"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-005",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Top 5 Enveloppes"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-006",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Dépenses par catégorie"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "UI-STATS-007",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "probe",
+          "target": "Dépenses par tiers"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "ACC-CREATE-001",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Ajouter un compte"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Nom"
+        },
+        {
+          "action": "input",
+          "target": "Nom",
+          "value": "TEST_AUTO_CHEQUES"
+        },
+        {
+          "action": "input",
+          "target": "Solde",
+          "value": "2500"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Créer",
+            "Ajouter"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_CHEQUES"
+        },
+        {
+          "action": "assert",
+          "kind": "money",
+          "cents": 250000
+        }
+      ]
+    },
+    {
+      "id": "ACC-CREATE-002",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Ajouter un compte"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Nom"
+        },
+        {
+          "action": "input",
+          "target": "Nom",
+          "value": "TEST_AUTO_EPARGNE"
+        },
+        {
+          "action": "input",
+          "target": "Solde",
+          "value": "500"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Créer",
+            "Ajouter"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_EPARGNE"
+        },
+        {
+          "action": "assert",
+          "kind": "money",
+          "cents": 50000
+        }
+      ]
+    },
+    {
+      "id": "ACC-RESTART-001",
+      "feature": "persistence",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_CHEQUES"
+        },
+        {
+          "action": "restart"
+        },
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_CHEQUES"
+        }
+      ]
+    },
+    {
+      "id": "ACC-NEGATIVE-001",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Ajouter un compte"
+        },
+        {
+          "action": "input",
+          "target": "Nom",
+          "value": "TEST_AUTO_NEGATIF"
+        },
+        {
+          "action": "input",
+          "target": "Solde",
+          "value": "-1"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Créer",
+            "Ajouter"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "CAT-CREATE-001",
+      "feature": "categories",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "tap",
+          "target": "Catégories"
+        },
+        {
+          "action": "tap",
+          "target": "Ajouter une catégorie"
+        },
+        {
+          "action": "input",
+          "target": "Nom",
+          "value": "TEST_AUTO_MAISON"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Créer",
+            "Ajouter"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_MAISON"
+        }
+      ]
+    },
+    {
+      "id": "ENV-CREATE-001",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "tap",
+          "target": "Catégories"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Ajouter une enveloppe",
+            "Ajouter enveloppe"
+          ]
+        },
+        {
+          "action": "input",
+          "target": "Nom",
+          "value": "TEST_AUTO_EPICERIE"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Créer",
+            "Ajouter"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "text_contains",
+          "value": "TEST_AUTO_EPICERIE"
+        }
+      ]
+    },
+    {
+      "id": "TX-EXPENSE-001",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "input",
+          "target": "Montant",
+          "value": "125"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Dépense",
+            "Depense"
+          ]
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Ajouter Transaction",
+            "Sauvegarder"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "money",
+          "cents": 12500
+        }
+      ]
+    },
+    {
+      "id": "TX-INCOME-001",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "input",
+          "target": "Montant",
+          "value": "2000"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Revenu",
+            "Entrée"
+          ]
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Enregistrer",
+            "Ajouter Transaction",
+            "Sauvegarder"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "money",
+          "cents": 200000
+        }
+      ]
+    },
+    {
+      "id": "TX-SPLIT-001",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "input",
+          "target": "Montant",
+          "value": "150"
+        },
+        {
+          "action": "tap",
+          "target": "Fractionner"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "TRANSFER-CHECK-001",
+      "feature": "transfers",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Virement",
+            "Virer de l’argent",
+            "Virer de l'argent"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Comptes"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Compte source"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Compte destination"
+        }
+      ]
+    },
+    {
+      "id": "ARCHIVES-CHECK-001",
+      "feature": "archives",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Paramètres"
+        },
+        {
+          "action": "tap",
+          "target": [
+            "Archives",
+            "Voir les archives"
+          ]
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "DEBT-CHECK-001",
+      "feature": "debts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Gérer la dette"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "CREDIT-CHECK-001",
+      "feature": "credit_cards",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Gérer la carte"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "RECONCILE-CHECK-001",
+      "feature": "reconciliation",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "tap",
+          "target": "Réconcilier"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Solde réel"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        }
+      ]
+    },
+    {
+      "id": "STATS-RESTART-001",
+      "feature": "stats",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Valeur Nette"
+        },
+        {
+          "action": "restart"
+        },
+        {
+          "action": "navigate",
+          "target": "Stats"
+        },
+        {
+          "action": "assert",
+          "kind": "visible",
+          "target": "Valeur Nette"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-accounts-zero",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Solde",
+          "value": "0"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-accounts-negative",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Solde",
+          "value": "-1"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-accounts-large",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Solde",
+          "value": "9999999999"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-accounts-decimal",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Solde",
+          "value": "0.01"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-accounts-empty",
+      "feature": "accounts",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Comptes"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Solde",
+          "value": ""
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-transactions-zero",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Montant",
+          "value": "0"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-transactions-negative",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Montant",
+          "value": "-1"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-transactions-large",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Montant",
+          "value": "9999999999"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-transactions-decimal",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Montant",
+          "value": "0.01"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-transactions-empty",
+      "feature": "transactions",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Ajouter"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Montant",
+          "value": ""
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-envelopes-zero",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Nom de l'enveloppe",
+          "value": "0"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-envelopes-negative",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Nom de l'enveloppe",
+          "value": "-1"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-envelopes-large",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Nom de l'enveloppe",
+          "value": "9999999999"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-envelopes-decimal",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Nom de l'enveloppe",
+          "value": "0.01"
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "BOUND-envelopes-empty",
+      "feature": "envelopes",
+      "steps": [
+        {
+          "action": "navigate",
+          "target": "Budget"
+        },
+        {
+          "action": "fuzz_input",
+          "target": "Nom de l'enveloppe",
+          "value": ""
+        },
+        {
+          "action": "assert",
+          "kind": "app_alive"
+        },
+        {
+          "action": "back"
+        }
+      ]
+    }
+  ]
+}

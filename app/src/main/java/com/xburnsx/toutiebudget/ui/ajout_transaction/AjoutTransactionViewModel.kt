@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
@@ -30,6 +31,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 
 /**
  * ViewModel pour l'écran d'ajout de transactions.
@@ -46,7 +49,9 @@ class AjoutTransactionViewModel(
     private val pretPersonnelRepository: PretPersonnelRepository,
     private val argentService: com.xburnsx.toutiebudget.domain.services.ArgentService,
     private val realtimeSyncService: RealtimeSyncService,
-    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService,
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -63,6 +68,8 @@ class AjoutTransactionViewModel(
     private var allTiers: List<Tiers> = emptyList()
     /** AT21 : allocations du mois impossibles à lire (différent de « 0 $ »). */
     private var allocationsIndisponibles = false
+    /** Début de l'opération courante : permet à AA5 de ne suivre que ses propres écritures. */
+    private var debutDerniereEcriture: Long? = null
 
     init {
         chargerDonneesInitiales()
@@ -82,6 +89,16 @@ class AjoutTransactionViewModel(
                 // DEBUG: AjoutTransactionViewModel reçoit l'événement budgetUpdated
                 // Recharger les enveloppes quand elles sont modifiées
                 chargerEnveloppesSeulement()
+            }
+        }
+
+        // AA5 : le bandeau évolue avec les tâches réellement créées par la dernière opération.
+        syncJobDao?.let { dao ->
+            viewModelScope.launch {
+                dao.getAllSyncJobs().collectLatest { jobs ->
+                    val depuis = debutDerniereEcriture ?: return@collectLatest
+                    appliquerStatutSynchronisation(jobs, depuis)
+                }
             }
         }
     }
@@ -308,6 +325,7 @@ class AjoutTransactionViewModel(
                 newState.calculerValidite()
             }
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -330,6 +348,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(typePret = nouveauType).calculerValidite()
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -339,6 +358,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(typeDette = nouveauType).calculerValidite()
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -377,6 +397,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(tiersUtiliser = nouveauTiers).calculerValidite()
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -484,14 +505,149 @@ class AjoutTransactionViewModel(
                 enveloppesFiltrees = avant.enveloppesFiltrees,
                 tiersDisponibles = avant.tiersDisponibles,
                 messageConfirmation = message,
+                statutSynchronisation = StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT,
                 detteSoldee = detteSoldee
             ).calculerValidite()
+        }
+        val depuis = debutDerniereEcriture
+        if (syncJobDao != null && depuis != null) {
+            viewModelScope.launch {
+                appliquerStatutSynchronisation(syncJobDao.getAllSyncJobs().first(), depuis)
+            }
         }
         BudgetEvents.refreshBudget.tryEmit(Unit)
         realtimeSyncService.declencherMiseAJourBudget()
         // Recharger les soldes affichés
         chargerDonneesInitiales()
     }
+
+    private var travailTiers: kotlinx.coroutines.Job? = null
+
+    /**
+     * Selon le tiers saisi :
+     * - AA3 : ses dossiers de prêt/emprunt actifs, pour choisir lequel rembourser ;
+     * - AA2 : les enveloppes déjà utilisées avec lui, proposées (jamais choisies d'office, CAT-01).
+     */
+    private fun rafraichirDossiersEtSuggestions() {
+        travailTiers?.cancel()
+        travailTiers = viewModelScope.launch {
+            kotlinx.coroutines.delay(250) // pas à chaque lettre
+            val s = _uiState.value
+            val cle = cleTiers(s.tiersUtiliser)
+
+            val typeDossier = when {
+                s.modeOperation == "Prêt" && s.typePret == "Remboursement reçu" -> com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
+                s.modeOperation == "Emprunt" && s.typeDette == "Remboursement donné" -> com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE
+                else -> null
+            }
+            val dossiers = if (typeDossier != null && cle.isNotBlank()) {
+                pretPersonnelRepository.lister().getOrElse { emptyList() }
+                    .filter { cleTiers(it.nomTiers ?: "") == cle && it.type == typeDossier && !it.estArchive && kotlin.math.abs(it.solde) > 0.005 }
+                    .sortedBy { it.created ?: "" }
+            } else emptyList()
+
+            val suggestions = if (s.modeOperation == "Standard" && s.typeTransaction == TypeTransaction.Depense && cle.isNotBlank()) {
+                enveloppesUtiliseesAvec(cle).mapNotNull { id -> s.enveloppesDisponibles.find { it.id == id } }
+            } else emptyList()
+
+            _uiState.update { etat ->
+                etat.copy(
+                    dossiersDisponibles = dossiers,
+                    dossierChoisiId = etat.dossierChoisiId?.takeIf { id -> dossiers.any { it.id == id } },
+                    suggestionsEnveloppes = suggestions
+                )
+            }
+        }
+    }
+
+    /** Les 3 enveloppes les plus récemment utilisées avec ce tiers (achats simples et fractions). */
+    private suspend fun enveloppesUtiliseesAvec(cle: String): List<String> {
+        val recentes = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
+            .filter { it.type == TypeTransaction.Depense && cleTiers(it.tiersUtiliser ?: "") == cle }
+            .sortedByDescending { it.date }
+            .take(20)
+        val ids = LinkedHashSet<String>()
+        for (tx in recentes) {
+            if (tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
+                runCatching {
+                    com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray.forEach { element ->
+                        element.asJsonObject.get("enveloppeId")?.asString?.let { ids += it }
+                    }
+                }
+            } else {
+                tx.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it)?.enveloppeId }?.let { ids += it }
+            }
+            if (ids.size >= 3) break
+        }
+        return ids.take(3)
+    }
+
+    /** AA3 : rembourser un dossier précis ; null = du plus ancien au plus récent. */
+    fun onDossierChoisi(dossierId: String?) {
+        _uiState.update { it.copy(dossierChoisiId = dossierId) }
+    }
+
+    /**
+     * AA4 : remplit le formulaire avec une ancienne dépense ou un ancien revenu, SANS l'enregistrer.
+     * La date devient aujourd'hui ; un compte archivé ou une enveloppe archivée ne sont pas repris
+     * (l'utilisateur les choisit de nouveau). Paiements, virements et prêts ne se reprennent pas ici.
+     */
+    fun reprendreTransaction(transactionId: String) {
+        viewModelScope.launch {
+            val tx = transactionRepository.recupererTransactionParId(transactionId).getOrNull()
+            if (tx == null) {
+                _uiState.update { it.copy(messageErreur = "Transaction introuvable.") }
+                return@launch
+            }
+            val lie = tx.sousItems?.let { it.contains("pret_personnel_id") || it.contains(com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl.CLE_OPERATION_PAIEMENT) } ?: false
+            if ((tx.type != TypeTransaction.Depense && tx.type != TypeTransaction.Revenu) || lie) {
+                _uiState.update { it.copy(messageErreur = "Seules une dépense ou un revenu peuvent être repris.") }
+                return@launch
+            }
+            if (allComptes.isEmpty()) chargerDonneesInitiales()
+
+            val fractions = if (tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
+                runCatching {
+                    com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray.mapIndexedNotNull { index, element ->
+                        val o = element.asJsonObject
+                        val enveloppeId = o.get("enveloppeId")?.asString ?: return@mapIndexedNotNull null
+                        if (allEnveloppes.find { it.id == enveloppeId }?.estArchive != false) return@mapIndexedNotNull null
+                        FractionTransaction(
+                            id = "f${index + 1}",
+                            montant = Math.round((o.get("montant")?.asDouble ?: 0.0) * 100).toDouble(),
+                            enveloppeId = enveloppeId,
+                            note = o.get("note")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        )
+                    }
+                }.getOrElse { emptyList() }
+            } else emptyList()
+            val enveloppeId = if (!tx.estFractionnee) {
+                tx.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it)?.enveloppeId }
+            } else null
+
+            _uiState.update { state ->
+                state.copy(
+                    modeOperation = "Standard",
+                    typeTransaction = tx.type,
+                    montant = Math.round(tx.montant * 100).toString(),
+                    tiersUtiliser = tx.tiersUtiliser ?: "",
+                    note = tx.note ?: "",
+                    dateTransaction = LocalDate.now(),
+                    compteSelectionne = state.comptesDisponibles.find { it.id == tx.compteId },
+                    enveloppeSelectionnee = enveloppeId?.let { id -> state.enveloppesDisponibles.find { it.id == id } },
+                    // Fractions reprises seulement si elles font encore le total exact (AT11)
+                    fractionsSauvegardees = fractions,
+                    fractionnementEffectue = fractions.isNotEmpty() && Math.round(fractions.sumOf { it.montant }) == Math.round(tx.montant * 100),
+                    messageErreur = null,
+                    messageConfirmation = null
+                ).calculerValidite()
+            }
+            _uiState.update { it.avecAvertissementProvenance() }
+        }
+    }
+
+    /** AT18 : « Irving  Port-Cartier » et « irving port-cartier » sont le même tiers. */
+    private fun cleTiers(nom: String): String = nom.trim().replace(Regex("\\s+"), " ").lowercase()
 
     private fun premierJourDuMois(date: LocalDate): Date =
         Date.from(date.withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant())
@@ -522,6 +678,7 @@ class AjoutTransactionViewModel(
         _uiState.update { state ->
             state.copy(tiersUtiliser = nouveauTexte).calculerValidite()
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -533,6 +690,7 @@ class AjoutTransactionViewModel(
                 tiersUtiliser = tiers.nom
             ).calculerValidite()
         }
+        rafraichirDossiersEtSuggestions()
     }
 
     /**
@@ -540,6 +698,13 @@ class AjoutTransactionViewModel(
      */
     fun onCreerNouveauTiers(nomTiers: String) {
         if (nomTiers.isBlank()) return
+
+        // AT18 : un tiers qui existe déjà (casse, espaces) est réutilisé, pas recréé
+        val cle = cleTiers(nomTiers)
+        allTiers.firstOrNull { cleTiers(it.nom) == cle }?.let { existant ->
+            onTiersSelectionne(existant)
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingTiers = true) }
@@ -625,7 +790,14 @@ class AjoutTransactionViewModel(
         }
         
         viewModelScope.lancerUneFois(verrouSauvegarde) {
-            _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
+            debutDerniereEcriture = System.currentTimeMillis()
+            _uiState.update {
+                it.copy(
+                    estEnTrainDeSauvegarder = true,
+                    messageErreur = null,
+                    statutSynchronisation = null
+                )
+            }
 
             try {
                 val montant = state.montant.toDoubleOrNull()?.let { MoneyFormatter.roundAmount(it) }
@@ -743,7 +915,7 @@ class AjoutTransactionViewModel(
                             estArchive = false
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
-                        toutOuRien {
+                        operationAtomique.executer { toutOuRien {
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
                             siEchec { pretPersonnelRepository.supprimer(created.id) }
                             // Débiter le compte et le prêt à placer
@@ -769,7 +941,7 @@ class AjoutTransactionViewModel(
                                     sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                                 )
                             ).getOrThrow()
-                        }
+                        } }
                         
                         // 📝 ENREGISTRER DANS L'HISTORIQUE
                         try {
@@ -804,7 +976,7 @@ class AjoutTransactionViewModel(
                         terminerAvecSucces("Prêt enregistré")
                         return@lancerUneFois
                     } else if (state.typePret == "Remboursement reçu") {
-                        enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() })
+                        enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId)
                         terminerAvecSucces("Remboursement reçu enregistré")
                         return@lancerUneFois
                     }
@@ -834,7 +1006,7 @@ class AjoutTransactionViewModel(
                             estArchive = false
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
-                        toutOuRien {
+                        operationAtomique.executer { toutOuRien {
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
                             siEchec { pretPersonnelRepository.supprimer(created.id) }
                             // Créditer le compte et le prêt à placer
@@ -859,7 +1031,7 @@ class AjoutTransactionViewModel(
                                     sousItems = "{\"pret_personnel_id\":\"${created.id}\"}"
                                 )
                             ).getOrThrow()
-                        }
+                        } }
                         // P5 : le compte est crédité une seule fois (un second crédit doublait le montant)
 
                         // 📝 ENREGISTRER DANS L'HISTORIQUE APRÈS la mise à jour
@@ -894,7 +1066,7 @@ class AjoutTransactionViewModel(
                         terminerAvecSucces("Emprunt enregistré")
                         return@lancerUneFois
                     } else if (state.typeDette == "Remboursement donné") {
-                        enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() })
+                        enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId)
                         terminerAvecSucces("Remboursement donné enregistré")
                         return@lancerUneFois
                     }
@@ -954,7 +1126,8 @@ class AjoutTransactionViewModel(
                             "enveloppeId" to fraction.enveloppeId,
                             "montant" to montantEnDollars, // Montant en dollars pour le JSON
                             "allocation_mensuelle_id" to allocationActuelle.id, // Lier à l'allocation
-                            "transactionParenteId" to null
+                            "transactionParenteId" to null,
+                            "note" to fraction.note.trim() // AT10
                         )
                     }
                     
@@ -973,7 +1146,7 @@ class AjoutTransactionViewModel(
 
                     // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
                     val transactionPrincipale = runCatching {
-                        toutOuRien {
+                        operationAtomique.executer { toutOuRien {
                             enregistrerTransactionUseCase.executer(
                                 typeTransaction = typeTransaction,
                                 montant = montantDollars,
@@ -1016,7 +1189,7 @@ class AjoutTransactionViewModel(
                                 allocationMensuelleRepository.mettreAJourAllocation(apres)
                                 siEchec { allocationMensuelleRepository.mettreAJourAllocation(avant) }
                             }
-                        }
+                        } }
                     }
 
                     if (transactionPrincipale.isSuccess) {
@@ -1245,6 +1418,16 @@ class AjoutTransactionViewModel(
         }
     }
 
+    /** AA5 : classe seulement les tâches apparues depuis le début de cette écriture. */
+    private fun appliquerStatutSynchronisation(
+        jobs: List<com.xburnsx.toutiebudget.data.room.entities.SyncJob>,
+        depuis: Long
+    ) {
+        if (_uiState.value.messageConfirmation == null) return
+        val statut = determinerStatutSynchronisation(jobs, depuis)
+        _uiState.update { it.copy(statutSynchronisation = statut) }
+    }
+
     /**
      * Remboursement d'un prêt (reçu) ou d'un emprunt (donné) à un tiers, réparti du plus ancien au plus récent.
      *
@@ -1260,7 +1443,8 @@ class AjoutTransactionViewModel(
         compte: Compte,
         collectionCompte: String,
         date: Date,
-        note: String?
+        note: String?,
+        dossierId: String? = null // AA3 : un dossier précis ; null = du plus ancien au plus récent
     ) {
         val typePret = if (recu) com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
         else com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE
@@ -1270,6 +1454,7 @@ class AjoutTransactionViewModel(
                     kotlin.math.abs(it.solde) > 0.005
             }
             .sortedBy { it.created ?: "" } // plus ancien d'abord
+            .filter { dossierId == null || it.id == dossierId }
         if (dossiers.isEmpty()) {
             throw Exception(if (recu) "Aucun prêt actif pour ce tiers" else "Aucun emprunt actif pour ce tiers")
         }
@@ -1296,7 +1481,7 @@ class AjoutTransactionViewModel(
         }
 
         // AT4 : compte, dossiers et transactions ensemble ou pas du tout
-        toutOuRien {
+        operationAtomique.executer { toutOuRien {
         // 1) Le compte bouge une seule fois pour le total
         val variationCompte = if (recu) montantDollars else -montantDollars
         compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
@@ -1331,7 +1516,7 @@ class AjoutTransactionViewModel(
                 )
             ).getOrThrow()
             siEchec { transactionRepository.supprimerTransaction(idTransaction) }
-        }
+        } }
         }
 
         // 3) Historique du compte, une seule fois
@@ -1400,7 +1585,14 @@ class AjoutTransactionViewModel(
      * Efface le message de confirmation.
      */
     fun effacerConfirmation() {
-        _uiState.update { it.copy(messageConfirmation = null, detteSoldee = false) }
+        debutDerniereEcriture = null
+        _uiState.update {
+            it.copy(
+                messageConfirmation = null,
+                statutSynchronisation = null,
+                detteSoldee = false
+            )
+        }
     }
 
     /**
@@ -1432,5 +1624,18 @@ class AjoutTransactionViewModel(
                 }
             }
         }
+    }
+}
+
+/** Fonction pure testable d'AA5. Les tâches plus anciennes ne concernent pas l'écriture affichée. */
+internal fun determinerStatutSynchronisation(
+    jobs: List<com.xburnsx.toutiebudget.data.room.entities.SyncJob>,
+    depuis: Long
+): StatutSynchronisationEcriture {
+    val jobsOperation = jobs.filter { it.createdAt >= depuis }
+    return when {
+        jobsOperation.any { it.status == "FAILED" || it.bloque } -> StatutSynchronisationEcriture.ECHEC
+        jobsOperation.any { it.status == "PENDING" || it.status == "IN_PROGRESS" } -> StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT
+        else -> StatutSynchronisationEcriture.SYNCHRONISEE
     }
 }

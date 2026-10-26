@@ -28,6 +28,7 @@ import java.util.Date
 @Composable
 fun GererSoldeNegatifScreen(
     viewModel: BudgetViewModel,
+    moisSelectionne: Date,
     onRetour: () -> Unit,
     onVirementClick: (enveloppeId: String, montantNegatif: Double, mois: Date) -> Unit
 ) {
@@ -231,7 +232,7 @@ fun GererSoldeNegatifScreen(
                                             onVirementClick(
                                                 enveloppe.id,
                                                 -enveloppe.solde, // Montant positif à transférer
-                                                Date() // Mois actuel du système
+                                                moisSelectionne
                                             )
                                         }
                                 ) {

@@ -1,0 +1,59 @@
+package com.xburnsx.toutiebudget.ui.statistiques
+
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.util.Calendar
+
+class ReglesStatistiquesTest {
+    private fun tx(type: TypeTransaction, montant: Double = 100.0, tiers: String? = null) =
+        Transaction(id = type.name + montant, type = type, montant = montant, tiersUtiliser = tiers)
+
+    @Test fun `paiement carte transfert pret et remboursement ne sont pas une nouvelle depense`() {
+        listOf(TypeTransaction.PaiementEffectue, TypeTransaction.TransfertSortant, TypeTransaction.Pret, TypeTransaction.RemboursementDonne)
+            .forEach { assertFalse(ReglesStatistiques.estDepenseBudget(tx(it))) }
+        assertTrue(ReglesStatistiques.estDepenseBudget(tx(TypeTransaction.Depense)))
+    }
+
+    @Test fun `emprunt et remboursement recu ne sont pas un revenu gagne`() {
+        assertFalse(ReglesStatistiques.estRevenuBudget(tx(TypeTransaction.Emprunt)))
+        assertFalse(ReglesStatistiques.estRevenuBudget(tx(TypeTransaction.RemboursementRecu)))
+        assertTrue(ReglesStatistiques.estRevenuBudget(tx(TypeTransaction.Revenu)))
+    }
+
+    @Test fun `flux de tresorerie garde les mouvements sans les classer au budget`() {
+        assertTrue(ReglesStatistiques.estSortieTresorerie(tx(TypeTransaction.PaiementEffectue)))
+        assertTrue(ReglesStatistiques.estEntreeTresorerie(tx(TypeTransaction.Emprunt)))
+        assertTrue(ReglesStatistiques.estEntreeTresorerie(tx(TypeTransaction.TransfertEntrant)))
+    }
+
+    @Test fun `correction technique est exclue et sommes sont au cent`() {
+        val transactions = listOf(
+            tx(TypeTransaction.Depense, 0.105),
+            tx(TypeTransaction.Depense, 0.105),
+            tx(TypeTransaction.Depense, 50.0, "Mise à jour : rapprochement")
+        )
+        assertEquals(0.22, ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estDepenseBudget), 0.0001)
+    }
+
+    @Test fun `moyenne 7 jours inclut toute la derniere journee et exclut les jours futurs`() {
+        val maintenant = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 10, 12, 0, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val soir = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 10, 23, 59, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val finFuture = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 31, 23, 59, 59); set(Calendar.MILLISECOND, 999)
+        }.time
+        val resultat = ReglesStatistiques.moyenneDepenses7Jours(
+            listOf(Transaction(id = "soir", type = TypeTransaction.Depense, montant = 70.0, date = soir)),
+            finFuture,
+            maintenant
+        )
+        assertEquals(10.0, resultat.last().second, 0.0001)
+    }
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "action": "navigate",
+    "target": "Ajouter"
+  },
+  {
+    "action": "probe",
+    "target": "Effectuer le paiement"
+  }
+]

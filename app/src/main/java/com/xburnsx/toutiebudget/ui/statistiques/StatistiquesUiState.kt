@@ -16,9 +16,13 @@ data class Periode(
     val label: String
 )
 
+enum class VueStatistiques { BUDGET, FLUX_TRESORERIE }
+
 data class StatistiquesUiState(
     val isLoading: Boolean = false,
     val erreur: String? = null,
+    val calculIncomplet: Boolean = false,
+    val donneesIndisponibles: List<String> = emptyList(),
     val periode: Periode? = null,
     val totalDepenses: Double = 0.0,
     val totalRevenus: Double = 0.0,
@@ -26,6 +30,11 @@ data class StatistiquesUiState(
     val totalDette: Double = 0.0,
     val totalValeur: Double = 0.0,
     val valeurNette: Double = 0.0,
+    val patrimoineEstActuel: Boolean = true,
+    val vue: VueStatistiques = VueStatistiques.BUDGET,
+    val comptesFiltres: Set<String> = emptySet(),
+    val totalEntreesTresorerie: Double = 0.0,
+    val totalSortiesTresorerie: Double = 0.0,
     val transactionsPeriode: List<Transaction> = emptyList(),
     val top5Enveloppes: List<TopItem> = emptyList(),
     val repartitionEnveloppes: List<TopItem> = emptyList(),
@@ -39,4 +48,3 @@ data class StatistiquesUiState(
     val modalTransactions: List<Transaction> = emptyList(),
     val hasMoreData: Boolean = true
 )
-

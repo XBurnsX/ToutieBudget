@@ -1,0 +1,94 @@
+{"at": "2026-10-26T13:43:13", "kind": "step", "case": "NAV-budget", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:43:15", "kind": "step", "case": "NAV-budget", "index": 1, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:17", "kind": "step", "case": "NAV-budget", "index": 2, "step": {"action": "assert", "kind": "visible", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:43:17", "kind": "case", "id": "NAV-budget", "feature": "navigation", "status": "PASS", "assertions": 2, "duration_s": 7.75, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:20", "kind": "step", "case": "NAV-comptes", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:43:22", "kind": "step", "case": "NAV-comptes", "index": 1, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:24", "kind": "step", "case": "NAV-comptes", "index": 2, "step": {"action": "assert", "kind": "visible", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:43:24", "kind": "case", "id": "NAV-comptes", "feature": "navigation", "status": "PASS", "assertions": 2, "duration_s": 6.87, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:27", "kind": "step", "case": "NAV-ajouter", "index": 0, "step": {"action": "navigate", "target": "Ajouter"}, "status": "OK"}
+{"at": "2026-10-26T13:43:29", "kind": "step", "case": "NAV-ajouter", "index": 1, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:31", "kind": "step", "case": "NAV-ajouter", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:31", "kind": "case", "id": "NAV-ajouter", "feature": "navigation", "status": "PASS", "assertions": 2, "duration_s": 6.91, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:34", "kind": "step", "case": "NAV-stats", "index": 0, "step": {"action": "navigate", "target": "Stats"}, "status": "OK"}
+{"at": "2026-10-26T13:43:36", "kind": "step", "case": "NAV-stats", "index": 1, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:38", "kind": "step", "case": "NAV-stats", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:38", "kind": "case", "id": "NAV-stats", "feature": "navigation", "status": "PASS", "assertions": 2, "duration_s": 6.91, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:41", "kind": "step", "case": "UI-BUDGET-001", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:43:43", "kind": "step", "case": "UI-BUDGET-001", "index": 1, "step": {"action": "probe", "target": "Rechercher une enveloppe"}, "status": "OK"}
+{"at": "2026-10-26T13:43:45", "kind": "step", "case": "UI-BUDGET-001", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:45", "kind": "case", "id": "UI-BUDGET-001", "feature": "budget", "status": "PASS", "assertions": 1, "duration_s": 6.85, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:47", "kind": "step", "case": "UI-BUDGET-002", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:43:49", "kind": "step", "case": "UI-BUDGET-002", "index": 1, "step": {"action": "probe", "target": "Catégories"}, "status": "OK"}
+{"at": "2026-10-26T13:43:52", "kind": "step", "case": "UI-BUDGET-002", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:52", "kind": "case", "id": "UI-BUDGET-002", "feature": "budget", "status": "PASS", "assertions": 1, "duration_s": 6.83, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:43:54", "kind": "step", "case": "UI-BUDGET-003", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:43:56", "kind": "step", "case": "UI-BUDGET-003", "index": 1, "step": {"action": "probe", "target": "Paramètres"}, "status": "OK"}
+{"at": "2026-10-26T13:43:58", "kind": "step", "case": "UI-BUDGET-003", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:43:58", "kind": "case", "id": "UI-BUDGET-003", "feature": "budget", "status": "PASS", "assertions": 1, "duration_s": 6.83, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:44:01", "kind": "step", "case": "UI-BUDGET-004", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:44:03", "kind": "step", "case": "UI-BUDGET-004", "index": 1, "step": {"action": "probe", "target": "Menu"}, "status": "OK"}
+{"at": "2026-10-26T13:44:05", "kind": "step", "case": "UI-BUDGET-004", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:44:05", "kind": "case", "id": "UI-BUDGET-004", "feature": "budget", "status": "PASS", "assertions": 1, "duration_s": 6.84, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:44:08", "kind": "step", "case": "UI-BUDGET-005", "index": 0, "step": {"action": "navigate", "target": "Budget"}, "status": "OK"}
+{"at": "2026-10-26T13:44:10", "kind": "step", "case": "UI-BUDGET-005", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Favoris"}
+{"at": "2026-10-26T13:44:12", "kind": "case", "id": "UI-BUDGET-005", "feature": "budget", "status": "BLOCKED", "assertions": 0, "duration_s": 7.13, "message": "Fonction absente: Favoris", "evidence": "resultats\\20261026-134309\\evidence\\00009_UI-BUDGET-005"}
+{"at": "2026-10-26T13:44:15", "kind": "step", "case": "UI-COMPTES-001", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:17", "kind": "step", "case": "UI-COMPTES-001", "index": 1, "step": {"action": "probe", "target": "Ajouter un compte"}, "status": "OK"}
+{"at": "2026-10-26T13:44:19", "kind": "step", "case": "UI-COMPTES-001", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:44:19", "kind": "case", "id": "UI-COMPTES-001", "feature": "comptes", "status": "PASS", "assertions": 1, "duration_s": 6.89, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:44:22", "kind": "step", "case": "UI-COMPTES-002", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:24", "kind": "step", "case": "UI-COMPTES-002", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Réconcilier"}
+{"at": "2026-10-26T13:44:26", "kind": "case", "id": "UI-COMPTES-002", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.06, "message": "Fonction absente: Réconcilier", "evidence": "resultats\\20261026-134309\\evidence\\00011_UI-COMPTES-002"}
+{"at": "2026-10-26T13:44:29", "kind": "step", "case": "UI-COMPTES-003", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:31", "kind": "step", "case": "UI-COMPTES-003", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Modifier"}
+{"at": "2026-10-26T13:44:33", "kind": "case", "id": "UI-COMPTES-003", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.06, "message": "Fonction absente: Modifier", "evidence": "resultats\\20261026-134309\\evidence\\00012_UI-COMPTES-003"}
+{"at": "2026-10-26T13:44:36", "kind": "step", "case": "UI-COMPTES-004", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:38", "kind": "step", "case": "UI-COMPTES-004", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Archiver"}
+{"at": "2026-10-26T13:44:40", "kind": "case", "id": "UI-COMPTES-004", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.04, "message": "Fonction absente: Archiver", "evidence": "resultats\\20261026-134309\\evidence\\00013_UI-COMPTES-004"}
+{"at": "2026-10-26T13:44:43", "kind": "step", "case": "UI-COMPTES-005", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:45", "kind": "step", "case": "UI-COMPTES-005", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Gérer la carte"}
+{"at": "2026-10-26T13:44:47", "kind": "case", "id": "UI-COMPTES-005", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.05, "message": "Fonction absente: Gérer la carte", "evidence": "resultats\\20261026-134309\\evidence\\00014_UI-COMPTES-005"}
+{"at": "2026-10-26T13:44:50", "kind": "step", "case": "UI-COMPTES-006", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:52", "kind": "step", "case": "UI-COMPTES-006", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Gérer la dette"}
+{"at": "2026-10-26T13:44:54", "kind": "case", "id": "UI-COMPTES-006", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.06, "message": "Fonction absente: Gérer la dette", "evidence": "resultats\\20261026-134309\\evidence\\00015_UI-COMPTES-006"}
+{"at": "2026-10-26T13:44:57", "kind": "step", "case": "UI-COMPTES-007", "index": 0, "step": {"action": "navigate", "target": "Comptes"}, "status": "OK"}
+{"at": "2026-10-26T13:44:59", "kind": "step", "case": "UI-COMPTES-007", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Gérer le placement"}
+{"at": "2026-10-26T13:45:02", "kind": "case", "id": "UI-COMPTES-007", "feature": "comptes", "status": "BLOCKED", "assertions": 0, "duration_s": 7.08, "message": "Fonction absente: Gérer le placement", "evidence": "resultats\\20261026-134309\\evidence\\00016_UI-COMPTES-007"}
+{"at": "2026-10-26T13:45:07", "kind": "step", "case": "UI-CATEGORIES-001", "index": 0, "step": {"action": "navigate", "target": "Catégories"}, "status": "OK"}
+{"at": "2026-10-26T13:45:09", "kind": "step", "case": "UI-CATEGORIES-001", "index": 1, "step": {"action": "probe", "target": "Ajouter une catégorie"}, "status": "OK"}
+{"at": "2026-10-26T13:45:11", "kind": "step", "case": "UI-CATEGORIES-001", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:45:11", "kind": "case", "id": "UI-CATEGORIES-001", "feature": "categories", "status": "PASS", "assertions": 1, "duration_s": 9.36, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:45:14", "kind": "step", "case": "UI-CATEGORIES-002", "index": 0, "step": {"action": "navigate", "target": "Catégories"}, "status": "OK"}
+{"at": "2026-10-26T13:45:16", "kind": "step", "case": "UI-CATEGORIES-002", "index": 1, "step": {"action": "probe", "target": "Retour"}, "status": "OK"}
+{"at": "2026-10-26T13:45:18", "kind": "step", "case": "UI-CATEGORIES-002", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:45:18", "kind": "case", "id": "UI-CATEGORIES-002", "feature": "categories", "status": "PASS", "assertions": 1, "duration_s": 6.83, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:45:22", "kind": "step", "case": "UI-VIREMENTS-001", "index": 0, "status": "BLOCKED", "error": "Navigation inaccessible: Virement"}
+{"at": "2026-10-26T13:45:25", "kind": "case", "id": "UI-VIREMENTS-001", "feature": "virements", "status": "BLOCKED", "assertions": 0, "duration_s": 6.83, "message": "Navigation inaccessible: Virement", "evidence": "resultats\\20261026-134309\\evidence\\00019_UI-VIREMENTS-001"}
+{"at": "2026-10-26T13:45:30", "kind": "step", "case": "UI-VIREMENTS-002", "index": 0, "status": "BLOCKED", "error": "Navigation inaccessible: Virement"}
+{"at": "2026-10-26T13:45:32", "kind": "case", "id": "UI-VIREMENTS-002", "feature": "virements", "status": "BLOCKED", "assertions": 0, "duration_s": 7.88, "message": "Navigation inaccessible: Virement", "evidence": "resultats\\20261026-134309\\evidence\\00020_UI-VIREMENTS-002"}
+{"at": "2026-10-26T13:45:40", "kind": "step", "case": "UI-VIREMENTS-003", "index": 0, "status": "BLOCKED", "error": "Navigation inaccessible: Virement"}
+{"at": "2026-10-26T13:45:43", "kind": "case", "id": "UI-VIREMENTS-003", "feature": "virements", "status": "BLOCKED", "assertions": 0, "duration_s": 10.3, "message": "Navigation inaccessible: Virement", "evidence": "resultats\\20261026-134309\\evidence\\00021_UI-VIREMENTS-003"}
+{"at": "2026-10-26T13:45:50", "kind": "step", "case": "UI-VIREMENTS-004", "index": 0, "status": "BLOCKED", "error": "Navigation inaccessible: Virement"}
+{"at": "2026-10-26T13:45:53", "kind": "case", "id": "UI-VIREMENTS-004", "feature": "virements", "status": "BLOCKED", "assertions": 0, "duration_s": 10.01, "message": "Navigation inaccessible: Virement", "evidence": "resultats\\20261026-134309\\evidence\\00022_UI-VIREMENTS-004"}
+{"at": "2026-10-26T13:46:00", "kind": "step", "case": "UI-VIREMENTS-005", "index": 0, "status": "BLOCKED", "error": "Navigation inaccessible: Virement"}
+{"at": "2026-10-26T13:46:03", "kind": "case", "id": "UI-VIREMENTS-005", "feature": "virements", "status": "BLOCKED", "assertions": 0, "duration_s": 10.02, "message": "Navigation inaccessible: Virement", "evidence": "resultats\\20261026-134309\\evidence\\00023_UI-VIREMENTS-005"}
+{"at": "2026-10-26T13:46:08", "kind": "step", "case": "UI-TRANSACTIONS-001", "index": 0, "step": {"action": "navigate", "target": "Ajouter"}, "status": "OK"}
+{"at": "2026-10-26T13:46:10", "kind": "step", "case": "UI-TRANSACTIONS-001", "index": 1, "step": {"action": "probe", "target": "Fractionner"}, "status": "OK"}
+{"at": "2026-10-26T13:46:12", "kind": "step", "case": "UI-TRANSACTIONS-001", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:46:12", "kind": "case", "id": "UI-TRANSACTIONS-001", "feature": "transactions", "status": "PASS", "assertions": 1, "duration_s": 9.1, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:46:15", "kind": "step", "case": "UI-TRANSACTIONS-002", "index": 0, "step": {"action": "navigate", "target": "Ajouter"}, "status": "OK"}
+{"at": "2026-10-26T13:46:17", "kind": "step", "case": "UI-TRANSACTIONS-002", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Effectuer le paiement"}
+{"at": "2026-10-26T13:46:19", "kind": "case", "id": "UI-TRANSACTIONS-002", "feature": "transactions", "status": "BLOCKED", "assertions": 0, "duration_s": 7.06, "message": "Fonction absente: Effectuer le paiement", "evidence": "resultats\\20261026-134309\\evidence\\00025_UI-TRANSACTIONS-002"}
+{"at": "2026-10-26T13:46:24", "kind": "step", "case": "UI-SETTINGS-001", "index": 0, "step": {"action": "navigate", "target": "Paramètres"}, "status": "OK"}
+{"at": "2026-10-26T13:46:26", "kind": "step", "case": "UI-SETTINGS-001", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Déconnexion"}
+{"at": "2026-10-26T13:46:29", "kind": "case", "id": "UI-SETTINGS-001", "feature": "settings", "status": "BLOCKED", "assertions": 0, "duration_s": 9.58, "message": "Fonction absente: Déconnexion", "evidence": "resultats\\20261026-134309\\evidence\\00026_UI-SETTINGS-001"}
+{"at": "2026-10-26T13:46:31", "kind": "step", "case": "UI-SETTINGS-002", "index": 0, "step": {"action": "navigate", "target": "Paramètres"}, "status": "OK"}
+{"at": "2026-10-26T13:46:33", "kind": "step", "case": "UI-SETTINGS-002", "index": 1, "status": "BLOCKED", "error": "Fonction absente: Réinitialiser les données"}
+{"at": "2026-10-26T13:46:36", "kind": "case", "id": "UI-SETTINGS-002", "feature": "settings", "status": "BLOCKED", "assertions": 0, "duration_s": 7.05, "message": "Fonction absente: Réinitialiser les données", "evidence": "resultats\\20261026-134309\\evidence\\00027_UI-SETTINGS-002"}
+{"at": "2026-10-26T13:46:38", "kind": "step", "case": "UI-STATS-001", "index": 0, "step": {"action": "navigate", "target": "Stats"}, "status": "OK"}
+{"at": "2026-10-26T13:46:40", "kind": "step", "case": "UI-STATS-001", "index": 1, "step": {"action": "probe", "target": "Dépenses"}, "status": "OK"}
+{"at": "2026-10-26T13:46:42", "kind": "step", "case": "UI-STATS-001", "index": 2, "step": {"action": "assert", "kind": "app_alive"}, "status": "OK"}
+{"at": "2026-10-26T13:46:42", "kind": "case", "id": "UI-STATS-001", "feature": "stats", "status": "PASS", "assertions": 1, "duration_s": 6.85, "message": "", "evidence": ""}
+{"at": "2026-10-26T13:46:45", "kind": "step", "case": "UI-STATS-002", "index": 0, "step": {"action": "navigate", "target": "Stats"}, "status": "OK"}
+{"at": "2026-10-26T13:46:47", "kind": "step", "case": "UI-STATS-002", "index": 1, "step": {"action": "probe", "target": "Revenus"}, "status": "OK"}

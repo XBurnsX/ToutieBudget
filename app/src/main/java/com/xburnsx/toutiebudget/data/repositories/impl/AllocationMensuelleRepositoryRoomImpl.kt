@@ -202,6 +202,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                             type = "ALLOCATION_MENSUELLE",
                             action = "CREATE",
                             dataJson = gson.toJson(allocationEntity),
+                            recordId = allocationEntity.id,
                             createdAt = System.currentTimeMillis(),
                             status = "PENDING"
                         )
@@ -340,6 +341,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 type = "ALLOCATION_MENSUELLE",
                 action = "CREATE",
                 dataJson = gson.toJson(allocationEntity),
+                recordId = allocationEntity.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

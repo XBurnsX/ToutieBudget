@@ -80,6 +80,7 @@ class TiersRepositoryRoomImpl(
                 type = "TIERS",
                 action = "CREATE",
                 dataJson = gson.toJson(tiersEntity),
+                recordId = tiersEntity.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

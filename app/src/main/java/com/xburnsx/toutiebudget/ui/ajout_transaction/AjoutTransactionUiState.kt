@@ -10,6 +10,12 @@ import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
 import java.time.LocalDate
 
+enum class StatutSynchronisationEcriture(val libelle: String) {
+    ENREGISTREE_LOCALEMENT("Enregistrée localement"),
+    SYNCHRONISEE("Synchronisée"),
+    ECHEC("Échec de synchronisation")
+}
+
 /**
  * État de l'interface utilisateur pour l'écran d'ajout de transaction.
  * Contient toutes les données nécessaires à l'affichage et à la saisie.
@@ -25,6 +31,8 @@ data class AjoutTransactionUiState(
     
     // --- Messages de confirmation ---
     val messageConfirmation: String? = null,
+    /** AA5 : état réel des SyncJobs créés pendant la dernière écriture. */
+    val statutSynchronisation: StatutSynchronisationEcriture? = null,
     val detteSoldee: Boolean = false,
     
     // --- Modes et types de transaction ---
@@ -71,7 +79,14 @@ data class AjoutTransactionUiState(
     /** AT12 : l'argent de l'enveloppe vient d'un autre compte que celui qui paie (avertissement, pas un refus). */
     val avertissementProvenance: String? = null,
     /** AA6 : la date choisie est dans le futur (avertissement seulement). */
-    val dateFuture: Boolean = false
+    val dateFuture: Boolean = false,
+    /** AA3 : dossiers actifs du tiers pour un remboursement ; dossier choisi (null = du plus ancien au plus récent). */
+    val dossiersDisponibles: List<com.xburnsx.toutiebudget.data.modeles.PretPersonnel> = emptyList(),
+    val dossierChoisiId: String? = null,
+    /** AA2 : enveloppes déjà utilisées avec ce tiers, proposées seulement. */
+    val suggestionsEnveloppes: List<EnveloppeUi> = emptyList(),
+    /** AA1 : aperçu court du résultat (compte et enveloppe après l'opération). */
+    val apercu: String? = null
 ) {
     /** Somme des fractions = montant saisi, en cents exacts, chaque fraction positive et avec une enveloppe. */
     fun fractionsCorrespondentAuMontant(): Boolean {
@@ -79,6 +94,38 @@ data class AjoutTransactionUiState(
         if (fractionsSauvegardees.isEmpty()) return false
         if (fractionsSauvegardees.any { it.montant <= 0 || it.enveloppeId.isBlank() }) return false
         return fractionsSauvegardees.sumOf { Math.round(it.montant) } == totalCents
+    }
+
+    /**
+     * AA1 : une ligne, sans encombrer : le compte (et l'enveloppe d'une dépense simple) avant → après.
+     */
+    private fun construireApercu(): String? {
+        val dollars = (montant.toDoubleOrNull() ?: return null) / 100.0
+        val compte = compteSelectionne ?: return null
+        val sens = when {
+            modeOperation == "Standard" && typeTransaction == TypeTransaction.Revenu -> 1.0
+            modeOperation == "Prêt" && typePret == "Remboursement reçu" -> 1.0
+            modeOperation == "Emprunt" && typeDette == "Dette contractée" -> 1.0
+            else -> -1.0
+        }
+        val f = { v: Double -> com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(v) }
+        val ligneCompte = "${compte.nom} : ${f(compte.solde)} → ${f(compte.solde + sens * dollars)}"
+        val enveloppe = enveloppeSelectionnee
+        val surCarte = compte is com.xburnsx.toutiebudget.data.modeles.CompteCredit
+        val ciblePaiement = comptePaiementSelectionne?.let { cible ->
+            " · ${cible.nom} : ${f(cible.solde)} → ${f(cible.solde + dollars)}"
+        }.orEmpty()
+        val detailEnveloppes = when {
+            modeOperation != "Standard" || typeTransaction != TypeTransaction.Depense -> ""
+            fractionnementEffectue -> fractionsSauvegardees.joinToString(", ", prefix = " · Enveloppes : ") { fraction ->
+                enveloppesDisponibles.find { it.id == fraction.enveloppeId }?.nom ?: fraction.enveloppeId
+            }
+            enveloppe != null && !surCarte -> " · ${enveloppe.nom} : ${f(enveloppe.solde)} → ${f(enveloppe.solde - dollars)}"
+            enveloppe != null -> " · Enveloppe : ${enveloppe.nom}"
+            else -> ""
+        }
+        val libelleTiers = tiersUtiliser.trim().ifBlank { "Sans tiers" }
+        return "${f(dollars)} · $libelleTiers · $dateTransaction · $ligneCompte$ciblePaiement$detailEnveloppes"
     }
 
     /**
@@ -137,7 +184,8 @@ data class AjoutTransactionUiState(
             peutSauvegarder = peutSauvegarde,
             peutFractionner = peutFractionner,
             estValide = estValide,
-            dateFuture = dateTransaction.isAfter(LocalDate.now())
+            dateFuture = dateTransaction.isAfter(LocalDate.now()),
+            apercu = if (peutSauvegarde) construireApercu() else null
         )
     }
 }

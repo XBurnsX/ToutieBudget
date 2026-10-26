@@ -215,15 +215,9 @@ class HistoriqueCompteViewModel(
                 val deferredEnveloppes = async { 
                     enveloppeRepository.recupererToutesLesEnveloppes()
                 }
-                // ✅ CORRECTION : Utiliser la bonne méthode pour les allocations
-                val deferredAllocations = async { 
-                    enveloppeRepository.recupererAllocationsPourMois(Date())
-                }
-
                 // Attendre que tous les appels soient terminés
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
-                val resultAllocations = deferredAllocations.await()
 
                 if (resultTransactions.isFailure) {
                     throw resultTransactions.exceptionOrNull() ?: Exception("Erreur lors du chargement des transactions")
@@ -231,7 +225,10 @@ class HistoriqueCompteViewModel(
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
-                val allocations = resultAllocations.getOrNull() ?: emptyList()
+                // HC/HE1 : résoudre par ID sur toutes les périodes, jamais uniquement le mois courant.
+                val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
+                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
+                }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
                 // DEBUG: resultAllocations.isSuccess = ${resultAllocations.isSuccess}

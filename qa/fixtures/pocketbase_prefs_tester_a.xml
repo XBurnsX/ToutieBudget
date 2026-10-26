@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="token_auth">qa-offline-token-tester-a</string>
+    <string name="user_auth">{&quot;id&quot;:&quot;tester-a-local&quot;,&quot;email&quot;:&quot;tester-a@invalid.test&quot;,&quot;name&quot;:&quot;Tester A&quot;,&quot;avatar&quot;:null,&quot;created&quot;:&quot;2026-10-25 00:00:00.000Z&quot;,&quot;updated&quot;:&quot;2026-10-25 00:00:00.000Z&quot;}</string>
+</map>

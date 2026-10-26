@@ -315,7 +315,7 @@ fun ClavierBudgetEnveloppe(
                             0.0
                         }
                         if (montantAFill > 0) {
-                            montantCentimes = (montantAFill * 100).toLong()
+                            montantCentimes = kotlin.math.round(montantAFill * 100).toLong()
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -420,7 +420,7 @@ fun ClavierBudgetEnveloppe(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = compteSelectionne != null &&
                         montantCentimes > 0 &&
-                        montantCentimes <= (compteSelectionne?.pretAPlacer?.times(100)?.toLong() ?: 0L),
+                        montantCentimes <= (compteSelectionne?.pretAPlacer?.times(100)?.let { kotlin.math.round(it).toLong() } ?: 0L),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )

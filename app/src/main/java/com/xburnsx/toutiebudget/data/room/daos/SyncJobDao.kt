@@ -14,19 +14,19 @@ interface SyncJobDao {
     /**
      * Récupère toutes les tâches de synchronisation
      */
-    @Query("SELECT * FROM sync_jobs ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_jobs ORDER BY createdAt ASC, id ASC")
     fun getAllSyncJobs(): Flow<List<SyncJob>>
     
     /**
      * Récupère toutes les tâches en attente (PENDING)
      */
-    @Query("SELECT * FROM sync_jobs WHERE status = 'PENDING' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_jobs WHERE status = 'PENDING' ORDER BY createdAt ASC, id ASC")
     suspend fun getPendingSyncJobs(): List<SyncJob>
     
     /**
      * Récupère toutes les tâches en attente ET échouées pour retry
      */
-    @Query("SELECT * FROM sync_jobs WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAt ASC")
+    @Query("SELECT * FROM sync_jobs WHERE status IN ('PENDING', 'FAILED') ORDER BY createdAt ASC, id ASC")
     suspend fun getPendingAndFailedSyncJobs(): List<SyncJob>
 
     /**
@@ -35,7 +35,7 @@ interface SyncJobDao {
      */
     @Query(
         "SELECT * FROM sync_jobs WHERE (status = 'PENDING' OR (status = 'FAILED' AND bloque = 0)) " +
-        "AND (utilisateurId = :utilisateurId OR utilisateurId = '') ORDER BY createdAt ASC"
+        "AND (utilisateurId = :utilisateurId OR utilisateurId = '') ORDER BY createdAt ASC, id ASC"
     )
     suspend fun getTachesAEnvoyer(utilisateurId: String): List<SyncJob>
 
@@ -66,7 +66,52 @@ interface SyncJobDao {
      * Insère une nouvelle tâche de synchronisation
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSyncJob(syncJob: SyncJob): Long
+    suspend fun insertSyncJobBrut(syncJob: SyncJob): Long
+
+    @Query(
+        "SELECT * FROM sync_jobs WHERE type = :type AND recordId = :recordId " +
+            "AND status IN ('PENDING', 'FAILED') AND bloque = 0 ORDER BY createdAt ASC, id ASC"
+    )
+    suspend fun getModificationsCompactables(type: String, recordId: String): List<SyncJob>
+
+    @Query("DELETE FROM sync_jobs WHERE id IN (:ids)")
+    suspend fun supprimerParIds(ids: List<String>)
+
+    /**
+     * SJ4/SJ5 : compacte la file sans changer l'état final attendu.
+     * CREATE+UPDATE devient un CREATE avec le dernier contenu; CREATE+DELETE disparaît;
+     * plusieurs UPDATE gardent seulement le dernier; UPDATE+DELETE devient DELETE.
+     */
+    @Transaction
+    suspend fun insertSyncJob(syncJob: SyncJob): Long {
+        if (syncJob.recordId.isBlank()) return insertSyncJobBrut(syncJob)
+        val precedents = getModificationsCompactables(syncJob.type, syncJob.recordId)
+        val creation = precedents.firstOrNull { it.action == "CREATE" }
+        return when {
+            creation != null && syncJob.action == "DELETE" -> {
+                supprimerParIds(precedents.map { it.id })
+                -1L
+            }
+            creation != null && syncJob.action in setOf("CREATE", "UPDATE") -> {
+                supprimerParIds(precedents.map { it.id })
+                insertSyncJobBrut(
+                    syncJob.copy(id = creation.id, action = "CREATE", createdAt = creation.createdAt)
+                )
+            }
+            syncJob.action == "UPDATE" && precedents.any { it.action == "UPDATE" } -> {
+                supprimerParIds(precedents.filter { it.action == "UPDATE" }.map { it.id })
+                insertSyncJobBrut(syncJob)
+            }
+            syncJob.action == "DELETE" && precedents.isNotEmpty() -> {
+                supprimerParIds(precedents.map { it.id })
+                insertSyncJobBrut(syncJob)
+            }
+            else -> insertSyncJobBrut(syncJob)
+        }
+    }
+
+    @Query("UPDATE sync_jobs SET status = 'PENDING' WHERE status = 'IN_PROGRESS'")
+    suspend fun recupererTachesInterrompues()
     
     /**
      * Met à jour une tâche existante

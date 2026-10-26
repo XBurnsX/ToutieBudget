@@ -30,6 +30,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import java.util.Date
 
 /**
@@ -45,7 +47,8 @@ class ModifierTransactionViewModel(
     private val transactionRepository: TransactionRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
-    private val supprimerTransactionUseCase: SupprimerTransactionUseCase
+    private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -176,17 +179,16 @@ class ModifierTransactionViewModel(
                 val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
                 jsonArray.mapNotNull { element ->
                     val obj = element.asJsonObject
-                    val description = obj.get("description")?.asString ?: ""
                     val montantEnDollars = obj.get("montant")?.asDouble ?: 0.0
-                    val montant = (montantEnDollars * 100).toDouble() // Convertir dollars en centimes
+                    val montant = kotlin.math.round(montantEnDollars * 100).toDouble()
                     val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
                     val note = obj.get("note")?.asString ?: ""
                     
                     FractionTransaction(
-                        id = "temp_${jsonArray.indexOf(element) + 1}",
+                        id = obj.get("id")?.asString ?: "fraction_${jsonArray.indexOf(element) + 1}",
                         enveloppeId = enveloppeId,
                         montant = montant, // Déjà en Double
-                        note = note.ifBlank { description }
+                        note = note // MT17 : la note de la fraction, jamais remplacée par le nom de l'enveloppe
                     )
                 }
             } catch (_: Exception) {
@@ -199,6 +201,12 @@ class ModifierTransactionViewModel(
         _uiState.update { state ->
             state.copy(
                 typeTransaction = transaction.type,
+                modeOperation = when (transaction.type) {
+                    TypeTransaction.Pret, TypeTransaction.RemboursementRecu -> "Prêt"
+                    TypeTransaction.Emprunt, TypeTransaction.RemboursementDonne -> "Emprunt"
+                    TypeTransaction.Paiement, TypeTransaction.PaiementEffectue -> "Paiement"
+                    else -> "Standard"
+                },
                 montant = Math.round(transaction.montant * 100).toString(), // GN5 : centimes exacts (19,99 $ -> 1999)
                 compteSelectionne = allComptes.find { it.id == transaction.compteId },
                 enveloppeSelectionnee = if (transaction.allocationMensuelleId != null && !transaction.estFractionnee) {
@@ -268,6 +276,7 @@ class ModifierTransactionViewModel(
             _uiState.update { it.copy(estEnTrainDeSauvegarder = true, messageErreur = null) }
             
             try {
+                operationAtomique.executer {
                 val collectionCompte = when (state.compteSelectionne) {
                     is com.xburnsx.toutiebudget.data.modeles.CompteCheque -> "comptes_cheques"
                     is com.xburnsx.toutiebudget.data.modeles.CompteCredit -> "comptes_credits"
@@ -276,16 +285,49 @@ class ModifierTransactionViewModel(
                     else -> "comptes_cheques"
                 }
                 
-                // Convertir LocalDate en Date avec l'heure locale actuelle du téléphone
-                val maintenant = java.time.LocalDateTime.now()
-                val dateTransaction = Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second).atZone(ZoneId.systemDefault()).toInstant())
+                val original = transactionAModifier!!
+                // MT18 : préserver l'heure d'origine, même quand seul le jour change.
+                val originalZoned = original.date.toInstant().atZone(ZoneId.systemDefault())
+                val dateTransaction = if (state.dateTransaction == originalZoned.toLocalDate()) original.date
+                else Date.from(state.dateTransaction.atTime(originalZoned.toLocalTime()).atZone(ZoneId.systemDefault()).toInstant())
+
+                // MA2 : une correction de libellé/note ne déplace aucun dollar.
+                val metadataSeulement = state.typeTransaction == original.type &&
+                    kotlin.math.abs(montantEnDollars - original.montant) < 0.005 &&
+                    state.compteSelectionne.id == original.compteId && dateTransaction == original.date &&
+                    state.fractionnementEffectue == original.estFractionnee &&
+                    (!original.estFractionnee || state.fractionsSauvegardees == parserFractions(original)) &&
+                    allocationIdPour(state.enveloppeSelectionnee?.id, original.date) == original.allocationMensuelleId
+                if (metadataSeulement) {
+                    transactionRepository.mettreAJourTransaction(
+                        original.copy(
+                            tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() },
+                            note = state.note.takeIf { it.isNotBlank() },
+                            updated = Date()
+                        )
+                    ).getOrThrow()
+                    terminerModification()
+                    return@executer
+                }
                 
                 // ÉTAPE 1: Le remboursement est maintenant géré par le SupprimerTransactionUseCase
                 // Plus besoin de rembourser manuellement les allocations
 
                 // ÉTAPE 2: Supprimer l'ancienne transaction avec remboursement correct
-                val original = transactionAModifier!!
                 verifierModifiable(original)
+                if (state.fractionnementEffectue) {
+                    val fractions = state.fractionsSauvegardees
+                    if (fractions.isEmpty() || fractions.any { it.enveloppeId.isBlank() || it.montant <= 0.0 }) {
+                        throw Exception("Chaque fraction doit avoir une enveloppe et un montant positif.")
+                    }
+                    if (fractions.sumOf { kotlin.math.round(it.montant).toLong() } != montantEnCentimes) {
+                        throw Exception("La somme des fractions doit être exactement égale au montant.")
+                    }
+                    fractions.forEach { fraction ->
+                        val env = allEnveloppes.firstOrNull { it.id == fraction.enveloppeId }
+                        if (env == null || env.estArchive) throw Exception("Une enveloppe du fractionnement n'est plus disponible.")
+                    }
+                }
                 val resultSuppression = supprimerTransactionUseCase.executer(original.id)
                 if (resultSuppression.isFailure) {
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
@@ -321,12 +363,13 @@ class ModifierTransactionViewModel(
                         val nomEnveloppe = allEnveloppes.find { it.id == fraction.enveloppeId }?.nom ?: "Enveloppe"
                         
                                                  mapOf(
-                             "id" to "temp_${index + 1}",
+                             "id" to fraction.id.ifBlank { "fraction_${index + 1}" },
                              "description" to nomEnveloppe,
                              "enveloppeId" to fraction.enveloppeId,
                              "montant" to montantEnDollars,
                              "allocation_mensuelle_id" to allocationActuelle.id,
-                             "transactionParenteId" to null
+                             "transactionParenteId" to null,
+                             "note" to fraction.note.trim() // AT10
                          )
                     }
                     
@@ -349,6 +392,7 @@ class ModifierTransactionViewModel(
                      )
 
                     if (result.isSuccess) {
+                        preserverMetadonneesOriginales(original)
                         // Mettre à jour les allocations mensuelles en utilisant les données du JSON
                         for (sousItem in sousItems) {
                             val allocationId = sousItem["allocation_mensuelle_id"] as? String
@@ -412,6 +456,7 @@ class ModifierTransactionViewModel(
                     )
 
                     if (result.isSuccess) {
+                        preserverMetadonneesOriginales(original)
                         _uiState.update { 
                             it.copy(
                                 estEnTrainDeSauvegarder = false,
@@ -431,6 +476,7 @@ class ModifierTransactionViewModel(
                     restaurerOriginal(original)
                     throw e
                 }
+                }
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
@@ -440,6 +486,42 @@ class ModifierTransactionViewModel(
                 }
             }
         }
+    }
+
+    private suspend fun preserverMetadonneesOriginales(original: Transaction) {
+        val nouvelle = transactionRepository.recupererTransactionParId(original.id).getOrThrow()
+        transactionRepository.mettreAJourTransaction(nouvelle.copy(created = original.created, updated = Date())).getOrThrow()
+    }
+
+    private fun terminerModification() {
+        _uiState.update { it.copy(estEnTrainDeSauvegarder = false, messageErreur = null, transactionModifiee = true) }
+        _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
+    }
+
+    private fun parserFractions(transaction: Transaction): List<FractionTransaction> {
+        if (!transaction.estFractionnee || transaction.sousItems.isNullOrBlank()) return emptyList()
+        return runCatching {
+            com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray.mapIndexed { index, element ->
+                val obj = element.asJsonObject
+                FractionTransaction(
+                    id = obj.get("id")?.asString ?: "fraction_${index + 1}",
+                    enveloppeId = obj.get("enveloppeId")?.asString.orEmpty(),
+                    montant = kotlin.math.round((obj.get("montant")?.asDouble ?: 0.0) * 100.0),
+                    note = obj.get("note")?.asString.orEmpty()
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun allocationIdPour(enveloppeId: String?, date: Date): String? = enveloppeId?.let { id ->
+        allAllocations.firstOrNull { it.enveloppeId == id && memeMois(it.mois, date) }?.id
+    }
+
+    private fun memeMois(a: Date, b: Date): Boolean {
+        val ca = java.util.Calendar.getInstance().apply { time = a }
+        val cb = java.util.Calendar.getInstance().apply { time = b }
+        return ca.get(java.util.Calendar.YEAR) == cb.get(java.util.Calendar.YEAR) &&
+            ca.get(java.util.Calendar.MONTH) == cb.get(java.util.Calendar.MONTH)
     }
 
     /**
@@ -607,6 +689,17 @@ class ModifierTransactionViewModel(
     fun onDateChanged(nouvelleDate: LocalDate) {
         _uiState.update { state ->
             state.copy(dateTransaction = nouvelleDate).calculerValidite()
+        }
+        viewModelScope.launch {
+            val date = Date.from(nouvelleDate.atStartOfDay(ZoneId.systemDefault()).toInstant())
+            enveloppeRepository.recupererAllocationsPourMois(date)
+                .onSuccess { allocations ->
+                    allAllocations = (allAllocations.filterNot { memeMois(it.mois, date) } + allocations).distinctBy { it.id }
+                    _uiState.update { it.copy(enveloppesDisponibles = construireEnveloppesUi()) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(messageErreur = "Allocations du mois indisponibles : ${e.message}") }
+                }
         }
     }
 

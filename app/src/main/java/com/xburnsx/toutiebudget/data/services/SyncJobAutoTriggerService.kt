@@ -6,6 +6,8 @@ import com.xburnsx.toutiebudget.workers.SyncWorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Service qui déclenche AUTOMATIQUEMENT la synchronisation dès qu'un SyncJob est créé
@@ -16,6 +18,7 @@ import kotlinx.coroutines.launch
 object SyncJobAutoTriggerService {
     
     private const val TAG = "SyncJobAutoTrigger"
+    private val declenchementPlanifie = AtomicBoolean(false)
     
     /**
      * Déclenche IMMÉDIATEMENT la synchronisation après création d'un SyncJob
@@ -36,11 +39,15 @@ object SyncJobAutoTriggerService {
      * Utilise le Context de l'application - FONCTION GLOBALE pour tous les repositories
      */
     fun declencherSynchronisationArrierePlan() {
-        val context = getApplicationContext()
-        if (context != null) {
-            declencherSynchronisationImmediate(context)
-        } else {
-            // ⚠️ Impossible de déclencher la synchronisation - Context non disponible
+        // Laisser la transaction Room englobante se valider, puis regrouper les rafales de SyncJobs.
+        if (!declenchementPlanifie.compareAndSet(false, true)) return
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(300)
+            try {
+                getApplicationContext()?.let(::declencherSynchronisationImmediate)
+            } finally {
+                declenchementPlanifie.set(false)
+            }
         }
     }
     

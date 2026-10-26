@@ -15,6 +15,8 @@ import com.xburnsx.toutiebudget.data.services.InitialImportService
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
  import com.xburnsx.toutiebudget.domain.usecases.*
+ import com.xburnsx.toutiebudget.utils.OperationAtomique
+ import com.xburnsx.toutiebudget.utils.OperationAtomiqueRoom
  import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
  import com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel
 import com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewModel
@@ -46,12 +48,21 @@ import android.content.Context
      private lateinit var database: ToutieBudgetDatabase
      private lateinit var appContext: Context
 
+     private val operationAtomique: OperationAtomique by lazy { OperationAtomiqueRoom(database) }
+
      fun initializeDatabase(context: Context) {
          if (!::appContext.isInitialized) {
              appContext = context.applicationContext
          }
          if (!::database.isInitialized) {
              database = ToutieBudgetDatabase.getDatabase(context)
+         }
+     }
+
+     suspend fun effacerToutesLesDonneesLocales() {
+         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+             if (::appContext.isInitialized) com.xburnsx.toutiebudget.workers.SyncWorkManager.arreterSynchronisation(appContext)
+             if (::database.isInitialized) database.clearAllTables()
          }
      }
      
@@ -121,7 +132,7 @@ import android.content.Context
      private val virementUseCase: VirementUseCase by lazy {
          VirementUseCase(compteRepository, allocationMensuelleRepository, transactionRepository, enveloppeRepository, validationProvenanceService, historiqueAllocationService)
      }
-     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository, categorieRepository, historiqueAllocationService) }
+     private val argentService: ArgentService by lazy { ArgentServiceImpl(compteRepository, transactionRepository, allocationMensuelleRepository, virementUseCase, enveloppeRepository, categorieRepository, historiqueAllocationService, operationAtomique) }
      private val realtimeSyncService: RealtimeSyncService by lazy { RealtimeSyncService() }
     
     private val initialImportService: InitialImportService by lazy {
@@ -149,10 +160,10 @@ import android.content.Context
 
      private val verifierEtExecuterRolloverUseCase: VerifierEtExecuterRolloverUseCase by lazy { VerifierEtExecuterRolloverUseCase(rolloverService, preferenceRepository) }
      private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase by lazy {
-         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService)
+         EnregistrerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService, operationAtomique)
      }
      private val supprimerTransactionUseCase: SupprimerTransactionUseCase by lazy {
-         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, pretPersonnelRepository)
+         SupprimerTransactionUseCase(transactionRepository, compteRepository, enveloppeRepository, allocationMensuelleRepository, pretPersonnelRepository, operationAtomique)
      }
      private val modifierTransactionUseCase: ModifierTransactionUseCase by lazy {
          ModifierTransactionUseCase()
@@ -205,7 +216,9 @@ import android.content.Context
              pretPersonnelRepository = pretPersonnelRepository,
              argentService = argentService,
              realtimeSyncService = realtimeSyncService,
-             historiqueAllocationService = historiqueAllocationService
+             historiqueAllocationService = historiqueAllocationService,
+             syncJobDao = database.syncJobDao(),
+             operationAtomique = operationAtomique
          )
      }
      
@@ -218,7 +231,8 @@ import android.content.Context
              transactionRepository = transactionRepository,
              allocationMensuelleRepository = allocationMensuelleRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
-             supprimerTransactionUseCase = supprimerTransactionUseCase
+             supprimerTransactionUseCase = supprimerTransactionUseCase,
+             operationAtomique = operationAtomique
          )
      }
      
@@ -242,7 +256,7 @@ import android.content.Context
      }
      private val virementBudgetService: com.xburnsx.toutiebudget.domain.services.VirementBudgetService by lazy {
          com.xburnsx.toutiebudget.domain.services.VirementBudgetService(
-             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService
+             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService, operationAtomique
          )
      }
      

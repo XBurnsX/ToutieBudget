@@ -41,6 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -309,6 +311,63 @@ fun AjoutTransactionScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
+                    }
+
+                    // AA2 : enveloppes déjà utilisées avec ce tiers, proposées seulement (un appui pour choisir)
+                    if (uiState.modeOperation == "Standard" && uiState.typeTransaction == TypeTransaction.Depense &&
+                        uiState.suggestionsEnveloppes.isNotEmpty() && !uiState.fractionnementEffectue
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Déjà utilisé :", color = Color.Gray, fontSize = 12.sp)
+                            uiState.suggestionsEnveloppes.forEach { suggestion ->
+                                FilterChip(
+                                    selected = uiState.enveloppeSelectionnee?.id == suggestion.id,
+                                    onClick = { viewModel.onEnveloppeChanged(suggestion) },
+                                    label = { Text(suggestion.nom, fontSize = 12.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    // AA3 : plusieurs dossiers pour ce tiers → choisir lequel rembourser
+                    val enRemboursement = (uiState.modeOperation == "Prêt" && uiState.typePret == "Remboursement reçu") ||
+                        (uiState.modeOperation == "Emprunt" && uiState.typeDette == "Remboursement donné")
+                    if (enRemboursement && uiState.dossiersDisponibles.size > 1) {
+                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Dossier à rembourser", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = uiState.dossierChoisiId == null,
+                                    onClick = { viewModel.onDossierChoisi(null) },
+                                    label = { Text("Du plus ancien", fontSize = 12.sp) }
+                                )
+                                uiState.dossiersDisponibles.forEach { dossier ->
+                                    FilterChip(
+                                        selected = uiState.dossierChoisiId == dossier.id,
+                                        onClick = { viewModel.onDossierChoisi(dossier.id) },
+                                        label = {
+                                            Text(
+                                                "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(kotlin.math.abs(dossier.solde))}" +
+                                                    (dossier.created?.take(10)?.let { " · $it" } ?: ""),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // AA1 : aperçu court du résultat
+                    uiState.apercu?.let { apercu ->
+                        Text(text = apercu, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
                     }
 
                     // AA6 : date future permise, mais signalée
@@ -581,11 +640,16 @@ fun AjoutTransactionScreen(
                             ),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                         ) {
-                            Text(
-                                text = message,
-                                modifier = Modifier.padding(16.dp),
-                                fontSize = 14.sp
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(text = message, fontSize = 14.sp)
+                                uiState.statutSynchronisation?.let { statut ->
+                                    Text(
+                                        text = statut.libelle,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -593,24 +657,10 @@ fun AjoutTransactionScreen(
         }
     }
 
-    // 🎯 CLAVIER NUMÉRIQUE OPTIMISÉ POUR PIXEL 7 & 8 PRO
+    // Clavier numérique
     if (showKeyboard) {
-        val configuration = LocalConfiguration.current
-        val density = LocalDensity.current
-
-        // Padding optimisé pour les Pixel et appareils similaires
-        val paddingBottom = with(density) {
-            when {
-                // Pixel 7, Galaxy S23, etc. (écrans ~6.3")
-                configuration.screenHeightDp in 800..850 -> 72.dp
-                // Pixel 8 Pro, Galaxy S23 Ultra, etc. (écrans ~6.7"+)
-                configuration.screenHeightDp > 850 -> 88.dp
-                // Appareils plus petits
-                configuration.screenHeightDp < 800 -> 56.dp
-                // Fallback
-                else -> 64.dp
-            }
-        }
+        // AA7 : aucun espacement figé selon la hauteur d'écran ; la barre système est gérée par systemBarsPadding()
+        val paddingBottom = 16.dp
 
         Dialog(
             onDismissRequest = {

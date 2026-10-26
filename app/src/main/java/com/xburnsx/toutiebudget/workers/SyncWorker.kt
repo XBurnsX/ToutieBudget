@@ -80,6 +80,7 @@ class SyncWorker(
             return Result.success()
         }
         val urlBase = UrlResolver.obtenirUrlActive()
+        syncJobDao.recupererTachesInterrompues()
 
         val dejaEssayees = mutableSetOf<String>()
         var echecsReessayables = 0
@@ -96,6 +97,8 @@ class SyncWorker(
                 dejaEssayees += tache.id
                 val fiche = cleFiche(tache)
                 if (fiche != null && fiche in fichesEnAttente) continue // une tâche plus ancienne de cette fiche a échoué
+
+                syncJobDao.updateSyncJobStatus(tache.id, "IN_PROGRESS")
 
                 val resultat = try {
                     when (tache.action) {

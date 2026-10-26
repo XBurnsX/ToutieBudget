@@ -504,6 +504,15 @@ private fun CardeFraction(
                 onClicPersonnalise = { onMontantFocus(fraction) },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // AT10 : note facultative propre à cette fraction
+            OutlinedTextField(
+                value = fraction.note,
+                onValueChange = { onFractionChanged(fraction.copy(note = it)) },
+                label = { Text("Note (facultatif)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

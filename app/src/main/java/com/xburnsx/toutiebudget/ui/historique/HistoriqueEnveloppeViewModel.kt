@@ -199,9 +199,6 @@ class HistoriqueEnveloppeViewModel(
                 val deferredEnveloppes = async { 
                     enveloppeRepository.recupererToutesLesEnveloppes()
                 }
-                val deferredAllocations = async { 
-                    enveloppeRepository.recupererAllocationsPourMois(Date())
-                }
                 val deferredTiers = async {
                     tiersRepository.recupererTousLesTiers()
                 }
@@ -209,7 +206,6 @@ class HistoriqueEnveloppeViewModel(
                 // Attendre que tous les appels soient terminés
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
-                val resultAllocations = deferredAllocations.await()
                 val resultTiers = deferredTiers.await()
 
                 if (resultTransactions.isFailure) {
@@ -218,7 +214,10 @@ class HistoriqueEnveloppeViewModel(
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
-                val allocations = resultAllocations.getOrNull() ?: emptyList()
+                // HE1 : chaque allocation est retrouvée directement par son ID, quelle que soit sa période.
+                val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
+                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
+                }
                 val tiers = resultTiers.getOrNull() ?: emptyList()
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
@@ -269,10 +268,19 @@ class HistoriqueEnveloppeViewModel(
                         }
                     }
 
+                    // HE2 : dans l'historique d'une enveloppe, une transaction fractionnée montre sa portion.
+                    val montantPourEnveloppe = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+                        runCatching {
+                            JsonParser.parseString(transaction.sousItems).asJsonArray
+                                .filter { it.asJsonObject.get("enveloppeId")?.asString == enveloppeId }
+                                .sumOf { it.asJsonObject.get("montant")?.asDouble ?: 0.0 }
+                        }.getOrDefault(transaction.montant)
+                    } else transaction.montant
+
                     TransactionUi(
                         id = transaction.id,
                         type = transaction.type,
-                        montant = transaction.montant,
+                        montant = montantPourEnveloppe,
                         date = transaction.date,
                         tiersUtiliser = libelleDescriptif,
                         nomEnveloppe = nomEnveloppe,

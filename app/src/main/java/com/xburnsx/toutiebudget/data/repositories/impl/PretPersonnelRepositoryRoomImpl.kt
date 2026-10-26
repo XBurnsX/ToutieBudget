@@ -82,6 +82,7 @@ class PretPersonnelRepositoryRoomImpl(
                 type = "PRET_PERSONNEL",
                 action = "CREATE",
                 dataJson = genererJsonPretPersonnelManuel(pretEntity),
+                recordId = pretEntity.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

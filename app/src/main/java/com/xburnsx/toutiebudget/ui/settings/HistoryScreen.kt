@@ -26,8 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Écran d'historique des transactions et virements.
- * Affiche l'historique complet avec dropdown des comptes et cards détaillées.
+ * Journal des allocations et ajustements. Il est volontairement distinct de l'historique des transactions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +78,7 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historique des Comptes") },
+                title = { Text("Journal des allocations") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Retour")

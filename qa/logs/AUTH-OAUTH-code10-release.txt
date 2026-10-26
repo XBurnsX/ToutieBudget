@@ -1,0 +1,18 @@
+ToutieBudget 1.6.2 (41) — APK release — 2026-10-26 America/Toronto
+
+Package installé: com.xburnsx.toutiebudget
+SHA-1 du certificat installé: 14:D6:F9:65:C3:5C:1F:33:6C:89:DD:74:89:B9:2E:93:8A:06:3C:C5
+SHA-256 de l’APK release installé: 183D44A86EEADF381B7CEFE34CF31BCC5BCB7FE6A58CB54D987254D0F18DD544
+
+Extrait du journal Android:
+2026-10-26 00:38:10.357 D/LoginScreen: Résultat Google Sign-In reçu - Code: 0
+2026-10-26 00:38:10.368 E/LoginScreen: ApiException dans RESULT_CANCELED: 10 - 10:
+2026-10-26 00:38:10.368 E/LoginScreen: com.google.android.gms.common.api.ApiException: 10:
+2026-10-26 00:38:10.375 E/LoginViewModel: Erreur Google Sign-In code 10
+
+Configuration réellement compilée:
+- BuildConfig.GOOGLE_WEB_CLIENT_ID: projet 1078578579569
+- google-services.json/default_web_client_id: projet 857272496129
+- Firebase project_id: toutiebudget-kotlin
+
+Conclusion provisoire: le SHA release installé sur l’émulateur correspond à celui fourni. L’écart de projets OAuth est réel, mais le téléphone physique fonctionnerait; sa version et son certificat installés doivent être comparés avant de conclure sur la causalité exacte.

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +44,9 @@ fun HistoriqueItem(
     transaction: TransactionUi,
     onLongPress: (TransactionUi) -> Unit = {},
     onModifier: (TransactionUi) -> Unit = {},
-    onSupprimer: (TransactionUi) -> Unit = {}
+    onSupprimer: (TransactionUi) -> Unit = {},
+    /** AA4 : remplir Ajouter transaction avec cette opération, sans l'enregistrer (null = option absente). */
+    onReprendre: ((TransactionUi) -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var tapPosition by remember { mutableStateOf(Offset.Zero) }
@@ -336,6 +339,27 @@ fun HistoriqueItem(
                             modifier = Modifier.size(16.dp)
                         )
                         Text("Modifier", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    if (onReprendre != null) {
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    showMenu = false
+                                    onReprendre(transaction)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text("Reprendre", color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
 
                     Row(

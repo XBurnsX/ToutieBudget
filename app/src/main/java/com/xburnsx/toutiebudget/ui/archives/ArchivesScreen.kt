@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,14 @@ fun ArchivesScreen(
     var tabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Comptes archivés", "Enveloppes archivées")
 
+    LaunchedEffect(Unit) {
+        comptesViewModel.chargerComptesArchives()
+        budgetViewModel.setShowArchived(true)
+    }
+    DisposableEffect(Unit) {
+        onDispose { budgetViewModel.setShowArchived(false) }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -66,7 +75,6 @@ fun ArchivesScreen(
 
             when (tabIndex) {
                 0 -> {
-                    LaunchedEffect(Unit) { comptesViewModel.chargerComptesArchives() }
                     // CO3 : liste propre aux archives, non écrasée par les rafraîchissements des comptes actifs
                     val comptesArchivesDyn = comptesState.comptesArchives
                     // IF15 : un placement archivé peut être réactivé (même compte, même historique)
@@ -74,7 +82,7 @@ fun ArchivesScreen(
                     LazyColumn { items(comptesArchivesDyn) { c ->
                         CompteItem(
                             compte = c,
-                            onClick = { if (c is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement) aReactiver = c },
+                            onClick = { aReactiver = c },
                             onLongClick = {}
                         )
                     } }
@@ -91,15 +99,27 @@ fun ArchivesScreen(
                     }
                 }
                 1 -> {
+                    var aReactiver by remember { mutableStateOf<EnveloppeUi?>(null) }
                     LazyColumn { items(enveloppesArchives) { env ->
                         ListItem(
+                            modifier = Modifier.clickable { aReactiver = env },
                             headlineContent = { Text(env.nom, color = Color.White) },
                             supportingContent = { Text("Objectif: ${env.objectif}", color = Color.LightGray) }
                         )
                     } }
+                    aReactiver?.let { env ->
+                        AlertDialog(
+                            onDismissRequest = { aReactiver = null },
+                            title = { Text("Réactiver ${env.nom} ?") },
+                            text = { Text("L'enveloppe revient dans le budget avec son objectif, ses allocations et son historique.") },
+                            confirmButton = {
+                                TextButton(onClick = { budgetViewModel.reactiverEnveloppe(env.id); aReactiver = null }) { Text("Réactiver") }
+                            },
+                            dismissButton = { TextButton(onClick = { aReactiver = null }) { Text("Annuler") } }
+                        )
+                    }
                 }
             }
         }
     }
 }
-

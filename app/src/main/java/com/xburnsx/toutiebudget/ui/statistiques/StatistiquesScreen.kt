@@ -54,6 +54,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -129,7 +131,7 @@ fun StatistiquesScreen(
                 LoadingState()
             }
             uiState.erreur != null -> {
-                ErrorState(uiState.erreur)
+                ErrorState(uiState.erreur, viewModel::rafraichirPeriodeSelectionnee)
             }
             else -> {
                 AnimatedVisibility(
@@ -196,7 +198,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState(error: String?) {
+private fun ErrorState(error: String?, onRetry: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -231,6 +233,7 @@ private fun ErrorState(error: String?) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
                 )
+                Button(onClick = onRetry) { Text("Réessayer") }
             }
         }
     }
@@ -250,6 +253,29 @@ private fun StatistiquesContent(
     ) {
         // Header avec période (inclut sélecteur dans la topbar)
         HeaderSection(uiState, viewModel)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = uiState.vue == VueStatistiques.BUDGET,
+                onClick = { viewModel.changerVue(VueStatistiques.BUDGET) },
+                label = { Text("Budget") }
+            )
+            FilterChip(
+                selected = uiState.vue == VueStatistiques.FLUX_TRESORERIE,
+                onClick = { viewModel.changerVue(VueStatistiques.FLUX_TRESORERIE) },
+                label = { Text("Flux de trésorerie") }
+            )
+        }
+
+        if (uiState.calculIncomplet) {
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Calcul incomplet", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    Text(uiState.donneesIndisponibles.joinToString().ifBlank { "Certaines données sont indisponibles." })
+                    Button(onClick = viewModel::rafraichirPeriodeSelectionnee) { Text("Réessayer") }
+                }
+            }
+        }
 
         // KPIs améliorés
                     AnimatedKpiCards(uiState, viewModel)
@@ -307,7 +333,7 @@ private fun StatistiquesContent(
                 // Valeur Nette (dette - total valeur)
                 GlassmorphicKpiCard(
                     modifier = Modifier.weight(1f),
-                    title = "Valeur Nette",
+                    title = if (uiState.patrimoineEstActuel) "Valeur nette actuelle" else "Valeur nette actuelle (pas historique)",
                     value = MoneyFormatter.formatAmount(uiState.valeurNette),
                     icon = Icons.Default.TrendingUp,
                     gradient = netGradient(uiState.valeurNette),
@@ -402,8 +428,8 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: Statistiqu
         ) {
             GlassmorphicKpiCard(
                 modifier = Modifier.weight(1f),
-                title = "Dépenses",
-                value = MoneyFormatter.formatAmount(uiState.totalDepenses),
+                title = if (uiState.vue == VueStatistiques.BUDGET) "Dépenses de consommation" else "Sorties de trésorerie",
+                value = MoneyFormatter.formatAmount(if (uiState.vue == VueStatistiques.BUDGET) uiState.totalDepenses else uiState.totalSortiesTresorerie),
                 icon = Icons.Default.TrendingDown,
                 gradient = Brush.linearGradient(
                     colors = listOf(
@@ -417,8 +443,8 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: Statistiqu
 
             GlassmorphicKpiCard(
                 modifier = Modifier.weight(1f),
-                title = "Revenus",
-                value = MoneyFormatter.formatAmount(uiState.totalRevenus),
+                title = if (uiState.vue == VueStatistiques.BUDGET) "Revenus gagnés" else "Entrées de trésorerie",
+                value = MoneyFormatter.formatAmount(if (uiState.vue == VueStatistiques.BUDGET) uiState.totalRevenus else uiState.totalEntreesTresorerie),
                 icon = Icons.Default.TrendingUp,
                 gradient = Brush.linearGradient(
                     colors = listOf(
@@ -432,8 +458,11 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: Statistiqu
 
             GlassmorphicKpiCard(
                 modifier = Modifier.weight(1f),
-                title = "Net",
-                value = MoneyFormatter.formatAmount(uiState.totalNet),
+                title = if (uiState.vue == VueStatistiques.BUDGET) "Net budgétaire" else "Flux net",
+                value = MoneyFormatter.formatAmount(
+                    if (uiState.vue == VueStatistiques.BUDGET) uiState.totalNet
+                    else uiState.totalEntreesTresorerie - uiState.totalSortiesTresorerie
+                ),
                 icon = Icons.Default.AccountBalance,
                 gradient = netGradient(uiState.totalNet),
                 delay = 200
@@ -850,7 +879,7 @@ private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
         ) {
             // Titre du graphique
             Text(
-                "Moyenne sur 7 jours",
+                "Moyenne quotidienne des dépenses sur 7 jours",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,

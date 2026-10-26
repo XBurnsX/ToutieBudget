@@ -58,7 +58,7 @@ fun VirerArgentScreen(
             viewModel.changerMois(moisPreselectionne)
             
             // Configurer le montant (convertir en centimes)
-            val montantCentimes = (montantPreselectionne * 100).toLong()
+            val montantCentimes = kotlin.math.round(montantPreselectionne * 100).toLong()
             viewModel.onMontantChange(montantCentimes.toString())
         }
     }
@@ -654,4 +654,3 @@ private fun destinationsIncompatibles(
     }
     return resultat
 }
-

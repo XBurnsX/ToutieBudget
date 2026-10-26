@@ -218,7 +218,11 @@ fun AppNavigation() {
                     onNavigateBack = { navController.popBackStack() },
                     onModifierTransaction = { transactionId ->
                         // ✅ Naviguer vers l'écran de modification avec les paramètres de retour
-                        navController.navigate("modifier_transaction/$transactionId/$compteId/$collectionCompte/$nomCompte")
+                        navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
+                    },
+                    onReprendreTransaction = { transactionId ->
+                        AppModule.provideAjoutTransactionViewModel().reprendreTransaction(transactionId)
+                        navController.navigate("reprendre_transaction")
                     }
                 )
             }
@@ -247,19 +251,20 @@ fun AppNavigation() {
                     onNavigateBack = { navController.popBackStack() },
                     onModifierTransaction = { transactionId ->
                         // Naviguer vers l'écran de modification
-                        navController.navigate("modifier_transaction/$transactionId")
+                        navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
+                    },
+                    onReprendreTransaction = { transactionId ->
+                        AppModule.provideAjoutTransactionViewModel().reprendreTransaction(transactionId)
+                        navController.navigate("reprendre_transaction")
                     }
                 )
             }
             
             // Route pour l'écran de modification de transaction
             composable(
-                route = "modifier_transaction/{transactionId}/{compteId}/{collectionCompte}/{nomCompte}",
+                route = "modifier_transaction/{transactionId}",
                 arguments = listOf(
-                    navArgument("transactionId") { type = NavType.StringType },
-                    navArgument("compteId") { type = NavType.StringType },
-                    navArgument("collectionCompte") { type = NavType.StringType },
-                    navArgument("nomCompte") { type = NavType.StringType }
+                    navArgument("transactionId") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
@@ -330,6 +335,15 @@ fun AppNavigation() {
                 )
             }
             
+            // AA4 : formulaire Ajouter rempli à partir d'une ancienne transaction (rien n'est enregistré d'office)
+            composable("reprendre_transaction") {
+                val budgetViewModel = AppModule.provideBudgetViewModel()
+                AjoutTransactionScreen(
+                    viewModel = AppModule.provideAjoutTransactionViewModel(),
+                    onTransactionSuccess = { budgetViewModel.rafraichirDonnees() }
+                )
+            }
+
             // Route pour l'ajout de transaction avec présélection (paiement carte de crédit)
             composable(
                 route = "nouvelle_transaction_paiement/{carteCreditId}",
@@ -440,20 +454,26 @@ fun MainAppScaffold(
                     onPretPersonnelClick = {
                         bottomBarNavController.navigate("pret_personnel")
                     },
-                    onGererSoldeNegatifClick = {
-                        bottomBarNavController.navigate("gerer_solde_negatif")
+                    onGererSoldeNegatifClick = { mois ->
+                        bottomBarNavController.navigate("gerer_solde_negatif/${mois.time}")
                     },
                     onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
-                        mainNavController.navigate("historique_enveloppe/$enveloppeId/$nomEnveloppe")
+                        mainNavController.navigate(
+                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        )
                     }
                 )
             }
 
             // Route pour la gestion des soldes négatifs
-            composable("gerer_solde_negatif") {
+            composable(
+                "gerer_solde_negatif/{moisMillis}",
+                arguments = listOf(navArgument("moisMillis") { type = NavType.LongType })
+            ) { backStackEntry ->
                 val viewModel = AppModule.provideBudgetViewModel()
                 GererSoldeNegatifScreen(
                     viewModel = viewModel,
+                    moisSelectionne = Date(backStackEntry.arguments?.getLong("moisMillis") ?: System.currentTimeMillis()),
                     onRetour = {
                         bottomBarNavController.popBackStack()
                     },
@@ -516,19 +536,13 @@ fun MainAppScaffold(
                 )
             }
             
-            // Route pour la page Historique générale
-            composable(Screen.HistoriqueGeneral.route) {
-                com.xburnsx.toutiebudget.ui.settings.HistoryScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
-                )
-            }
             composable(Screen.Comptes.route) {
                 val viewModel = AppModule.provideComptesViewModel()
                 ComptesScreen(
                     viewModel = viewModel,
                     onCompteClick = { compteId, collectionCompte, nomCompte ->
                         mainNavController.navigate(
-                            "historique_compte/$compteId/$collectionCompte/$nomCompte"
+                            "historique_compte/${android.net.Uri.encode(compteId)}/${android.net.Uri.encode(collectionCompte)}/${android.net.Uri.encode(nomCompte)}"
                         )
                     },
                     onCarteCreditLongClick = { carteCreditId ->

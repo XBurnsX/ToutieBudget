@@ -42,6 +42,8 @@ fun DatabaseManagerScreen(
     couleurTheme: CouleurTheme = CouleurTheme.PINK
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
+    var modeDeveloppe by remember { mutableStateOf(false) }
+    var confirmerModeDeveloppe by remember { mutableStateOf(false) }
     val tabs = listOf("Comptes", "Transactions", "Allocations", "Catégories", "Enveloppes", "Tiers", "Prêts")
     
     Scaffold(
@@ -72,7 +74,22 @@ fun DatabaseManagerScreen(
                 }
             }
             
-            when (selectedTabIndex) {
+            if (!modeDeveloppe) {
+                Column(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("Mode consultation sécurisé", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Les écritures financières brutes sont désactivées. Utilisez les écrans métier pour modifier comptes, transactions, allocations ou dettes.",
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                    OutlinedButton(onClick = { confirmerModeDeveloppe = true }) { Text("Activer l'édition avancée") }
+                }
+            } else when (selectedTabIndex) {
                 0 -> ComptesTab(couleurTheme = couleurTheme)
                 1 -> TransactionsTab(couleurTheme = couleurTheme)
                 2 -> AllocationsTab(couleurTheme = couleurTheme)
@@ -82,6 +99,17 @@ fun DatabaseManagerScreen(
                 6 -> PretsTab(couleurTheme = couleurTheme)
             }
         }
+    }
+    if (confirmerModeDeveloppe) {
+        AlertDialog(
+            onDismissRequest = { confirmerModeDeveloppe = false },
+            title = { Text("Édition technique dangereuse") },
+            text = { Text("Les modifications directes peuvent déséquilibrer soldes, enveloppes, prêts et synchronisation. Réservez ce mode au diagnostic développeur.") },
+            confirmButton = {
+                TextButton(onClick = { modeDeveloppe = true; confirmerModeDeveloppe = false }) { Text("Je comprends, activer") }
+            },
+            dismissButton = { TextButton(onClick = { confirmerModeDeveloppe = false }) { Text("Annuler") } }
+        )
     }
 }
 

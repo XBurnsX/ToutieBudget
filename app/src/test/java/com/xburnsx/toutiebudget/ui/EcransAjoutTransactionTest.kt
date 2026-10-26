@@ -1,8 +1,14 @@
 package com.xburnsx.toutiebudget.ui
 
 import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
+import com.xburnsx.toutiebudget.data.modeles.Tiers
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
 import com.xburnsx.toutiebudget.fakes.AppliEnMemoire
+import com.xburnsx.toutiebudget.ui.ajout_transaction.StatutSynchronisationEcriture
+import com.xburnsx.toutiebudget.ui.ajout_transaction.determinerStatutSynchronisation
 import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.FractionTransaction
 import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
 import com.xburnsx.toutiebudget.ui.budget.StatutObjectif
@@ -26,7 +32,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Section 13 — Ajouter transaction : AT4, AT6, AT8, AT12, AT15, AT17, AT20, AT21 et AA6, par le vrai ViewModel. */
+/** Section 13 — Ajouter transaction : correctifs monétaires et ajouts AA, par le vrai ViewModel. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EcransAjoutTransactionTest {
 
@@ -238,5 +244,143 @@ class EcransAjoutTransactionTest {
         assertTrue(vm.uiState.value.dateFuture)
         vm.onDateChanged(LocalDate.now())
         assertFalse(vm.uiState.value.dateFuture)
+    }
+
+    // ===== AT10 / AT18 et AA1 à AA5 =====
+
+    @Test
+    fun `apercu annonce les soldes projetes sans enregistrer`() = test {
+        b.cheque("chq", 100.0, 0.0, nom = "Compte courant")
+        b.enveloppe("depanneur", nom = "Dépanneur")
+        b.allocation("depanneur", maintenant, solde = 20.0, provenance = "chq")
+        val vm = formulaire()
+        vm.onCompteChanged(b.comptes.getValue("chq"))
+        vm.onTiersChanged("Irving")
+        vm.onMontantChanged("500")
+        vm.onEnveloppeChanged(enveloppeUi("depanneur", 20.0).copy(nom = "Dépanneur"))
+
+        val apercu = assertNotNull(vm.uiState.value.apercu)
+        assertTrue(apercu.contains("100,00"))
+        assertTrue(apercu.contains("95,00"))
+        assertTrue(apercu.contains("15,00"))
+        assertTrue(b.transactions.isEmpty(), "AA1 ne sauvegarde rien")
+    }
+
+    @Test
+    fun `tiers connu propose ses enveloppes recentes sans les selectionner`() = test {
+        b.cheque("chq", 100.0, 0.0)
+        b.enveloppe("epicerie", nom = "Épicerie")
+        val allocation = b.allocation("epicerie", maintenant, solde = 30.0, provenance = "chq")
+        b.depotTransactions.creerTransaction(
+            Transaction(
+                id = "ancienne",
+                utilisateurId = "u",
+                type = TypeTransaction.Depense,
+                montant = 4.0,
+                compteId = "chq",
+                collectionCompte = "comptes_cheques",
+                allocationMensuelleId = allocation.id,
+                tiersUtiliser = "Marché"
+            )
+        ).getOrThrow()
+        val vm = formulaire()
+        vm.onTiersChanged("  marché ")
+        attendre()
+
+        assertEquals(listOf("epicerie"), vm.uiState.value.suggestionsEnveloppes.map { it.id })
+        assertNull(vm.uiState.value.enveloppeSelectionnee, "AA2 propose, mais ne choisit jamais automatiquement")
+    }
+
+    @Test
+    fun `remboursement peut viser un dossier precis`() = test {
+        b.cheque("chq", 100.0, 0.0)
+        app.autres.prets["p1"] = PretPersonnel(id = "p1", nomTiers = "Ana", montantInitial = 50.0, solde = 50.0, type = TypePretPersonnel.PRET, created = "2026-01-01")
+        app.autres.prets["p2"] = PretPersonnel(id = "p2", nomTiers = "Ana", montantInitial = 80.0, solde = 80.0, type = TypePretPersonnel.PRET, created = "2026-02-01")
+        val vm = formulaire()
+        vm.onModeOperationChanged("Prêt")
+        vm.onTypePretChanged("Remboursement reçu")
+        vm.onCompteChanged(b.comptes.getValue("chq"))
+        vm.onTiersChanged("Ana")
+        vm.onMontantChanged("2000")
+        attendre()
+        vm.onDossierChoisi("p2")
+        vm.sauvegarderTransaction()
+        attendre()
+
+        assertEquals(50.0, app.autres.prets.getValue("p1").solde)
+        assertEquals(60.0, app.autres.prets.getValue("p2").solde)
+        assertEquals(1, b.transactions.size)
+    }
+
+    @Test
+    fun `reprendre remplit le brouillon sans creer une transaction`() = test {
+        b.cheque("chq", 100.0, 0.0)
+        b.enveloppe("epicerie")
+        val allocation = b.allocation("epicerie", maintenant, solde = 30.0, provenance = "chq")
+        b.depotTransactions.creerTransaction(
+            Transaction(
+                id = "ancienne",
+                utilisateurId = "u",
+                type = TypeTransaction.Depense,
+                montant = 12.34,
+                compteId = "chq",
+                collectionCompte = "comptes_cheques",
+                allocationMensuelleId = allocation.id,
+                tiersUtiliser = "Marché",
+                note = "Pain"
+            )
+        ).getOrThrow()
+        val vm = formulaire()
+        vm.reprendreTransaction("ancienne")
+        attendre()
+
+        assertEquals("1234", vm.uiState.value.montant)
+        assertEquals("Marché", vm.uiState.value.tiersUtiliser)
+        assertEquals("Pain", vm.uiState.value.note)
+        assertEquals("chq", vm.uiState.value.compteSelectionne?.id)
+        assertEquals("epicerie", vm.uiState.value.enveloppeSelectionnee?.id)
+        assertEquals(1, b.transactions.size, "AA4 ne sauvegarde pas la reprise")
+    }
+
+    @Test
+    fun `note de chaque fraction est conservee dans le json`() = test {
+        b.cheque("chq", 100.0, 0.0)
+        b.enveloppe("epicerie"); b.enveloppe("maison")
+        b.allocation("epicerie", maintenant, solde = 30.0, provenance = "chq")
+        b.allocation("maison", maintenant, solde = 30.0, provenance = "chq")
+        val vm = formulaire()
+        vm.onCompteChanged(b.comptes.getValue("chq")); vm.onTiersChanged("Marché"); vm.onMontantChanged("1000")
+        vm.confirmerFractionnement(
+            listOf(
+                FractionTransaction("f1", 400.0, "epicerie", "Pain"),
+                FractionTransaction("f2", 600.0, "maison", "Ampoule")
+            )
+        )
+        vm.sauvegarderTransaction(); attendre()
+
+        val json = assertNotNull(b.transactions.values.single().sousItems)
+        assertTrue(json.contains("Pain")); assertTrue(json.contains("Ampoule"))
+    }
+
+    @Test
+    fun `creation reutilise un tiers equivalent`() = test {
+        app.autres.tiers["t1"] = Tiers(id = "t1", nom = "Irving Port-Cartier", utilisateur_id = "u")
+        val vm = formulaire()
+        vm.onCreerNouveauTiers("  IRVING   PORT-CARTIER ")
+        attendre()
+
+        assertEquals(1, app.autres.tiers.size)
+        assertEquals("Irving Port-Cartier", vm.uiState.value.tiersUtiliser)
+    }
+
+    @Test
+    fun `statut de synchronisation reflete seulement la derniere ecriture`() {
+        val ancien = SyncJob(id = "ancien", type = "TRANSACTION", action = "CREATE", dataJson = "{}", createdAt = 10, status = "FAILED")
+        val pending = SyncJob(id = "local", type = "TRANSACTION", action = "CREATE", dataJson = "{}", createdAt = 101, status = "PENDING")
+        val failed = pending.copy(id = "echec", status = "FAILED", bloque = true)
+
+        assertEquals(StatutSynchronisationEcriture.SYNCHRONISEE, determinerStatutSynchronisation(listOf(ancien), 100))
+        assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT, determinerStatutSynchronisation(listOf(pending), 100))
+        assertEquals(StatutSynchronisationEcriture.ECHEC, determinerStatutSynchronisation(listOf(pending, failed), 100))
     }
 }

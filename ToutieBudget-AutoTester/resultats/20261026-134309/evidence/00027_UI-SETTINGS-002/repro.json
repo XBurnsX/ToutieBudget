@@ -1,0 +1,10 @@
+[
+  {
+    "action": "navigate",
+    "target": "Paramètres"
+  },
+  {
+    "action": "probe",
+    "target": "Réinitialiser les données"
+  }
+]

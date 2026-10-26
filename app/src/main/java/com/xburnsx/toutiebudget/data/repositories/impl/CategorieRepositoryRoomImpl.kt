@@ -76,6 +76,7 @@ class CategorieRepositoryRoomImpl(
                 type = "CATEGORIE",
                 action = "CREATE",
                 dataJson = gson.toJson(categorieEntity),
+                recordId = categorieEntity.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )

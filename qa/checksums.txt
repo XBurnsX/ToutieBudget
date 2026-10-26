@@ -1,0 +1,4 @@
+spec_sha256  22e3aa4b184f4f36b7db696e2824a8127e3749b89585fc38e0fe8c02168137bf  C:\Users\XBurnsX\Downloads\ToutieBudget_Codex_Tester_Repartage.txt
+git_commit  1d5b399630865cfc332d671ce2c381d74fcb211d
+app_version  versionCode = 41
+app_version  versionName = "1.6.2"

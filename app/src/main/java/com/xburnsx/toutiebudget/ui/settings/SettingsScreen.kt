@@ -126,6 +126,7 @@ fun SettingsScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showLocalResetDialog by remember { mutableStateOf(false) }
     var isResetting by remember { mutableStateOf(false) }
     var resetError by remember { mutableStateOf<String?>(null) }
     var showPlanReset by remember { mutableStateOf(false) }
@@ -468,8 +469,8 @@ fun SettingsScreen(
                 SettingsCard {
                     RowParam(
                         icone = Icons.Default.Archive,
-                        titre = "Historique des comptes",
-                        description = "Voir l'historique complet des transactions et virements",
+                        titre = "Journal des allocations",
+                        description = "Voir les allocations et ajustements journalisés (distinct de l'historique des transactions)",
                         onClick = onNavigateToHistory,
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
                     )
@@ -487,11 +488,23 @@ fun SettingsScreen(
                 }
             }
             item {
+                SettingsCard(backgroundColor = Color(0xFF252525)) {
+                    RowParam(
+                        icone = Icons.Default.Delete,
+                        titre = "Effacer les données locales",
+                        description = "Effacer seulement cet appareil; les données distantes restent intactes",
+                        couleurTexte = Color(0xFFFFB74D),
+                        onClick = { showLocalResetDialog = true },
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFFFB74D)) }
+                    )
+                }
+            }
+            item {
                 SettingsCard(backgroundColor = Color(0xFF2A1F1F)) {
                     RowParam(
                         icone = Icons.Default.Delete,
-                        titre = "Réinitialiser les données",
-                        description = "Supprimer toutes les données de l'application",
+                        titre = "Supprimer définitivement mon budget",
+                        description = "Supprimer mes données PocketBase et locales sur cet appareil",
                         couleurTexte = Color.Red,
                         onClick = { showResetDialog = true },
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Red) }
@@ -550,11 +563,30 @@ fun SettingsScreen(
     }
 
     // Dialogs — Réinitialisation (double confirmation)
+    if (showLocalResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocalResetDialog = false },
+            title = { Text("Effacer les données locales de cet appareil ?") },
+            text = { Text("Les données PocketBase ne seront pas supprimées. La file de synchronisation locale sera aussi effacée et la session sera fermée.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLocalResetDialog = false
+                    scope.launch {
+                        com.xburnsx.toutiebudget.di.AppModule.effacerToutesLesDonneesLocales()
+                        PocketBaseClient.deconnecter(context)
+                        onLogout()
+                    }
+                }) { Text("Effacer cet appareil", color = Color.Red) }
+            },
+            dismissButton = { TextButton(onClick = { showLocalResetDialog = false }) { Text("Annuler") } }
+        )
+    }
+
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text(text = "Réinitialiser les données", fontWeight = FontWeight.Bold) },
-            text = { Text("Cette action supprimera toutes les données de l'application. Voulez-vous continuer ?") },
+            title = { Text(text = "Supprimer définitivement mon budget", fontWeight = FontWeight.Bold) },
+            text = { Text("Cette action supprime vos comptes, investissements, dettes, prêts, transactions, enveloppes, allocations et catégories dans PocketBase, puis efface cet appareil. Elle est irréversible.") },
             confirmButton = { TextButton(onClick = { showResetDialog = false; showResetConfirmDialog = true }) { Text("Réinitialiser", color = Color.Red) } },
             dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Annuler") } },
             containerColor = Color(0xFF2C2C2E),
@@ -565,8 +597,8 @@ fun SettingsScreen(
     if (showResetConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },
-            title = { Text(text = "Confirmation de réinitialisation", fontWeight = FontWeight.Bold) },
-            text = { if (isResetting) Text("Réinitialisation en cours...") else Text("Êtes-vous sûr de vouloir réinitialiser les données ?") },
+            title = { Text(text = "Dernière confirmation", fontWeight = FontWeight.Bold) },
+            text = { if (isResetting) Text("Suppression et vérification en cours...") else Text("Supprimer définitivement toutes vos données distantes et locales ? Un échec partiel sera signalé et ne sera jamais présenté comme un succès.") },
             confirmButton = {
                 TextButton(
                     onClick = {

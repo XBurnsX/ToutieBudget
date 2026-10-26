@@ -1,0 +1,2 @@
+execution_id,test_id,environment_valid,user_id,account_id,account_balance_before_cents,account_balance_after_cents,pap_before_cents,pap_after_cents,envelope_id,envelope_before_cents,envelope_after_cents,pocketbase_verified,status,note
+BUD-003-invalid-20261025,BUD-003,false,tester-a-local,ID_A,100000,100000,100000,80000,ENV_EPICERIE,0,20000,false,NOT_RUN,"Exécution invalidée: fixture présente uniquement dans Room, sans enregistrements PocketBase TEST correspondants."

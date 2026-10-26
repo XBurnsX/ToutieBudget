@@ -1,0 +1,1102 @@
+--------- beginning of system
+10-26 00:21:55.563   701   796 D CoreBackPreview: Window{5a0cd2d u0 Pop-Up Window}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@57cbbba, mPriority=1000000, mIsAnimationCallback=false, mOverrideBehavior=0}
+--------- beginning of main
+10-26 00:21:55.783  1633  1633 I NativeLibHelper: NativeLibHelper.loadLibrary():162 Loaded native library:integrated_shared_object (result=true)
+10-26 00:21:55.786   701   841 I ImeTracker: com.xburnsx.toutiebudget:ee855296: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-26 00:21:55.810  6462  6462 D InsetsController: hide(ime(), fromIme=false)
+10-26 00:21:55.810  6462  6462 I ImeTracker: com.xburnsx.toutiebudget:ee855296: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+10-26 00:21:55.826   701  1219 D OomAdjuster: Not killing cached processes
+10-26 00:21:55.827  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:55.832  1633  1633 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2043 
+10-26 00:21:55.843   701  1219 I ImeTracker: system_server:f64a4575: onRequestHide at ORIGIN_SERVER reason IME_REQUESTED_CHANGED_LISTENER fromUser false
+10-26 00:21:55.843   701   730 I ImeTracker: system_server:f64a4575: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-26 00:21:55.843  1633  1633 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+10-26 00:21:55.843  1806  1806 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.mobstore.service.START xflg=0x4 pkg=com.google.android.gms }
+10-26 00:21:55.844  6462  6462 W VRI[Pop-Up Window]: Dropping event (no window focus):KeyEvent { action=ACTION_DOWN, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x0, repeatCount=0, eventTime=539819000000, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.845  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.847  1633  1633 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1293 onStartInput(EditorInfo{EditorInfo{packageName=com.xburnsx.toutiebudget, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: EmojiCompatManager.getEmojiCompatIfLoaded():343 EmojiCompat.init() was never called.
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: java.lang.IllegalStateException: EmojiCompat is not initialized. Please call EmojiCompat.init() first
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at asx.p(PG:6)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at axb.b(PG:13)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at jnr.b(PG:2)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at jnr.c(PG:4)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at jnr.f(PG:3)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at jnx.c(PG:3)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at kif.cz(PG:47)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at lhl.run(PG:1025)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at jaf.execute(PG:12)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at nco.v(PG:13)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at lhn.m(PG:96)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at lhn.k(PG:25)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at kgn.onStartInput(PG:250)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService.doStartInput(InputMethodService.java:3521)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService$InputMethodImpl.startInput(InputMethodService.java:879)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService$InputMethodImpl.dispatchStartInput(InputMethodService.java:908)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.IInputMethodWrapper.executeMessage(IInputMethodWrapper.java:201)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.HandlerCaller$MyHandler.handleMessage(HandlerCaller.java:44)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.os.Handler.dispatchMessage(Handler.java:110)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.os.Looper.loopOnce(Looper.java:248)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.os.Looper.loop(Looper.java:338)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at java.lang.reflect.Method.invoke(Native Method)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+10-26 00:21:55.860  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+10-26 00:21:55.861  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.861  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.861  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.861  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.861  6462  6462 W VRI[Pop-Up Window]: Cancelling event (no window focus):KeyEvent { action=ACTION_UP, keyCode=KEYCODE_MOVE_END, scanCode=0, metaState=0, flags=0x20, repeatCount=0, eventTime=539986494400, downTime=539819000000, deviceId=-1, source=0x0, displayId=-1 }
+10-26 00:21:55.863  1633  1633 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+10-26 00:21:55.864   701  1219 W PackageConfigPersister: App-specific configuration not found for packageName: com.xburnsx.toutiebudget and userId: 0
+10-26 00:21:55.991  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.132  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.213  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.276  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.344  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.396  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.432  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.466  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.504  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.535  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:56.535  1633  1633 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2043 
+10-26 00:21:56.535  1633  1633 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+10-26 00:21:56.536  1633  1633 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1293 onStartInput(EditorInfo{EditorInfo{packageName=com.xburnsx.toutiebudget, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: EmojiCompatManager.getEmojiCompatIfLoaded():343 EmojiCompat.init() was never called.
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: java.lang.IllegalStateException: EmojiCompat is not initialized. Please call EmojiCompat.init() first
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at asx.p(PG:6)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at axb.b(PG:13)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at jnr.b(PG:2)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at jnr.c(PG:4)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at jnr.f(PG:3)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at jnx.c(PG:3)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at kif.cz(PG:47)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at lhl.run(PG:1025)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at jaf.execute(PG:12)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at nco.v(PG:13)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at lhn.m(PG:96)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at lhn.k(PG:25)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at kgn.onStartInput(PG:250)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService.doStartInput(InputMethodService.java:3521)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService$InputMethodImpl.startInput(InputMethodService.java:879)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.InputMethodService$InputMethodImpl.dispatchStartInput(InputMethodService.java:908)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.inputmethodservice.IInputMethodWrapper.executeMessage(IInputMethodWrapper.java:201)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.HandlerCaller$MyHandler.handleMessage(HandlerCaller.java:44)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.os.Handler.dispatchMessage(Handler.java:110)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.os.Looper.loopOnce(Looper.java:248)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.os.Looper.loop(Looper.java:338)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at java.lang.reflect.Method.invoke(Native Method)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+10-26 00:21:56.537  1633  1633 I EmojiCompatManager: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+10-26 00:21:56.539  1633  1633 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+10-26 00:21:56.540   701   796 W PackageConfigPersister: App-specific configuration not found for packageName: com.xburnsx.toutiebudget and userId: 0
+10-26 00:21:56.609  1633  1633 I StylusModule: StylusModule.onUpdateToolType():801 Update tool type = 0
+10-26 00:21:57.017  1806  1806 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.audit.service.START xflg=0x4 pkg=com.google.android.gms }
+10-26 00:21:57.043  1806  7227 I GmscoreIpa: Starting mediastore instant index [CONTEXT service_id=255 ]
+10-26 00:21:58.462  1523  1523 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.nearby.presence.service.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentApiServiceNoInstantApps }
+10-26 00:21:58.532  1523  1523 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.instantapps.START xflg=0x4 pkg=com.google.android.gms }
+10-26 00:21:58.535  1523  1523 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.trustagent.BridgeApi.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentInternalApiService }
+10-26 00:21:58.958  7232  7232 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-26 00:21:58.976  7232  7232 I AndroidRuntime: Using default boot image
+10-26 00:21:58.976  7232  7232 I AndroidRuntime: Leaving lock profiling enabled
+10-26 00:21:58.980  7232  7232 I app_process: Using CollectorTypeCMC GC.
+10-26 00:21:58.990   701   824 D ActivityManager: freezing 4093 com.google.android.apps.safetyhub
+10-26 00:21:58.991   701   824 D ActivityManager: freezing 4082 com.google.android.apps.messaging
+10-26 00:21:58.992   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:58.992   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:58.992   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10144} in 1ms
+10-26 00:21:59.108  7232  7232 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+10-26 00:21:59.132   701   824 D ActivityManager: freezing 6881 com.android.traceur
+10-26 00:21:59.132   701   824 D ActivityManager: freezing 3354 com.google.android.cellbroadcastreceiver
+10-26 00:21:59.133   701   824 D ActivityManager: freezing 6928 com.google.android.healthconnect.controller
+10-26 00:21:59.134   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:59.134   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:59.134   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10131} in 1ms
+10-26 00:21:59.135  7232  7232 D nativeloader: Load libicu_jni.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:21:59.135  7232  7232 D app_process: u_setTimeZoneFilesDirectory("/apex/com.android.tzdata/etc/tz/versioned/9/icu") succeeded. 
+10-26 00:21:59.135  7232  7232 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt76l.dat
+10-26 00:21:59.140  7232  7232 D nativeloader: Load libjavacore.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:21:59.142  7232  7232 D nativeloader: Load libopenjdk.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:21:59.145  7232  7232 W app_process: Unexpected CPU variant for x86: x86_64.
+10-26 00:21:59.145  7232  7232 W app_process: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+10-26 00:21:59.150   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:59.151   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:59.151   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10200} in 2ms
+10-26 00:21:59.151   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:59.152   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:59.152   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10190} in 1ms
+10-26 00:21:59.153  7232  7232 W app_process: ClassLoaderContext shared library size mismatch. Expected=2, found=0 (PCL[]{PCL[/system/framework/android.test.base.jar*2789897741]#PCL[/system/framework/android.test.mock.jar*3361312393]} | PCL[])
+10-26 00:21:59.156  7232  7232 W app_process: ClassLoaderContext classpath size mismatch. expected=0, found=1 (PCL[]{PCL[/system/framework/android.test.runner.jar*895143020]#PCL[/system/framework/android.test.base.jar*2789897741]} | PCL[/system/framework/android.test.runner.jar*895143020])
+10-26 00:21:59.165   701   824 D ActivityManager: freezing 6910 com.google.android.accessibility.switchaccess
+10-26 00:21:59.167   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:59.167   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:59.167   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10168} in 1ms
+10-26 00:21:59.182  7232  7232 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+10-26 00:21:59.182  7232  7232 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-26 00:21:59.187  7232  7232 I AconfigPackage: android.media.swcodec.flags is mapped to com.android.media.swcodec
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.settings.simplemode.flags is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.systemui is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.apps.nexuslauncher is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.settings.accessibility is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.settings.flags is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.apps.miphone.aiai.matchmaker.overview.ui is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.settings.flags is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.launcher3 is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.wallpaper is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.settings.media_drm is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.systemui.accessibility.accessibilitymenu is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.settings.keyboard is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.server.policy.feature.flags is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.android.settings.factory_reset is mapped to system_ext
+10-26 00:21:59.188  7232  7232 I AconfigPackage: com.google.android.haptics.flags is mapped to system_ext
+10-26 00:21:59.189  7232  7232 I AconfigPackage: com.android.permission.flags is mapped to com.android.permission
+10-26 00:21:59.190  7232  7232 I AconfigPackage: com.android.icu is mapped to com.android.i18n
+10-26 00:21:59.191  7232  7232 I AconfigPackage: com.android.appsearch.flags is mapped to com.android.appsearch
+10-26 00:21:59.192  7232  7232 I AconfigPackage: android.uprobestats.mainline.flags is mapped to com.android.uprobestats
+10-26 00:21:59.193  7232  7232 I AconfigPackage: android.provider.flags is mapped to com.android.configinfrastructure
+10-26 00:21:59.193  7232  7232 I AconfigPackage: com.android.server.deviceconfig is mapped to com.android.configinfrastructure
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.nfc.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.admin.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.database.sqlite is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.providers.calendar is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.power.feature.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.media.performance.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.contextualsearch.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.ondeviceintelligence.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.media.projection.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.companion is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.service.controls.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.text.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.providers.contactkeys.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.intentresolver is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.companion.virtualdevice.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.uprobestats.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.net.thread.platform.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.view.contentprotection.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.dreams is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.graphics.surfaceflinger.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.hardware.input is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.sdk is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.input.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.tracing is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.biometrics is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.view.contentcapture.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.job is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.content.res is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.net.platform.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.aconfig.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.graphics.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.server.app is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.speech.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.stats is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.hardware.biometrics is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.car.feature is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.adpf is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.location.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.settingslib.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.managedprovisioning.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.assist.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.net is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.settingslib.widget.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.internal.camera.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.hardware.libsensor.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.internal.jank is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.providers.settings is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.multiuser is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.power.optimization is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.calllogbackup is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.media.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.server.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.graphics.libvulkan.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.appfunctions.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.app.smartspace.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.providers.contacts.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.shell.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.media.aaudio is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.hardware.radio is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.google.wear.services.infra.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: suspend_service.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.media.midi is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.libcore.readonly is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.settingslib.widget.selectorwithwidgetpreference.flags is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: android.service.notification is mapped to system
+10-26 00:21:59.194  7232  7232 I AconfigPackage: com.android.systemui.shared is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.app.jank is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.app.wearable is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.media.audio is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.service.chooser is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.compat is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.alarm is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.apex.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.service.quickaccesswallet is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.app.usage is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.accessibility is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.app.supervision.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.utils is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.chre.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.content.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.media.codec is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.internal.os is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.nfc.nci.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.app is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.security.keystore2 is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.crashrecovery.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.tradeinmode.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.hardware.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.telecom.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.settingslib.media.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.policy is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.media.audiopolicy is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.egg.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.internal.compat.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.security is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.service.autofill is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.example.android.aconfig.demo.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.view.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.companion.virtual.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.aconfig_new_storage is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.feature.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.systemui is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.power.batterysaver is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.widget.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.media.editing.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.media.codec.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.powerstats is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.graphics.egl.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.media.audioserver is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.deviceidle is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.nfc is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.permission.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.service.voice.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.content.pm is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.power.hint is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.os is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.service.dreams is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.graphics.libgui.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.hardware.usb.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.provider is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.job is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.internal.foldables.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.internal.telephony.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.webkit is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.credentials.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.display.feature.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.notification is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.appwidget.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.frameworks.sensorservice.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.printspooler.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.window.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.adaptiveauth is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.net.wifi.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.media.tv.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.usb.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.os.vibrator is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.hardware.devicestate.feature.flags is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.server.usage is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.server is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: com.android.wm.shell is mapped to system
+10-26 00:21:59.195  7232  7232 I AconfigPackage: android.view.inputmethod is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.android.graphics.hwui.flags is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.android.server.backup is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.android.internal.pm.pkg.component.flags is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: android.view.accessibility is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.google.wear.sdk is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: android.media.audio is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.android.server.am is mapped to system
+10-26 00:21:59.196  7232  7232 I AconfigPackage: com.android.media.playback.flags is mapped to system
+10-26 00:21:59.197  7232  7232 I AconfigPackage: com.android.art.flags is mapped to com.android.art
+10-26 00:21:59.197  7232  7232 I AconfigPackage: com.android.libcore is mapped to com.android.art
+10-26 00:21:59.198  7232  7232 I AconfigPackage: com.android.media.extractor.flags is mapped to com.android.media
+10-26 00:21:59.198  7232  7232 I AconfigPackage: com.android.media.mainline.flags is mapped to com.android.media
+10-26 00:21:59.198  7232  7232 I AconfigPackage: com.android.wifi.flags is mapped to com.android.wifi
+10-26 00:21:59.199  7232  7232 I AconfigPackage: com.android.org.conscrypt.flags is mapped to com.android.conscrypt
+10-26 00:21:59.200  7232  7232 I AconfigPackage: com.android.healthfitness.flags is mapped to com.android.healthfitness
+10-26 00:21:59.201  7232  7232 I AconfigPackage: com.google.android.input.twoshay.flags is mapped to vendor
+10-26 00:21:59.201  7232  7232 I AconfigPackage: libgooglecamerahal.flags is mapped to vendor
+10-26 00:21:59.202  7232  7232 I AconfigPackage: com.android.ipsec.flags is mapped to com.android.ipsec
+10-26 00:21:59.204  7232  7232 I AconfigPackage: com.android.nfc.module.flags is mapped to com.android.nfcservices
+10-26 00:21:59.204  7232  7232 I AconfigPackage: com.android.adservices.ondevicepersonalization.flags is mapped to com.android.ondevicepersonalization
+10-26 00:21:59.205  7232  7232 I AconfigPackage: com.android.bluetooth.flags is mapped to com.android.bt
+10-26 00:21:59.206  7232  7232 I AconfigPackage: com.android.devicelock.flags is mapped to com.android.devicelock
+10-26 00:21:59.207  7232  7232 I AconfigPackage: android.os.profiling is mapped to com.android.profiling
+10-26 00:21:59.207  7232  7232 I AconfigPackage: com.android.os.statsd.flags is mapped to com.android.os.statsd
+10-26 00:21:59.208  7232  7232 I AconfigPackage: com.android.cellbroadcastreceiver.flags is mapped to com.android.cellbroadcast
+10-26 00:21:59.209  7232  7232 I AconfigPackage: com.android.adservices.flags is mapped to com.android.adservices
+10-26 00:21:59.209  7232  7232 I AconfigPackage: com.android.sdksandbox.flags is mapped to com.android.adservices
+10-26 00:21:59.209  7232  7232 I AconfigPackage: com.android.uwb.flags is mapped to com.android.uwb
+10-26 00:21:59.209  7232  7232 I AconfigPackage: com.android.ranging.flags is mapped to com.android.uwb
+10-26 00:21:59.210  7232  7232 I AconfigPackage: android.graphics.pdf.flags is mapped to com.android.mediaprovider
+10-26 00:21:59.210  7232  7232 I AconfigPackage: com.android.providers.media.flags is mapped to com.android.mediaprovider
+10-26 00:21:59.210  7232  7232 I AconfigPackage: android.graphics.pdf.flags.readonly is mapped to com.android.mediaprovider
+10-26 00:21:59.211  7232  7232 I AconfigPackage: com.android.net.ct.flags is mapped to com.android.tethering
+10-26 00:21:59.211  7232  7232 I AconfigPackage: com.android.net.flags is mapped to com.android.tethering
+10-26 00:21:59.211  7232  7232 I AconfigPackage: android.net.vcn is mapped to com.android.tethering
+10-26 00:21:59.211  7232  7232 I AconfigPackage: com.android.nearby.flags is mapped to com.android.tethering
+10-26 00:21:59.211  7232  7232 I AconfigPackage: android.net.http is mapped to com.android.tethering
+10-26 00:21:59.211  7232  7232 I AconfigPackage: com.android.net.thread.flags is mapped to com.android.tethering
+10-26 00:21:59.212  7232  7232 I AconfigPackage: com.android.system.virtualmachine.flags is mapped to com.android.virt
+10-26 00:21:59.212  7232  7232 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+10-26 00:21:59.216  7232  7232 D UiAutomationConnection: Created on user UserHandle{0}
+10-26 00:21:59.216  7232  7232 I UiAutomation: Initialized for user 0 on display 0
+10-26 00:21:59.216  7232  7232 W UiAutomation: Created with deprecatead constructor, assumes DEFAULT_DISPLAY
+10-26 00:21:59.217   701   824 D ActivityManager: freezing 6913 com.google.android.marvin.talkback
+10-26 00:21:59.218   701  2135 D AccessibilityManagerService: changeCurrentUserForTestAutomationIfNeededLocked(0): ignoring because device doesn't support visible background users
+10-26 00:21:59.219   701  2135 I UiAutomationManager: Registering UiTestAutomationService (id=com.android.server.accessibility/UiAutomation, flags=0x0) when called by user 0
+10-26 00:21:59.219   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:21:59.219   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:21:59.219   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10173} in 1ms
+10-26 00:21:59.220   701  2135 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:21:59.232   701  2135 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:21:59.233  1715  1729 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:21:59.235   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.235   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.237   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.237   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.237   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.237   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.239  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:21:59.239  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:21:59.239  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:21:59.239  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:21:59.239   701   796 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:21:59.239  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:21:59.240  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:21:59.240  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:21:59.240  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:21:59.240  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:21:59.240  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:21:59.240   701   796 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:21:59.240   701   701 D BatterySaverPolicy: accessibility changed to true, updating policy.
+10-26 00:21:59.241  1715  1729 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:21:59.242   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.243   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.245   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.245  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:21:59.247   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:21:59.249  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:21:59.249  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.249  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.249  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.249  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:21:59.252  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:21:59.254  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:21:59.254  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:21:59.254  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:21:59.254  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:21:59.254  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:21:59.254  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:21:59.254  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:21:59.254  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:21:59.254  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:21:59.254  1141  1458 D AccessibilitySourceService: enabled a11y services count 0
+10-26 00:21:59.255  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:21:59.255  1141  1458 D AccessibilitySourceService: a11y source sending 0 issue to sc
+10-26 00:21:59.255  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:21:59.256  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:21:59.257  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:21:59.257   701  2127 D SafetySourceDataValidat: No cert check requested for package com.google.android.permissioncontroller
+10-26 00:21:59.258  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.258  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.258  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:21:59.258  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:21:59.262  6745  6761 I alhi    : NGA disabled since it's running Panthera and at least one a11y feature is on.
+10-26 00:21:59.264  6745  6761 I alhi    : (REDACTED) Nga state changed to %s
+10-26 00:21:59.264  6745  6761 I alhi    : (REDACTED) isTngActive=%s
+10-26 00:21:59.276  1735  2255 I tkr     : (REDACTED) Nga on-device enabled based on TNG:MA active state: %b
+10-26 00:21:59.278  1735  2255 I tkr     : (REDACTED) Nga on-device enabled based on TNG:MA active state: %b
+10-26 00:21:59.297  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:21:59.298  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:22:00.266  1733  1876 W MediaProvider: isAppCloneUserPair for user 0: false
+10-26 00:22:00.273  7232  7232 W AccessibilityNodeInfoDumper: Fetch time: 19ms
+10-26 00:22:00.274   701  1219 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:22:00.275  1715  2193 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:22:00.275   701  1219 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:22:00.275   701  1219 D AccessibilityManagerService: restoreCurrentUserForTestAutomationIfNeededLocked(): ignoring because device doesn't support visible background users
+10-26 00:22:00.276   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.276   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.276  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:00.276  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:00.276  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:00.276  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:00.276  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:00.277  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:00.277  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:00.277  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:00.277  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:00.277  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:00.277  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:22:00.277   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.277  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:22:00.278   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.278  7232  7242 W IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+10-26 00:22:00.278  7232  7241 W IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+10-26 00:22:00.279  7232  7232 D AndroidRuntime: Shutting down VM
+10-26 00:22:00.279   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.280   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:00.280   701   701 D BatterySaverPolicy: accessibility changed to false, updating policy.
+10-26 00:22:00.280  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:22:00.281  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:22:00.281  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:00.281  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:00.281  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:00.281  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:22:00.284  6745  6776 I alhi    : NGA enabled in interactor.
+10-26 00:22:00.285  6745  6776 I alhi    : (REDACTED) Nga state changed to %s
+10-26 00:22:00.285  6745  6776 I alhi    : (REDACTED) isTngActive=%s
+10-26 00:22:00.292  1735  2255 I tuc     : (REDACTED) on opa visibility changed %s
+10-26 00:22:00.292  1735  1752 I sww     : Initializing all components
+10-26 00:22:00.292  1735  2221 I wxp     : (REDACTED) onIsEnabledChanged, isEnabled: %s
+10-26 00:22:00.292  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 I xlz     : (REDACTED) Setting session to type: %s
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2255 I tkr     : (REDACTED) Nga on-device enabled based on TNG:MA active state: %b
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.293  1735  2221 I xnl     : (REDACTED) setNavBarVisible: %s
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.294  1735  2221 W zdf     : Disposing empty manager. Did you forgot to subscribe observables?
+10-26 00:22:00.295  1735  2255 I vlu     : (REDACTED) State changed: %s => %s by %s and %s with %s
+10-26 00:22:00.296  1735  2221 I tkr     : (REDACTED) Nga on-device enabled based on TNG:MA active state: %b
+10-26 00:22:00.296  1735  2255 I vrs     : (REDACTED) Recognizer choice: (recognizer_type: %s, recognizer_mode: %s, choice_reason: %s)
+10-26 00:22:00.298  1735  2255 I xik     : (REDACTED) onActiveStateChangeEvent: %s => %s
+10-26 00:22:00.298  1735  2255 I vhj     : (REDACTED) #onActiveStateChangeEvent, newState: %s, previousState: %s.
+10-26 00:22:00.299  1735  2221 I thn     : Initialize
+10-26 00:22:00.299  1735  2221 I tuc     : (REDACTED) on opa visibility changed %s
+10-26 00:22:00.299  1735  2221 I wqn     : (REDACTED) stopListening(%s, %s)
+10-26 00:22:00.312  1735  2255 I tkr     : (REDACTED) Nga on-device enabled based on TNG:MA active state: %b
+10-26 00:22:00.312  1735  2221 I egel    : showGestureNav
+10-26 00:22:00.312  1735  2221 I egej    : (REDACTED) setUiHints(hints = %s)
+10-26 00:22:00.315  1735  2221 I sww     : Successfully initialized all components
+10-26 00:22:00.325  1735  2255 I egej    : setUiHints: finished successfully
+10-26 00:22:00.341  1735  2597 V ClearcutMetricXmitter: Transmission is done.
+10-26 00:22:00.526   701   824 D ActivityManager: freezing 4633 com.google.android.gms.ui
+10-26 00:22:01.188  7249  7249 W screencap: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+10-26 00:22:01.188  7249  7249 W BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-26 00:22:01.188  7249  7249 W ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-26 00:22:01.190   563   761 E HwcComposer: getLuts failed Status(-8, EX_SERVICE_SPECIFIC): '8: '
+10-26 00:22:01.190   563   761 E HWComposer: getLuts: getLuts failed for display 4619827259835644672: UNSUPPORTED (8)
+10-26 00:22:01.224  1733  5205 W MediaProvider: isAppCloneUserPair for user 0: false
+10-26 00:22:01.308   701   796 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+10-26 00:22:01.309   701   736 D OomAdjuster: Not killing cached processes
+10-26 00:22:01.309   701   796 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+10-26 00:22:01.312   701  1219 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-26 00:22:01.315   701   727 I ActivityManager: Broadcast completed: result=0
+10-26 00:22:01.327  1733  1945 I MediaProvider: Begin Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+10-26 00:22:01.337  1733  1945 I MediaProvider: End Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+10-26 00:22:01.350  1733  1849 D WM-SystemJobScheduler: Scheduling work ID 51918292-bf7f-4de3-8ebf-2de4d01831e8Job ID 11
+10-26 00:22:01.354  1733  1849 D WM-GreedyScheduler: Ignoring {WorkSpec: 426b8d54-53b1-4fdb-a66e-d2de087bda9b}. Requires device idle.
+10-26 00:22:01.354  1733  1849 D WM-GreedyScheduler: Ignoring {WorkSpec: ce870f36-c6e9-4341-8ffc-52a6854a0b44}. Requires device idle.
+10-26 00:22:01.443   701   722 D HapticFeedbackCustomization: No loadable haptic feedback customization from file.
+10-26 00:22:01.447   701   722 D HapticFeedbackCustomization: Successfully opened customization resource.
+10-26 00:22:01.447   701   722 D HapticFeedbackCustomization: Successfully opened customization resource.
+10-26 00:22:01.447   701   722 D HapticFeedbackCustomization: Successfully opened customization resource.
+10-26 00:22:01.451   701   722 W VibratorManagerService: performHapticFeedbackWithEffect; vibration absent for constant 9
+10-26 00:22:01.980   701   824 D ActivityManager: freezing 6745 com.google.android.googlequicksearchbox:search
+10-26 00:22:02.847  1733  1733 D WM-DelayedWorkTracker: Scheduling work 51918292-bf7f-4de3-8ebf-2de4d01831e8
+10-26 00:22:02.847  1733  1733 D WM-GreedyScheduler: Starting tracking for 51918292-bf7f-4de3-8ebf-2de4d01831e8
+10-26 00:22:02.848  1733  1851 D WM-ConstraintTracker: BatteryNotLowTracker: initial state = true
+10-26 00:22:02.848  1733  1851 D WM-BrdcstRcvrCnstrntTrc: BatteryNotLowTracker: registering receiver
+10-26 00:22:02.848  1733  1851 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=51918292-bf7f-4de3-8ebf-2de4d01831e8, generation=0)
+10-26 00:22:02.850  1733  1851 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=51918292-bf7f-4de3-8ebf-2de4d01831e8, generation=0)
+10-26 00:22:02.853  1733  1733 D WM-WorkerWrapper: Starting work for com.android.providers.media.photopicker.sync.ProactiveSyncWorker
+10-26 00:22:02.854  1733  7263 I PSyncWorker: Starting proactive picker sync from sync source: 1
+10-26 00:22:02.854  1733  7263 I PickerSyncTracker: Created new sync future java.util.concurrent.CompletableFuture@831703a[Not completed, 1 dependents]. Future map: {51918292-bf7f-4de3-8ebf-2de4d01831e8=java.util.concurrent.CompletableFuture@831703a[Not completed, 1 dependents]}
+10-26 00:22:02.854  1733  7263 D PickerSyncController: syncAllMediaFromProvider() LOCAL, auth=com.android.providers.media.photopicker, retry=true
+10-26 00:22:02.854  1733  7263 D PickerSyncController: getSyncRequestParams() LOCAL, auth=com.android.providers.media.photopicker
+10-26 00:22:02.857  1733  7263 D PickerSyncController:    Latest ID/Gen=b85be6005542e10e:external_primary/96
+10-26 00:22:02.857  1733  7263 D PickerSyncController:    Cached ID/Gen=b85be6005542e10e:external_primary/86
+10-26 00:22:02.857  1733  7263 D PickerSyncController:    RESULT=SyncRequestParams{type=MEDIA_INCREMENTAL, gen=86, latest=Bundle[{last_media_sync_generation=96, media_collection_id=b85be6005542e10e:external_primary}], pageSize=1000}
+10-26 00:22:02.857  1733  7263 I PickerSyncController: Executing SyncAdd. isLocal: true. authority: com.android.providers.media.photopicker
+10-26 00:22:02.857  1733  7263 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = [] with timeout.
+10-26 00:22:02.857  1733  7263 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Locked by thread pool-4-thread-9]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.858  1733  7263 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.858  1733  7263 D ExternalDbFacade: Token received for queryMedia = null
+10-26 00:22:02.862  1733  7263 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = [] with timeout.
+10-26 00:22:02.862  1733  7263 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Locked by thread pool-4-thread-9]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.862  1733  7263 D PickerSyncController: Saving next page token: 1792974121000|39 for key: local_provider:media_add:resume
+10-26 00:22:02.862  1733  7263 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.863  1733  7263 D PickerNotificationSender: Sending a notification for media update
+10-26 00:22:02.864  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Videos
+10-26 00:22:02.864  1733  7263 D PickerNotificationSender: Sending a notification for album media update Videos
+10-26 00:22:02.864  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Favorites
+10-26 00:22:02.864  1733  7263 D PickerNotificationSender: Sending a notification for album media update Favorites
+10-26 00:22:02.865  1733  7263 D ExternalDbFacade: Token received for queryMedia = 1792974121000|39
+10-26 00:22:02.866  1733  7263 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = [] with timeout.
+10-26 00:22:02.866  1733  7263 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Locked by thread pool-4-thread-9]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.866  1733  7263 D PickerSyncController: Clearing next page token for key: local_provider:media_add:resume
+10-26 00:22:02.866  1733  7263 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.866  1733  7263 D PickerNotificationSender: Sending a notification for media update
+10-26 00:22:02.866  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Videos
+10-26 00:22:02.866  1733  7263 D PickerNotificationSender: Sending a notification for album media update Videos
+10-26 00:22:02.867  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Favorites
+10-26 00:22:02.867  1733  7263 D PickerNotificationSender: Sending a notification for album media update Favorites
+10-26 00:22:02.868  1733  7263 I PickerSyncController: Paged sync successful. QueryArgs: Bundle[{android.provider.extra.PAGE_TOKEN=1792974121000|39, android.provider.extra.SYNC_GENERATION=86, android.provider.extra.PAGE_SIZE=1000}] Total Rows: 1
+10-26 00:22:02.868  1733  7263 I PickerSyncController: Executing SyncRemove. isLocal: true. authority: com.android.providers.media.photopicker
+10-26 00:22:02.868  1733  7263 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = [] with timeout.
+10-26 00:22:02.868  1733  7263 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Locked by thread pool-4-thread-9]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.868  1733  7263 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.869  1733  7263 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = [] with timeout.
+10-26 00:22:02.869  1733  7263 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Locked by thread pool-4-thread-9]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.869  1733  7263 D PickerSyncController: Clearing next page token for key: local_provider:media_remove:resume
+10-26 00:22:02.869  1733  7263 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@52931e9[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+10-26 00:22:02.870  1733  7263 D PickerNotificationSender: Sending a notification for media update
+10-26 00:22:02.870  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Videos
+10-26 00:22:02.870  1733  7263 D PickerNotificationSender: Sending a notification for album media update Videos
+10-26 00:22:02.871  1733  7263 D PickerNotificationSender: Sending a notification for merged album media update Favorites
+10-26 00:22:02.871  1733  7263 D PickerNotificationSender: Sending a notification for album media update Favorites
+10-26 00:22:02.871  1733  7263 I PickerSyncController: Paged sync successful. QueryArgs: Bundle[{android.provider.extra.PAGE_TOKEN=1792974121000|39, android.provider.extra.SYNC_GENERATION=86, android.provider.extra.PAGE_SIZE=1000}] Total Rows: 0
+10-26 00:22:02.871  1733  7263 I PickerSyncTracker: Marked sync future complete for work id: 51918292-bf7f-4de3-8ebf-2de4d01831e8. Future map: {}
+10-26 00:22:02.871  1733  7263 I PSyncWorker: Completed picker proactive sync complete from local provider.
+10-26 00:22:02.872  1733  1849 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=51918292-bf7f-4de3-8ebf-2de4d01831e8, tags={ com.android.providers.media.photopicker.sync.ProactiveSyncWorker } ]
+10-26 00:22:02.873  1733  1733 D WM-Processor: Processor 51918292-bf7f-4de3-8ebf-2de4d01831e8 executed; reschedule = false
+10-26 00:22:02.873  1733  1733 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=51918292-bf7f-4de3-8ebf-2de4d01831e8, generation=0)
+10-26 00:22:02.880  1733  1849 D WM-GreedyScheduler: Cancelling work ID 51918292-bf7f-4de3-8ebf-2de4d01831e8
+10-26 00:22:02.882  1733  1849 D WM-GreedyScheduler: Ignoring {WorkSpec: 426b8d54-53b1-4fdb-a66e-d2de087bda9b}. Requires device idle.
+10-26 00:22:02.882  1733  1849 D WM-GreedyScheduler: Ignoring {WorkSpec: ce870f36-c6e9-4341-8ffc-52a6854a0b44}. Requires device idle.
+10-26 00:22:02.882  1733  1849 D WM-BrdcstRcvrCnstrntTrc: BatteryNotLowTracker: unregistering receiver
+10-26 00:22:02.900   701   815 D ActivityManager: sync unfroze 5713 com.google.android.dialer for 6
+10-26 00:22:02.907   701   815 W JobServiceContext: Sending onNetworkChanged for a job that isn't started. JobStatus{5e798cf androidx.work.systemjobscheduler:u0a142/29 @androidx.work.systemjobscheduler@com.google.android.dialer/androidx.work.impl.background.systemjob.SystemJobService u=0 s=10142 TIME=-12s769ms:none NET READY}
+10-26 00:22:02.907   701   815 W JobServiceContext: Sending onNetworkChanged for a job that isn't started. JobStatus{4c69ba9 androidx.work.systemjobscheduler:u0a142/28 @androidx.work.systemjobscheduler@com.google.android.dialer/androidx.work.impl.background.systemjob.SystemJobService u=0 s=10142 TIME=-13s112ms:none NET READY}
+10-26 00:22:02.919  5713  5751 D WM-DelayedWorkTracker: Scheduling work 689acf12-5c9d-485f-937f-2edd30f76880
+10-26 00:22:02.922  5713  5713 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=ce258e98-8745-486f-86e2-12d58e0d41e0, generation=0)
+10-26 00:22:02.929  5713  5751 D WM-GreedyScheduler: Starting tracking for 689acf12-5c9d-485f-937f-2edd30f76880
+10-26 00:22:02.938  5713  5751 D WM-DelayedWorkTracker: Scheduling work ce258e98-8745-486f-86e2-12d58e0d41e0
+10-26 00:22:02.939  5713  5751 D WM-GreedyScheduler: Starting tracking for ce258e98-8745-486f-86e2-12d58e0d41e0
+10-26 00:22:02.939  5713  5751 D WM-DelayedWorkTracker: Scheduling work 36d9fa98-ed8b-4342-989d-326adae3f6a5
+10-26 00:22:02.939  5713  5751 D WM-GreedyScheduler: Starting tracking for 36d9fa98-ed8b-4342-989d-326adae3f6a5
+10-26 00:22:02.939  5713  5713 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=689acf12-5c9d-485f-937f-2edd30f76880, generation=0)
+10-26 00:22:02.948  5713  5731 I .android.dialer: Waiting for a blocking GC ProfileSaver
+10-26 00:22:02.953  5713  5738 D WM-Processor: fgy: processing WorkGenerationalId(workSpecId=ce258e98-8745-486f-86e2-12d58e0d41e0, generation=0)
+10-26 00:22:02.956  5713  5738 D WM-Processor: fgy: processing WorkGenerationalId(workSpecId=689acf12-5c9d-485f-937f-2edd30f76880, generation=0)
+10-26 00:22:02.975  5713  5713 D WM-WorkerWrapper: Starting work for com.google.apps.tiktok.contrib.work.TikTokListenableWorker
+10-26 00:22:02.977  5713  5731 I .android.dialer: WaitForGcToComplete blocked ProfileSaver on Background for 28.707ms
+10-26 00:22:02.981   701   796 D ConnectivityService: Returning UNBLOCKED NetworkInfo to uid=10142
+10-26 00:22:02.982  5713  5738 D WM-ConstraintTracker: fkd: initial state = NetworkState(isConnected=true, isValidated=true, isMetered=false, isNotRoaming=true)
+10-26 00:22:02.983  5713  5738 D WM-NetworkStateTracker: Registering network callback
+10-26 00:22:02.983   701   722 D ConnectivityService: requestNetwork for uid/pid:10142/5713 activeRequest: null callbackRequest: 214 [NetworkRequest [ REQUEST id=215, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10142 RequestorUid: 10142 RequestorPkg: com.google.android.dialer UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false declaredMethods: AVAIL|LOST|NC
+10-26 00:22:02.984   701  1052 D ConnectivityService: NetReassign [215 : null → 102] [c 0] [a 0] [i 0]
+10-26 00:22:02.984   701  1046 D OemPaidWifiNetworkFactory: got request NetworkRequest [ REQUEST id=215, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10142 RequestorUid: 10142 RequestorPkg: com.google.android.dialer UnderlyingNetworks: Null] ]
+10-26 00:22:02.984   701  1046 D MultiInternetWifiNetworkFactory: got request NetworkRequest [ REQUEST id=215, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10142 RequestorUid: 10142 RequestorPkg: com.google.android.dialer UnderlyingNetworks: Null] ]
+10-26 00:22:02.984   701  1046 D WifiNetworkFactory: got request NetworkRequest [ REQUEST id=215, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10142 RequestorUid: 10142 RequestorPkg: com.google.android.dialer UnderlyingNetworks: Null] ]
+10-26 00:22:02.984  5713  5758 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=12000Kbps LinkDnBandwidth>=30000Kbps TransportInfo: <SSID: <unknown ssid>, BSSID: 02:00:00:00:00:00, MAC: 02:00:00:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: legacy, RSSI: -50, Link speed: 1Mbps, Tx Link speed: 1Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: 2Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: -1, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: -1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none><none>MLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -50 UnderlyingNetworks: Null]
+10-26 00:22:02.984   701  1046 D UntrustedWifiNetworkFactory: got request NetworkRequest [ REQUEST id=215, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10142 RequestorUid: 10142 RequestorPkg: com.google.android.dialer UnderlyingNetworks: Null] ]
+10-26 00:22:02.986  5713  5745 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_STARTED, function parameters: [ce258e98-8745-486f-86e2-12d58e0d41e0,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: <empty>
+10-26 00:22:02.987  5713  5713 D WM-WorkerWrapper: Starting work for com.google.apps.tiktok.contrib.work.TikTokListenableWorker
+10-26 00:22:02.987  5713  5742 I DialerVvmTaskWorkerDelegate: com.android.dialer.voicemail.service.impl.scheduler.VvmTaskWorker$VvmTaskWorkerDelegate.executeVvmJob:191 Beginning execution of job ID: 1
+10-26 00:22:02.987  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:66 event: VVM_TASK_WORKER_EXECUTE_VVM_JOB, function parameters: [1], return value: <empty> [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:02.988  5713  5746 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=689acf12-5c9d-485f-937f-2edd30f76880, generation=0)
+10-26 00:22:02.988  5713  5745 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_STARTED, function parameters: [689acf12-5c9d-485f-937f-2edd30f76880,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: <empty>
+10-26 00:22:02.988  5713  5747 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=ce258e98-8745-486f-86e2-12d58e0d41e0, generation=0)
+10-26 00:22:02.989  5713  5738 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=36d9fa98-ed8b-4342-989d-326adae3f6a5, generation=0)
+10-26 00:22:02.991  5713  5742 I DialerVvmTaskWorkerDelegate: com.android.dialer.voicemail.service.impl.scheduler.VvmTaskWorker$VvmTaskWorkerDelegate.executeVvmJob:191 Beginning execution of job ID: 2
+10-26 00:22:02.992  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:66 event: VVM_TASK_WORKER_EXECUTE_VVM_JOB, function parameters: [2], return value: <empty> [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:02.993  5713  5746 D WM-Processor: Work WorkGenerationalId(workSpecId=689acf12-5c9d-485f-937f-2edd30f76880, generation=0) is already enqueued for processing
+10-26 00:22:02.993  5713  5746 D WM-Processor: Work WorkGenerationalId(workSpecId=ce258e98-8745-486f-86e2-12d58e0d41e0, generation=0) is already enqueued for processing
+10-26 00:22:02.994  5713  5746 D WM-Processor: fgy: processing WorkGenerationalId(workSpecId=36d9fa98-ed8b-4342-989d-326adae3f6a5, generation=0)
+10-26 00:22:02.994  5713  7265 I DialerVvmCarrierIdentifierImpl: com.android.dialer.voicemail.service.impl.carriermapping.VvmCarrierIdentifierImpl.getVvmCarrierNameBlocking:120 Looking up carrier name for phone account handle: 1 [CONTEXT ratelimit_period="1 MINUTES" skipped=61 ]
+10-26 00:22:02.994  5713  5742 I DialerRestVoicemailEnabledFn: com.android.dialer.voicemail.service.impl.vvmclients.rest.RestVoicemailEnabledFn.isEnabled:67 device is supported, enabling. [CONTEXT ratelimit_period="1 MINUTES" skipped=369 ]
+10-26 00:22:02.998  5713  5713 D WM-WorkerWrapper: Starting work for com.google.apps.tiktok.contrib.work.TikTokListenableWorker
+10-26 00:22:03.006  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_STARTED, function parameters: [36d9fa98-ed8b-4342-989d-326adae3f6a5,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: <empty>
+10-26 00:22:03.006  5713  5742 I DialerVvmTaskWorkerDelegate: com.android.dialer.voicemail.service.impl.scheduler.VvmTaskWorker$VvmTaskWorkerDelegate.executeVvmJob:191 Beginning execution of job ID: 0
+10-26 00:22:03.006  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:66 event: VVM_TASK_WORKER_EXECUTE_VVM_JOB, function parameters: [0], return value: <empty> [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:03.013  5713  5745 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.execute:229 Beginning VVM action: UPDATE_STATUS with retryCount: 2 for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: com.android.dialer.voicemail.service.impl.vvmclients.rest.RestVvmCarrierService.getMsisdn:420 Retrieved phone number in an unexpected format: +15551234567 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: zxo: MEDIUM
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at a.cN(PG:15)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at pxq.apply(PG:489)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at zcp.apply(PG:13)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at aaka.d(PG:3)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at aakb.run(PG:38)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at umz.run(PG:7)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at aadu.run(PG:44)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at tdt.run(PG:78)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at cp.run(PG:143)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at java.lang.Thread.run(Thread.java:1119)
+10-26 00:22:03.019  5713  5745 E DialerRestVvmCarrierService: 	at uoe.run(PG:61)
+10-26 00:22:03.023  5713  5745 I DialerLogcatLoggingBindings: com.android.dialer.logging.logcat.LogcatLoggingBindings.logImpression:54 Impression: ANDROID_API_UNEXPECTED_PHONE_NUMBER_FORMAT
+10-26 00:22:03.023  5713  5745 I DialerStatusCheck: com.android.dialer.voicemail.service.impl.vvmclients.rest.StatusCheck.updateStatus:55 updateStatus
+10-26 00:22:03.029  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.031  5713  5745 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TELEPHONY_BOOTSTRAP_AUTHENTICATION_REQUEST, function parameters: [], return value: Default
+10-26 00:22:03.031  5713  5742 W DialerGbaCredentialProvider: com.android.dialer.voicemail.service.impl.vvmclients.rest.GbaCredentialProvider$1.onAuthenticationFailure:93 GBA failed with reason: 1 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.033  5713  5742 W DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWorkOnCarrierService:444 Could not complete vvm work with action: UPDATE_STATUS. Error: [GeneralFailureReason: UNSPECIFIED, RestFailureReason: GBA_AUTHENTICATION_FAILURE_FEATURE_NOT_SUPPORTED, OmtpFailureReason: OMTP_UNSPECIFIED] for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT disable_client_error_logging=true enable_persistent_logger=true ]
+10-26 00:22:03.036  5713  5742 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWork:204 VvmResult is: # pug@1db0ddb for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0}
+10-26 00:22:03.041  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.046  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_FINISHED, function parameters: [ce258e98-8745-486f-86e2-12d58e0d41e0,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: Retry
+10-26 00:22:03.047  5713  5738 I WM-WorkerWrapper: Worker result RETRY for Work [ id=ce258e98-8745-486f-86e2-12d58e0d41e0, tags={ com.google.apps.tiktok.contrib.work.TikTokListenableWorker,1,UPDATE_STATUS,TikTokWorker#com.android.dialer.voicemail.service.impl.VvmTaskWorker } ]
+10-26 00:22:03.048  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.049  5713  5713 D WM-Processor: fgy ce258e98-8745-486f-86e2-12d58e0d41e0 executed; reschedule = true
+10-26 00:22:03.049  5713  5713 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=ce258e98-8745-486f-86e2-12d58e0d41e0, generation=0)
+10-26 00:22:03.049  5713  5713 D WM-SystemJobService: ce258e98-8745-486f-86e2-12d58e0d41e0 executed on JobScheduler
+10-26 00:22:03.050  5713  5745 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.execute:229 Beginning VVM action: SYNC with retryCount: 2 for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:03.051   701   722 W ProcessStats: Tracking association SourceState{271500 system/1000 ImpBg #6342} whose proc state 6 is better than process ProcessState{66e0114 com.google.android.dialer/10142 pkg=com.google.android.dialer} proc state 15 (0 skipped)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: com.android.dialer.voicemail.service.impl.vvmclients.rest.RestVvmCarrierService.getMsisdn:420 Retrieved phone number in an unexpected format: +15551234567 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: zxo: MEDIUM
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at a.cN(PG:15)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at pxq.apply(PG:489)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at zcp.apply(PG:13)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at aaka.d(PG:3)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at aakb.run(PG:38)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at umz.run(PG:7)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at aadu.run(PG:44)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at tdt.run(PG:78)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at cp.run(PG:143)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at java.lang.Thread.run(Thread.java:1119)
+10-26 00:22:03.053  5713  5742 E DialerRestVvmCarrierService: 	at uoe.run(PG:61)
+10-26 00:22:03.053  5713  5742 I DialerLogcatLoggingBindings: com.android.dialer.logging.logcat.LogcatLoggingBindings.logImpression:54 Impression: ANDROID_API_UNEXPECTED_PHONE_NUMBER_FORMAT
+10-26 00:22:03.055  5713  5745 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.056  5713  5745 I DialerLogcatLoggingBindings: com.android.dialer.logging.logcat.LogcatLoggingBindings.logImpression:47 Impression: VVM_SYNC_STARTED
+10-26 00:22:03.057  5713  5745 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TELEPHONY_BOOTSTRAP_AUTHENTICATION_REQUEST, function parameters: [], return value: Default
+10-26 00:22:03.057  5713  5742 W DialerGbaCredentialProvider: com.android.dialer.voicemail.service.impl.vvmclients.rest.GbaCredentialProvider$1.onAuthenticationFailure:93 GBA failed with reason: 1 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.057  5713  5745 W DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWorkOnCarrierService:444 Could not complete vvm work with action: SYNC. Error: [GeneralFailureReason: UNSPECIFIED, RestFailureReason: GBA_AUTHENTICATION_FAILURE_FEATURE_NOT_SUPPORTED, OmtpFailureReason: OMTP_UNSPECIFIED] for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT disable_client_error_logging=true enable_persistent_logger=true ]
+10-26 00:22:03.058  5713  5745 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWork:204 VvmResult is: # pug@1db0ddb for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0}
+10-26 00:22:03.060  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.063  5713  5747 D WM-GreedyScheduler: Cancelling work ID ce258e98-8745-486f-86e2-12d58e0d41e0
+10-26 00:22:03.065  5713  5747 D WM-SystemJobScheduler: Scheduling work ID ce258e98-8745-486f-86e2-12d58e0d41e0Job ID 30
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: e8040743-2b0e-446d-b636-cc84b46d8c78}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: eb51d3c7-3c80-4279-8291-419d9a3dd0da}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: 3c0558d0-f260-4ccf-b66a-f3e9ede51b57}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: ee8899a5-b3b1-4783-88e2-c512f3a16383}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: 7431798b-20b0-4d2d-9e63-9190247caa6a}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: a1a339f4-3097-410a-b01b-ff3b7947de61}. Requires device idle.
+10-26 00:22:03.078  5713  5747 D WM-GreedyScheduler: Ignoring {WorkSpec: fcdbf894-e33c-4645-a917-2381091f85ef}. Requires device idle.
+10-26 00:22:03.081  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.082  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_FINISHED, function parameters: [689acf12-5c9d-485f-937f-2edd30f76880,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: Retry
+10-26 00:22:03.083  5713  5746 I WM-WorkerWrapper: Worker result RETRY for Work [ id=689acf12-5c9d-485f-937f-2edd30f76880, tags={ com.google.apps.tiktok.contrib.work.TikTokListenableWorker,1,SYNC,TikTokWorker#com.android.dialer.voicemail.service.impl.VvmTaskWorker } ]
+10-26 00:22:03.085  5713  5713 D WM-Processor: fgy 689acf12-5c9d-485f-937f-2edd30f76880 executed; reschedule = true
+10-26 00:22:03.085  5713  5713 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=689acf12-5c9d-485f-937f-2edd30f76880, generation=0)
+10-26 00:22:03.085  5713  5713 D WM-SystemJobService: 689acf12-5c9d-485f-937f-2edd30f76880 executed on JobScheduler
+10-26 00:22:03.085  5713  5745 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.execute:229 Beginning VVM action: ACTIVATE with retryCount: 2 for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT enable_persistent_logger=true ]
+10-26 00:22:03.085  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: com.android.dialer.voicemail.service.impl.vvmclients.rest.RestVvmCarrierService.getMsisdn:420 Retrieved phone number in an unexpected format: +15551234567 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: zxo: MEDIUM
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at a.cN(PG:15)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at pxq.apply(PG:489)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at zcp.apply(PG:13)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at aaka.d(PG:3)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at aakb.run(PG:38)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at umz.run(PG:7)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at aadu.run(PG:44)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at tdt.run(PG:78)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at cp.run(PG:143)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at java.lang.Thread.run(Thread.java:1119)
+10-26 00:22:03.089  5713  5742 E DialerRestVvmCarrierService: 	at uoe.run(PG:61)
+10-26 00:22:03.089  5713  5742 I DialerLogcatLoggingBindings: com.android.dialer.logging.logcat.LogcatLoggingBindings.logImpression:54 Impression: ANDROID_API_UNEXPECTED_PHONE_NUMBER_FORMAT
+10-26 00:22:03.089  5713  5742 I DialerVvmActivation: com.android.dialer.voicemail.service.impl.vvmclients.rest.VvmActivation.activate:73 activate
+10-26 00:22:03.091  5713  5745 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.091  5713  5742 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TELEPHONY_BOOTSTRAP_AUTHENTICATION_REQUEST, function parameters: [], return value: Default
+10-26 00:22:03.091  5713  5745 W DialerGbaCredentialProvider: com.android.dialer.voicemail.service.impl.vvmclients.rest.GbaCredentialProvider$1.onAuthenticationFailure:93 GBA failed with reason: 1 [CONTEXT disable_client_error_logging=true ]
+10-26 00:22:03.092  5713  5742 W DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWorkOnCarrierService:444 Could not complete vvm work with action: ACTIVATE. Error: [GeneralFailureReason: UNSPECIFIED, RestFailureReason: GBA_AUTHENTICATION_FAILURE_FEATURE_NOT_SUPPORTED, OmtpFailureReason: OMTP_UNSPECIFIED] for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0} [CONTEXT disable_client_error_logging=true enable_persistent_logger=true ]
+10-26 00:22:03.092  5713  5745 I DialerVvmExecutorImpl: com.android.dialer.voicemail.service.impl.scheduler.VvmExecutorImpl.executeWork:204 VvmResult is: # pug@1db0ddb for ComponentInfo{com.android.phone/com.android.services.telephony.TelephonyConnectionService}, 1, UserHandle{0}
+10-26 00:22:03.093  5713  5745 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.094  5713  5746 D WM-GreedyScheduler: Cancelling work ID 689acf12-5c9d-485f-937f-2edd30f76880
+10-26 00:22:03.096  5713  5746 D WM-SystemJobScheduler: Scheduling work ID 689acf12-5c9d-485f-937f-2edd30f76880Job ID 31
+10-26 00:22:03.097  5713  5745 I DialerSingletonScopedExternalsLogging: com.google.android.dialershared.externals.logging.SingletonScopedExternalsLogging.recordCallMethodInvocation:75 event: TIKTOK_WORK_EXECUTION_MONITOR_ON_WORK_FINISHED, function parameters: [36d9fa98-ed8b-4342-989d-326adae3f6a5,com.android.dialer.voicemail.service.impl.VvmTaskWorker], return value: Retry
+10-26 00:22:03.098  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: e8040743-2b0e-446d-b636-cc84b46d8c78}. Requires device idle.
+10-26 00:22:03.098  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: eb51d3c7-3c80-4279-8291-419d9a3dd0da}. Requires device idle.
+10-26 00:22:03.099  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: 3c0558d0-f260-4ccf-b66a-f3e9ede51b57}. Requires device idle.
+10-26 00:22:03.099  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: ee8899a5-b3b1-4783-88e2-c512f3a16383}. Requires device idle.
+10-26 00:22:03.099  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: 7431798b-20b0-4d2d-9e63-9190247caa6a}. Requires device idle.
+10-26 00:22:03.099  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: a1a339f4-3097-410a-b01b-ff3b7947de61}. Requires device idle.
+10-26 00:22:03.099  5713  5746 D WM-GreedyScheduler: Ignoring {WorkSpec: fcdbf894-e33c-4645-a917-2381091f85ef}. Requires device idle.
+10-26 00:22:03.099  5713  5742 I DialerLoggingConsentCheckerImpl: com.google.android.dialershared.logging.consent.impl.LoggingConsentCheckerImpl.getConsent:72 timer stop with success, timer present: false
+10-26 00:22:03.100  5713  5738 I WM-WorkerWrapper: Worker result RETRY for Work [ id=36d9fa98-ed8b-4342-989d-326adae3f6a5, tags={ com.google.apps.tiktok.contrib.work.TikTokListenableWorker,1,ACTIVATE,TikTokWorker#com.android.dialer.voicemail.service.impl.VvmTaskWorker } ]
+10-26 00:22:03.101  5713  5713 D WM-Processor: fgy 36d9fa98-ed8b-4342-989d-326adae3f6a5 executed; reschedule = true
+10-26 00:22:03.101  5713  5713 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=36d9fa98-ed8b-4342-989d-326adae3f6a5, generation=0)
+10-26 00:22:03.102  5713  5738 D WM-GreedyScheduler: Cancelling work ID 36d9fa98-ed8b-4342-989d-326adae3f6a5
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: e8040743-2b0e-446d-b636-cc84b46d8c78}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: eb51d3c7-3c80-4279-8291-419d9a3dd0da}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: 3c0558d0-f260-4ccf-b66a-f3e9ede51b57}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: ee8899a5-b3b1-4783-88e2-c512f3a16383}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: 7431798b-20b0-4d2d-9e63-9190247caa6a}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: a1a339f4-3097-410a-b01b-ff3b7947de61}. Requires device idle.
+10-26 00:22:03.103  5713  5738 D WM-GreedyScheduler: Ignoring {WorkSpec: fcdbf894-e33c-4645-a917-2381091f85ef}. Requires device idle.
+10-26 00:22:03.104  5713  5738 D WM-NetworkStateTracker: Unregistering network callback
+10-26 00:22:03.121   701   824 D ActivityManager: freezing 1141 com.google.android.permissioncontroller
+10-26 00:22:03.123   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:22:03.124   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:22:03.124   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10195} in 1ms
+10-26 00:22:04.303  1299  1595 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+10-26 00:22:04.490  5222  5241 W JobInfo : Requested important-while-foreground flag for job555000006 is ignored and takes no effect
+10-26 00:22:04.507   701   796 D ConnectivityService: requestNetwork for uid/pid:10170/5222 activeRequest: null callbackRequest: 216 [NetworkRequest [ REQUEST id=217, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10170 RequestorUid: 10170 RequestorPkg: com.google.android.apps.photos UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false declaredMethods: AVAIL|LOST|NC
+10-26 00:22:04.507   701  1046 D OemPaidWifiNetworkFactory: got request NetworkRequest [ REQUEST id=217, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10170 RequestorUid: 10170 RequestorPkg: com.google.android.apps.photos UnderlyingNetworks: Null] ]
+10-26 00:22:04.507   701  1046 D MultiInternetWifiNetworkFactory: got request NetworkRequest [ REQUEST id=217, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10170 RequestorUid: 10170 RequestorPkg: com.google.android.apps.photos UnderlyingNetworks: Null] ]
+10-26 00:22:04.508   701  1046 D WifiNetworkFactory: got request NetworkRequest [ REQUEST id=217, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10170 RequestorUid: 10170 RequestorPkg: com.google.android.apps.photos UnderlyingNetworks: Null] ]
+10-26 00:22:04.508   701  1052 D ConnectivityService: NetReassign [217 : null → 102] [c 0] [a 0] [i 0]
+10-26 00:22:04.508   701  1046 D UntrustedWifiNetworkFactory: got request NetworkRequest [ REQUEST id=217, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10170 RequestorUid: 10170 RequestorPkg: com.google.android.apps.photos UnderlyingNetworks: Null] ]
+10-26 00:22:07.031   701  2135 D OomAdjuster: Not killing cached processes
+10-26 00:22:07.035  1523  5946 I NetworkScheduler.Stats: (REDACTED) Task %s/%s started execution. cause:%s exec_start_elapsed_seconds: %s
+10-26 00:22:07.037  1523  7247 I NetworkScheduler.Stats: (REDACTED) Task %s/%s finished executing. cause:%s result: %s elapsed_millis: %s uptime_millis: %s exec_start_elapsed_seconds: %s
+10-26 00:22:07.541  7269  7269 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-26 00:22:07.545  7269  7269 I AndroidRuntime: Using default boot image
+10-26 00:22:07.545  7269  7269 I AndroidRuntime: Leaving lock profiling enabled
+10-26 00:22:07.547  7269  7269 I app_process: Using CollectorTypeCMC GC.
+10-26 00:22:07.605  7269  7269 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+10-26 00:22:07.612  7269  7269 D nativeloader: Load libicu_jni.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:22:07.613  7269  7269 D app_process: u_setTimeZoneFilesDirectory("/apex/com.android.tzdata/etc/tz/versioned/9/icu") succeeded. 
+10-26 00:22:07.613  7269  7269 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt76l.dat
+10-26 00:22:07.615  7269  7269 D nativeloader: Load libjavacore.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:22:07.615  7269  7269 D nativeloader: Load libopenjdk.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+10-26 00:22:07.617  7269  7269 W app_process: Unexpected CPU variant for x86: x86_64.
+10-26 00:22:07.617  7269  7269 W app_process: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+10-26 00:22:07.618  7269  7269 W app_process: ClassLoaderContext shared library size mismatch. Expected=2, found=0 (PCL[]{PCL[/system/framework/android.test.base.jar*2789897741]#PCL[/system/framework/android.test.mock.jar*3361312393]} | PCL[])
+10-26 00:22:07.619  7269  7269 W app_process: ClassLoaderContext classpath size mismatch. expected=0, found=1 (PCL[]{PCL[/system/framework/android.test.runner.jar*895143020]#PCL[/system/framework/android.test.base.jar*2789897741]} | PCL[/system/framework/android.test.runner.jar*895143020])
+10-26 00:22:07.649  7269  7269 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+10-26 00:22:07.650  7269  7269 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-26 00:22:07.652  7269  7269 I AconfigPackage: android.media.swcodec.flags is mapped to com.android.media.swcodec
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.settings.simplemode.flags is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.systemui is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.apps.nexuslauncher is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.settings.accessibility is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.settings.flags is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.apps.miphone.aiai.matchmaker.overview.ui is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.settings.flags is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.launcher3 is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.wallpaper is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.settings.media_drm is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.systemui.accessibility.accessibilitymenu is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.settings.keyboard is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.server.policy.feature.flags is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.settings.factory_reset is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.google.android.haptics.flags is mapped to system_ext
+10-26 00:22:07.652  7269  7269 I AconfigPackage: com.android.permission.flags is mapped to com.android.permission
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.icu is mapped to com.android.i18n
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.appsearch.flags is mapped to com.android.appsearch
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.uprobestats.mainline.flags is mapped to com.android.uprobestats
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.provider.flags is mapped to com.android.configinfrastructure
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.deviceconfig is mapped to com.android.configinfrastructure
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.nfc.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.app.admin.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.database.sqlite is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.providers.calendar is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.power.feature.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.media.performance.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.app.contextualsearch.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.app.ondeviceintelligence.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.media.projection.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.companion is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.service.controls.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.text.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.providers.contactkeys.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.intentresolver is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.companion.virtualdevice.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.uprobestats.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.net.thread.platform.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.view.contentprotection.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.dreams is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.graphics.surfaceflinger.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.hardware.input is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.sdk is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.input.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.tracing is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.biometrics is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.view.contentcapture.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.app.job is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.content.res is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.net.platform.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.aconfig.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.graphics.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.server.app is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.speech.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.stats is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.hardware.biometrics is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.car.feature is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.adpf is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.location.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.settingslib.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.managedprovisioning.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: android.app.assist.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.server.net is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.settingslib.widget.flags is mapped to system
+10-26 00:22:07.653  7269  7269 I AconfigPackage: com.android.internal.camera.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.hardware.libsensor.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.internal.jank is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.providers.settings is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.multiuser is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.power.optimization is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.calllogbackup is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.graphics.libvulkan.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.appfunctions.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.smartspace.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.providers.contacts.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.shell.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.aaudio is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.hardware.radio is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.google.wear.services.infra.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: suspend_service.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.media.midi is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.libcore.readonly is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.settingslib.widget.selectorwithwidgetpreference.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.notification is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.systemui.shared is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.jank is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.wearable is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.audio is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.chooser is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.compat is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.alarm is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.apex.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.quickaccesswallet is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.usage is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.accessibility is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app.supervision.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.utils is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.chre.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.content.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.media.codec is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.internal.os is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.nfc.nci.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.app is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.security.keystore2 is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.crashrecovery.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.tradeinmode.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.hardware.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.telecom.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.settingslib.media.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.policy is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.media.audiopolicy is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.egg.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.internal.compat.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.security is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.autofill is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.example.android.aconfig.demo.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.view.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.companion.virtual.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.aconfig_new_storage is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.feature.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.systemui is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.power.batterysaver is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.widget.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.editing.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.codec.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.powerstats is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.graphics.egl.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.media.audioserver is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.deviceidle is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.nfc is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.permission.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.voice.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.content.pm is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.power.hint is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.os is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.service.dreams is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.graphics.libgui.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.hardware.usb.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.provider is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.job is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.internal.foldables.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.internal.telephony.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.webkit is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.credentials.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.display.feature.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.server.notification is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.appwidget.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.frameworks.sensorservice.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.printspooler.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: com.android.window.flags is mapped to system
+10-26 00:22:07.654  7269  7269 I AconfigPackage: android.adaptiveauth is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.net.wifi.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.media.tv.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.server.usb.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.os.vibrator is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.hardware.devicestate.feature.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.server.usage is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.server is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.wm.shell is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.view.inputmethod is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.graphics.hwui.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.server.backup is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.internal.pm.pkg.component.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.view.accessibility is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.google.wear.sdk is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: android.media.audio is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.server.am is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.media.playback.flags is mapped to system
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.art.flags is mapped to com.android.art
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.libcore is mapped to com.android.art
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.media.extractor.flags is mapped to com.android.media
+10-26 00:22:07.655  7269  7269 I AconfigPackage: com.android.media.mainline.flags is mapped to com.android.media
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.wifi.flags is mapped to com.android.wifi
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.org.conscrypt.flags is mapped to com.android.conscrypt
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.healthfitness.flags is mapped to com.android.healthfitness
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.google.android.input.twoshay.flags is mapped to vendor
+10-26 00:22:07.656  7269  7269 I AconfigPackage: libgooglecamerahal.flags is mapped to vendor
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.ipsec.flags is mapped to com.android.ipsec
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.nfc.module.flags is mapped to com.android.nfcservices
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.adservices.ondevicepersonalization.flags is mapped to com.android.ondevicepersonalization
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.bluetooth.flags is mapped to com.android.bt
+10-26 00:22:07.656  7269  7269 I AconfigPackage: com.android.devicelock.flags is mapped to com.android.devicelock
+10-26 00:22:07.657  7269  7269 I AconfigPackage: android.os.profiling is mapped to com.android.profiling
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.os.statsd.flags is mapped to com.android.os.statsd
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.cellbroadcastreceiver.flags is mapped to com.android.cellbroadcast
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.adservices.flags is mapped to com.android.adservices
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.sdksandbox.flags is mapped to com.android.adservices
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.uwb.flags is mapped to com.android.uwb
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.ranging.flags is mapped to com.android.uwb
+10-26 00:22:07.657  7269  7269 I AconfigPackage: android.graphics.pdf.flags is mapped to com.android.mediaprovider
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.providers.media.flags is mapped to com.android.mediaprovider
+10-26 00:22:07.657  7269  7269 I AconfigPackage: android.graphics.pdf.flags.readonly is mapped to com.android.mediaprovider
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.net.ct.flags is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.net.flags is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: android.net.vcn is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.nearby.flags is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: android.net.http is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.net.thread.flags is mapped to com.android.tethering
+10-26 00:22:07.657  7269  7269 I AconfigPackage: com.android.system.virtualmachine.flags is mapped to com.android.virt
+10-26 00:22:07.658  7269  7269 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+10-26 00:22:07.661  7269  7269 D UiAutomationConnection: Created on user UserHandle{0}
+10-26 00:22:07.661  7269  7269 I UiAutomation: Initialized for user 0 on display 0
+10-26 00:22:07.661  7269  7269 W UiAutomation: Created with deprecatead constructor, assumes DEFAULT_DISPLAY
+10-26 00:22:07.661   701  2135 D AccessibilityManagerService: changeCurrentUserForTestAutomationIfNeededLocked(0): ignoring because device doesn't support visible background users
+10-26 00:22:07.661   701  2135 I UiAutomationManager: Registering UiTestAutomationService (id=com.android.server.accessibility/UiAutomation, flags=0x0) when called by user 0
+10-26 00:22:07.662   701  2135 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:22:07.662   701  2135 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:22:07.663  1715  2193 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:22:07.663  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:07.663  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:07.663  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:07.663  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:07.663   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.663   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:07.664  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:07.664   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:07.664  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:07.664  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:07.664   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.664  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:07.665  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:22:07.665   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.666   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.666   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.666   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.666   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.667   701   701 D BatterySaverPolicy: accessibility changed to true, updating policy.
+10-26 00:22:07.665  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:22:07.668  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:22:07.668  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.668  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.668  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.668  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:22:07.671  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:22:07.674   701  2114 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:22:07.674   701  2114 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:22:07.674  1715  1729 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:22:07.675   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.675   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.675   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.675   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.675  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:07.676  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:07.676  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:07.676  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:07.676   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.676   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.676  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:07.676   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.676  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:07.676  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:07.676  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:07.676  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:07.676   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:07.677  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:07.677  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:22:07.677  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:22:07.678  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:22:07.678  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:22:07.678  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.678  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.678  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:07.678  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:22:08.098   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:22:08.098   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:22:08.098   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10142} in 1ms
+10-26 00:22:08.099   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:22:08.099   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:22:08.099   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={20142} in 1ms
+10-26 00:22:08.676  1733  5489 W MediaProvider: isAppCloneUserPair for user 0: false
+10-26 00:22:08.685  7269  7269 W AccessibilityNodeInfoDumper: Fetch time: 11ms
+10-26 00:22:08.686   701  1219 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+10-26 00:22:08.687   701  1219 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+10-26 00:22:08.687   701  1219 D AccessibilityManagerService: restoreCurrentUserForTestAutomationIfNeededLocked(): ignoring because device doesn't support visible background users
+10-26 00:22:08.687  1715  1729 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+10-26 00:22:08.687   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.687   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.687  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:08.687   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:08.688  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:08.688  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:08.688   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+10-26 00:22:08.688   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: EchoTargets: 
+10-26 00:22:08.688  1715  1965 I AiAiEcho: Filtered by AiAi flag check: 
+10-26 00:22:08.688  1715  1965 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+10-26 00:22:08.688   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+10-26 00:22:08.688   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.688  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+10-26 00:22:08.689  7269  7269 D AndroidRuntime: Shutting down VM
+10-26 00:22:08.689  7269  7278 W IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+10-26 00:22:08.689  7269  7279 W IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+10-26 00:22:08.690  1715  1965 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+10-26 00:22:08.691   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.691   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.691   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.691   701   701 W IPCThreadState: Sending oneway calls to frozen process.
+10-26 00:22:08.691   701   701 D BatterySaverPolicy: accessibility changed to false, updating policy.
+10-26 00:22:08.693  1139  1139 W PageIndicator: Total number of pages invalid: 0. Assuming 1 page.
+10-26 00:22:08.693  1401  1401 D SsBaseTemplateCard: No text view can be set up
+10-26 00:22:08.693  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:08.693  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:08.694  1401  1401 D SsBaseTemplateCard: Passed-in item info is null
+10-26 00:22:08.694  1401  1401 I SsBaseTemplateCard: Secondary card pane is null
+10-26 00:22:09.515   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:22:09.516   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:22:09.516   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={10170} in 0ms
+10-26 00:22:09.516   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+10-26 00:22:09.517   701  1052 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+10-26 00:22:09.517   701  1052 D InetDiagMessage: Destroyed live tcp sockets for uids={20170} in 2ms
+10-26 00:22:09.626  7282  7282 W screencap: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: SurfaceFlingerAIDL
+10-26 00:22:09.626  7282  7282 W BpBinder: Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-26 00:22:09.626  7282  7282 W ProcessState: Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-26 00:22:09.628   563   581 E HwcComposer: getLuts failed Status(-8, EX_SERVICE_SPECIFIC): '8: '
+10-26 00:22:09.628   563   581 E HWComposer: getLuts: getLuts failed for display 4619827259835644672: UNSUPPORTED (8)
+10-26 00:22:09.651  1733  5205 W MediaProvider: isAppCloneUserPair for user 0: false
+10-26 00:22:09.733   701  2114 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+10-26 00:22:09.733   701  2114 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+10-26 00:22:09.734   701  1451 W JobInfo : Job 'com.google.android.providers.media.module/com.android.providers.media.MediaService#-300' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+10-26 00:22:09.737   701   727 I ActivityManager: Broadcast completed: result=0
+10-26 00:22:09.739  1733  1945 I MediaProvider: Begin Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+10-26 00:22:09.743  1733  1945 I MediaProvider: End Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaService }
+10-26 00:22:09.744  1523  2845 I UriTaskContentObserver: (REDACTED) Throttling content uri change event for %s
+10-26 00:22:09.751  1733  1840 D WM-SystemJobScheduler: Scheduling work ID c48aa6b6-7e47-45b0-acbb-0b360f0716d2Job ID 12
+10-26 00:22:09.755  1733  1840 D WM-GreedyScheduler: Ignoring {WorkSpec: 426b8d54-53b1-4fdb-a66e-d2de087bda9b}. Requires device idle.
+10-26 00:22:09.755  1733  1840 D WM-GreedyScheduler: Ignoring {WorkSpec: ce870f36-c6e9-4341-8ffc-52a6854a0b44}. Requires device idle.
+10-26 00:22:09.786  1733  5205 W MediaProvider: isAppCloneUserPair for user 0: false

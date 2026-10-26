@@ -35,6 +35,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,11 +50,13 @@ import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 fun HistoriqueCompteScreen(
     viewModel: HistoriqueCompteViewModel,
     onNavigateBack: () -> Unit,
-    onModifierTransaction: (String) -> Unit = {}
+    onModifierTransaction: (String) -> Unit = {},
+    onReprendreTransaction: ((String) -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val navigationEvents by viewModel.navigationEvents.collectAsState()
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = uiState.scrollPosition)
+    var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
 
     // Observer les événements de navigation
     LaunchedEffect(navigationEvents) {
@@ -208,9 +212,9 @@ fun HistoriqueCompteScreen(
                                         viewModel.naviguerVersModification(transaction.id)
                                     },
                                     onSupprimer = { transaction ->
-                                        // Supprimer la transaction
-                                        viewModel.supprimerTransaction(transaction.id)
-                                    }
+                                        transactionASupprimer = transaction
+                                    },
+                                    onReprendre = onReprendreTransaction?.let { reprendre -> { transaction -> reprendre(transaction.id) } }
                                 )
                                 HorizontalDivider(
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(
@@ -224,4 +228,9 @@ fun HistoriqueCompteScreen(
             }
         }
     }
+    ConfirmationSuppressionTransaction(
+        transaction = transactionASupprimer,
+        onAnnuler = { transactionASupprimer = null },
+        onConfirmer = { transactionASupprimer = null; viewModel.supprimerTransaction(it.id) }
+    )
 }

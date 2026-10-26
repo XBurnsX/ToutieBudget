@@ -32,9 +32,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     ) {
-        try {
-            android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement création allocation - ${enveloppe.nom} - ${String.format("%.2f", montant)}$")
-            
+        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement création allocation - ${enveloppe.nom} - ${String.format("%.2f", montant)}$")
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
                 utilisateurId = allocation.utilisateurId,
@@ -54,12 +52,8 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 details = "Nouvelle allocation mensuelle créée"
             )
             
-            historiqueAllocationRepository.insertHistorique(historique)
-            android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Création allocation enregistrée avec succès")
-            
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ HISTORIQUE : Erreur lors de l'enregistrement de la création d'allocation: ${e.message}")
-        }
+        historiqueAllocationRepository.insertHistorique(historique)
+        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Création allocation enregistrée avec succès")
     }
     
     override suspend fun enregistrerModificationAllocation(
@@ -73,9 +67,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     ) {
-        try {
-            android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement modification allocation - ${enveloppe.nom} - ${String.format("%.2f", montantModification)}$")
-            
+        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement modification allocation - ${enveloppe.nom} - ${String.format("%.2f", montantModification)}$")
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
                 utilisateurId = allocationApres.utilisateurId,
@@ -95,12 +87,8 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 details = "Allocation mensuelle modifiée"
             )
             
-            historiqueAllocationRepository.insertHistorique(historique)
-            android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Modification allocation enregistrée avec succès")
-            
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ HISTORIQUE : Erreur lors de l'enregistrement de la modification d'allocation: ${e.message}")
-        }
+        historiqueAllocationRepository.insertHistorique(historique)
+        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Modification allocation enregistrée avec succès")
     }
     
     override suspend fun enregistrerSuppressionAllocation(
@@ -145,9 +133,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         pretAPlacerApres: Double,
         note: String?
     ) {
-        try {
-            android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement transaction directe - $typeTransaction - ${String.format("%.2f", montant)}$")
-            
+        android.util.Log.d("ToutieBudget", "📝 HISTORIQUE : Enregistrement transaction directe - $typeTransaction - ${String.format("%.2f", montant)}$")
             val description = if (enveloppe != null) {
                 "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ vers ${enveloppe.nom}"
             } else {
@@ -173,12 +159,8 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 details = note ?: "Transaction directe sur le compte"
             )
             
-            historiqueAllocationRepository.insertHistorique(historique)
-            android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Transaction directe enregistrée avec succès")
-            
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ HISTORIQUE : Erreur lors de l'enregistrement de la transaction directe: ${e.message}")
-        }
+        historiqueAllocationRepository.insertHistorique(historique)
+        android.util.Log.d("ToutieBudget", "✅ HISTORIQUE : Transaction directe enregistrée avec succès")
     }
 
     override suspend fun enregistrerAjustementCompte(

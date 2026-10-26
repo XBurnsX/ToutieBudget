@@ -1,0 +1,10 @@
+[
+  {
+    "action": "navigate",
+    "target": "Budget"
+  },
+  {
+    "action": "probe",
+    "target": "Favoris"
+  }
+]
