@@ -532,7 +532,17 @@ fun MainAppScaffold(
                 ArchivesScreen(
                     comptesViewModel = comptesVm,
                     budgetViewModel = budgetVm,
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.popBackStack() },
+                    onVoirHistoriqueCompte = { compteId, collectionCompte, nomCompte ->
+                        mainNavController.navigate(
+                            "historique_compte/${android.net.Uri.encode(compteId)}/${android.net.Uri.encode(collectionCompte)}/${android.net.Uri.encode(nomCompte)}"
+                        )
+                    },
+                    onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
+                        mainNavController.navigate(
+                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        )
+                    }
                 )
             }
             
