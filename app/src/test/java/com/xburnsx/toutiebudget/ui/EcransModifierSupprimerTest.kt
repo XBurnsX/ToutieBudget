@@ -179,23 +179,131 @@ class EcransModifierSupprimerTest {
         assertEquals(995.0, b.soldeDe("chq"))
     }
 
-    @Test
-    fun `un paiement de carte ne se transforme pas en depense - modification refusee`() = test {
-        b.cheque("chq", 1000.0, 0.0); b.carte("visa", -400.0, nom = "Visa")
+    private suspend fun TestScope.payer(cible: String, cents: String) {
         val ajout = app.ajoutTransaction().also { attendre() }
         ajout.onModeOperationChanged("Paiement")
-        ajout.onCompteChanged(b.comptes["chq"]); ajout.onComptePaiementChanged(b.comptes["visa"]); ajout.onMontantChanged("10000")
+        ajout.onCompteChanged(b.comptes["chq"]); ajout.onComptePaiementChanged(b.comptes[cible]); ajout.onMontantChanged(cents)
         ajout.sauvegarderTransaction(); attendre()
+    }
+
+    private suspend fun TestScope.preter(mode: String, sousType: String, tiers: String, cents: String) {
+        val ajout = app.ajoutTransaction().also { attendre() }
+        ajout.onModeOperationChanged(mode)
+        if (mode == "Prêt") ajout.onTypePretChanged(sousType) else ajout.onTypeDetteChanged(sousType)
+        ajout.onCompteChanged(b.comptes["chq"]); ajout.onTiersChanged(tiers); ajout.onMontantChanged(cents)
+        ajout.sauvegarderTransaction(); attendre()
+    }
+
+    @Test
+    fun `MT5 - paiement Visa 100 a 60, les deux cotes corriges sur place`() = test {
+        b.cheque("chq", 1000.0, 0.0); b.carte("visa", -400.0, nom = "Visa")
+        payer("visa", "10000")
+        val avant = b.transactions.values.associateBy { it.id }
+        val creations = b.nombreAppels("creerTransaction")
         val moitieChq = b.transactions.values.single { it.compteId == "chq" }
 
         val vm = ouvrirModifier(moitieChq.id)
-        vm.onMontantChanged("5000"); vm.modifierTransaction(); attendre()
+        assertNull(vm.uiState.value.modificationBloquee)
+        vm.onMontantChanged("6000"); vm.modifierTransaction(); attendre()
+
+        assertNull(vm.uiState.value.messageErreur)
+        assertEquals(940.0, b.soldeDe("chq")); assertEquals(-340.0, b.soldeDe("visa"))
+        assertEquals(avant.keys, b.transactions.keys, "mêmes écritures")
+        assertEquals(creations, b.nombreAppels("creerTransaction"), "aucune nouvelle écriture")
+        assertTrue(b.transactions.values.all { it.montant == 60.0 })
+        assertEquals(1, b.transactions.values.map { it.sousItems }.toSet().size, "même identifiant d'opération")
+    }
+
+    @Test
+    fun `MT5 - paiement qui soldait la dette, reduit - la dette redevient active`() = test {
+        b.cheque("chq", 1000.0, 0.0); b.dette("pret", -100.0, nom = "Auto")
+        payer("pret", "10000")
+        assertTrue(b.comptes.getValue("pret").estArchive)
+        val moitie = b.transactions.values.single { it.compteId == "pret" }
+
+        val vm = ouvrirModifier(moitie.id)
+        vm.onMontantChanged("6000"); vm.modifierTransaction(); attendre()
+
+        assertEquals(940.0, b.soldeDe("chq")); assertEquals(-40.0, b.soldeDe("pret"))
+        assertTrue(!b.comptes.getValue("pret").estArchive)
+    }
+
+    @Test
+    fun `MT5 - trop-paye refuse, rien ne bouge`() = test {
+        b.cheque("chq", 1000.0, 0.0); b.dette("pret", -100.0, nom = "Auto")
+        payer("pret", "5000")
+        val moitie = b.transactions.values.single { it.compteId == "chq" }
+
+        val vm = ouvrirModifier(moitie.id)
+        vm.onMontantChanged("15000"); vm.modifierTransaction(); attendre()
 
         assertNotNull(vm.uiState.value.messageErreur)
-        assertEquals(900.0, b.soldeDe("chq")); assertEquals(-300.0, b.soldeDe("visa"))
-        assertEquals(2, b.transactions.size)
-        assertNotNull(vm.uiState.value.modificationBloquee, "MT4/MT8 : expliqué dès l'ouverture")
-        assertTrue(!vm.uiState.value.peutSauvegarder)
+        assertEquals(950.0, b.soldeDe("chq")); assertEquals(-50.0, b.soldeDe("pret"))
+        assertTrue(b.transactions.values.all { it.montant == 50.0 })
+    }
+
+    @Test
+    fun `MT7 - virement 500 a 300, source, destination et pret a placer ajustes ensemble`() = test {
+        b.cheque("chq", 1000.0, 1000.0); b.placement("ws", 0.0)
+        app.argent.effectuerVirementEntreComptes("chq", "ws", 500.0, "chq", "ws", maintenant).getOrThrow()
+        val ids = b.transactions.keys.toSet()
+        val sortie = b.transactions.values.single { it.compteId == "chq" }
+
+        val vm = ouvrirModifier(sortie.id)
+        vm.onMontantChanged("30000"); vm.modifierTransaction(); attendre()
+
+        assertNull(vm.uiState.value.messageErreur)
+        assertEquals(700.0, b.soldeDe("chq")); assertEquals(700.0, b.cheque("chq").pretAPlacer)
+        assertEquals(300.0, b.soldeDe("ws"))
+        assertEquals(ids, b.transactions.keys)
+    }
+
+    @Test
+    fun `MT6 - pret de 200 ramene a 150, compte et dossier corriges`() = test {
+        b.cheque("chq", 1000.0, 1000.0)
+        preter("Prêt", "Prêt accordé", "Ana", "20000")
+        val pret = b.transactions.values.single()
+
+        val vm = ouvrirModifier(pret.id)
+        vm.onMontantChanged("15000"); vm.modifierTransaction(); attendre()
+
+        assertNull(vm.uiState.value.messageErreur)
+        assertEquals(850.0, b.soldeDe("chq")); assertEquals(850.0, b.cheque("chq").pretAPlacer)
+        val dossier = app.autres.prets.values.single()
+        assertEquals(150.0, dossier.montantInitial); assertEquals(150.0, dossier.solde)
+        assertEquals(setOf(pret.id), b.transactions.keys)
+    }
+
+    @Test
+    fun `MT6 - pret sous ce qui est deja rembourse, refuse`() = test {
+        b.cheque("chq", 1000.0, 1000.0)
+        preter("Prêt", "Prêt accordé", "Ana", "10000")
+        val pret = b.transactions.values.single()
+        preter("Prêt", "Remboursement reçu", "Ana", "3000")
+
+        val vm = ouvrirModifier(pret.id)
+        vm.onMontantChanged("2000"); vm.modifierTransaction(); attendre()
+
+        assertNotNull(vm.uiState.value.messageErreur)
+        assertEquals(930.0, b.soldeDe("chq")); assertEquals(70.0, app.autres.prets.values.single().solde)
+    }
+
+    @Test
+    fun `MT6 - remboursement recu 30 a 50, et un trop-percu refuse`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        app.autres.prets["p1"] = PretPersonnel(id = "p1", nomTiers = "Ana", montantInitial = 100.0, solde = 100.0, type = TypePretPersonnel.PRET, created = "2026-01-01")
+        preter("Prêt", "Remboursement reçu", "Ana", "3000")
+        val remb = b.transactions.values.single()
+
+        val vm = ouvrirModifier(remb.id)
+        vm.onMontantChanged("5000"); vm.modifierTransaction(); attendre()
+        assertEquals(1050.0, b.soldeDe("chq")); assertEquals(50.0, b.cheque("chq").pretAPlacer)
+        assertEquals(50.0, app.autres.prets.getValue("p1").solde)
+
+        val trop = ouvrirModifier(remb.id)
+        trop.onMontantChanged("12000"); trop.modifierTransaction(); attendre()
+        assertNotNull(trop.uiState.value.messageErreur)
+        assertEquals(50.0, app.autres.prets.getValue("p1").solde); assertEquals(1050.0, b.soldeDe("chq"))
     }
 
     @Test

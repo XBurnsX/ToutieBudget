@@ -85,7 +85,10 @@ class AppliEnMemoire {
 
     fun modifier() = ModifierTransactionViewModel(
         b.depotComptes, b.depotEnveloppes, b.depotCategories, autres.depotTiers, b.depotTransactions, b.depotAllocations, enregistrer, supprimer,
-        operationAtomique = tx
+        operationAtomique = tx,
+        modifierOperationLiee = com.xburnsx.toutiebudget.domain.usecases.ModifierOperationLieeUseCase(
+            b.depotTransactions, b.depotComptes, autres.depotPrets, supprimer, argent, tx
+        )
     ).suivi()
     fun historiqueCompte(compteId: String, collection: String = "comptes_cheques") = HistoriqueCompteViewModel(
         b.depotTransactions, b.depotEnveloppes, autres.depotTiers, supprimer,

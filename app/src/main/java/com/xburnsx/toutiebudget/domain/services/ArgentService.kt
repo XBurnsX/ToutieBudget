@@ -137,7 +137,9 @@ interface ArgentService {
         nomCompteSource: String,
         nomCompteDest: String,
         // IF8 : date de l'opération pour les deux écritures
-        date: java.util.Date = java.util.Date()
+        date: java.util.Date = java.util.Date(),
+        // MT7 : réécrire ces deux écritures existantes au lieu d'en créer (modification sur place)
+        remplacer: EcrituresLiees? = null
     ): Result<Unit>
 
     /**
@@ -160,6 +162,19 @@ interface ArgentService {
         note: String? = null,
         // DF14 : date choisie dans Transactions ; détermine aussi le mois de l'enveloppe
         date: java.util.Date = java.util.Date(),
-        operationId: String? = null // AT14 : paiement rejoué sans double débit
+        operationId: String? = null, // AT14 : paiement rejoué sans double débit
+        // MT5 : réécrire ces deux écritures existantes au lieu d'en créer (modification sur place)
+        remplacer: EcrituresLiees? = null
     ): Result<Unit>
 }
+
+/**
+ * MT5/MT7 : les deux moitiés existantes d'un paiement ou d'un virement, réécrites sur place lors d'une
+ * modification : mêmes IDs, même identifiant d'opération, même date de création.
+ */
+data class EcrituresLiees(
+    val idSortie: String,
+    val idEntree: String,
+    val operationId: String,
+    val note: String? = null
+)

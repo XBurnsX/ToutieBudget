@@ -576,7 +576,8 @@ class ArgentServiceImpl @Inject constructor(
         montant: Double,
         nomCompteSource: String,
         nomCompteDest: String,
-        date: Date
+        date: Date,
+        remplacer: com.xburnsx.toutiebudget.domain.services.EcrituresLiees?
     ): Result<Unit> = runCatching { operationAtomique.executer {
         if (!montant.isFinite() || montant <= 0.0) {
             throw IllegalArgumentException("Montant de virement invalide.")
@@ -665,10 +666,11 @@ class ArgentServiceImpl @Inject constructor(
             )
         }
 
-        val operationId = IdGenerator.generateId()
+        // MT7 : une modification réécrit les deux mêmes écritures sous le même identifiant d'opération
+        val operationId = remplacer?.operationId ?: IdGenerator.generateId()
         val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"$operationId\"}"
         val sortie = Transaction(
-            id = IdGenerator.generateId(),
+            id = remplacer?.idSortie ?: IdGenerator.generateId(),
             utilisateurId = source.utilisateurId,
             type = TypeTransaction.TransfertSortant,
             montant = montantArrondi,
@@ -678,18 +680,30 @@ class ArgentServiceImpl @Inject constructor(
             allocationMensuelleId = null,
             sousItems = lienOperation,
             tiersUtiliser = destination.nom,
-            note = null
+            note = remplacer?.note
         )
-        transactionRepository.creerTransaction(sortie).getOrThrow()
-        transactionRepository.creerTransaction(sortie.copy(
-            id = IdGenerator.generateId(),
+        ecrireOuRemplacer(sortie, remplacer != null)
+        ecrireOuRemplacer(sortie.copy(
+            id = remplacer?.idEntree ?: IdGenerator.generateId(),
             utilisateurId = destination.utilisateurId,
             type = TypeTransaction.TransfertEntrant,
             compteId = destination.id,
             collectionCompte = destination.collection,
             tiersUtiliser = source.nom
-        )).getOrThrow()
+        ), remplacer != null)
     } }
+
+    /** MT5/MT7 : créer l'écriture, ou réécrire l'existante (même ID, même date de création, un seul UPDATE). */
+    private suspend fun ecrireOuRemplacer(transaction: Transaction, remplacer: Boolean) {
+        if (remplacer) {
+            val existante = transactionRepository.recupererTransactionParId(transaction.id).getOrThrow()
+            transactionRepository.mettreAJourTransaction(
+                transaction.copy(created = existante.created, updated = Date())
+            ).getOrThrow()
+        } else {
+            transactionRepository.creerTransaction(transaction).getOrThrow()
+        }
+    }
 
     /**
      * Paiement d'une carte de crédit ou d'une dette (CC2).
@@ -708,7 +722,8 @@ class ArgentServiceImpl @Inject constructor(
         montant: Double,
         note: String?,
         date: Date,
-        operationId: String?
+        operationId: String?,
+        remplacer: com.xburnsx.toutiebudget.domain.services.EcrituresLiees?
     ): Result<Unit> = runCatching { operationAtomique.executer {
         if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif et fini.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
@@ -717,8 +732,9 @@ class ArgentServiceImpl @Inject constructor(
 
         // AT14 : controle AVANT les deux debits, sous transaction Room.
         // La paire de paiements porte un ID de groupe stable.
-        val cleOperation = operationId?.takeIf { it.isNotBlank() }
-        if (cleOperation != null) {
+        // MT5 : une modification garde l'identifiant de l'opération et ne passe pas par l'anti-rejeu
+        val cleOperation = remplacer?.operationId ?: operationId?.takeIf { it.isNotBlank() }
+        if (cleOperation != null && remplacer == null) {
             val lienAttendu = "{\"$CLE_OPERATION_PAIEMENT\":\"$cleOperation\"}"
             val dejaLiees = transactionRepository.recupererToutesLesTransactions().getOrThrow()
                 .filter { it.sousItems == lienAttendu }
@@ -843,9 +859,9 @@ class ArgentServiceImpl @Inject constructor(
         // 6. Transactions : une sortie, une entrée « Paiement » (jamais « Emprunt », qui est un prêt personnel).
         //    DF9 : les deux moitiés portent le même identifiant d'opération pour être annulées ensemble.
         val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${cleOperation ?: IdGenerator.generateId()}\"}"
-        transactionRepository.creerTransaction(
+        ecrireOuRemplacer(
             Transaction(
-                id = IdGenerator.generateId(),
+                id = remplacer?.idSortie ?: IdGenerator.generateId(),
                 utilisateurId = compteQuiPaie.utilisateurId,
                 type = TypeTransaction.PaiementEffectue,
                 montant = montantArrondi,
@@ -855,12 +871,13 @@ class ArgentServiceImpl @Inject constructor(
                 allocationMensuelleId = allocationApres?.id,
                 sousItems = lienOperation,
                 tiersUtiliser = note ?: carteOuDette.nom,
-                note = null
-            )
-        ).getOrThrow()
-        transactionRepository.creerTransaction(
+                note = remplacer?.note
+            ),
+            remplacer != null
+        )
+        ecrireOuRemplacer(
             Transaction(
-                id = IdGenerator.generateId(),
+                id = remplacer?.idEntree ?: IdGenerator.generateId(),
                 utilisateurId = carteOuDette.utilisateurId,
                 type = TypeTransaction.Paiement,
                 montant = montantArrondi,
@@ -870,9 +887,10 @@ class ArgentServiceImpl @Inject constructor(
                 collectionCompte = collectionCible,
                 allocationMensuelleId = null,
                 tiersUtiliser = note ?: carteOuDette.nom,
-                note = null
-            )
-        ).getOrThrow()
+                note = remplacer?.note
+            ),
+            remplacer != null
+        )
 
         // 7. Historique du compte payeur
         val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque

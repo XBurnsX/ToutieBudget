@@ -51,7 +51,9 @@ class ModifierTransactionViewModel(
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
     private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte,
     /** MA3/MA5 : état de synchronisation de cette transaction (null = inconnu, ex. tests). */
-    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null,
+    /** MT5/MT6/MT7 : paiements, virements et prêts modifiés en gardant leurs deux côtés ensemble. */
+    private val modifierOperationLiee: com.xburnsx.toutiebudget.domain.usecases.ModifierOperationLieeUseCase? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -295,13 +297,23 @@ class ModifierTransactionViewModel(
                 }
                 
                 val original = transactionAModifier!!
-                // DF9/MT4 : interdire aussi la modification « note seulement »
-                // d'une moitié d'un paiement lié; les deux écritures doivent rester ensemble.
-                verifierModifiable(original)
                 // MT18 : préserver l'heure d'origine, même quand seul le jour change.
                 val originalZoned = original.date.toInstant().atZone(ZoneId.systemDefault())
                 val dateTransaction = if (state.dateTransaction == originalZoned.toLocalDate()) original.date
                 else Date.from(state.dateTransaction.atTime(originalZoned.toLocalTime()).atZone(ZoneId.systemDefault()).toInstant())
+
+                // MT5/MT6/MT7 : paiement, virement ou prêt — les deux côtés (ou le dossier) changent ensemble
+                if (modifierOperationLiee?.genre(original) != null) {
+                    if (state.compteSelectionne.id != original.compteId) {
+                        throw Exception("Le compte d'une opération liée ne change pas ici : supprimez-la puis refaites-la.")
+                    }
+                    modifierOperationLiee.executer(
+                        original.id, montantEnDollars, dateTransaction, state.note.takeIf { it.isNotBlank() }
+                    ).getOrThrow()
+                    return@executer
+                }
+                // DF9/MT4 : sans le cas d'usage des opérations liées, une moitié de paiement reste intouchable
+                verifierModifiable(original)
 
                 // MA2 : une correction de libellé/note ne déplace aucun dollar.
                 val metadataSeulement = state.typeTransaction == original.type &&
@@ -575,6 +587,8 @@ class ModifierTransactionViewModel(
 
     /** MT4 / MT8 : le vrai mode de l'opération, et pourquoi elle ne se modifie pas ici (null = modifiable). */
     private fun raisonBlocage(transaction: Transaction): String? {
+        // MT5/MT6/MT7 : modifiable (montant, date, note) quand le cas d'usage des opérations liées est branché
+        if (modifierOperationLiee?.genre(transaction) != null) return null
         val sousItems = transaction.sousItems.orEmpty()
         val mode = when {
             sousItems.contains("pret_personnel_id") -> when (transaction.type) {

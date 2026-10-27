@@ -235,7 +235,10 @@ import android.content.Context
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              supprimerTransactionUseCase = supprimerTransactionUseCase,
              operationAtomique = operationAtomique,
-             syncJobDao = database.syncJobDao()
+             syncJobDao = database.syncJobDao(),
+             modifierOperationLiee = com.xburnsx.toutiebudget.domain.usecases.ModifierOperationLieeUseCase(
+                 transactionRepository, compteRepository, pretPersonnelRepository, supprimerTransactionUseCase, argentService, operationAtomique
+             )
          )
      }
      

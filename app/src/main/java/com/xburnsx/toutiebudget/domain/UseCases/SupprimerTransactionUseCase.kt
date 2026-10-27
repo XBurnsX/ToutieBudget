@@ -48,10 +48,8 @@ class SupprimerTransactionUseCase(
             "Transaction invalide : montant nul ou non fini."
         }
         if (garderEcriture) {
-            require(
-                (transaction.type == TypeTransaction.Depense || transaction.type == TypeTransaction.Revenu) &&
-                    !estMoitieDePaiement(transaction) && idDossierPret(transaction.sousItems) == null
-            ) { "Seule une dépense ou un revenu ordinaire se modifie sur place." }
+            // MT5/MT7 : un paiement ou un virement défait ses DEUX côtés ; un prêt personnel passe par son dossier
+            require(idDossierPret(transaction.sousItems) == null) { "Un prêt personnel se modifie par son dossier." }
         }
 
         // 2. Un paiement lié s'annule avec son autre moitié
@@ -144,14 +142,15 @@ class SupprimerTransactionUseCase(
         BudgetEvents.refreshManual()
     }
 
-    private fun estMoitieDePaiement(tx: Transaction): Boolean =
+    internal fun estMoitieDePaiement(tx: Transaction): Boolean =
         tx.type == TypeTransaction.PaiementEffectue ||
             (tx.type == TypeTransaction.Paiement && (tx.collectionCompte == "comptes_dettes" || tx.collectionCompte == "comptes_credits")) ||
             (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits") || // anciens paiements de carte
             tx.type == TypeTransaction.TransfertSortant || tx.type == TypeTransaction.TransfertEntrant // IF9
 
     /** Même identifiant d'opération ; pour les anciens paiements, même montant, même tiers et même moment. */
-    private suspend fun trouverMoitieLiee(tx: Transaction): Transaction? {
+    /** MT5/MT7 : l'autre côté d'un paiement ou d'un virement (même identifiant d'opération, ou ancien rapprochement). */
+    internal suspend fun trouverMoitieLiee(tx: Transaction): Transaction? {
         val toutes = transactionRepository.recupererToutesLesTransactions().getOrThrow()
             .filter { it.id != tx.id }
         val idOperation = idOperation(tx.sousItems)
