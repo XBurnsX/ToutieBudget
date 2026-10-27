@@ -836,10 +836,20 @@ class ArgentServiceImpl @Inject constructor(
                         detailsDetteJson = details
                     )
                 ).getOrThrow()
-                if (estSoldee && enveloppeCible != null && allocationApres != null &&
-                    kotlin.math.abs(allocationApres.solde) < 0.01
-                ) {
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeCible.copy(estArchive = true)).getOrThrow()
+                if (estSoldee && enveloppeCible != null) {
+                    // DF12 : vérifier TOUTES les allocations (autres comptes et
+                    // mois futurs compris), pas seulement celle du paiement.
+                    val allocations = allocationMensuelleRepository.recupererAllocationsEnveloppe(enveloppeCible.id)
+                    if (allocations.any { !it.solde.isFinite() }) {
+                        throw IllegalStateException("Allocation invalide : clôture de l'enveloppe refusée.")
+                    }
+                    if (allocations.none { kotlin.math.round(it.solde * 100.0).toLong() != 0L }) {
+                        enveloppeRepository.mettreAJourEnveloppe(
+                            enveloppeCible.copy(estArchive = true)
+                        ).getOrThrow()
+                    }
+                    // Si un solde positif/négatif subsiste, la dette est soldée
+                    // mais l'enveloppe reste active pour régularisation.
                 }
             }
         }
