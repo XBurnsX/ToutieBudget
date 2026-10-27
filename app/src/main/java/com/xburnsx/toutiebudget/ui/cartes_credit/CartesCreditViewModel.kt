@@ -265,35 +265,52 @@ class CartesCreditViewModel(
      * et seulement à la demande (le solde saisi peut déjà les inclure).
      */
     fun comptabiliserInterets(releveId: String) {
-        val carte = _uiState.value.carteSelectionnee ?: return
-        val releve = carte.details.releves.find { it.id == releveId } ?: return
-        if (releve.interetsComptabilises || releve.interetsFactures <= 0.005) return
-
+        val carteSelectionnee = _uiState.value.carteSelectionnee ?: return
         viewModelScope.lancerUneFois(verrouCarte) {
-            val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - releve.interetsFactures)
-            val details = carte.details.copy(
-                releves = carte.details.releves.map { if (it.id == releveId) it.copy(interetsComptabilises = true) else it }
-            )
-            val carteMaj = carte.copy(soldeUtilise = nouveauSolde, detailsCarteJson = details.versJson())
-            carteCreditRepository.mettreAJourCarteCredit(carteMaj)
-                .onSuccess {
-                    try {
-                        historiqueAllocationService.enregistrerAjustementCompte(
-                            compte = carteMaj,
-                            typeAction = "INTERETS_FACTURES",
-                            description = "Intérêts facturés au relevé du ${releve.dateEmission} : ${MoneyFormatter.formatAmount(releve.interetsFactures)}",
-                            montant = -releve.interetsFactures,
-                            soldeAvant = carte.solde,
-                            soldeApres = nouveauSolde,
-                            pretAPlacerAvant = 0.0,
-                            pretAPlacerApres = 0.0
-                        )
-                    } catch (_: Exception) { }
-                    _uiState.update { it.copy(carteSelectionnee = carteMaj, messageInfo = "Intérêts ajoutés au solde de la carte.") }
-                    chargerCartesCredit()
-                    realtimeSyncService.declencherMiseAJourComptes()
+            try {
+                // CC6 : relire sous transaction Room pour éviter toute
+                // comptabilisation répétée d'un même relevé, même après refresh.
+                val carteMaj = operationAtomique.executer {
+                    val carte = carteCreditRepository.recupererCartesCredit().getOrThrow()
+                        .firstOrNull { it.id == carteSelectionnee.id }
+                        ?: throw IllegalStateException("Carte introuvable")
+                    val releve = carte.details.releves.firstOrNull { it.id == releveId }
+                        ?: throw IllegalStateException("Relevé introuvable")
+                    if (releve.interetsComptabilises) {
+                        throw IllegalStateException("Les intérêts de ce relevé sont déjà comptabilisés.")
+                    }
+                    if (!releve.interetsFactures.isFinite() || releve.interetsFactures <= 0.005) {
+                        throw IllegalArgumentException("Aucun intérêt officiel valide à comptabiliser.")
+                    }
+                    val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - releve.interetsFactures)
+                    if (!nouveauSolde.isFinite()) throw IllegalStateException("Solde de carte invalide.")
+                    val details = carte.details.copy(
+                        releves = carte.details.releves.map {
+                            if (it.id == releveId) it.copy(interetsComptabilises = true) else it
+                        }
+                    )
+                    val corrigee = carte.copy(soldeUtilise = nouveauSolde, detailsCarteJson = details.versJson())
+                    carteCreditRepository.mettreAJourCarteCredit(corrigee).getOrThrow()
+                    historiqueAllocationService.enregistrerAjustementCompte(
+                        compte = corrigee,
+                        typeAction = "INTERETS_FACTURES",
+                        description = "Intérêts facturés au relevé du ${releve.dateEmission} : " +
+                            MoneyFormatter.formatAmount(releve.interetsFactures),
+                        montant = -releve.interetsFactures,
+                        soldeAvant = carte.solde,
+                        soldeApres = nouveauSolde,
+                        pretAPlacerAvant = 0.0,
+                        pretAPlacerApres = 0.0
+                    )
+                    corrigee
                 }
-                .onFailure { e -> _uiState.update { it.copy(messageErreur = "Erreur : ${e.message}") } }
+                _uiState.update { it.copy(carteSelectionnee = carteMaj,
+                    messageInfo = "Intérêts officiels comptabilisés dans le solde.", messageErreur = null) }
+                chargerCartesCredit()
+                realtimeSyncService.declencherMiseAJourComptes()
+            } catch (erreur: Exception) {
+                _uiState.update { it.copy(messageErreur = "Échec de comptabilisation : ${erreur.message}") }
+            }
         }
     }
 
