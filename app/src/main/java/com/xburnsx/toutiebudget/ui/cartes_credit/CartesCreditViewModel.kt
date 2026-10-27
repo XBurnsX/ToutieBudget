@@ -376,6 +376,28 @@ class CartesCreditViewModel(
         }
     }
 
+    // ===== Qualification des mouvements pour la simulation (CC5) =====
+
+    /**
+     * La banque peut appliquer des taux différents selon la nature du mouvement.
+     * Ce choix ne modifie ni le paiement, ni le montant, ni le solde réel du compte.
+     * Une ligne non identifiée ne doit jamais être traitée implicitement en avance de fonds.
+     */
+    fun definirNatureMouvement(
+        transactionId: String,
+        nature: com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte?
+    ) {
+        val carte = _uiState.value.carteSelectionnee ?: return
+        val transaction = _uiState.value.transactionsCarte.firstOrNull { it.id == transactionId }
+        if (transaction == null) {
+            _uiState.update { it.copy(messageErreur = "Transaction introuvable : recharge l'historique.") }
+            return
+        }
+        val natures = carte.details.naturesMouvements.toMutableMap()
+        if (nature == null) natures.remove(transactionId) else natures[transactionId] = nature
+        enregistrerDetails(carte, carte.details.copy(naturesMouvements = natures))
+    }
+
     // ===== Frais (CC10) =====
 
     fun afficherDialogModificationFrais(carte: CompteCredit) {
