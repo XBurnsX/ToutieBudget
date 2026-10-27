@@ -53,11 +53,13 @@ object ImportRelevesCarteCsv {
         fun montant(ligne: List<String>, colonne: String, requis: Boolean = false): Double? {
             val valeur = get(ligne, colonne).replace(" ", "").replace(',', '.')
             if (valeur.isBlank() && !requis) return null
-            val chiffre = valeur.toDoubleOrNull()
-            require(chiffre != null && chiffre.isFinite() && chiffre >= 0.0) {
-                "Montant invalide dans la colonne $colonne."
+            val chiffre = runCatching {
+                java.math.BigDecimal(valeur).setScale(2, java.math.RoundingMode.UNNECESSARY)
+            }.getOrNull()
+            require(chiffre != null && chiffre.signum() >= 0 && chiffre.toDouble().isFinite()) {
+                "Montant invalide dans $colonne : maximum deux décimales, positif ou zéro."
             }
-            return chiffre
+            return chiffre.toDouble()
         }
         val resultat = lignes.drop(1).mapIndexed { indice, ligne ->
             try {
