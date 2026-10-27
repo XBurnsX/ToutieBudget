@@ -633,13 +633,18 @@ class BudgetViewModel(
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Répartition de l'argent...") }
 
                 // Relire le compte et les enveloppes à jour avant de valider
-                val compteSource = compteRepository.recupererTousLesComptes().getOrElse { emptyList() }
+                val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
                     .find { it.id == compteSourceId } as? CompteCheque
                     ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
-                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                     .associateBy { it.id }
 
-                val totalDollars = montants.values.sum() / 100.0
+                // A2 : refuser une somme en centimes qui déborde Long avant toute écriture.
+                val totalCentimes = montants.values.fold(0L) { total, montant ->
+                    Math.addExact(total, montant)
+                }
+                val totalDollars = totalCentimes / 100.0
                 if (compteSource.pretAPlacer + 0.001 < totalDollars) {
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
@@ -648,6 +653,7 @@ class BudgetViewModel(
                 montants.keys.forEach { enveloppeId ->
                     val enveloppe = enveloppes[enveloppeId]
                         ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
+                    if (enveloppe.estArchive) throw IllegalStateException("L'enveloppe « ${enveloppe.nom} » est archivée.")
                     try {
                         validerProvenance(enveloppeId, compteSourceId, mois)
                     } catch (e: Exception) {
