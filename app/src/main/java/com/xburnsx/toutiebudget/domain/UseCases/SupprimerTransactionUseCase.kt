@@ -34,15 +34,24 @@ class SupprimerTransactionUseCase(
      * Supprime une transaction existante avec mise à jour des soldes.
      *
      * @param transactionId ID de la transaction à supprimer
+     * @param garderEcriture MT1/MT10 : défait seulement les effets (compte, enveloppes) et garde l'écriture,
+     *   pour qu'une modification la réécrive sur place (un seul UPDATE, jamais DELETE + CREATE).
+     *   Réservé aux dépenses et revenus ordinaires, sans moitié liée ni dossier de prêt.
      *
      * @return Result indiquant le succès ou l'échec avec l'exception
      */
-    suspend fun executer(transactionId: String): Result<Unit> = runCatching { operationAtomique.executer {
+    suspend fun executer(transactionId: String, garderEcriture: Boolean = false): Result<Unit> = runCatching { operationAtomique.executer {
         // 1. Récupérer la transaction existante
         val transaction = transactionRepository.recupererTransactionParId(transactionId)
             .getOrThrow()
         require(transaction.montant.isFinite() && transaction.montant > 0.0) {
             "Transaction invalide : montant nul ou non fini."
+        }
+        if (garderEcriture) {
+            require(
+                (transaction.type == TypeTransaction.Depense || transaction.type == TypeTransaction.Revenu) &&
+                    !estMoitieDePaiement(transaction) && idDossierPret(transaction.sousItems) == null
+            ) { "Seule une dépense ou un revenu ordinaire se modifie sur place." }
         }
 
         // 2. Un paiement lié s'annule avec son autre moitié
@@ -118,8 +127,8 @@ class SupprimerTransactionUseCase(
                 }
             }
 
-            // 6. Supprimer les écritures
-            aAnnuler.forEach { tx ->
+            // 6. Supprimer les écritures (sauf modification sur place)
+            if (!garderEcriture) aAnnuler.forEach { tx ->
                 transactionRepository.supprimerTransaction(tx.id).getOrThrow()
                 retours += { transactionRepository.creerTransaction(tx).getOrThrow() }
             }

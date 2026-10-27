@@ -145,7 +145,7 @@ class EcransModifierSupprimerTest {
         guide()
         val id = depense("500")
         val vm = ouvrirModifier(id)
-        b.echouerSur = "creerTransaction#2" // le 1er appel a créé l'original
+        b.echouerSur = "mettreAJourTransaction" // la réécriture sur place échoue (MT2)
         vm.onMontantChanged("600"); vm.modifierTransaction(); attendre()
 
         assertNotNull(vm.uiState.value.messageErreur)
@@ -194,6 +194,86 @@ class EcransModifierSupprimerTest {
         assertNotNull(vm.uiState.value.messageErreur)
         assertEquals(900.0, b.soldeDe("chq")); assertEquals(-300.0, b.soldeDe("visa"))
         assertEquals(2, b.transactions.size)
+        assertNotNull(vm.uiState.value.modificationBloquee, "MT4/MT8 : expliqué dès l'ouverture")
+        assertTrue(!vm.uiState.value.peutSauvegarder)
+    }
+
+    @Test
+    fun `MT1-MT10 - modifier reecrit la meme ecriture, jamais supprimer puis recreer`() = test {
+        guide()
+        val id = depense("500")
+        b.transactions[id] = b.transactions.getValue(id).copy(created = Date(0))
+        val creationsAvant = b.nombreAppels("creerTransaction")
+        val vm = ouvrirModifier(id)
+        vm.onMontantChanged("600"); vm.modifierTransaction(); attendre()
+
+        assertEquals(creationsAvant, b.nombreAppels("creerTransaction"), "aucune nouvelle écriture")
+        assertEquals(0, b.nombreAppels("supprimerTransaction"), "aucune suppression")
+        assertEquals(Date(0), b.transactions.getValue(id).created, "date de création gardée")
+        assertEquals(994.0, b.soldeDe("chq")); assertEquals(94.0, soldeEnveloppe("depanneur"))
+    }
+
+    @Test
+    fun `MT22 - un echec ne declare jamais la modification reussie`() = test {
+        guide()
+        val id = depense("500")
+        val vm = ouvrirModifier(id)
+        b.echouerSur = "mettreAJourTransaction"
+        vm.onMontantChanged("600"); vm.modifierTransaction(); attendre()
+
+        assertTrue(!vm.uiState.value.transactionModifiee)
+        assertNull(vm.navigationEvents.value)
+        assertEquals("600", vm.uiState.value.montant, "le formulaire reste pour réessayer")
+    }
+
+    @Test
+    fun `MT15 - simple puis fractionnee puis simple, aucune fraction orpheline`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("epicerie"); b.enveloppe("essence")
+        b.allocation("epicerie", maintenant, solde = 100.0, provenance = "chq")
+        b.allocation("essence", maintenant, solde = 100.0, provenance = "chq")
+        val id = depense("6000", enveloppe = "epicerie")
+        assertEquals(40.0, soldeEnveloppe("epicerie"))
+
+        val vm = ouvrirModifier(id)
+        vm.confirmerFractionnement(listOf(FractionTransaction("f1", 3500.0, "epicerie"), FractionTransaction("f2", 2500.0, "essence")))
+        vm.modifierTransaction(); attendre()
+        assertEquals(65.0, soldeEnveloppe("epicerie")); assertEquals(75.0, soldeEnveloppe("essence"))
+        assertTrue(b.transactions.getValue(id).estFractionnee)
+
+        val retour = ouvrirModifier(id)
+        retour.fermerFractionnement()
+        retour.confirmerFractionnement(emptyList())
+        retour.onEnveloppeChanged(enveloppeUi("essence", 75.0)); retour.modifierTransaction(); attendre()
+        assertEquals(100.0, soldeEnveloppe("epicerie")); assertEquals(40.0, soldeEnveloppe("essence"))
+        assertTrue(!b.transactions.getValue(id).estFractionnee)
+        assertEquals(940.0, b.soldeDe("chq")); assertEquals(setOf(id), b.transactions.keys)
+    }
+
+    @Test
+    fun `MT12 - changer la date affiche les soldes d'enveloppes du mois choisi`() = test {
+        guide()
+        b.allocation("depanneur", moisPrecedent(), solde = 40.0, provenance = "chq")
+        val id = depense("500")
+        val vm = ouvrirModifier(id)
+        assertEquals(95.0, vm.uiState.value.enveloppeSelectionnee?.solde)
+
+        vm.onDateChanged(moisPrecedent().enLocalDate()); attendre()
+        assertEquals(40.0, vm.uiState.value.enveloppeSelectionnee?.solde)
+        assertEquals(40.0, vm.uiState.value.enveloppesFiltrees.values.flatten().single { it.id == "depanneur" }.solde)
+    }
+
+    @Test
+    fun `MA1 et MA3 - differences resumees et origine affichee`() = test {
+        guide()
+        val id = depense("500")
+        val vm = ouvrirModifier(id)
+        assertNull(vm.differences(vm.uiState.value), "rien de financier n'a changé")
+        assertTrue(vm.uiState.value.origineTransaction!!.startsWith("Saisie manuelle"))
+
+        vm.onMontantChanged("600"); vm.onDateChanged(moisPrecedent().enLocalDate())
+        val resume = assertNotNull(vm.differences(vm.uiState.value))
+        assertTrue(resume.contains("Montant") && resume.contains("Mois"), resume)
     }
 
     // ===== Supprimer depuis l'historique =====

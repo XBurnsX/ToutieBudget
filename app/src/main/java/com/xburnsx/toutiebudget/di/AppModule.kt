@@ -234,7 +234,8 @@ import android.content.Context
              allocationMensuelleRepository = allocationMensuelleRepository,
              enregistrerTransactionUseCase = enregistrerTransactionUseCase,
              supprimerTransactionUseCase = supprimerTransactionUseCase,
-             operationAtomique = operationAtomique
+             operationAtomique = operationAtomique,
+             syncJobDao = database.syncJobDao()
          )
      }
      

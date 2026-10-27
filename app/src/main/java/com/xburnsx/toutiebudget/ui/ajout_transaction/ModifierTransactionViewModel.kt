@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.ZoneId
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -48,7 +49,9 @@ class ModifierTransactionViewModel(
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
     private val enregistrerTransactionUseCase: EnregistrerTransactionUseCase,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
-    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte,
+    /** MA3/MA5 : état de synchronisation de cette transaction (null = inconnu, ex. tests). */
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -148,8 +151,10 @@ class ModifierTransactionViewModel(
                         comptesDisponibles = allComptes,
                         enveloppesFiltrees = enveloppesFiltrees,
                         tiersDisponibles = allTiers,
-                        messageErreur = null
-                    )
+                        messageErreur = null,
+                        // MT4/MT8 : expliqué dès l'ouverture, bouton désactivé
+                        modificationBloquee = raisonBlocage(transactionAModifier!!)
+                    ).calculerValidite()
                 }
                 
                 // Si l'enveloppe n'a pas été trouvée, essayer de la charger séparément
@@ -158,6 +163,10 @@ class ModifierTransactionViewModel(
                     allAllocations.none { it.id == allocationId }) {
                     chargerEnveloppeManquante(allocationId)
                 }
+
+                // MA3/MA5 : d'où vient l'écriture et où en est sa synchronisation
+                val origine = decrireOrigine(transactionAModifier!!)
+                _uiState.update { it.copy(origineTransaction = origine) }
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
@@ -309,7 +318,6 @@ class ModifierTransactionViewModel(
                             updated = Date()
                         )
                     ).getOrThrow()
-                    terminerModification()
                     return@executer
                 }
                 
@@ -330,7 +338,8 @@ class ModifierTransactionViewModel(
                         if (env == null || env.estArchive) throw Exception("Une enveloppe du fractionnement n'est plus disponible.")
                     }
                 }
-                val resultSuppression = supprimerTransactionUseCase.executer(original.id)
+                // MT1/MT10 : défaire les effets en GARDANT l'écriture, puis la réécrire sur place (un seul UPDATE)
+                val resultSuppression = supprimerTransactionUseCase.executer(original.id, garderEcriture = true)
                 if (resultSuppression.isFailure) {
                     throw resultSuppression.exceptionOrNull() ?: Exception("Erreur lors de la suppression de l'ancienne transaction")
                 }
@@ -382,6 +391,7 @@ class ModifierTransactionViewModel(
                     // Créer une nouvelle transaction avec estFractionnee = true
                     val result = enregistrerTransactionUseCase.executer(
                         id = original.id, // MT1 : la transaction garde son ID
+                        remplacerEcritureExistante = true,
                          typeTransaction = state.typeTransaction,
                          montant = montantEnDollars, // Utiliser montantEnDollars, pas montantEnCentimes
                          compteId = state.compteSelectionne.id,
@@ -395,7 +405,6 @@ class ModifierTransactionViewModel(
                      )
 
                     if (result.isSuccess) {
-                        preserverMetadonneesOriginales(original)
                         // Mettre à jour les allocations mensuelles en utilisant les données du JSON
                         for (sousItem in sousItems) {
                             val allocationId = sousItem["allocation_mensuelle_id"] as? String
@@ -421,17 +430,6 @@ class ModifierTransactionViewModel(
                                 }
                             }
                         }
-                        
-                        _uiState.update { 
-                            it.copy(
-                                estEnTrainDeSauvegarder = false,
-                                messageErreur = null,
-                                transactionModifiee = true
-                            )
-                        }
-                        
-                        // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
-                        _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
                     } else {
                         throw result.exceptionOrNull() ?: Exception("Erreur lors de la modification")
                     }
@@ -449,6 +447,7 @@ class ModifierTransactionViewModel(
                     // Créer la nouvelle transaction
                     val result = enregistrerTransactionUseCase.executer(
                         id = original.id, // MT1 : la transaction garde son ID
+                        remplacerEcritureExistante = true,
                         typeTransaction = state.typeTransaction,
                         montant = montantEnDollars,
                         compteId = state.compteSelectionne.id,
@@ -461,28 +460,15 @@ class ModifierTransactionViewModel(
                         sousItems = null
                     )
 
-                    if (result.isSuccess) {
-                        preserverMetadonneesOriginales(original)
-                        _uiState.update { 
-                            it.copy(
-                                estEnTrainDeSauvegarder = false,
-                                messageErreur = null,
-                                transactionModifiee = true
-                            )
-                        }
-                        
-                        // Déclencher l'événement de navigation pour indiquer que la transaction a été modifiée
-                        _navigationEvents.value = HistoriqueNavigationEvent.TransactionModifiee
-                    } else {
-                        throw result.exceptionOrNull() ?: Exception("Erreur lors de la modification")
-                    }
+                    result.getOrThrow()
                 }
                 } catch (e: Exception) {
-                    // MT2 : la nouvelle version n'a pas pu être écrite, l'original revient avec tous ses effets
-                    restaurerOriginal(original)
+                    // MT2 : la transaction Room annule TOUT (effets défaits et réécrits) ; aucune écriture compensatoire
                     throw e
                 }
                 }
+                // MT22 : succès et retour à l'historique seulement APRÈS la validation de la transaction Room
+                terminerModification()
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
@@ -492,11 +478,6 @@ class ModifierTransactionViewModel(
                 }
             }
         }
-    }
-
-    private suspend fun preserverMetadonneesOriginales(original: Transaction) {
-        val nouvelle = transactionRepository.recupererTransactionParId(original.id).getOrThrow()
-        transactionRepository.mettreAJourTransaction(nouvelle.copy(created = original.created, updated = Date())).getOrThrow()
     }
 
     private fun terminerModification() {
@@ -536,49 +517,81 @@ class ModifierTransactionViewModel(
      * un prêt ou un emprunt deviendrait une dépense ordinaire et perdrait son lien : on refuse avant d'écrire quoi que ce soit.
      */
     private fun verifierModifiable(transaction: Transaction) {
-        val ordinaire = transaction.type == TypeTransaction.Depense || transaction.type == TypeTransaction.Revenu
-        val lie = transaction.sousItems?.let {
-            it.contains("pret_personnel_id") || it.contains(com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl.CLE_OPERATION_PAIEMENT)
-        } ?: false
-        if (!ordinaire || lie) {
-            throw Exception(
-                "Ce type d'opération (paiement, virement, prêt ou emprunt) ne se modifie pas ici : " +
-                    "supprimez-le puis refaites-le. Rien n'a été changé."
-            )
-        }
+        raisonBlocage(transaction)?.let { throw Exception("$it Rien n'a été changé.") }
     }
 
-    /** MT2 : remet l'original (même ID, mêmes effets sur le compte et les enveloppes) après un échec. */
-    private suspend fun restaurerOriginal(original: Transaction) {
-        val enveloppeId = if (!original.estFractionnee) {
-            original.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it)?.enveloppeId }
-        } else null
-        enregistrerTransactionUseCase.executer(
-            id = original.id,
-            typeTransaction = original.type,
-            montant = original.montant,
-            compteId = original.compteId,
-            collectionCompte = original.collectionCompte,
-            enveloppeId = enveloppeId,
-            tiersUtiliser = original.tiersUtiliser ?: "Transaction",
-            note = original.note,
-            date = original.date,
-            estFractionnee = original.estFractionnee,
-            sousItems = original.sousItems
-        ).getOrThrow()
-        if (original.estFractionnee && !original.sousItems.isNullOrBlank()) {
-            val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
-            com.google.gson.Gson().fromJson<List<Map<String, Any>>>(original.sousItems, type).forEach { sousItem ->
-                val allocation = (sousItem["allocation_mensuelle_id"] as? String)
-                    ?.let { allocationMensuelleRepository.getAllocationById(it) } ?: return@forEach
-                val montant = (sousItem["montant"] as? Double) ?: 0.0
-                allocationMensuelleRepository.mettreAJourAllocation(
-                    if (original.collectionCompte == "comptes_credits") allocation.copy(depense = allocation.depense + montant, alloue = allocation.alloue + montant)
-                    else allocation.copy(depense = allocation.depense + montant, solde = allocation.solde - montant)
-                )
-            }
+    /**
+     * MA3/MA5 : origine (saisie manuelle — aucun import bancaire n'existe encore), date de création, écriture liée,
+     * et synchronisation : « en attente » / « échec » d'après SES tâches ; aucune tâche visible ne prouve rien,
+     * donc on n'affiche « synchronisée » que si une tâche terminée le confirme.
+     */
+    private suspend fun decrireOrigine(tx: Transaction): String {
+        val format = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.CANADA_FRENCH)
+        val parties = mutableListOf("Saisie manuelle")
+        tx.created?.let { parties += "créée le ${format.format(it)}" }
+        if (tx.sousItems.orEmpty().contains(com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl.CLE_OPERATION_PAIEMENT)) {
+            parties += "liée à l'autre côté du paiement"
         }
+        if (tx.sousItems.orEmpty().contains("pret_personnel_id")) parties += "liée à un dossier de prêt"
+        val statut = syncJobDao?.let { dao ->
+            runCatching {
+                val siens = dao.getAllSyncJobs().first().filter { it.recordId == tx.id || it.dataJson.contains("\"${tx.id}\"") }
+                when {
+                    siens.any { it.status == "FAILED" || it.bloque } -> "échec de synchronisation"
+                    siens.any { it.status != "COMPLETED" } -> "en attente de synchronisation"
+                    siens.isNotEmpty() -> "synchronisée"
+                    else -> "aucune synchronisation en attente"
+                }
+            }.getOrNull()
+        }
+        statut?.let { parties += it }
+        return parties.joinToString(" · ")
     }
+
+    /** MA1 : ce qui change vraiment (montant, compte, enveloppe, mois), en une ligne ; null si rien de financier. */
+    fun differences(etat: AjoutTransactionUiState): String? {
+        val original = transactionAModifier ?: return null
+        val f = { v: Double -> MoneyFormatter.formatAmount(v) }
+        val changements = mutableListOf<String>()
+        val nouveau = etat.montant.toLongOrNull()?.div(100.0)
+        if (nouveau != null && kotlin.math.abs(nouveau - original.montant) >= 0.005) changements += "Montant ${f(original.montant)} → ${f(nouveau)}"
+        if (etat.compteSelectionne != null && etat.compteSelectionne.id != original.compteId) {
+            changements += "Compte ${allComptes.find { it.id == original.compteId }?.nom ?: "?"} → ${etat.compteSelectionne.nom}"
+        }
+        val ancienneEnveloppe = original.allocationMensuelleId?.let { id -> allAllocations.find { it.id == id }?.enveloppeId }
+        if (!etat.fractionnementEffectue && etat.enveloppeSelectionnee != null && ancienneEnveloppe != null &&
+            etat.enveloppeSelectionnee.id != ancienneEnveloppe
+        ) changements += "Enveloppe ${allEnveloppes.find { it.id == ancienneEnveloppe }?.nom ?: "?"} → ${etat.enveloppeSelectionnee.nom}"
+        val moisFormat = java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.CANADA_FRENCH)
+        val ancienMois = original.date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+        if (ancienMois.year != etat.dateTransaction.year || ancienMois.month != etat.dateTransaction.month) {
+            changements += "Mois ${ancienMois.format(moisFormat)} → ${etat.dateTransaction.format(moisFormat)}"
+        }
+        if (etat.fractionnementEffectue != original.estFractionnee) {
+            changements += if (etat.fractionnementEffectue) "Devient fractionnée" else "Devient simple"
+        }
+        return changements.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
+    /** MT4 / MT8 : le vrai mode de l'opération, et pourquoi elle ne se modifie pas ici (null = modifiable). */
+    private fun raisonBlocage(transaction: Transaction): String? {
+        val sousItems = transaction.sousItems.orEmpty()
+        val mode = when {
+            sousItems.contains("pret_personnel_id") -> when (transaction.type) {
+                TypeTransaction.Pret, TypeTransaction.RemboursementRecu -> "un prêt personnel"
+                else -> "un emprunt personnel"
+            }
+            transaction.type == TypeTransaction.TransfertSortant || transaction.type == TypeTransaction.TransfertEntrant -> "un virement entre comptes"
+            transaction.type == TypeTransaction.Paiement || transaction.type == TypeTransaction.PaiementEffectue ||
+                sousItems.contains(com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl.CLE_OPERATION_PAIEMENT) ->
+                "un paiement de carte ou de dette"
+            transaction.type == TypeTransaction.Depense || transaction.type == TypeTransaction.Revenu -> return null
+            else -> "une opération liée"
+        }
+        return "Cette écriture est $mode : ses deux côtés (ou son dossier) doivent changer ensemble, " +
+            "ce que cet écran ne fait pas encore. Supprimez-la puis refaites-la."
+    }
+
 
     /**
      * Efface les événements de navigation.
@@ -591,13 +604,16 @@ class ModifierTransactionViewModel(
      * Construit les enveloppes UI avec les allocations.
      */
     private fun construireEnveloppesUi(): List<EnveloppeUi> {
+        // MT12 : les soldes affichés sont ceux du mois de la date choisie (toutes ses allocations additionnées)
+        val moisChoisi = Date.from(_uiState.value.dateTransaction.atStartOfDay(ZoneId.systemDefault()).toInstant())
         return allEnveloppes.filter { !it.estArchive }.map { enveloppe ->
-            val allocation = allAllocations.find { it.enveloppeId == enveloppe.id }
-            
+            val allocations = allAllocations.filter { it.enveloppeId == enveloppe.id && memeMois(it.mois, moisChoisi) }
+            val solde = MoneyFormatter.roundAmount(allocations.sumOf { it.solde })
+
             // Récupérer la couleur du compte source depuis l'allocation
             // 🎨 CORRECTION : Reset la couleur de provenance quand solde = 0
-            val compteSource = if ((allocation?.solde ?: 0.0) > 0.001) {
-                allocation?.compteSourceId?.let { compteId ->
+            val compteSource = if (solde > 0.001) {
+                allocations.filter { it.solde > 0 }.maxByOrNull { it.solde }?.compteSourceId?.let { compteId ->
                     allComptes.find { it.id == compteId }
                 }
             } else {
@@ -607,10 +623,10 @@ class ModifierTransactionViewModel(
             EnveloppeUi(
                 id = enveloppe.id,
                 nom = enveloppe.nom,
-                solde = allocation?.solde ?: 0.0,
-                depense = allocation?.depense ?: 0.0,
-                alloue = allocation?.alloue ?: 0.0, // Alloué ce mois
-                alloueCumulatif = allocation?.alloue ?: 0.0, // ← NOUVEAU : Pour simplifier, on utilise la même valeur
+                solde = solde,
+                depense = allocations.sumOf { it.depense },
+                alloue = allocations.sumOf { it.alloue }, // Alloué ce mois
+                alloueCumulatif = allocations.sumOf { it.alloue },
                 objectif = enveloppe.objectifMontant,
                 couleurProvenance = compteSource?.couleur, // ✅ VRAIE COULEUR DU COMPTE
                 statutObjectif = com.xburnsx.toutiebudget.ui.budget.StatutObjectif.GRIS
@@ -702,7 +718,19 @@ class ModifierTransactionViewModel(
             enveloppeRepository.recupererAllocationsPourMois(date)
                 .onSuccess { allocations ->
                     allAllocations = (allAllocations.filterNot { memeMois(it.mois, date) } + allocations).distinctBy { it.id }
-                    _uiState.update { it.copy(enveloppesDisponibles = construireEnveloppesUi()) }
+                    // MT12 : la liste que l'écran affiche (par catégorie) et l'enveloppe choisie passent au nouveau mois
+                    val enveloppesUi = construireEnveloppesUi()
+                    val groupes = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(allCategories, allEnveloppes)
+                    _uiState.update { etat ->
+                        etat.copy(
+                            enveloppesDisponibles = enveloppesUi,
+                            enveloppesFiltrees = groupes.mapValues { (_, envs) ->
+                                enveloppesUi.filter { ui -> envs.any { it.id == ui.id } }
+                                    .sortedBy { ui -> envs.indexOfFirst { it.id == ui.id } }
+                            },
+                            enveloppeSelectionnee = etat.enveloppeSelectionnee?.let { choisie -> enveloppesUi.find { it.id == choisie.id } ?: choisie }
+                        ).calculerValidite()
+                    }
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(messageErreur = "Allocations du mois indisponibles : ${e.message}") }
@@ -789,7 +817,8 @@ class ModifierTransactionViewModel(
         _uiState.update { 
             it.copy(
                 estEnModeFractionnement = false,
-                fractionnementEffectue = true, // Marquer que le fractionnement a été effectué
+                // MT15 : retirer toutes les fractions ramène à une transaction simple (une enveloppe à choisir)
+                fractionnementEffectue = fractions.isNotEmpty(),
                 fractionsSauvegardees = fractions // Sauvegarder les fractions pour les réutiliser
             ).calculerValidite() // Recalculer la validité pour activer le bouton Modifier
         }

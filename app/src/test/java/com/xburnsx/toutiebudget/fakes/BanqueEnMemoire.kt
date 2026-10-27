@@ -63,6 +63,9 @@ class BanqueEnMemoire {
 
     private fun id(prefixe: String) = "$prefixe${prochainId++}"
 
+    /** Combien de fois une écriture a été appelée (ex. « creerTransaction »). */
+    fun nombreAppels(operation: String) = compteurs[operation] ?: 0
+
     private fun verifier(operation: String) {
         val n = (compteurs[operation] ?: 0) + 1
         compteurs[operation] = n
@@ -174,7 +177,7 @@ class BanqueEnMemoire {
             Result.success(transactions.values.filter { it.allocationMensuelleId == allocationId })
         override suspend fun recupererTransactionParId(transactionId: String) =
             transactions[transactionId]?.let { Result.success(it) } ?: Result.failure(Exception("Transaction non trouvée"))
-        override suspend fun mettreAJourTransaction(transaction: Transaction) = runCatching { transactions[transaction.id] = transaction }
+        override suspend fun mettreAJourTransaction(transaction: Transaction) = runCatching { verifier("mettreAJourTransaction"); transactions[transaction.id] = transaction }
         override suspend fun supprimerTransaction(transactionId: String) = runCatching { verifier("supprimerTransaction"); transactions.remove(transactionId); Unit }
     }
 

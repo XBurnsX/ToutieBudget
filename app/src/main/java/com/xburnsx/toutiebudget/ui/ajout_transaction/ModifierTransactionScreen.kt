@@ -290,6 +290,40 @@ fun ModifierTransactionScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // MA1 : ce qui change vraiment, avant d'enregistrer
+                    viewModel.differences(uiState)?.let { changements ->
+                        Text(
+                            text = changements,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // MA3/MA5 : origine, liens et synchronisation de l'écriture
+                    uiState.origineTransaction?.let { origine ->
+                        Text(
+                            text = origine,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // MT4/MT8 : pourquoi cette écriture ne se modifie pas ici (affiché dès l'ouverture)
+                    uiState.modificationBloquee?.let { raison ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                        ) {
+                            Text(
+                                text = raison,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
+
                     // Affichage d'erreur si nécessaire
                     uiState.messageErreur?.let { message ->
                         Card(

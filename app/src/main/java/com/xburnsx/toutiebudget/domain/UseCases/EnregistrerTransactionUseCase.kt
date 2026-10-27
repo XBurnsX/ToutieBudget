@@ -57,7 +57,8 @@ class EnregistrerTransactionUseCase(
         estFractionnee: Boolean = false,
         sousItems: String? = null,
         id: String? = null, // MT1 : réutiliser l'ID d'une transaction modifiée
-        verifierIdempotence: Boolean = false // AT4/AT14 : rejouer une création sans débiter deux fois
+        verifierIdempotence: Boolean = false, // AT4/AT14 : rejouer une création sans débiter deux fois
+        remplacerEcritureExistante: Boolean = false // MT1/MT10 : réécrire l'écriture [id] sur place (même ID, même création)
     ): Result<Unit> {
         
         if (montant <= 0) {
@@ -165,15 +166,28 @@ class EnregistrerTransactionUseCase(
                     sousItems = sousItems
                 )
 
-                val resultTransaction = transactionRepository.creerTransaction(transaction)
-                if (resultTransaction.isFailure) {
-                    throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
-                }
-                val idCree = resultTransaction.getOrThrow().id
-                // Room annule automatiquement; ne pas fabriquer de SyncJob inverse
-                // pendant une transaction qui va deja faire rollback.
-                if (operationAtomique !is OperationAtomiqueRoom) {
-                    siEchec { transactionRepository.supprimerTransaction(idCree).getOrThrow() }
+                if (remplacerEcritureExistante) {
+                    // MT1/MT10 : la même écriture est réécrite (un seul UPDATE) ; sa date de création est gardée.
+                    val existante = transactionRepository.recupererTransactionParId(
+                        id?.takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("Transaction à modifier manquante.")
+                    ).getOrThrow()
+                    transactionRepository.mettreAJourTransaction(
+                        transaction.copy(utilisateurId = existante.utilisateurId, created = existante.created, updated = Date())
+                    ).getOrThrow()
+                    if (operationAtomique !is OperationAtomiqueRoom) {
+                        siEchec { transactionRepository.mettreAJourTransaction(existante).getOrThrow() }
+                    }
+                } else {
+                    val resultTransaction = transactionRepository.creerTransaction(transaction)
+                    if (resultTransaction.isFailure) {
+                        throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
+                    }
+                    val idCree = resultTransaction.getOrThrow().id
+                    // Room annule automatiquement; ne pas fabriquer de SyncJob inverse
+                    // pendant une transaction qui va deja faire rollback.
+                    if (operationAtomique !is OperationAtomiqueRoom) {
+                        siEchec { transactionRepository.supprimerTransaction(idCree).getOrThrow() }
+                    }
                 }
 
                 // 📝 ENREGISTRER DANS L'HISTORIQUE

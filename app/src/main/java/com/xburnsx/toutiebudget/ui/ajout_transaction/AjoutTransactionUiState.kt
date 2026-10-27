@@ -86,7 +86,11 @@ data class AjoutTransactionUiState(
     /** AA2 : enveloppes déjà utilisées avec ce tiers, proposées seulement. */
     val suggestionsEnveloppes: List<EnveloppeUi> = emptyList(),
     /** AA1 : aperçu court du résultat (compte et enveloppe après l'opération). */
-    val apercu: String? = null
+    val apercu: String? = null,
+    /** MT4/MT8 (Modifier) : pourquoi cette écriture ne se modifie pas ici ; non null = sauvegarde désactivée. */
+    val modificationBloquee: String? = null,
+    /** MA3/MA5 (Modifier) : origine, liens et état de synchronisation de l'écriture. */
+    val origineTransaction: String? = null
 ) {
     /** Somme des fractions = montant saisi, en cents exacts, chaque fraction positive et avec une enveloppe. */
     fun fractionsCorrespondentAuMontant(): Boolean {
@@ -194,6 +198,7 @@ data class AjoutTransactionUiState(
         val soldesConnus = !(allocationsIndisponibles && modeOperation == "Standard" && typeTransaction == TypeTransaction.Depense)
 
         val peutSauvegarde = montantEstValide &&
+                            modificationBloquee == null &&
                             paiementDetteDansLaLimite &&
                             soldesConnus &&
                             compteEstSelectionne &&
