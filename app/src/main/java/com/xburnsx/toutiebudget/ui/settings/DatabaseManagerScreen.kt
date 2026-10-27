@@ -60,7 +60,7 @@ fun DatabaseManagerScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = Color(0xFF1A1A1A),
                 contentColor = Color.White
