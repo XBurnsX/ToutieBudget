@@ -15,6 +15,8 @@ import java.util.Calendar
 import java.util.Locale
 import java.text.SimpleDateFormat
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
@@ -23,10 +25,15 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return Result.success()
 
         val budgetVm = AppModule.provideBudgetViewModel()
-        // S’assurer que les données sont fraîches
+        // PR11 : rafraichirDonnees() déclenche une coroutine et retourne AVANT
+        // le résultat. Attendre un nouvel état final au lieu d'utiliser les
+        // données vides/périmées du StateFlow.
+        val etatAvant = budgetVm.uiState.value
         budgetVm.rafraichirDonnees()
-
-        val state = budgetVm.uiState.value
+        val state = withTimeoutOrNull(20_000L) {
+            budgetVm.uiState.first { !it.isLoading && it !== etatAvant }
+        } ?: return Result.retry()
+        if (state.erreur != null) return Result.retry()
 
         // 1) Enveloppes négatives (exclure la catégorie "Dettes")
         if (PreferencesManager.getNotifEnveloppeNegative(ctx)) {
