@@ -701,7 +701,7 @@ class ArgentServiceImpl @Inject constructor(
         if (!compteQuiPaie.solde.isFinite() || !carteOuDette.solde.isFinite()) {
             throw IllegalStateException("Solde bancaire ou solde de la dette invalide.")
         }
-        if (compteQuiPaie.solde + 0.000001 < montantArrondi) {
+        if (kotlin.math.round(compteQuiPaie.solde * 100.0).toLong() < kotlin.math.round(montantArrondi * 100.0).toLong()) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
         }
         // DF8 : pas de trop-payé involontaire sur une dette
