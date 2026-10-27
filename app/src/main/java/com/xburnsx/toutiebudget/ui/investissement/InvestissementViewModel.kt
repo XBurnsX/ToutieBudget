@@ -105,6 +105,10 @@ class InvestissementViewModel(
             _uiState.update { it.copy(message = "Date de valorisation ou valeur invalide.") }
             return
         }
+        val soldeObserve = _uiState.value.compte?.solde ?: run {
+            _uiState.update { it.copy(message = "Placement non chargé; recharge sa valeur.") }
+            return
+        }
         enregistrer(apres = { avant, apres ->
             historiqueAllocationService.enregistrerAjustementCompte(
                 compte = apres,
@@ -118,6 +122,11 @@ class InvestissementViewModel(
                 pretAPlacerApres = 0.0
             )
         }) { compte ->
+            if (kotlin.math.abs(compte.solde - soldeObserve) > 0.005) {
+                throw IllegalStateException(
+                    "La valeur du placement a changé depuis l'ouverture du formulaire. Recharge avant de confirmer."
+                )
+            }
             val v = Valorisation(date = date, valeur = MoneyFormatter.roundAmount(valeur), ancienneValeur = compte.solde, type = type, note = note)
             compte.copy(
                 solde = MoneyFormatter.roundAmount(valeur),
