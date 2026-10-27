@@ -245,6 +245,15 @@ object MoteurCarteCredit {
         dureeMax: Int = MAX_MOIS,
         debut: Date = Date()
     ): ResultatSimulation {
+        if (dureeMax !in 1..MAX_MOIS) {
+            return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+                "Durée de simulation invalide (1 à $MAX_MOIS mois).")
+        }
+        if (strategie != Strategie.MINIMUM && (!valeur.isFinite() || valeur <= 0.0 ||
+                    (strategie == Strategie.POURCENTAGE && valeur > 100.0))) {
+            return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+                "Montant fixe ou pourcentage invalide.")
+        }
         var solde = dette(carte)
         if (solde <= 0.005) return ResultatSimulation(emptyList(), 0, 0.0, 0.0, 0.0)
 
@@ -283,6 +292,10 @@ object MoteurCarteCredit {
                 }
             })
             val du = arrondi(solde + interets + frais)
+            if (!du.isFinite() || du <= 0.0) {
+                return ResultatSimulation(lignes, null, arrondi(totalInterets), arrondi(totalFrais),
+                    arrondi(totalPaye), "Projection invalide : montant ou intérêts trop élevés.")
+            }
 
             val paiementVoulu = when (strategie) {
                 Strategie.MINIMUM -> minimumEstime(carte, du)
@@ -292,6 +305,10 @@ object MoteurCarteCredit {
                     carte.details.plancherMinimumEffectif?.let { p = max(p, it) }
                     p
                 }
+            }
+            if (!paiementVoulu.isFinite() || paiementVoulu < 0.0) {
+                return ResultatSimulation(lignes, null, arrondi(totalInterets), arrondi(totalFrais),
+                    arrondi(totalPaye), "Projection de paiement invalide.")
             }
             val paiement = arrondi(min(paiementVoulu, du))
 
