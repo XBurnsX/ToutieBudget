@@ -151,6 +151,7 @@ object MoteurInvestissement {
         val d = compte.details
         val depart = MoteurCarteCredit.lireDate(d.dateDepart) ?: return null
         val valeurDepart = d.valeurDepart ?: return null
+        if (!valeurDepart.isFinite() || valeurDepart <= 0.0 || !compte.solde.isFinite() || compte.solde < 0.0) return null
         if ((aujourdHui.time - depart.time) / JOUR_MS < 30) return null
         val mouvements = mutableListOf(depart to -valeurDepart)
         val fluxConnus = flux(transactions)
@@ -169,10 +170,15 @@ object MoteurInvestissement {
         }
         var bas = -0.99
         var haut = 10.0
-        if (van(bas) * van(haut) > 0) return null
+        val departVan = van(bas)
+        val finVan = van(haut)
+        if (!departVan.isFinite() || !finVan.isFinite() || departVan * finVan >= 0.0) return null
         repeat(200) {
             val milieu = (bas + haut) / 2
-            if (van(bas) * van(milieu) <= 0) haut = milieu else bas = milieu
+            val basVan = van(bas)
+            val milieuVan = van(milieu)
+            if (!basVan.isFinite() || !milieuVan.isFinite()) return null
+            if (basVan * milieuVan <= 0.0) haut = milieu else bas = milieu
         }
         val r = (bas + haut) / 2 * 100
         return if (r.isFinite()) r else null
