@@ -273,7 +273,8 @@ fun BudgetScreen(
                                     menuExpanded = false
                                     repartitionErreur = null
                                     showRepartition = true
-                                }
+                                },
+                                enabled = !uiState.isLoading && uiState.erreur == null
                             )
                             DropdownMenuItem(
                                 text = {
@@ -286,7 +287,8 @@ fun BudgetScreen(
                                 onClick = {
                                     menuExpanded = false
                                     showPrevisions = true
-                                }
+                                },
+                                enabled = !uiState.isLoading && uiState.erreur == null
                             )
                         }
                     }
@@ -570,9 +572,13 @@ fun BudgetScreen(
             enCours = repartitionEnCours,
             erreur = repartitionErreur,
             onConfirmer = { compteId, montants ->
-                repartitionErreur = null
-                repartitionEnCours = true
-                viewModel.assignerAPlusieursEnveloppes(compteId, montants)
+                if (uiState.isLoading || uiState.erreur != null) {
+                    repartitionErreur = "Le budget doit être chargé complètement avant la répartition."
+                } else {
+                    repartitionErreur = null
+                    repartitionEnCours = true
+                    viewModel.assignerAPlusieursEnveloppes(compteId, montants)
+                }
             },
             onFermer = {
                 showRepartition = false
