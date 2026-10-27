@@ -936,17 +936,20 @@ class AjoutTransactionViewModel(
                                 is CompteInvestissement -> "comptes_investissement"
                                 else -> "comptes_cheques"
                             }).getOrNull()
+                            // AT15 : échec de rafraîchissement ≠ carte/dette soldée.
                             when (comptePaiement) {
                                 is CompteCredit -> {
-                                    val soldeActuel = (comptePaye as? CompteCredit)?.solde ?: 0.0
-                                    if (soldeActuel >= -0.01 && soldeActuel <= 0.01) {
+                                    val soldeActuel = (comptePaye as? CompteCredit)?.solde
+                                    if (soldeActuel != null && soldeActuel.isFinite() &&
+                                        soldeActuel >= -0.01 && soldeActuel <= 0.01) {
                                         detteTerminee = true
                                     }
                                     message = "Votre paiement à la carte ${comptePaiement.nom} a été enregistré"
                                 }
                                 is CompteDette -> {
-                                    val soldeActuel = (comptePaye as? CompteDette)?.solde ?: 0.0
-                                    if (soldeActuel >= -0.01 && soldeActuel <= 0.01) {
+                                    val soldeActuel = (comptePaye as? CompteDette)?.solde
+                                    if (soldeActuel != null && soldeActuel.isFinite() &&
+                                        soldeActuel >= -0.01 && soldeActuel <= 0.01) {
                                         detteTerminee = true
                                     }
                                     message = "Votre paiement à la dette ${comptePaiement.nom} a été enregistré"
