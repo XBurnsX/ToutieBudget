@@ -74,6 +74,14 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
     var mouvementEdite by remember { mutableStateOf<MouvementPlacement?>(null) }
 
     LaunchedEffect(compteId) { viewModel.charger(compteId) }
+    // IF5 : fermer l'éditeur seulement lorsque Room confirme l'écriture.
+    LaunchedEffect(uiState.succesEcriture) {
+        if (uiState.succesEcriture > 0L) {
+            dialogueValeur = false
+            positionEditee = null
+            mouvementEdite = null
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -122,20 +130,20 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
     if (dialogueValeur) {
         DialogueValeur(
             valeurActuelle = uiState.compte?.solde ?: 0.0,
-            onConfirmer = { date, valeur, type, note -> viewModel.nouvelleValeur(date, valeur, type, note); dialogueValeur = false },
+            onConfirmer = { date, valeur, type, note -> viewModel.nouvelleValeur(date, valeur, type, note) },
             onAnnuler = { dialogueValeur = false }
         )
     }
     positionEditee?.let { p ->
         DialoguePosition(p, uiState.compte?.details?.positions?.any { it.id == p.id } == true,
-            onEnregistrer = { viewModel.enregistrerPosition(it); positionEditee = null },
-            onSupprimer = { viewModel.supprimerPosition(p.id); positionEditee = null },
+            onEnregistrer = { viewModel.enregistrerPosition(it) },
+            onSupprimer = { viewModel.supprimerPosition(p.id) },
             onAnnuler = { positionEditee = null })
     }
     mouvementEdite?.let { m ->
         DialogueMouvement(m, uiState.compte?.details?.mouvements?.any { it.id == m.id } == true,
-            onEnregistrer = { viewModel.enregistrerMouvement(it); mouvementEdite = null },
-            onSupprimer = { viewModel.supprimerMouvement(m.id); mouvementEdite = null },
+            onEnregistrer = { viewModel.enregistrerMouvement(it) },
+            onSupprimer = { viewModel.supprimerMouvement(m.id) },
             onAnnuler = { mouvementEdite = null })
     }
     uiState.message?.let { msg ->
