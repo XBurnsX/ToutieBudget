@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -599,36 +600,57 @@ private fun AnimatedTopCards(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                EnhancedListCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Top 5 Enveloppes",
-                    subtitle = "Dépenses par catégorie",
-                    items = uiState.top5Enveloppes,
-                    leadingTint = MaterialTheme.colorScheme.primary,
-                    leadingIcon = Icons.Filled.Category,
-                    total = uiState.totalDepenses,
-                    onItemClick = { item ->
-                        // item.id est maintenant un enveloppeId
-                        viewModel.ouvrirModalTransactionsPourEnveloppe(item.id)
+            // ST20 : sur téléphone, les deux Tops occupent la largeur disponible.
+            // Sur tablette, on garde les deux cartes côte à côte.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 620.dp
+                if (compact) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        EnhancedListCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = "Top 5 Enveloppes",
+                            subtitle = "Dépenses par enveloppe",
+                            items = uiState.top5Enveloppes,
+                            leadingTint = MaterialTheme.colorScheme.primary,
+                            leadingIcon = Icons.Filled.Category,
+                            total = uiState.totalDepenses,
+                            onItemClick = { item -> viewModel.ouvrirModalTransactionsPourEnveloppe(item.id) }
+                        )
+                        EnhancedListCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = "Top 5 Tiers",
+                            subtitle = "Dépenses de consommation par tiers",
+                            items = uiState.top5Tiers,
+                            leadingTint = MaterialTheme.colorScheme.secondary,
+                            leadingIcon = Icons.Filled.Person,
+                            total = uiState.totalDepenses,
+                            onItemClick = { item -> viewModel.ouvrirModalTransactionsPourTiers(item.id, item.label) }
+                        )
                     }
-                )
-
-                EnhancedListCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Top 5 Tiers",
-                    subtitle = "Dépenses par tiers",
-                    items = uiState.top5Tiers,
-                    leadingTint = MaterialTheme.colorScheme.secondary,
-                    leadingIcon = Icons.Filled.Person,
-                    total = uiState.totalDepenses,
-                    onItemClick = { item ->
-                        viewModel.ouvrirModalTransactionsPourTiers(item.id, item.label)
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        EnhancedListCard(
+                            modifier = Modifier.weight(1f),
+                            title = "Top 5 Enveloppes",
+                            subtitle = "Dépenses par enveloppe",
+                            items = uiState.top5Enveloppes,
+                            leadingTint = MaterialTheme.colorScheme.primary,
+                            leadingIcon = Icons.Filled.Category,
+                            total = uiState.totalDepenses,
+                            onItemClick = { item -> viewModel.ouvrirModalTransactionsPourEnveloppe(item.id) }
+                        )
+                        EnhancedListCard(
+                            modifier = Modifier.weight(1f),
+                            title = "Top 5 Tiers",
+                            subtitle = "Dépenses de consommation par tiers",
+                            items = uiState.top5Tiers,
+                            leadingTint = MaterialTheme.colorScheme.secondary,
+                            leadingIcon = Icons.Filled.Person,
+                            total = uiState.totalDepenses,
+                            onItemClick = { item -> viewModel.ouvrirModalTransactionsPourTiers(item.id, item.label) }
+                        )
                     }
-                )
+                }
             }
 
 
