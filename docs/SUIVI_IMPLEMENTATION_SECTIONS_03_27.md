@@ -39,7 +39,7 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 | 3. Accueil / Budget | A2, A3, A4, A5, A7 | Code présent. A2 révisé avec transaction Room; filtres au cent, favoris synchronisés en série; aperçus protégés | Compilation + validation des écritures Room/SyncJobs |
 | 4. Paramètres / Plan Reset | A8 / BUD-01 | **Codage traité** : action volontaire dans Paramètres, aperçu par allocation/compte, confirmation explicite, sélection par ID, détection d'aperçu périmé, restauration Room atomique, aucune suppression de transaction ni modification des autres mois | Compilation Gradle et vérification Room/PocketBase sur appareil non exécutées |
 | 5. Correctifs Budget | C2, C3, C4 | **Codage traité** : C2 préférences locales/priorité au dernier clic; C3 réussite liée à un identifiant de requête unique; C4 affichage MoneyFormatter $ CA sur écran soldes négatifs | Build Android / UI non vérifiés |
-| 6. Prêt personnel | P3–P7, PP2, PP3, PP6 | Code présent. Erreurs des historiques et de l'archivage rendues explicites | Compilation + intégrité des remboursements multi-dossiers |
+| 6. Prêt personnel | P3–P7, PP2, PP3, PP6 | **Codage traité** : types prêt/emprunt et « Archivés », détail stable et erreurs visibles, archiver/réactiver sans changer le solde, remboursement affiché dans détails, remboursements multi-dossiers validés avant écriture et sous transaction Room, journal inclus | Build Gradle / vérification Room non exécutés |
 | 7. Virer argent | V1–V8, VA4–VA6 | Code présent. Transaction Room déjà injectée; journaux désormais obligatoires; gestion d'exception dans le ViewModel | Compilation + cas de provenance multi-allocation |
 
 ## Section 4 — Revue de codage clôturée (A8 / BUD-01)
@@ -60,6 +60,17 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 - **C4** — Écran de gestion des soldes négatifs vérifié : valeurs en dollars canadiens via `MoneyFormatter.formatAmount`, pas de symbole euro.
 
 **État : codage C2–C4 traité; build et validation Android non exécutés.** Section 6 suivante.
+
+## Section 6 — Revue de codage clôturée (P3–P7, PP2, PP3, PP6)
+
+- **P3/P7** — Onglet « Archivés », vraies distinctions Prêt/Emprunt avec libellés de montant et couleurs selon le dossier.
+- **P4** — État de chargement vidé lors du changement de dossier; réponses anciennes ignorées; détail maintenu lors d'un archivage même si l'onglet se vide; erreur affichée au lieu d'un spinner infini.
+- **P5** — Les mouvements de compte, dossiers et transactions de remboursement sont enregistrés dans une opération Room atomique, avec la trace de remboursement dans la même transaction. Pas de réussite si la journalisation échoue.
+- **P6** — Solde total restant de plusieurs dossiers d'un même tiers vérifié avant tout débit; revalidation de chaque solde dans la transaction Room; pas de remboursement excédentaire ni double comptage silencieux.
+- **PP2/PP3** — Archivage manuel sur confirmation même si solde non nul; réactivation depuis les détails sans créer de transaction.
+- **PP6** — Initial, remboursé et restant affichés dans Détails; transactions retrouvées par ID JSON exact, sans rapprochement par sous-chaîne.
+
+**État : codage traité; compilation et E2E non exécutés.** Section 7 suivante.
 
 ## Section 8 — Comptes
 
