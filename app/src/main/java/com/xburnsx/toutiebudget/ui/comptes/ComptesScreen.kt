@@ -67,7 +67,9 @@ fun ComptesScreen(
     // CA3 : groupes repliés, mémorisés sur l'appareil
     var groupesFermes by remember { mutableStateOf(PreferencesManager.getGroupesComptesFermes(context)) }
     // CA4 : option des Paramètres
-    val masquerComptesAZero = remember { PreferencesManager.getMasquerComptesAZero(context) }
+    // CA4 : lire la préférence après le retour des Paramètres, sans conserver
+    // pour toute la vie de cet écran une ancienne valeur mise en cache.
+    val masquerComptesAZero = PreferencesManager.getMasquerComptesAZero(context)
 
     // États pour le clavier numérique
     var showKeyboard by remember { mutableStateOf(false) }
