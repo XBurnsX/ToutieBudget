@@ -241,7 +241,7 @@ class HistoriqueEnveloppeViewModel(
                         try {
                             val arr = JsonParser.parseString(transaction.sousItems).asJsonArray
                             arr.any { elem -> 
-                                elem.asJsonObject.get("enveloppeId")?.asString == enveloppeId 
+                                (elem.asJsonObject.get("enveloppe_id") ?: elem.asJsonObject.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString == enveloppeId 
                             }
                         } catch (_: Exception) { false }
                     } else false
@@ -276,7 +276,7 @@ class HistoriqueEnveloppeViewModel(
                     val montantPourEnveloppe = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
                         runCatching {
                             JsonParser.parseString(transaction.sousItems).asJsonArray
-                                .filter { it.asJsonObject.get("enveloppeId")?.asString == enveloppeId }
+                                .filter { (it.asJsonObject.get("enveloppe_id") ?: it.asJsonObject.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString == enveloppeId }
                                 .sumOf { it.asJsonObject.get("montant")?.asDouble ?: 0.0 }
                         }.getOrElse { cause ->
                             // HE2 : ne jamais présenter le montant total de l'achat
