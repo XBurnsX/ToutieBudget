@@ -1093,8 +1093,27 @@ class AjoutTransactionViewModel(
                         if (env == null || env.estArchive) throw Exception("Une enveloppe du fractionnement n'est plus disponible.")
                     }
                     
-                    // Convertir les fractions en JSON pour sousItems
+                    val collectionPrincipale = when (compte) {
+                        is CompteCheque -> "comptes_cheques"
+                        is CompteCredit -> "comptes_credits"
+                        is CompteDette -> "comptes_dettes"
+                        is CompteInvestissement -> "comptes_investissement"
+                        else -> "comptes_cheques"
+                    }
+                    val montantDollars = MoneyFormatter.roundAmount(montant / 100.0)
+                    val idTransaction = IdGenerator.generateId()
+
+                    // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
+                    val transactionPrincipale = runCatching {
+                        operationAtomique.executer { toutOuRien {
+                            // AT4 : création d'allocation, JSON des fractions et
+                            // écritures de comptes dans la MÊME transaction Room.
+                        val enveloppesConfirmees = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                            .filter { !it.estArchive && it.utilisateurId == compte.utilisateurId }
+                            .associateBy { it.id }
                         val sousItems = fractions.mapIndexed { index, fraction ->
+                            val env = enveloppesConfirmees[fraction.enveloppeId]
+                                ?: throw IllegalStateException("Enveloppe indisponible au moment d'enregistrer.")
                         // Récupérer ou créer l'allocation mensuelle pour cette enveloppe
                         val allocationActuelle = allocationMensuelleRepository.recupererOuCreerAllocation(
                             enveloppeId = fraction.enveloppeId,
@@ -1113,7 +1132,12 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         }
                         
-                        // Mettre à jour l'allocation avec le compte source si pas déjà défini
+                        // Ne pas réattribuer un ancien historique inconnu à ce compte.
+                        if (allocationActuelle.compteSourceId == null &&
+                            (kotlin.math.abs(allocationActuelle.alloue) > 0.005 ||
+                             kotlin.math.abs(allocationActuelle.depense) > 0.005)) {
+                            throw IllegalStateException("Allocation historique sans provenance : correction requise.")
+                        }
                         if (allocationActuelle.compteSourceId == null) {
                             val allocationMiseAJour = allocationActuelle.copy(
                                 compteSourceId = compte.id,
@@ -1123,12 +1147,13 @@ class AjoutTransactionViewModel(
                         }
                         
                         // Récupérer le nom de l'enveloppe pour la description
-                        val nomEnveloppe = allEnveloppes.find { it.id == fraction.enveloppeId }?.nom ?: "Enveloppe"
+                        val nomEnveloppe = env.nom
                         
                         mapOf(
                             "id" to "temp_${index + 1}",
                             "description" to nomEnveloppe, // TOUJOURS utiliser le nom de l'enveloppe
                             "enveloppeId" to fraction.enveloppeId,
+                            "enveloppe_id" to fraction.enveloppeId,
                             "montant" to montantEnDollars, // Montant en dollars pour le JSON
                             "allocation_mensuelle_id" to allocationActuelle.id, // Lier à l'allocation
                             "transactionParenteId" to null,
@@ -1139,19 +1164,7 @@ class AjoutTransactionViewModel(
                     val gson = com.google.gson.Gson()
                     val sousItemsJson = gson.toJson(sousItems)
 
-                    val collectionPrincipale = when (compte) {
-                        is CompteCheque -> "comptes_cheques"
-                        is CompteCredit -> "comptes_credits"
-                        is CompteDette -> "comptes_dettes"
-                        is CompteInvestissement -> "comptes_investissement"
-                        else -> "comptes_cheques"
-                    }
-                    val montantDollars = MoneyFormatter.roundAmount(montant / 100.0)
-                    val idTransaction = IdGenerator.generateId()
 
-                    // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
-                    val transactionPrincipale = runCatching {
-                        operationAtomique.executer { toutOuRien {
                             enregistrerTransactionUseCase.executer(
                                 typeTransaction = typeTransaction,
                                 montant = montantDollars,
