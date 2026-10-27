@@ -307,7 +307,7 @@ import android.content.Context
      fun provideRealtimeSyncService(): RealtimeSyncService = realtimeSyncService
      private val planResetService: com.xburnsx.toutiebudget.domain.services.PlanResetService by lazy {
          com.xburnsx.toutiebudget.domain.services.PlanResetService(
-             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService
+             compteRepository, enveloppeRepository, allocationMensuelleRepository, historiqueAllocationService, operationAtomique
          )
      }
      fun providePlanResetService(): com.xburnsx.toutiebudget.domain.services.PlanResetService = planResetService
