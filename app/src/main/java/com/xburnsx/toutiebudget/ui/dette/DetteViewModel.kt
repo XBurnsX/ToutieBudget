@@ -94,17 +94,21 @@ class DetteViewModel(
             val env = enveloppes.firstOrNull { it.id == id }
                 ?: throw IllegalStateException("L'enveloppe associée à cette dette est introuvable.")
             if (env.utilisateurId != dette.utilisateurId ||
-                categories.none { it.id == env.categorieId }
+                categories.none {
+                    it.id == env.categorieId && it.nom.equals("Dettes", ignoreCase = true) &&
+                        it.utilisateurId == dette.utilisateurId
+                }
             ) throw IllegalStateException(
-                "Lien dette/enveloppe invalide : propriétaire ou catégorie différent."
+                "Lien dette/enveloppe invalide : propriétaire ou catégorie « Dettes » différente."
             )
             // Une enveloppe archivée reste valable pour consulter l'historique.
             return env.id
         }
         // Migration prudente d'un ancien lien sans ID : uniquement un homonyme
         // UNIQUE de la catégorie Dettes ET du même utilisateur.
-        val catDettes = categories.firstOrNull {
-            it.nom.equals("Dettes", ignoreCase = true)
+        val catDettes = categories.singleOrNull {
+            it.nom.equals("Dettes", ignoreCase = true) &&
+                it.utilisateurId == dette.utilisateurId
         } ?: return null
         return enveloppes.singleOrNull {
             it.nom.equals(dette.nom, ignoreCase = true) &&
