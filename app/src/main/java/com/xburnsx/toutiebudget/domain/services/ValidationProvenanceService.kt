@@ -41,32 +41,29 @@ class ValidationProvenanceService @Inject constructor(
         compteSourceId: String,
         mois: Date
     ): Result<Unit> = runCatching {
-
-        // ✅ CORRIGER: Récupérer TOUTES les allocations pour ce mois et calculer le TOTAL
-        val toutesAllocations = enveloppeRepository.recupererAllocationsPourMois(mois)
-            .getOrNull() ?: emptyList()
-        
-        val allocationsPourEnveloppe = toutesAllocations.filter { it.enveloppeId == enveloppeId }
-        
-        val soldeTotalReel = allocationsPourEnveloppe.sumOf { it.solde }
-
-        // Déterminer la provenance dominante (celle avec le plus gros solde positif)
-        val allocationsDominantes = allocationsPourEnveloppe.filter { it.solde > 0 }
-        val compteProvenanceDominant = allocationsDominantes
-            .maxByOrNull { it.solde }
-            ?.compteSourceId
-
-        // ✅ LOGIQUE CORRIGÉE: Vérifier le SOLDE TOTAL au lieu d'une seule allocation
-        if (soldeTotalReel > 0.01) { // Il y a vraiment de l'argent dans l'enveloppe
-            if (compteProvenanceDominant != null && compteProvenanceDominant != compteSourceId) {
-                // Récupérer les noms des comptes pour un message plus clair
-                val nomCompteExistant = obtenirNomCompte(compteProvenanceDominant)
+        // A2 : une erreur de Room n'est JAMAIS une enveloppe vide.
+        val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+            .filter { it.enveloppeId == enveloppeId }
+        val financementsActifs = allocations.filter {
+            if (!it.solde.isFinite()) throw IllegalStateException("Solde d'allocation invalide")
+            kotlin.math.round(it.solde * 100.0).toLong() > 0L
+        }
+        if (financementsActifs.isNotEmpty()) {
+            // Une provenance ne peut pas être déduite du seul « plus gros solde » :
+            // ce serait attribuer silencieusement à un compte l'argent d'un autre.
+            val comptes = financementsActifs.map { it.compteSourceId }.toSet()
+            if (comptes.size != 1 || comptes.singleOrNull().isNullOrBlank()) {
+                throw IllegalStateException(
+                    "Provenance de l'enveloppe inconnue ou mélangée : impossible d'assigner."
+                )
+            }
+            val provenance = comptes.single()!!
+            if (provenance != compteSourceId) {
+                val nomCompteExistant = obtenirNomCompte(provenance)
                 val nomCompteTente = obtenirNomCompte(compteSourceId)
-
                 throw IllegalArgumentException(
                     VirementErrorMessages.PretAPlacerVersEnveloppe.conflitProvenance(
-                        nomCompteExistant,
-                        nomCompteTente
+                        nomCompteExistant, nomCompteTente
                     )
                 )
             }
