@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.domain.usecases
 import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
+import com.xburnsx.toutiebudget.domain.services.MoteurDette
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlin.math.abs
@@ -100,7 +101,7 @@ class SupprimerTransactionUseCase(
                 // Dette : compteur de versements et archive remis comme avant le paiement
                 if (detteAvant != null && tx.type == TypeTransaction.Paiement) {
                     val avantRestauration = compteRepository.getCompteById(tx.compteId, tx.collectionCompte)
-                    restaurerDette(detteAvant)
+                    restaurerDette(detteAvant, tx.id)
                     if (avantRestauration != null) retours += { compteRepository.mettreAJourCompte(avantRestauration).getOrThrow() }
                 }
             }
@@ -191,13 +192,19 @@ class SupprimerTransactionUseCase(
     }
 
     /** Après annulation d'un paiement : un versement de moins, et la dette ressort des archives si elle n'est plus soldée. */
-    private suspend fun restaurerDette(detteAvant: CompteDette) {
+    private suspend fun restaurerDette(detteAvant: CompteDette, paiementAnnuleId: String) {
         val detteApres = compteRepository.getCompteById(detteAvant.id, "comptes_dettes") as? CompteDette ?: return
         val etaitSoldeeParCePaiement = detteAvant.estArchive && abs(detteAvant.soldeDette) < 0.01
         val redevientActive = etaitSoldeeParCePaiement && abs(detteApres.soldeDette) >= 0.01
+        // L'écriture annulée est encore présente dans Room jusqu'à la fin
+        // de l'opération atomique. Exclure son ID AVANT de recalculer.
+        val autresPaiements = transactionRepository
+            .recupererTransactionsPourCompte(detteAvant.id, "comptes_dettes").getOrThrow()
+            .filter { it.id != paiementAnnuleId }
+        val mensualites = MoteurDette.echeancesCouvertes(detteApres, autresPaiements)
         compteRepository.mettreAJourCompte(
             detteApres.copy(
-                paiementEffectue = (detteApres.paiementEffectue - 1).coerceAtLeast(0),
+                paiementEffectue = mensualites ?: detteApres.paiementEffectue,
                 estArchive = if (redevientActive) false else detteApres.estArchive
             )
         ).getOrThrow()
