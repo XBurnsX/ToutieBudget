@@ -233,7 +233,7 @@ class StatistiquesViewModel(
                     val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
                     arr.forEach { elem ->
                         val obj = elem.asJsonObject
-                        val envId = obj.get("enveloppeId")?.asString
+                        val envId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
                         val montant = obj.get("montant")?.asDouble ?: 0.0
                         // Ne traiter que si on a un enveloppeId valide et qu'il n'est pas exclu
                         if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
@@ -299,7 +299,7 @@ class StatistiquesViewModel(
                         val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
                         arr.forEach { elem ->
                             val obj = elem.asJsonObject
-                            val envId = obj.get("enveloppeId")?.asString
+                            val envId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
                             val montant = obj.get("montant")?.asDouble ?: 0.0
                             if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
                                 depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + montant
@@ -424,7 +424,7 @@ class StatistiquesViewModel(
             if (tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
                 try {
                     val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
-                    arr.any { elem -> elem.asJsonObject.get("enveloppeId")?.asString == enveloppeId }
+                    arr.any { elem -> (elem.asJsonObject.get("enveloppe_id") ?: elem.asJsonObject.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString == enveloppeId }
                 } catch (_: Exception) { false }
             } else false
         }
