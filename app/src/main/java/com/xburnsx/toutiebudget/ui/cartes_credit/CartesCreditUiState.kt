@@ -22,6 +22,7 @@ data class CartesCreditUiState(
     val afficherDialogModificationFrais: Boolean = false,
     /** Relevé en cours d'édition (nouveau ou existant) ; null = dialogue fermé. */
     val releveEnEdition: ReleveCarte? = null,
+    val afficherImportCsv: Boolean = false,
     val enregistrementEnCours: Boolean = false
 )
 
