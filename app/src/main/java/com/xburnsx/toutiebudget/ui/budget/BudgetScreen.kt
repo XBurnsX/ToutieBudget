@@ -98,6 +98,11 @@ enum class FiltreEnveloppes(val libelle: String) {
 
 private const val CATEGORIE_FAVORIS = "★ Favoris"
 
+private fun cleRechercheBudget(valeur: String): String =
+    java.text.Normalizer.normalize(valeur, java.text.Normalizer.Form.NFD)
+        .filter { java.lang.Character.getType(it) != java.lang.Character.NON_SPACING_MARK.toInt() }
+        .lowercase(java.util.Locale.CANADA_FRENCH)
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun BudgetScreen(
@@ -180,7 +185,7 @@ fun BudgetScreen(
     } else {
         uiState.categoriesEnveloppes.mapNotNull { categorie ->
             val gardees = categorie.enveloppes.filter { enveloppe ->
-                (recherche.isBlank() || enveloppe.nom.contains(recherche.trim(), ignoreCase = true)) &&
+                (recherche.isBlank() || cleRechercheBudget(enveloppe.nom).contains(cleRechercheBudget(recherche.trim()))) &&
                     (filtre?.accepte(enveloppe, uiState.enveloppesFavorites) ?: true)
             }
             if (gardees.isEmpty()) null else categorie.copy(enveloppes = gardees)
