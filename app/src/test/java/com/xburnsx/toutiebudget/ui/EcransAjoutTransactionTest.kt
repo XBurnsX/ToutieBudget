@@ -57,6 +57,48 @@ class EcransAjoutTransactionTest {
     private fun soldeEnveloppe(id: String, mois: Date = maintenant) = b.allocationDe(id, mois).sumOf { it.solde }
     private suspend fun TestScope.formulaire() = app.ajoutTransaction().also { attendre() }
 
+    // ===== AT4 / AT14 : rejouer la meme operation =====
+
+    @Test
+    fun `idempotence de depense - retry meme ID ne debite pas deux fois`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("epicerie")
+        b.allocation("epicerie", maintenant, solde = 100.0, provenance = "chq")
+        repeat(2) {
+            val resultat = app.enregistrer.executer(
+                typeTransaction = TypeTransaction.Depense,
+                montant = 5.0,
+                compteId = "chq",
+                collectionCompte = "comptes_cheques",
+                enveloppeId = "epicerie",
+                date = maintenant,
+                id = "meme-operation",
+                verifierIdempotence = true
+            )
+            assertTrue(resultat.isSuccess, "Une repetition du meme ID doit etre sans effet supplementaire")
+        }
+        assertEquals(1, b.transactions.size)
+        assertEquals(995.0, b.soldeDe("chq"))
+        assertEquals(95.0, soldeEnveloppe("epicerie"))
+    }
+
+    @Test
+    fun `idempotence - reuse meme ID montant different refuse`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        val premiere = app.enregistrer.executer(
+            TypeTransaction.Revenu, 10.0, "chq", "comptes_cheques",
+            id = "rejeu", verifierIdempotence = true
+        )
+        val collision = app.enregistrer.executer(
+            TypeTransaction.Revenu, 20.0, "chq", "comptes_cheques",
+            id = "rejeu", verifierIdempotence = true
+        )
+        assertTrue(premiere.isSuccess)
+        assertTrue(collision.isFailure)
+        assertEquals(1010.0, b.soldeDe("chq"))
+        assertEquals(1, b.transactions.size)
+    }
+
     // ===== AT4 / AT15 : tout ou rien =====
 
     @Test
