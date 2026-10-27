@@ -57,13 +57,13 @@ private fun echeanceDansLeMois(enveloppe: EnveloppeUi, mois: Date): Date {
     val cal = Calendar.getInstance().apply { time = mois }
 
     if (enveloppe.typeObjectif == TypeObjectif.Mensuel) {
-        val jour = texte.toIntOrNull() ?: return fin
-        cal.set(Calendar.DAY_OF_MONTH, jour.coerceIn(1, cal.getActualMaximum(Calendar.DAY_OF_MONTH)))
+        val jour = texte.toIntOrNull()?.takeIf { it in 1..31 } ?: return fin
+        cal.set(Calendar.DAY_OF_MONTH, jour.coerceAtMost(cal.getActualMaximum(Calendar.DAY_OF_MONTH)))
         return cal.time
     }
 
     val date = try {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(texte)
+        SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { isLenient = false }.parse(texte)
     } catch (_: Exception) {
         null
     } ?: return fin
@@ -85,7 +85,7 @@ fun PrevisionsDialog(
 
     val horizon = limite ?: fin
     val lignes = categories.flatMap { it.enveloppes }
-        .filter { !it.estArchive && it.versementRecommande > 0.009 }
+        .filter { !it.estArchive && kotlin.math.round(it.versementRecommande * 100).toLong() > 0L }
         .map { LignePrevision(it, echeanceDansLeMois(it, moisSelectionne)) }
         .filter { !it.echeance.after(horizon) }
         .sortedBy { it.echeance }
