@@ -88,12 +88,30 @@ class DetteViewModel(
 
     /** DF11 : lien existant, ou unique homonyme de la catégorie Dettes pour une ancienne dette (jamais ailleurs). */
     private suspend fun trouverEnveloppeLiee(dette: CompteDette): String? {
-        dette.details.enveloppeId?.let { return it }
-        val catDettes = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-            .firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: return null
-        return enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
-            .singleOrNull { it.nom.equals(dette.nom, ignoreCase = true) && it.categorieId == catDettes.id && !it.estArchive }
-            ?.id
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+        val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+        dette.details.enveloppeId?.let { id ->
+            val env = enveloppes.firstOrNull { it.id == id }
+                ?: throw IllegalStateException("L'enveloppe associée à cette dette est introuvable.")
+            if (env.utilisateurId != dette.utilisateurId ||
+                categories.none { it.id == env.categorieId }
+            ) throw IllegalStateException(
+                "Lien dette/enveloppe invalide : propriétaire ou catégorie différent."
+            )
+            // Une enveloppe archivée reste valable pour consulter l'historique.
+            return env.id
+        }
+        // Migration prudente d'un ancien lien sans ID : uniquement un homonyme
+        // UNIQUE de la catégorie Dettes ET du même utilisateur.
+        val catDettes = categories.firstOrNull {
+            it.nom.equals("Dettes", ignoreCase = true)
+        } ?: return null
+        return enveloppes.singleOrNull {
+            it.nom.equals(dette.nom, ignoreCase = true) &&
+                it.categorieId == catDettes.id &&
+                it.utilisateurId == dette.utilisateurId &&
+                !it.estArchive
+        }?.id
     }
 
     fun modifierFormulaire(changement: FormulaireDette.() -> FormulaireDette) {
