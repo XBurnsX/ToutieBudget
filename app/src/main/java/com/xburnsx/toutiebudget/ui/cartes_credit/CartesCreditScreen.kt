@@ -119,7 +119,10 @@ fun GestionCarteCreditScreen(
                         onAjouter = { viewModel.ouvrirReleve(null) },
                         onModifier = { viewModel.ouvrirReleve(it) },
                         onComptabiliserInterets = { viewModel.comptabiliserInterets(it) },
-                        onComptabiliserFrais = { viewModel.comptabiliserFrais(it) }
+                        onComptabiliserFrais = { viewModel.comptabiliserFrais(it) },
+                        onDejaInclus = { releveId, estInteret ->
+                            viewModel.marquerMontantDejaInclus(releveId, estInteret)
+                        }
                     )
                 }
 
