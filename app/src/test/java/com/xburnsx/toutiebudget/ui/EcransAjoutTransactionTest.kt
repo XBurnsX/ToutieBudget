@@ -82,6 +82,26 @@ class EcransAjoutTransactionTest {
 
 
     @Test
+    fun `somme de fractions erronee - historique rejete et transaction annulee`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("epicerie"); b.enveloppe("maison")
+        val json = """[{"enveloppe_id":"epicerie","montant":4.00,"note":"Pain"},
+                       {"enveloppe_id":"maison","montant":5.00,"note":"Ampoule"}]"""
+        val resultat = app.enregistrer.executer(
+            typeTransaction = TypeTransaction.Depense,
+            montant = 10.0,
+            compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            estFractionnee = true,
+            sousItems = json,
+            date = maintenant
+        )
+        assertTrue(resultat.isFailure, "4 + 5 ne doit jamais enregistrer un achat de 10")
+        assertTrue(b.transactions.isEmpty())
+        assertEquals(1000.0, b.soldeDe("chq"))
+    }
+
+    @Test
     fun `depense simple refuse une allocation positive venue d'un autre compte`() = test {
         b.cheque("source", 1000.0, 1000.0)
         b.cheque("payeur", 500.0, 500.0)
