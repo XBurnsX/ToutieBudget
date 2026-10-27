@@ -146,8 +146,12 @@ object MoteurCarteCredit {
     private fun effetSurDette(tx: Transaction): Double =
         if (tx.type in typesPaiement) -tx.montant else tx.montant
 
+    // CC7/CC9 : seules les vraies transactions de paiement de carte
+    // couvrent le minimum. Un revenu/remboursement marchand ne doit pas
+    // supprimer par erreur l'alerte d'échéance.
     fun paiementsDepuis(transactionsCarte: List<Transaction>, date: Date): Double =
-        transactionsCarte.filter { it.type in typesPaiement && !it.date.before(date) }.sumOf { it.montant }
+        transactionsCarte.filter { it.type == TypeTransaction.Paiement && !it.date.before(date) }
+            .sumOf { max(0.0, it.montant) }
 
     // ===== Intérêts du cycle en cours (CC5) =====
 
@@ -169,7 +173,7 @@ object MoteurCarteCredit {
 
         val echeance = lireDate(releve?.dateEcheance)
         val payeEnEntier = releve != null && echeance != null &&
-            transactionsCarte.filter { it.type in typesPaiement && !it.date.before(debut) && !it.date.after(echeance) }
+            transactionsCarte.filter { it.type == TypeTransaction.Paiement && !it.date.before(debut) && !it.date.after(echeance) }
                 .sumOf { it.montant } + 0.005 >= releve.soldeOfficiel
         if (payeEnEntier) return EstimationCycle(0.0, debut, jours, true)
 
