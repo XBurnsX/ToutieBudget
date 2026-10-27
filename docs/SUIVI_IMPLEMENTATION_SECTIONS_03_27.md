@@ -202,7 +202,9 @@ Plusieurs corrections existaient déjà sur `main` avant cette reprise (dernier 
 | AT4 / AT12 / AT15, `AllocationMensuelleRepositoryRoomImpl` | Erreur de mise à jour/provenance non avalée; absence d'allocation = erreur plutôt que réussite silencieuse | `7a23280` |
 | AT19 / AT20, `AjoutTransactionViewModel` | Relecture des comptes choisis; sélection supprimée si archivée/disparue; enveloppe retirée si non disponible | `479b0c2` |
 | AT11 / AT12 / AT19, `EnregistrerTransactionUseCase` | Revalidation sous transaction Room du compte, enveloppe et financement de la dépense simple (alignement sur fractionnement) | `d0a53da` |
-| Tests de régression ajoutés (non exécutés) | Statut AA5, échec de journal AT15, provenance et archivage AT11/AT12/AT19 | `cf3d9e8`, `ef3e696`, `b5af8a3`, `80745a8` |
+| AT9 / AT10 / AT11 / AT15, `EnregistrerTransactionUseCase` | Historique fractionné exact au cent, impossible de masquer une enveloppe introuvable, note individuelle propagée et échecs remontés | `70401eb` |
+| AT4, `EnregistrerTransactionUseCase` | Événement de rafraîchissement du budget après commit, pas pendant transaction Room | `9e9efeb` |
+| Tests de régression ajoutés (non exécutés) | Statut AA5, échec de journal AT15, provenance et archivage AT11/AT12/AT19, total de fractions discordant | `cf3d9e8`, `ef3e696`, `b5af8a3`, `80745a8`, `a2994ec` |
 
 **À contrôler avant de clôturer :** suivi AA5 attaché à des identifiants de tâches d'une opération plutôt qu'à la seule heure; anti-doublons de transactions lors des reprises/synchronisations; validation finale de tous les modes; compilation et E2E reportés selon la consigne.
 
