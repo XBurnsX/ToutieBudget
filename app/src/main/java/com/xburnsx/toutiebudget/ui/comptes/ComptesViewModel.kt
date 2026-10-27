@@ -429,6 +429,68 @@ class ComptesViewModel(
     private fun creerNouveauCompte() {
         viewModelScope.lancerUneFois(verrouCompte) {
             val formState = _uiState.value.formState
+            if (formState.type == "Dette") {
+                // DF11 : compte + catégorie + enveloppe + lien stable créés en
+                // UNE transaction Room. Pas de création en arrière-plan
+                // pouvant laisser une dette sans enveloppe après fermeture.
+                try {
+                    if (formState.nom.isBlank()) throw IllegalArgumentException("Nom de dette requis.")
+                    val soldeInitial = runCatching {
+                        java.math.BigDecimal(formState.solde.trim().replace(',', '.'))
+                            .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+                    }.getOrNull()?.takeIf { it.isFinite() && it > 0.0 && it < 1.0e13 }
+                        ?: throw IllegalArgumentException("Montant initial positif au cent requis.")
+                    val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient
+                        .obtenirUtilisateurConnecte()?.id
+                        ?: throw IllegalStateException("Session utilisateur indisponible.")
+                    operationAtomique.executer {
+                        val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                        val catDettes = categories.singleOrNull {
+                            it.nom.equals("Dettes", ignoreCase = true) && it.utilisateurId == utilisateurId
+                        } ?: if (categories.none {
+                            it.nom.equals("Dettes", ignoreCase = true) && it.utilisateurId == utilisateurId
+                        }) {
+                            categorieRepository.creerCategorie(
+                                com.xburnsx.toutiebudget.data.modeles.Categorie(
+                                    id = IdGenerator.generateId(), utilisateurId = utilisateurId,
+                                    nom = "Dettes", ordre = 0
+                                )
+                            ).getOrThrow()
+                        } else throw IllegalStateException("Catégorie Dettes ambiguë.")
+                        val envId = IdGenerator.generateId()
+                        val compteId = IdGenerator.generateId()
+                        val enveloppe = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
+                            id = envId, utilisateurId = utilisateurId,
+                            nom = formState.nom.trim(), categorieId = catDettes.id,
+                            estArchive = false, ordre = 0,
+                            typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
+                            objectifMontant = 0.0, dateObjectif = null,
+                            dateDebutObjectif = null, objectifJour = null,
+                            resetApresEcheance = false
+                        )
+                        enveloppeRepository.creerEnveloppe(enveloppe).getOrThrow()
+                        val compte = CompteDette(
+                            id = compteId, utilisateurId = utilisateurId,
+                            nom = formState.nom.trim(), soldeDette = -soldeInitial,
+                            estArchive = false, ordre = 0,
+                            montantInitial = soldeInitial, prixTotal = soldeInitial,
+                            detailsDetteJson = com.xburnsx.toutiebudget.data.modeles.DetailsDette(
+                                enveloppeId = envId
+                            ).versJson()
+                        )
+                        compteRepository.creerCompte(compte).getOrThrow()
+                    }
+                    chargerComptes()
+                    onFermerTousLesDialogues()
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    realtimeSyncService.declencherMiseAJourComptes()
+                    onCompteChange?.invoke()
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(enregistrementEnCours = false,
+                        erreur = "Création de dette refusée (aucune écriture partielle) : ${e.message}") }
+                }
+                return@lancerUneFois
+            }
             val soldeInitial = formState.solde.toDoubleOrNull() ?: 0.0
             val nouveauCompte = when(formState.type) {
                 "Compte chèque" -> CompteCheque(
