@@ -857,6 +857,16 @@ private fun ChartsSection(uiState: StatistiquesUiState) {
 @Composable
 private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
     if (uiState.moyennes7Jours.isEmpty()) return
+    // ST12 : une série constante doit conserver une échelle non nulle.
+    val valeursGraphique = uiState.moyennes7Jours.map { it.second }
+    val minimumBrut = valeursGraphique.minOrNull() ?: 0.0
+    val maximumBrut = valeursGraphique.maxOrNull() ?: 0.0
+    if (!minimumBrut.isFinite() || !maximumBrut.isFinite()) return
+    val ecart = maximumBrut - minimumBrut
+    val marge = kotlin.math.max(1.0, kotlin.math.abs(minimumBrut) * 0.1)
+    val minimumGraphique = if (ecart <= 0.000001) minimumBrut - marge else minimumBrut
+    val maximumGraphique = if (ecart <= 0.000001) maximumBrut + marge else maximumBrut
+    val amplitudeGraphique = maximumGraphique - minimumGraphique
     
     Card(
         modifier = Modifier
@@ -900,12 +910,8 @@ private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
                         .height(300.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val values = uiState.moyennes7Jours.map { it.second }
-                    val minValue = values.minOrNull() ?: 0.0
-                    val maxValue = values.maxOrNull() ?: 100.0
-                    
                     for (i in 0..5) {
-                        val value = maxValue - ((maxValue - minValue) * i / 5)
+                        val value = maximumGraphique - (amplitudeGraphique * i / 5)
                         Text(
                             MoneyFormatter.formatAmount(value),
                             style = MaterialTheme.typography.labelSmall,
@@ -932,12 +938,7 @@ private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
                         val padding = 20f
                         val chartWidth = width - (padding * 2)
                         val chartHeight = height - (padding * 2)
-                        
-                        // Trouver les valeurs min et max pour l'échelle
-                        val values = uiState.moyennes7Jours.map { it.second }
-                        val minValue = values.minOrNull() ?: 0.0
-                        val maxValue = values.maxOrNull() ?: 100.0
-                        val valueRange = maxValue - minValue
+                        if (chartWidth <= 0f || chartHeight <= 0f || amplitudeGraphique <= 0.0) return@Canvas
                         
                         // Dessiner la grille de fond
                         val gridStrokeWidth = 1f
@@ -960,7 +961,8 @@ private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
                         
                         // Lignes verticales de la grille - seulement pour les points filtrés
                         for (i in 0 until donneesFiltrees.size) {
-                            val x = padding + (chartWidth * i / (donneesFiltrees.size - 1))
+                            val denominator = (donneesFiltrees.size - 1).coerceAtLeast(1)
+                            val x = padding + (chartWidth * i / denominator)
                             drawLine(
                                 color = gridColor,
                                 start = androidx.compose.ui.geometry.Offset(x, padding),
@@ -979,8 +981,8 @@ private fun Moyenne7JoursChart(uiState: StatistiquesUiState) {
                             val x1 = padding + (chartWidth * i / (donneesFiltrees.size - 1))
                             val x2 = padding + (chartWidth * (i + 1) / (donneesFiltrees.size - 1))
                             
-                            val y1 = padding + chartHeight - (chartHeight * (current.second.toFloat() - minValue.toFloat()) / valueRange.toFloat())
-                            val y2 = padding + chartHeight - (chartHeight * (next.second.toFloat() - minValue.toFloat()) / valueRange.toFloat())
+                            val y1 = padding + chartHeight - (chartHeight * (current.second.toFloat() - minimumGraphique.toFloat()) / amplitudeGraphique.toFloat())
+                            val y2 = padding + chartHeight - (chartHeight * (next.second.toFloat() - minimumGraphique.toFloat()) / amplitudeGraphique.toFloat())
                             
                             // Ligne principale
                             drawLine(
