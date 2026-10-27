@@ -73,6 +73,9 @@ class AjoutTransactionViewModel(
     private var debutDerniereEcriture: Long? = null
     // AT4/AT14 : identifiant conservé pour les nouvelles tentatives du même brouillon.
     private var idOperationBrouillon: String = IdGenerator.generateId()
+    /** AA5 : identifiants de la file avant la sauvegarde, puis écrits pendant CETTE opération. */
+    private var idsJobsAvantEcriture: Set<String> = emptySet()
+    private var idsJobsOperation: Set<String>? = null
 
     init {
         chargerDonneesInitiales()
@@ -584,7 +587,12 @@ class AjoutTransactionViewModel(
         val depuis = debutDerniereEcriture
         if (syncJobDao != null && depuis != null) {
             viewModelScope.launch {
-                appliquerStatutSynchronisation(syncJobDao.getAllSyncJobs().first(), depuis)
+                val jobs = syncJobDao.getAllSyncJobs().first()
+                // Seules les tâches ajoutées durant l'opération sont suivies,
+                // même si le worker met à jour ensuite leurs statuts.
+                idsJobsOperation = jobs.filter { it.id !in idsJobsAvantEcriture }
+                    .map { it.id }.toSet()
+                appliquerStatutSynchronisation(jobs, depuis)
             }
         }
         BudgetEvents.refreshBudget.tryEmit(Unit)
@@ -887,6 +895,11 @@ class AjoutTransactionViewModel(
         }
         
         viewModelScope.lancerUneFois(verrouSauvegarde) {
+            // Les tâches plus anciennes (ou créées pour une autre action) ne sont
+            // pas une preuve de synchronisation de la transaction courante.
+            idsJobsOperation = null
+            idsJobsAvantEcriture = syncJobDao?.getAllSyncJobs()?.first()?.map { it.id }?.toSet()
+                ?: emptySet()
             debutDerniereEcriture = System.currentTimeMillis()
             _uiState.update {
                 it.copy(
@@ -1527,14 +1540,16 @@ class AjoutTransactionViewModel(
         depuis: Long
     ) {
         if (_uiState.value.messageConfirmation == null) return
-        val statut = determinerStatutSynchronisation(jobs, depuis)
+        val ids = idsJobsOperation ?: return // capture initiale non terminée
+        val jobsSuivis = jobs.filter { it.id in ids }
+        val statut = if (ids.isEmpty()) StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT
+            else determinerStatutSynchronisation(jobsSuivis, 0L)
         _uiState.update { courant ->
-            // Si le worker purge une tâche COMPLETED juste après l'avoir confirmée,
-            // ne pas régresser visuellement de « Synchronisée » à « Locale ».
+            // Un COMPLETED observé reste une preuve si PocketBase nettoie
+            // ensuite ses tâches. Les autres jobs ne changent jamais ce statut.
             val confirmeAvant = courant.statutSynchronisation == StatutSynchronisationEcriture.SYNCHRONISEE
-            val aucunJob = jobs.none { it.createdAt >= depuis }
             courant.copy(
-                statutSynchronisation = if (confirmeAvant && aucunJob)
+                statutSynchronisation = if (confirmeAvant && jobsSuivis.isEmpty())
                     StatutSynchronisationEcriture.SYNCHRONISEE else statut
             )
         }
