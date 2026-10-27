@@ -15,11 +15,18 @@ Le statut **codé** ne signifie pas **compilé** ou **validé sur Android**.
 | 6. Prêt personnel | P3–P7, PP2, PP3, PP6 | Code présent. Erreurs des historiques et de l'archivage rendues explicites | Compilation + intégrité des remboursements multi-dossiers |
 | 7. Virer argent | V1–V8, VA4–VA6 | Code présent. Transaction Room déjà injectée; journaux désormais obligatoires; gestion d'exception dans le ViewModel | Compilation + cas de provenance multi-allocation |
 
+## Section 8 — Comptes
+
+| IDs | État du codage | Modifications de la reprise |
+|---|---|---|
+| CO1–CO9, CA3–CA5 | Fonctionnalités présentes dans les écrans/moteurs; audit de cohérence toujours ouvert | CO5 : réconciliation sur solde relu, écritures Room et journal dans la même transaction; CO1/CO6 : archivage dette/enveloppe atomique et erreurs des repositories remontées |
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
-| 8 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
+| 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
+| 10 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
 
 ## Règles de suivi
 
