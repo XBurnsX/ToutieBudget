@@ -404,10 +404,34 @@ object MoteurCarteCredit {
             return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
                 "Taux annuel des achats manquant : simulation non fiable.")
         }
-        if (carte.details.naturesMouvements.values.any { it != NatureMouvementCarte.ACHAT }) {
-            return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
-                "Avances/transferts détectés : le simulateur exige les soldes ventilés par taux.")
-        }
+        val ventilation = carte.details.ventilationCourante
+        val contientTauxMixtes = carte.details.naturesMouvements.values.any {
+            it != NatureMouvementCarte.ACHAT
+        } || (ventilation?.avances ?: 0.0) > 0.005 ||
+            (ventilation?.transferts ?: 0.0) > 0.005
+        val soldesVentiles = if (contientTauxMixtes) {
+            if (ventilation == null || ventilation.dateReference != ecrireDate(debut) ||
+                listOf(ventilation.achats, ventilation.avances, ventilation.transferts)
+                    .any { !it.isFinite() || it < 0.0 } ||
+                kotlin.math.abs(ventilation.achats + ventilation.avances +
+                    ventilation.transferts - solde) > 0.005
+            ) return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+                "Actualise les trois soldes ventilés dans Gérer la carte pour simuler les taux multiples.")
+            doubleArrayOf(ventilation.achats, ventilation.avances, ventilation.transferts)
+        } else null
+        val natures = listOf(
+            NatureMouvementCarte.ACHAT,
+            NatureMouvementCarte.AVANCE_FONDS,
+            NatureMouvementCarte.TRANSFERT_SOLDE
+        )
+        if (soldesVentiles != null && natures.indices.any { i ->
+            soldesVentiles[i] > 0.0 && tauxPourNature(carte, natures[i], debut) == null
+        }) return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+            "Un des taux (achats, avances, transferts) n'est pas configuré.")
+        val hypothesePaiement = if (soldesVentiles != null)
+            "Scénario hypothétique : le capital payé réduit d'abord le solde au taux le plus élevé. " +
+                "Les règles réelles d'affectation du paiement peuvent différer selon l'émetteur."
+        else null
 
         val fraisConfigures = carte.fraisMensuels
         val cal = Calendar.getInstance().apply { time = prochaineEcheance(carte, debut) ?: debut }
@@ -422,7 +446,23 @@ object MoteurCarteCredit {
         for (mois in 1..dureeMax) {
             val dateMois = cal.time
             val jours = max(1, joursCivilsEntre(dateMoisPrecedent, dateMois))
-            val interets = arrondi(interetsEstimes(solde, tauxEffectif(carte, dateMois), jours))
+            val interets = if (soldesVentiles == null) {
+                arrondi(interetsEstimes(solde, tauxEffectif(carte, dateMois), jours))
+            } else {
+                var totalMois = 0.0
+                val calJour = Calendar.getInstance().apply { time = dateMoisPrecedent }
+                repeat(jours) {
+                    val dateJour = calJour.time
+                    for (i in natures.indices) {
+                        if (soldesVentiles[i] > 0.005) {
+                            totalMois += interetsEstimes(soldesVentiles[i],
+                                tauxPourNature(carte, natures[i], dateJour) ?: 0.0, 1)
+                        }
+                    }
+                    calJour.add(Calendar.DAY_OF_MONTH, 1)
+                }
+                arrondi(totalMois)
+            }
             // CC8/CC10 : appliquer les frais à la bonne date, pas ajouter
             // tous les frais annuels arbitrairement au 12e mois.
             val frais = arrondi(fraisConfigures.sumOf { entree ->
@@ -473,6 +513,23 @@ object MoteurCarteCredit {
 
             val capital = arrondi(paiement - interets - frais)
             val soldeFinal = arrondi(du - paiement)
+            // CC8 : le simulateur multi-taux répartit le capital selon UNE
+            // hypothèse explicite, jamais comme une règle bancaire certaine.
+            if (soldesVentiles != null && capital > 0.0) {
+                var capitalRestant = capital
+                val ordre = natures.indices.sortedByDescending { i ->
+                    tauxPourNature(carte, natures[i], dateMois) ?: 0.0
+                }
+                for (i in ordre) {
+                    val retire = min(soldesVentiles[i], capitalRestant)
+                    soldesVentiles[i] = arrondi(soldesVentiles[i] - retire)
+                    capitalRestant = arrondi(capitalRestant - retire)
+                }
+                // Le montant prévu est arrondi au cent à chaque ligne.
+                val ecart = arrondi(soldeFinal - soldesVentiles.sum())
+                if (kotlin.math.abs(ecart) <= 0.02) soldesVentiles[0] =
+                    max(0.0, arrondi(soldesVentiles[0] + ecart))
+            }
             lignes += LigneSimulation(mois, dateMois, solde, interets, frais, paiement, capital, soldeFinal)
             totalInterets += interets
             totalFrais += frais
@@ -482,12 +539,14 @@ object MoteurCarteCredit {
             cal.add(Calendar.MONTH, 1)
 
             if (solde <= 0.005) {
-                return ResultatSimulation(lignes, mois, arrondi(totalInterets), arrondi(totalFrais), arrondi(totalPaye))
+                return ResultatSimulation(lignes, mois, arrondi(totalInterets), arrondi(totalFrais),
+                    arrondi(totalPaye), hypothesePaiement)
             }
         }
         return ResultatSimulation(
             lignes, null, arrondi(totalInterets), arrondi(totalFrais), arrondi(totalPaye),
-            "Remboursement impossible en ${dureeMax / 12} ans avec cette stratégie."
+            "Remboursement impossible en ${dureeMax / 12} ans avec cette stratégie." +
+                (hypothesePaiement?.let { " $it" } ?: "")
         )
     }
 
