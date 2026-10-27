@@ -16,6 +16,7 @@ data class DetailsCarte(
     val tauxAvances: Double? = null,
     val tauxTransferts: Double? = null,
     val tauxPromo: Double? = null,
+    val debutPromo: String? = null, // yyyy-MM-dd; début contractuel s'il est connu
     val finPromo: String? = null, // yyyy-MM-dd
     val tauxRetard: Double? = null,
     // CC4 : cycle du relevé
