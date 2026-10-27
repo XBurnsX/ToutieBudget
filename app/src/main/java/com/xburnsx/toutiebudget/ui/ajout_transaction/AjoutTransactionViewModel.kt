@@ -65,6 +65,7 @@ class AjoutTransactionViewModel(
     private var allComptes: List<Compte> = emptyList()
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
+    private var generationEnveloppes = 0L
     private var allCategories: List<Categorie> = emptyList()
     private var allTiers: List<Tiers> = emptyList()
     /** AT21 : allocations du mois impossibles à lire (différent de « 0 $ »). */
@@ -119,7 +120,8 @@ class AjoutTransactionViewModel(
                 val resultTiers = tiersRepository.recupererTousLesTiers()
 
                 // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
-                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
+                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(dateDemandee))
+                if (generation != generationEnveloppes || _uiState.value.dateTransaction != dateDemandee) return@launch
                 
                 // Vérifier les erreurs
                 if (resultComptes.isFailure) {
@@ -222,6 +224,8 @@ class AjoutTransactionViewModel(
      * Charge seulement les enveloppes (pour les mises à jour temps réel).
      */
     private fun chargerEnveloppesSeulement() {
+        val generation = ++generationEnveloppes
+        val dateDemandee = _uiState.value.dateTransaction
         viewModelScope.launch {
             try {
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
@@ -231,8 +235,8 @@ class AjoutTransactionViewModel(
                 val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
                 
                 if (resultEnveloppes.isSuccess && resultCategories.isSuccess) {
-                    allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
-                    allCategories = resultCategories.getOrNull() ?: emptyList()
+                    allEnveloppes = resultEnveloppes.getOrThrow()
+                    allCategories = resultCategories.getOrThrow()
                     allAllocations = resultAllocations.getOrNull() ?: emptyList()
                     allocationsIndisponibles = resultAllocations.isFailure
                     
@@ -263,7 +267,13 @@ class AjoutTransactionViewModel(
                     }
                 }
             } catch (e: Exception) {
-                // Erreur lors du rechargement des enveloppes: ${e.message}
+                if (generation != generationEnveloppes) return@launch
+                allocationsIndisponibles = true
+                _uiState.update { etat ->
+                    etat.copy(allocationsIndisponibles = true,
+                        messageErreur = "Impossible de charger les enveloppes du mois : ${e.message}")
+                        .calculerValidite()
+                }
             }
         }
     }
@@ -483,7 +493,11 @@ class AjoutTransactionViewModel(
     fun onDateChanged(nouvelleDate: LocalDate) {
         val ancienne = _uiState.value.dateTransaction
         _uiState.update { state ->
-            state.copy(dateTransaction = nouvelleDate).calculerValidite()
+            state.copy(
+                dateTransaction = nouvelleDate,
+                fractionnementEffectue = state.fractionnementEffectue &&
+                    ancienne.year == nouvelleDate.year && ancienne.monthValue == nouvelleDate.monthValue
+            ).calculerValidite()
         }
         // AT6 : autre mois = autres soldes d'enveloppes
         if (ancienne.year != nouvelleDate.year || ancienne.monthValue != nouvelleDate.monthValue) {
