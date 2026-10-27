@@ -609,6 +609,7 @@ class BudgetViewModel(
                         .firstOrNull { it.id == compteSourceId } as? CompteCheque
                         ?: throw IllegalStateException("Compte source introuvable")
                     if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                    if (!compteSource.pretAPlacer.isFinite()) throw IllegalStateException("Fonds disponibles invalides.")
                     if (Math.round(compteSource.pretAPlacer * 100.0) < montantCentimes) {
                         throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                     }
@@ -663,6 +664,7 @@ class BudgetViewModel(
                         .find { it.id == compteSourceId } as? CompteCheque
                         ?: throw IllegalStateException("Compte source introuvable")
                     if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                    if (!compteSource.pretAPlacer.isFinite()) throw IllegalStateException("Fonds disponibles invalides.")
                     if (Math.round(compteSource.pretAPlacer * 100.0) < totalCentimes) {
                         throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                     }
@@ -720,6 +722,9 @@ class BudgetViewModel(
     ): CompteCheque {
         // Préserver le compte en cas d'échec d'une étape ultérieure.
         // Une écriture Room unique restera nécessaire pour une vraie atomicité.
+        if (!compteSource.pretAPlacer.isFinite() || !montantDollars.isFinite() || montantDollars <= 0.0) {
+            throw IllegalArgumentException("Montant ou solde source invalide.")
+        }
         // 1. Mettre à jour le compte source (retirer de "prêt à placer")
         val nouveauPretAPlacer = MoneyFormatter.roundAmount(compteSource.pretAPlacer - montantDollars)
         val compteModifie = compteSource.copy(
@@ -735,12 +740,18 @@ class BudgetViewModel(
 
         // 2. Allocation du mois créée au besoin dans la même transaction Room.
         val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
+        if (!allocationFusionnee.solde.isFinite() || !allocationFusionnee.alloue.isFinite() ||
+            !allocationFusionnee.depense.isFinite()
+        ) throw IllegalStateException("Allocation mensuelle invalide.")
         val allocationFinale = allocationFusionnee.copy(
             solde = MoneyFormatter.roundAmount(allocationFusionnee.solde + montantDollars),
             alloue = MoneyFormatter.roundAmount(allocationFusionnee.alloue + montantDollars),
             compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSource.id else allocationFusionnee.compteSourceId,
             collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
         )
+        if (!allocationFinale.solde.isFinite() || !allocationFinale.alloue.isFinite()) {
+            throw IllegalStateException("Débordement des montants de l'allocation.")
+        }
         allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
         // L'échec de journalisation doit aussi annuler la transaction Room.
