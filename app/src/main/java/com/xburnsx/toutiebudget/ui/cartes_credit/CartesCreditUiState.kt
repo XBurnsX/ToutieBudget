@@ -38,6 +38,7 @@ data class FormulaireCarteCredit(
     val tauxAvances: String = "",
     val tauxTransferts: String = "",
     val tauxPromo: String = "",
+    val debutPromo: String = "",
     val finPromo: String = "",
     val tauxRetard: String = "",
     val jourCloture: String = "",
