@@ -707,11 +707,37 @@ class ArgentServiceImpl @Inject constructor(
         collectionCarteOuDette: String,
         montant: Double,
         note: String?,
-        date: Date
+        date: Date,
+        operationId: String?
     ): Result<Unit> = runCatching { operationAtomique.executer {
         if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif et fini.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
         if (montantArrondi <= 0.0) throw IllegalArgumentException("Montant inférieur à un cent.")
+
+
+        // AT14 : controle AVANT les deux debits, sous transaction Room.
+        // La paire de paiements porte un ID de groupe stable.
+        val cleOperation = operationId?.takeIf { it.isNotBlank() }
+        if (cleOperation != null) {
+            val lienAttendu = "{\"$CLE_OPERATION_PAIEMENT\":\"$cleOperation\"}"
+            val dejaLiees = transactionRepository.recupererToutesLesTransactions().getOrThrow()
+                .filter { it.sousItems == lienAttendu }
+            if (dejaLiees.isNotEmpty()) {
+                val sortie = dejaLiees.singleOrNull {
+                    it.type == TypeTransaction.PaiementEffectue && it.compteId == compteQuiPaieId &&
+                        it.collectionCompte == collectionCompteQuiPaie
+                }
+                val entree = dejaLiees.singleOrNull {
+                    it.type == TypeTransaction.Paiement && it.compteId == carteOuDetteId &&
+                        it.collectionCompte == collectionCarteOuDette
+                }
+                if (dejaLiees.size != 2 || sortie == null || entree == null ||
+                    kotlin.math.abs(sortie.montant - montantArrondi) > 0.000001 ||
+                    kotlin.math.abs(entree.montant - montantArrondi) > 0.000001
+                ) throw IllegalStateException("Identifiant de paiement deja utilise ou paire incomplete.")
+                return@executer
+            }
+        }
 
         // 1. Comptes (relus juste avant l'écriture : un paiement fait sur un autre appareil est pris en compte)
         val compteQuiPaie = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie)
@@ -816,7 +842,7 @@ class ArgentServiceImpl @Inject constructor(
 
         // 6. Transactions : une sortie, une entrée « Paiement » (jamais « Emprunt », qui est un prêt personnel).
         //    DF9 : les deux moitiés portent le même identifiant d'opération pour être annulées ensemble.
-        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${IdGenerator.generateId()}\"}"
+        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${cleOperation ?: IdGenerator.generateId()}\"}"
         transactionRepository.creerTransaction(
             Transaction(
                 id = IdGenerator.generateId(),
