@@ -117,6 +117,7 @@ class VirementBudgetService(
         require(montant.isFinite() && montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
+        if (compte.estArchive) throw IllegalStateException("Le compte de destination est archivé.")
         val env = enveloppe(enveloppeId, VirementErrorMessages.EnveloppeVersPretAPlacer.enveloppeSourceIntrouvable(""))
 
         val avant = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJour)
@@ -124,7 +125,10 @@ class VirementBudgetService(
             throw IllegalStateException(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_VIDE)
         }
         val provenance = avant.compteSourceId
-        if (provenance != null && provenance != compte.id) {
+        if (provenance.isNullOrBlank()) {
+            throw IllegalStateException("Le compte d'origine de l'enveloppe est inconnu; impossible de retourner les fonds.")
+        }
+        if (provenance != compte.id) {
             throw IllegalArgumentException(
                 VirementErrorMessages.EnveloppeVersPretAPlacer.conflitProvenance(nomCompte(provenance), compte.nom)
             )
