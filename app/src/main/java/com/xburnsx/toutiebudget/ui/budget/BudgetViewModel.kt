@@ -754,7 +754,10 @@ class BudgetViewModel(
         if (!allocationExistante.solde.isFinite() || !allocationExistante.alloue.isFinite() ||
             !allocationExistante.depense.isFinite()
         ) throw IllegalStateException("Allocation mensuelle invalide.")
-        val nouvelleProvenance = allocationExistante.compteSourceId != null &&
+        val contientHistorique = allocationExistante.compteSourceId != null ||
+            kotlin.math.round(allocationExistante.alloue * 100.0).toLong() != 0L ||
+            kotlin.math.round(allocationExistante.depense * 100.0).toLong() != 0L
+        val nouvelleProvenance = contientHistorique &&
             allocationExistante.compteSourceId != compteSource.id &&
             kotlin.math.round(allocationExistante.solde * 100.0).toLong() <= 0L
         val allocationDeBase = if (nouvelleProvenance) {
