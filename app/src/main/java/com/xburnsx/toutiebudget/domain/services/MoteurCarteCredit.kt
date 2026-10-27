@@ -104,10 +104,19 @@ object MoteurCarteCredit {
 
     /** Minimum estimé pour un solde de RELEVÉ selon les règles configurées (pas les achats après la clôture). */
     fun minimumEstime(carte: CompteCredit, soldeReleve: Double): Double {
+        if (!soldeReleve.isFinite() || soldeReleve < 0.0) {
+            throw IllegalArgumentException("Solde du relevé invalide")
+        }
         if (soldeReleve <= 0.005) return 0.0
         val d = carte.details
+        require(d.pourcentageMinimumEffectif.isFinite() && d.pourcentageMinimumEffectif in 0.0..100.0) {
+            "Pourcentage minimum invalide"
+        }
         var minimum = arrondiHaut(soldeReleve * d.pourcentageMinimumEffectif / 100.0)
-        d.plancherMinimumEffectif?.let { plancher -> minimum = max(minimum, plancher) }
+        d.plancherMinimumEffectif?.let { plancher ->
+            require(plancher.isFinite() && plancher >= 0.0) { "Plancher minimum invalide" }
+            minimum = max(minimum, plancher)
+        }
         return min(minimum, arrondi(soldeReleve))
     }
 
@@ -128,7 +137,7 @@ object MoteurCarteCredit {
             return MinimumAPayer(releve.minimumOfficiel, true, lireDate(releve.dateEcheance), "Relevé du ${releve.dateEmission}")
         }
         carte.paiementMinimum?.takeIf { it > 0 }?.let {
-            return MinimumAPayer(it, true, prochaineEcheance(carte), "Montant saisi sur la carte")
+            return MinimumAPayer(it, false, prochaineEcheance(carte), "Montant saisi (non confirmé par relevé)")
         }
         val base = releve?.soldeOfficiel ?: dette(carte)
         if (base <= 0.005) return null
