@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.xburnsx.toutiebudget.utils.IdGenerator
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 
 class ComptesViewModel(
     private val compteRepository: CompteRepository,
@@ -36,7 +38,8 @@ class ComptesViewModel(
     private val categorieRepository: CategorieRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val transactionRepository: TransactionRepository,
-    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -145,10 +148,14 @@ class ComptesViewModel(
         // IF2 / IF7 : pour un placement, nouvelle valeur de marché ou correction d'erreur (jamais un revenu ni une dépense)
         typeValorisation: com.xburnsx.toutiebudget.data.modeles.TypeValorisation = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE
     ) {
-        val compte = _uiState.value.compteSelectionne ?: return
+        val compteSelectionne = _uiState.value.compteSelectionne ?: return
         viewModelScope.lancerUneFois(verrouCompte) {
             try {
-                val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(nouveauSolde - compte.solde)
+                if (!nouveauSolde.isFinite()) throw IllegalArgumentException("Solde réel invalide")
+                val soldeReel = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(nouveauSolde)
+                // CO5 : ne pas calculer l'écart sur un solde d'écran périmé.
+                val compte = compteRepository.recupererCompteParIdToutesCollections(compteSelectionne.id).getOrThrow()
+                val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(soldeReel - compte.solde)
                 if (kotlin.math.abs(ecart) < 0.005) {
                     _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
                     return@lancerUneFois
@@ -157,17 +164,17 @@ class ComptesViewModel(
                 val (compteReconcilie, pretAvant, pretApres) = when (compte) {
                     is CompteCheque -> {
                         val nouveauPret = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(compte.pretAPlacer + ecart)
-                        Triple(compte.copy(solde = nouveauSolde, pretAPlacerRaw = nouveauPret), compte.pretAPlacer, nouveauPret)
+                        Triple(compte.copy(solde = soldeReel, pretAPlacerRaw = nouveauPret), compte.pretAPlacer, nouveauPret)
                     }
                     is CompteInvestissement -> {
                         val valorisation = com.xburnsx.toutiebudget.data.modeles.Valorisation(
                             date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
-                            valeur = nouveauSolde,
+                            valeur = soldeReel,
                             ancienneValeur = compte.solde,
                             type = typeValorisation
                         )
                         val details = compte.details.copy(valorisations = compte.details.valorisations + valorisation)
-                        Triple(compte.copy(solde = nouveauSolde, detailsInvestissementJson = details.versJson()), 0.0, 0.0)
+                        Triple(compte.copy(solde = soldeReel, detailsInvestissementJson = details.versJson()), 0.0, 0.0)
                     }
                     else -> {
                         _uiState.update { it.copy(erreur = "La réconciliation n'est pas offerte pour ce type de compte.") }
@@ -175,8 +182,8 @@ class ComptesViewModel(
                     }
                 }
 
-                compteRepository.mettreAJourCompte(compteReconcilie).getOrThrow()
-                try {
+                operationAtomique.executer {
+                    compteRepository.mettreAJourCompte(compteReconcilie).getOrThrow()
                     historiqueAllocationService.enregistrerAjustementCompte(
                         compte = compteReconcilie,
                         typeAction = when {
@@ -185,17 +192,13 @@ class ComptesViewModel(
                             else -> "CORRECTION_SOLDE"
                         },
                         description = "Réconciliation ${compte.nom} : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compte.solde)} → " +
-                            "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(nouveauSolde)} (écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
+                            "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeReel)} (écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
                         montant = ecart,
                         soldeAvant = compte.solde,
-                        soldeApres = nouveauSolde,
+                        soldeApres = soldeReel,
                         pretAPlacerAvant = pretAvant,
                         pretAPlacerApres = pretApres
                     )
-                } catch (e: Exception) {
-                    // Réussir ou échouer ensemble : on remet le compte comme avant
-                    compteRepository.mettreAJourCompte(compte)
-                    throw Exception("trace d'historique impossible (${e.message}), rien n'a été modifié")
                 }
 
                 _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
