@@ -411,6 +411,31 @@ fun SettingsScreen(
             }
 
             item {
+                val contextLocal = LocalContext.current
+                var rappelsDettes by remember {
+                    mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager
+                        .getNotifEcheanceDettes(contextLocal))
+                }
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Notifications,
+                        titre = "Rappels de paiement des dettes",
+                        description = "Optionnel : seulement si une échéance connue reste à payer",
+                        trailing = {
+                            Switch(
+                                checked = rappelsDettes,
+                                onCheckedChange = { active ->
+                                    rappelsDettes = active
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager
+                                        .setNotifEcheanceDettes(contextLocal, active)
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
+            item {
                 SettingsCard {
                     RowParam(
                         icone = Icons.Default.Notifications,
