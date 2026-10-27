@@ -95,6 +95,17 @@ fun HistoriqueItem(
         }
     }
 
+    // AT10 : les notes de chaque fraction restent visibles dans l'historique,
+    // même après un chargement Room/PocketBase ou une modification.
+    val notesFractions = remember(transaction.sousItems) {
+        if (!transaction.estFractionnee || transaction.sousItems.isNullOrBlank()) emptyList()
+        else runCatching {
+            JsonParser.parseString(transaction.sousItems).asJsonArray.map { element ->
+                element.asJsonObject.get("note")?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+            }
+        }.getOrDefault(emptyList())
+    }
+
     // Récupérer les noms des enveloppes pour les fractions
     val fractionsAvecNoms = remember(fractions, transaction.nomsEnveloppesFractions) {
         if (transaction.nomsEnveloppesFractions.isNotEmpty()) {
@@ -233,7 +244,8 @@ fun HistoriqueItem(
                 if (transaction.estFractionnee && fractions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Column {
-                        fractionsAvecNoms.forEach { (nomEnveloppe, montant) ->
+                        fractionsAvecNoms.forEachIndexed { index, (nomEnveloppe, montant) ->
+                            val noteFraction = notesFractions.getOrNull(index)?.trim().orEmpty()
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(vertical = 1.dp)
@@ -246,7 +258,8 @@ fun HistoriqueItem(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "$nomEnveloppe - ${MoneyFormatter.formatAmount(montant)}",
+                                    text = "$nomEnveloppe - ${MoneyFormatter.formatAmount(montant)}" +
+                                        if (noteFraction.isNotEmpty()) " · $noteFraction" else "",
                                     fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Normal,
