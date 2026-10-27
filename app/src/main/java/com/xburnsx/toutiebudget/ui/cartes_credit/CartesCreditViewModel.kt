@@ -295,10 +295,12 @@ class CartesCreditViewModel(
         // ni annulé en oubliant une écriture déjà envoyée dans Room.
         if ((ancien?.interetsComptabilises ?: false) != releve.interetsComptabilises ||
             (ancien?.fraisComptabilises ?: false) != releve.fraisComptabilises ||
-            (ancien?.interetsComptabilises == true &&
+            (ancien?.interetsDejaInclus ?: false) != releve.interetsDejaInclus ||
+            (ancien?.fraisDejaInclus ?: false) != releve.fraisDejaInclus ||
+            ((ancien?.interetsComptabilises == true || ancien?.interetsDejaInclus == true) &&
                 (releve.interetsFactures != ancien.interetsFactures ||
                     releve.dateEmission != ancien.dateEmission)) ||
-            (ancien?.fraisComptabilises == true &&
+            ((ancien?.fraisComptabilises == true || ancien?.fraisDejaInclus == true) &&
                 (releve.fraisFactures != ancien.fraisFactures ||
                     releve.dateEmission != ancien.dateEmission))
         ) {
@@ -330,7 +332,8 @@ class CartesCreditViewModel(
         val carte = _uiState.value.carteSelectionnee ?: return
         val d = carte.details
         val ancien = d.releves.firstOrNull { it.id == releveId } ?: return
-        if (ancien.interetsComptabilises || ancien.fraisComptabilises) {
+        if (ancien.interetsComptabilises || ancien.fraisComptabilises ||
+            ancien.interetsDejaInclus || ancien.fraisDejaInclus) {
             _uiState.update { it.copy(messageErreur =
                 "Suppression bloquée : ce relevé comporte des intérêts ou frais déjà comptabilisés.") }
             return
@@ -343,8 +346,14 @@ class CartesCreditViewModel(
     /** CC6/CC10 : frais et intérêts sont enregistrés uniquement sur confirmation explicite. */
     fun comptabiliserInterets(releveId: String) = comptabiliserMontantReleve(releveId, estInteret = true)
     fun comptabiliserFrais(releveId: String) = comptabiliserMontantReleve(releveId, estInteret = false)
+    fun marquerMontantDejaInclus(releveId: String, estInteret: Boolean) =
+        comptabiliserMontantReleve(releveId, estInteret, dejaInclus = true)
 
-    private fun comptabiliserMontantReleve(releveId: String, estInteret: Boolean) {
+    private fun comptabiliserMontantReleve(
+        releveId: String,
+        estInteret: Boolean,
+        dejaInclus: Boolean = false
+    ) {
         val carteSelectionnee = _uiState.value.carteSelectionnee ?: return
         viewModelScope.lancerUneFois(verrouCarte) {
             try {
@@ -356,7 +365,9 @@ class CartesCreditViewModel(
                         ?: throw IllegalStateException("Carte introuvable")
                     val releve = carte.details.releves.firstOrNull { it.id == releveId }
                         ?: throw IllegalStateException("Relevé introuvable")
-                    val deja = if (estInteret) releve.interetsComptabilises else releve.fraisComptabilises
+                    val deja = if (estInteret)
+                        releve.interetsComptabilises || releve.interetsDejaInclus
+                    else releve.fraisComptabilises || releve.fraisDejaInclus
                     if (deja) throw IllegalStateException(
                         if (estInteret) "Intérêts déjà comptabilisés." else "Frais déjà comptabilisés."
                     )
@@ -365,23 +376,32 @@ class CartesCreditViewModel(
                         throw IllegalArgumentException("Aucun montant officiel valide à comptabiliser.")
                     }
                     if (!carte.solde.isFinite()) throw IllegalStateException("Solde de carte invalide")
-                    val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - montant)
+                    val nouveauSolde = MoneyFormatter.roundAmount(
+                        carte.solde - if (dejaInclus) 0.0 else montant
+                    )
                     if (!nouveauSolde.isFinite()) throw IllegalStateException("Solde de carte invalide")
                     val details = carte.details.copy(
                         releves = carte.details.releves.map { r ->
-                            if (r.id != releveId) r else if (estInteret)
-                                r.copy(interetsComptabilises = true)
-                            else r.copy(fraisComptabilises = true)
+                            if (r.id != releveId) r
+                            else when {
+                                estInteret && dejaInclus -> r.copy(interetsDejaInclus = true)
+                                estInteret -> r.copy(interetsComptabilises = true)
+                                dejaInclus -> r.copy(fraisDejaInclus = true)
+                                else -> r.copy(fraisComptabilises = true)
+                            }
                         }
                     )
                     val corrigee = carte.copy(soldeUtilise = nouveauSolde, detailsCarteJson = details.versJson())
                     carteCreditRepository.mettreAJourCarteCredit(corrigee).getOrThrow()
                     historiqueAllocationService.enregistrerAjustementCompte(
                         compte = corrigee,
-                        typeAction = if (estInteret) "INTERETS_FACTURES" else "FRAIS_FACTURES",
+                        typeAction = if (dejaInclus)
+                            (if (estInteret) "INTERETS_DEJA_INCLUS" else "FRAIS_DEJA_INCLUS")
+                        else (if (estInteret) "INTERETS_FACTURES" else "FRAIS_FACTURES"),
                         description = (if (estInteret) "Intérêts" else "Frais") +
-                            " facturés au relevé du ${releve.dateEmission} : ${MoneyFormatter.formatAmount(montant)}",
-                        montant = -montant,
+                            " facturés au relevé du ${releve.dateEmission} : ${MoneyFormatter.formatAmount(montant)}" +
+                            (if (dejaInclus) " (déjà inclus dans le solde, sans débit)" else ""),
+                        montant = if (dejaInclus) 0.0 else -montant,
                         soldeAvant = carte.solde,
                         soldeApres = nouveauSolde,
                         pretAPlacerAvant = 0.0,
@@ -392,8 +412,10 @@ class CartesCreditViewModel(
                 _uiState.update { courant ->
                     if (courant.carteSelectionnee?.id != carteMaj.id) courant else courant.copy(
                         carteSelectionnee = carteMaj,
-                        messageInfo = if (estInteret) "Intérêts officiels comptabilisés."
-                            else "Frais officiels comptabilisés.",
+                        messageInfo = if (dejaInclus)
+                            "Montant identifié comme déjà inclus : aucun solde modifié."
+                        else if (estInteret) "Intérêts officiels comptabilisés."
+                        else "Frais officiels comptabilisés.",
                         messageErreur = null
                     )
                 }
