@@ -231,7 +231,8 @@ object MoteurInvestissement {
         // IA9 : un graphique global CAD/USD sans taux FX n'est pas une
         // répartition comparable. Ne pas additionner des unités différentes.
         val devises = d.positions.filter { it.valeur != null }.map { it.devise }.toSet()
-        if (devises.size > 1 || (devises.isNotEmpty() && "CAD" !in devises && d.encaisse != null)) {
+        if (devises.any { !it.equals("CAD", ignoreCase = true) }) {
+            // Pas de taux de change par date; le % entre USD/CAD serait faux.
             return emptyList()
         }
         val valeurs = d.positions.filter { it.valeur != null && it.valeur!!.isFinite() }
