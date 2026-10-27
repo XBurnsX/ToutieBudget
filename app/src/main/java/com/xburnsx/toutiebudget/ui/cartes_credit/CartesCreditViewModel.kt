@@ -291,19 +291,27 @@ class CartesCreditViewModel(
         val carte = _uiState.value.carteSelectionnee ?: return
         val d = carte.details
         val ancien = d.releves.firstOrNull { it.id == releve.id }
-        // CC6 : le même relevé peut être corrigé, mais pas d'une manière
-        // qui désynchronise un intérêt déjà facturé au compte et journalisé.
-        if (ancien?.interetsComptabilises == true &&
-            (releve.interetsFactures != ancien.interetsFactures ||
-             releve.dateEmission != ancien.dateEmission ||
-             !releve.interetsComptabilises)
+        // Un statut « comptabilisé » ne peut être forgé par une édition de relevé,
+        // ni annulé en oubliant une écriture déjà envoyée dans Room.
+        if ((ancien?.interetsComptabilises ?: false) != releve.interetsComptabilises ||
+            (ancien?.fraisComptabilises ?: false) != releve.fraisComptabilises ||
+            (ancien?.interetsComptabilises == true &&
+                (releve.interetsFactures != ancien.interetsFactures ||
+                    releve.dateEmission != ancien.dateEmission)) ||
+            (ancien?.fraisComptabilises == true &&
+                (releve.fraisFactures != ancien.fraisFactures ||
+                    releve.dateEmission != ancien.dateEmission))
         ) {
             _uiState.update { it.copy(messageErreur =
-                "Ce relevé a déjà des intérêts comptabilisés. Corrige d'abord la carte et sa trace; ne modifie pas les intérêts ici.") }
+                "Ce relevé comporte déjà des intérêts ou frais comptabilisés. " +
+                    "Les montants facturés liés à une écriture doivent être corrigés via une opération comptable tracée.") }
             return
         }
-        if (MoteurCarteCredit.lireDate(releve.dateEmission) == null ||
-            (releve.dateEcheance != null && MoteurCarteCredit.lireDate(releve.dateEcheance) == null) ||
+        val emission = MoteurCarteCredit.lireDate(releve.dateEmission)
+        val echeance = MoteurCarteCredit.lireDate(releve.dateEcheance)
+        if (emission == null ||
+            (releve.dateEcheance != null && echeance == null) ||
+            (emission != null && echeance != null && echeance.before(emission)) ||
             listOfNotNull(releve.soldeOfficiel, releve.minimumOfficiel, releve.interetsFactures,
                 releve.fraisFactures, releve.paiementsRecus).any { !it.isFinite() || it < 0.0 }
         ) {
@@ -322,51 +330,58 @@ class CartesCreditViewModel(
         val carte = _uiState.value.carteSelectionnee ?: return
         val d = carte.details
         val ancien = d.releves.firstOrNull { it.id == releveId } ?: return
-        if (ancien.interetsComptabilises) {
+        if (ancien.interetsComptabilises || ancien.fraisComptabilises) {
             _uiState.update { it.copy(messageErreur =
-                "Suppression bloquée : les intérêts de ce relevé ont déjà été ajoutés à la carte et à son historique.") }
+                "Suppression bloquée : ce relevé comporte des intérêts ou frais déjà comptabilisés.") }
             return
         }
-        enregistrerDetails(carte, d.copy(releves = d.releves.filter { it.id != releveId })) { it.copy(releveEnEdition = null) }
+        enregistrerDetails(carte, d.copy(releves = d.releves.filter { it.id != releveId })) {
+            it.copy(releveEnEdition = null)
+        }
     }
 
-    /**
-     * CC6 : n'augmente la dette que d'un montant CONFIRMÉ par le relevé, une seule fois,
-     * et seulement à la demande (le solde saisi peut déjà les inclure).
-     */
-    fun comptabiliserInterets(releveId: String) {
+    /** CC6/CC10 : frais et intérêts sont enregistrés uniquement sur confirmation explicite. */
+    fun comptabiliserInterets(releveId: String) = comptabiliserMontantReleve(releveId, estInteret = true)
+    fun comptabiliserFrais(releveId: String) = comptabiliserMontantReleve(releveId, estInteret = false)
+
+    private fun comptabiliserMontantReleve(releveId: String, estInteret: Boolean) {
         val carteSelectionnee = _uiState.value.carteSelectionnee ?: return
         viewModelScope.lancerUneFois(verrouCarte) {
             try {
-                // CC6 : relire sous transaction Room pour éviter toute
-                // comptabilisation répétée d'un même relevé, même après refresh.
+                // CC6 : vérifier les flags et actualiser le solde et le journal
+                // dans UNE transaction Room. Un deuxième clic échoue proprement.
                 val carteMaj = operationAtomique.executer {
                     val carte = carteCreditRepository.recupererCartesCredit().getOrThrow()
                         .firstOrNull { it.id == carteSelectionnee.id }
                         ?: throw IllegalStateException("Carte introuvable")
                     val releve = carte.details.releves.firstOrNull { it.id == releveId }
                         ?: throw IllegalStateException("Relevé introuvable")
-                    if (releve.interetsComptabilises) {
-                        throw IllegalStateException("Les intérêts de ce relevé sont déjà comptabilisés.")
+                    val deja = if (estInteret) releve.interetsComptabilises else releve.fraisComptabilises
+                    if (deja) throw IllegalStateException(
+                        if (estInteret) "Intérêts déjà comptabilisés." else "Frais déjà comptabilisés."
+                    )
+                    val montant = if (estInteret) releve.interetsFactures else releve.fraisFactures
+                    if (!montant.isFinite() || montant <= 0.005) {
+                        throw IllegalArgumentException("Aucun montant officiel valide à comptabiliser.")
                     }
-                    if (!releve.interetsFactures.isFinite() || releve.interetsFactures <= 0.005) {
-                        throw IllegalArgumentException("Aucun intérêt officiel valide à comptabiliser.")
-                    }
-                    val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - releve.interetsFactures)
-                    if (!nouveauSolde.isFinite()) throw IllegalStateException("Solde de carte invalide.")
+                    if (!carte.solde.isFinite()) throw IllegalStateException("Solde de carte invalide")
+                    val nouveauSolde = MoneyFormatter.roundAmount(carte.solde - montant)
+                    if (!nouveauSolde.isFinite()) throw IllegalStateException("Solde de carte invalide")
                     val details = carte.details.copy(
-                        releves = carte.details.releves.map {
-                            if (it.id == releveId) it.copy(interetsComptabilises = true) else it
+                        releves = carte.details.releves.map { r ->
+                            if (r.id != releveId) r else if (estInteret)
+                                r.copy(interetsComptabilises = true)
+                            else r.copy(fraisComptabilises = true)
                         }
                     )
                     val corrigee = carte.copy(soldeUtilise = nouveauSolde, detailsCarteJson = details.versJson())
                     carteCreditRepository.mettreAJourCarteCredit(corrigee).getOrThrow()
                     historiqueAllocationService.enregistrerAjustementCompte(
                         compte = corrigee,
-                        typeAction = "INTERETS_FACTURES",
-                        description = "Intérêts facturés au relevé du ${releve.dateEmission} : " +
-                            MoneyFormatter.formatAmount(releve.interetsFactures),
-                        montant = -releve.interetsFactures,
+                        typeAction = if (estInteret) "INTERETS_FACTURES" else "FRAIS_FACTURES",
+                        description = (if (estInteret) "Intérêts" else "Frais") +
+                            " facturés au relevé du ${releve.dateEmission} : ${MoneyFormatter.formatAmount(montant)}",
+                        montant = -montant,
                         soldeAvant = carte.solde,
                         soldeApres = nouveauSolde,
                         pretAPlacerAvant = 0.0,
@@ -374,8 +389,14 @@ class CartesCreditViewModel(
                     )
                     corrigee
                 }
-                _uiState.update { it.copy(carteSelectionnee = carteMaj,
-                    messageInfo = "Intérêts officiels comptabilisés dans le solde.", messageErreur = null) }
+                _uiState.update { courant ->
+                    if (courant.carteSelectionnee?.id != carteMaj.id) courant else courant.copy(
+                        carteSelectionnee = carteMaj,
+                        messageInfo = if (estInteret) "Intérêts officiels comptabilisés."
+                            else "Frais officiels comptabilisés.",
+                        messageErreur = null
+                    )
+                }
                 chargerCartesCredit()
                 realtimeSyncService.declencherMiseAJourComptes()
             } catch (erreur: Exception) {
