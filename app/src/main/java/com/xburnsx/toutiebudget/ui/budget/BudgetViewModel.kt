@@ -628,8 +628,10 @@ class BudgetViewModel(
         viewModelScope.lancerUneFois(verrouAssignation) {
             val reussies = mutableListOf<String>()
             try {
-                val montants = montantsCentimes.filterValues { it > 0 }
-                if (montants.isEmpty()) throw Exception("Aucun montant à assigner.")
+                if (montantsCentimes.isEmpty() || montantsCentimes.values.any { it <= 0L }) {
+                    throw IllegalArgumentException("Chaque montant à répartir doit être positif.")
+                }
+                val montants = montantsCentimes
 
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Répartition de l'argent...") }
 
