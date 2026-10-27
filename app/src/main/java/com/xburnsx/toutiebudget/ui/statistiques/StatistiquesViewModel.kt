@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import java.util.*
 
 class StatistiquesViewModel(
@@ -83,7 +84,7 @@ class StatistiquesViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, erreur = null, periode = periode)
         chargement = viewModelScope.launch {
             if (generation != generationChargement) return@launch
-
+            try {
             // Charger toutes les transactions sur la fenêtre des 6 derniers mois (pour le graphique)
             val calSix = Calendar.getInstance().apply {
                 time = debut
@@ -384,6 +385,23 @@ class StatistiquesViewModel(
                 ,totalEntreesTresorerie = totalEntreesTresorerie
                 ,totalSortiesTresorerie = totalSortiesTresorerie
             )
+            } catch (annulation: CancellationException) {
+                // Un nouveau choix de période annule normalement la demande précédente.
+                throw annulation
+            } catch (e: Exception) {
+                // ST5/ST15 : une erreur de calcul, de devise ou d'arrondi
+                // ne doit jamais laisser le chargement infini ni afficher un faux 0 $.
+                if (generation == generationChargement) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        erreur = "Calcul des statistiques impossible : " +
+                            (e.message ?: "données incomplètes ou montants invalides"),
+                        calculIncomplet = true,
+                        donneesIndisponibles = listOf("Calcul de la période"),
+                        periode = periode
+                    )
+                }
+            }
         }
     }
 
