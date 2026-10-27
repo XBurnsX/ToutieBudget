@@ -87,6 +87,19 @@ fun RelevesCarteCard(
             releves.forEachIndexed { index, releve ->
                 val precedent = releves.getOrNull(index + 1)
                 val estime = precedent?.let { interetsEstimesPeriode(carte, it, releve) }
+                val achatsApp = precedent?.let { precedente ->
+                    val debut = MoteurCarteCredit.lireDate(precedente.dateEmission)
+                    val fin = MoteurCarteCredit.lireDate(releve.dateEmission)
+                    if (debut == null || fin == null) null else {
+                        val depuis = debut.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        val jusqua = fin.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        transactionsCarte.filter { tx ->
+                            val jour = tx.date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                            tx.type == TypeTransaction.Depense &&
+                                jour.isAfter(depuis) && !jour.isAfter(jusqua)
+                        }.sumOf { kotlin.math.max(0.0, it.montant) }
+                    }
+                }
                 val paiementsApp = precedent?.let { precedente ->
                     val debut = MoteurCarteCredit.lireDate(precedente.dateEmission)
                     val fin = MoteurCarteCredit.lireDate(releve.dateEmission)
@@ -125,6 +138,11 @@ fun RelevesCarteCard(
                         color = Color.Gray,
                         style = MaterialTheme.typography.bodySmall
                     )
+                    achatsApp?.let { montantAchats ->
+                        Text("Achats saisis dans l'app pour ce cycle : ${MoneyFormatter.formatAmount(montantAchats)} " +
+                            "(date de transaction, non rapprochée avec la date bancaire)",
+                            color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                    }
                     paiementsApp?.let { paiementsSaisis ->
                         val diff = MoteurCarteCredit.arrondi(releve.paiementsRecus - paiementsSaisis)
                         Text("Paiements carte saisis : ${MoneyFormatter.formatAmount(paiementsSaisis)}" +
