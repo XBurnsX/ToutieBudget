@@ -145,15 +145,28 @@ class SupprimerTransactionUseCase(
         val toutes = transactionRepository.recupererToutesLesTransactions().getOrThrow()
             .filter { it.id != tx.id }
         val idOperation = idOperation(tx.sousItems)
-        if (idOperation != null) {
-            return toutes.firstOrNull { idOperation(it.sousItems) == idOperation }
-        }
         val estTransfert = tx.type == TypeTransaction.TransfertSortant || tx.type == TypeTransaction.TransfertEntrant
         val typesContrepartie = when (tx.type) {
             TypeTransaction.PaiementEffectue -> setOf(TypeTransaction.Paiement, TypeTransaction.Emprunt)
             TypeTransaction.TransfertSortant -> setOf(TypeTransaction.TransfertEntrant)
             TypeTransaction.TransfertEntrant -> setOf(TypeTransaction.TransfertSortant)
             else -> setOf(TypeTransaction.PaiementEffectue)
+        }
+        if (idOperation != null) {
+            // DF9 : même UUID ET exactement la bonne écriture bancaire.
+            // firstOrNull() pouvait supprimer une moitié étrangère portant
+            // accidentellement le même identifiant, ou ignorer un doublon.
+            val associees = toutes.filter {
+                idOperation(it.sousItems) == idOperation &&
+                    it.type in typesContrepartie &&
+                    it.compteId != tx.compteId &&
+                    kotlin.math.abs(it.montant - tx.montant) < 0.005
+            }
+            if (associees.size != 1) throw IllegalStateException(
+                "Paiement lié incohérent : ${associees.size} contrepartie(s) valides. " +
+                    "Annulation refusée pour protéger les soldes des comptes."
+            )
+            return associees.single()
         }
         // Anciennes écritures sans ID de paire : ne jamais choisir une
         // contrepartie approximative s'il existe deux candidats plausibles.
