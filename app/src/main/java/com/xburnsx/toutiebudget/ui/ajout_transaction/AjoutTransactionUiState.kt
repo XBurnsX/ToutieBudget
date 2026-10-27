@@ -132,7 +132,20 @@ data class AjoutTransactionUiState(
      * Vérifie si le formulaire est valide pour la sauvegarde et le fractionnement.
      */
     fun calculerValidite(): AjoutTransactionUiState {
-        val montantEstValide = montant.toDoubleOrNull()?.let { it > 0 } ?: false
+        val montantCentimes = montant.toLongOrNull()
+        val montantEstValide = montantCentimes != null && montantCentimes > 0L
+        val dettePayee = if (modeOperation == "Paiement") {
+            comptePaiementSelectionne as? com.xburnsx.toutiebudget.data.modeles.CompteDette
+        } else null
+        // DF8 : signal immédiat sur le formulaire. Le service revalide aussi
+        // sous transaction Room pour protéger contre un paiement concurrent.
+        val paiementDetteDansLaLimite = dettePayee?.let { dette ->
+            dette.soldeDette.isFinite() &&
+                montantCentimes != null &&
+                montantCentimes <= kotlin.math.round(
+                    kotlin.math.max(0.0, -dette.soldeDette) * 100.0
+                ).toLong()
+        } ?: true
         val compteEstSelectionne = compteSelectionne != null
         val tiersEstRempli = tiersUtiliser.isNotBlank()
         
@@ -170,6 +183,7 @@ data class AjoutTransactionUiState(
         val soldesConnus = !(allocationsIndisponibles && modeOperation == "Standard" && typeTransaction == TypeTransaction.Depense)
 
         val peutSauvegarde = montantEstValide &&
+                            paiementDetteDansLaLimite &&
                             soldesConnus &&
                             compteEstSelectionne &&
                             validationPaiement &&
