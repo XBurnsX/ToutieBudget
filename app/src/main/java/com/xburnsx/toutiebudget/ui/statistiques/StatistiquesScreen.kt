@@ -626,11 +626,7 @@ private fun AnimatedTopCards(
                     leadingIcon = Icons.Filled.Person,
                     total = uiState.totalDepenses,
                     onItemClick = { item ->
-                        val tx = uiState.transactionsPeriode.filter {
-                            it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Depense &&
-                                    (it.tiersUtiliser == item.label)
-                        }
-                        viewModel.ouvrirModalTransactions("Transactions - ${item.label}", tx)
+                        viewModel.ouvrirModalTransactionsPourTiers(item.id, item.label)
                     }
                 )
             }
