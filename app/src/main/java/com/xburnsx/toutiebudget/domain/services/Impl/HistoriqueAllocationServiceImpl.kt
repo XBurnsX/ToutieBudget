@@ -18,9 +18,10 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
     private val historiqueAllocationRepository: HistoriqueAllocationRepository
 ) : HistoriqueAllocationService {
     
-    private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    // Journal A2 : DateTimeFormatter est immuable et sûr pour les écritures concurrentes.
+    private val dateFormatter = java.time.format.DateTimeFormatter
+        .ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT)
+        .withZone(java.time.ZoneOffset.UTC)
     
     override suspend fun enregistrerCreationAllocation(
         allocation: AllocationMensuelle,
@@ -46,7 +47,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 soldeApres = soldeApres,
                 pretAPlacerAvant = pretAPlacerAvant,
                 pretAPlacerApres = pretAPlacerApres,
-                dateAction = dateFormatter.format(Date()),
+                dateAction = dateFormatter.format(java.time.Instant.now()),
                 allocationId = allocation.id,
                 details = "Nouvelle allocation mensuelle créée"
             )
@@ -79,7 +80,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 soldeApres = soldeApres,
                 pretAPlacerAvant = pretAPlacerAvant,
                 pretAPlacerApres = pretAPlacerApres,
-                dateAction = dateFormatter.format(Date()),
+                dateAction = dateFormatter.format(java.time.Instant.now()),
                 allocationId = allocationApres.id,
                 details = "Allocation mensuelle modifiée"
             )
@@ -110,7 +111,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
             soldeApres = soldeApres,
             pretAPlacerAvant = pretAPlacerAvant,
             pretAPlacerApres = pretAPlacerApres,
-            dateAction = dateFormatter.format(Date()),
+            dateAction = dateFormatter.format(java.time.Instant.now()),
             allocationId = allocation.id,
             details = "Allocation mensuelle supprimée"
         )
@@ -149,7 +150,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 soldeApres = soldeApres,
                 pretAPlacerAvant = pretAPlacerAvant,
                 pretAPlacerApres = pretAPlacerApres,
-                dateAction = dateFormatter.format(Date()),
+                dateAction = dateFormatter.format(java.time.Instant.now()),
                 allocationId = "",
                 details = note ?: "Transaction directe sur le compte"
             )
@@ -182,7 +183,7 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 soldeApres = soldeApres,
                 pretAPlacerAvant = pretAPlacerAvant,
                 pretAPlacerApres = pretAPlacerApres,
-                dateAction = dateFormatter.format(Date()),
+                dateAction = dateFormatter.format(java.time.Instant.now()),
                 allocationId = "",
                 details = description
             )
