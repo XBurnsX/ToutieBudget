@@ -346,7 +346,36 @@ private fun StatistiquesContent(
         // Top 5 cards avec animation staggered
         AnimatedTopCards(uiState, viewModel)
 
-        // Nouveau graphique de moyenne sur 7 jours
+        // SA5 : trois mesures distinctes, toutes des dépenses de consommation.
+        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("Moyennes quotidiennes des dépenses", style = MaterialTheme.typography.titleMedium)
+                val moyennes = listOf(
+                    "Période choisie" to uiState.moyenneQuotidiennePeriode,
+                    "7 derniers jours de la période" to uiState.moyenneQuotidienne7Jours,
+                    "30 derniers jours de la période" to uiState.moyenneQuotidienne30Jours
+                )
+                moyennes.forEach { (libelle, valeur) ->
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(libelle, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Text(
+                            valeur?.let(MoneyFormatter::formatAmount) ?: "Non disponible",
+                            fontWeight = FontWeight.Medium,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                Text(
+                    "Hors prêts, remboursements de capital et virements. Jours futurs exclus.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+
         Moyenne7JoursChart(uiState)
 
         // Sélecteur retiré (désormais dans la topbar)
