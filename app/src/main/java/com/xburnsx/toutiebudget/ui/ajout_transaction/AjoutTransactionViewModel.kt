@@ -1516,29 +1516,26 @@ class AjoutTransactionViewModel(
                 )
             ).getOrThrow()
             siEchec { transactionRepository.supprimerTransaction(idTransaction) }
+        }
+        // P5 : la trace du compte fait partie du même commit Room
+        // que la transaction et la mise à jour des dossiers. Un échec
+        // d'historique annule également le remboursement.
+        val compteApres = compteRepository.getCompteById(compte.id, collectionCompte)
+        if (compteApres is CompteCheque) {
+            val variation = if (recu) montantDollars else -montantDollars
+            historiqueAllocationService.enregistrerTransactionDirecte(
+                compte = compteApres,
+                enveloppe = null,
+                typeTransaction = if (recu) "REMBOURSEMENT_RECU" else "REMBOURSEMENT_DONNE",
+                montant = variation,
+                soldeAvant = compteApres.solde - variation,
+                soldeApres = compteApres.solde,
+                pretAPlacerAvant = compteApres.pretAPlacer - variation,
+                pretAPlacerApres = compteApres.pretAPlacer,
+                note = if (recu) "Remboursement reçu de $nomTiers" else "Remboursement donné à $nomTiers"
+            )
+        }
         } }
-        }
-
-        // 3) Historique du compte, une seule fois
-        try {
-            val compteApres = compteRepository.getCompteById(compte.id, collectionCompte)
-            if (compteApres is CompteCheque) {
-                val variation = if (recu) montantDollars else -montantDollars
-                historiqueAllocationService.enregistrerTransactionDirecte(
-                    compte = compteApres,
-                    enveloppe = null,
-                    typeTransaction = if (recu) "REMBOURSEMENT_RECU" else "REMBOURSEMENT_DONNE",
-                    montant = variation,
-                    soldeAvant = compteApres.solde - variation,
-                    soldeApres = compteApres.solde,
-                    pretAPlacerAvant = compteApres.pretAPlacer - variation,
-                    pretAPlacerApres = compteApres.pretAPlacer,
-                    note = if (recu) "Remboursement reçu de $nomTiers" else "Remboursement donné à $nomTiers"
-                )
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "Historique du remboursement non enregistré: ${e.message}")
-        }
     }
 
     /**
