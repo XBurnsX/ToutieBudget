@@ -379,8 +379,14 @@ class EcransAjoutTransactionTest {
         val pending = SyncJob(id = "local", type = "TRANSACTION", action = "CREATE", dataJson = "{}", createdAt = 101, status = "PENDING")
         val failed = pending.copy(id = "echec", status = "FAILED", bloque = true)
 
-        assertEquals(StatutSynchronisationEcriture.SYNCHRONISEE, determinerStatutSynchronisation(listOf(ancien), 100))
+        // L'absence de tâche postérieure n'est PAS un accusé de réception PocketBase.
+        assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT, determinerStatutSynchronisation(listOf(ancien), 100))
+        assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT, determinerStatutSynchronisation(emptyList(), 100))
         assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT, determinerStatutSynchronisation(listOf(pending), 100))
+        assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT, determinerStatutSynchronisation(listOf(pending.copy(status = "UNKNOWN")), 100))
         assertEquals(StatutSynchronisationEcriture.ECHEC, determinerStatutSynchronisation(listOf(pending, failed), 100))
+        assertEquals(StatutSynchronisationEcriture.SYNCHRONISEE, determinerStatutSynchronisation(listOf(pending.copy(status = "COMPLETED")), 100))
+        assertEquals(StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT,
+            determinerStatutSynchronisation(listOf(pending.copy(status = "COMPLETED"), pending.copy(id = "a-attendre")), 100))
     }
 }
