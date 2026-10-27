@@ -630,14 +630,12 @@ class CategoriesEnveloppesViewModel(
     fun onConfirmerSuppressionEnveloppe() {
         val enveloppe = _uiState.value.enveloppePourSuppression ?: return
 
-        onFermerConfirmationSuppressionEnveloppe()
-
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 // CE2 : aucun argent ne disparaît. Une enveloppe qui garde un solde (n'importe quel mois) est refusée.
                 val allocations = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
                 val soldeRestant = allocations.sumOf { it.solde }
-                if (allocations.any { kotlin.math.abs(it.solde) >= 0.01 }) {
+                if (allocations.any { kotlin.math.round(it.solde * 100.0).toLong() != 0L }) {
                     _uiState.update {
                         it.copy(
                             erreur = "« ${enveloppe.nom} » contient encore ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeRestant)}. " +
@@ -646,32 +644,15 @@ class CategoriesEnveloppesViewModel(
                     }
                     return@lancerUneFois
                 }
-                // CE1 : déjà utilisée = archivée (historique gardé) ; jamais utilisée = supprimée
-                val dejaUtilisee = allocations.isNotEmpty()
-
-                // Mise à jour instantanée de l'interface
-                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                nouveauxGroupes.forEach { (categorie, enveloppes) ->
-                    val nouvellesEnveloppes = enveloppes.filterNot { it.id == enveloppe.id }
-                    nouveauxGroupes[categorie] = nouvellesEnveloppes
-                }
-
-                _uiState.update { currentState ->
-                    currentState.copy(enveloppesGroupees = nouveauxGroupes)
-                }
-
-                // Envoyer à PocketBase
-                val resultat = if (dejaUtilisee) {
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppe.copy(estArchive = true))
-                } else {
-                    enveloppeRepository.supprimerEnveloppe(enveloppe.id)
-                }
-                resultat.onSuccess {
-                    realtimeSyncService.declencherMiseAJourBudget()
-                }.onFailure { erreur ->
-                    _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
-                    chargerDonnees() // Recharger en cas d'erreur
-                }
+                // CE1/CE4 : une absence d'allocations ne prouve pas qu'aucun
+                // historique n'existe. L'archivage garde IDs et références.
+                // Ne masquer l'enveloppe qu'après confirmation de l'écriture.
+                enveloppeRepository.mettreAJourEnveloppe(
+                    enveloppe.copy(estArchive = true)
+                ).getOrThrow()
+                onFermerConfirmationSuppressionEnveloppe()
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
 
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
