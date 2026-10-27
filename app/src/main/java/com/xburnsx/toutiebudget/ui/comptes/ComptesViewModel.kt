@@ -227,11 +227,9 @@ class ComptesViewModel(
                     is CompteInvestissement -> compte.copy(estArchive = true)
                 }
 
-                compteRepository.mettreAJourCompte(compteArchive).getOrThrow()
-
-                var message: String? = null
-                if (compte is CompteDette) {
-                    message = archiverEnveloppeDetteSiTerminee(compte)
+                val message = operationAtomique.executer {
+                    compteRepository.mettreAJourCompte(compteArchive).getOrThrow()
+                    if (compte is CompteDette) archiverEnveloppeDetteSiTerminee(compte) else null
                 }
 
                 _uiState.update {
@@ -247,16 +245,16 @@ class ComptesViewModel(
                 realtimeSyncService.declencherMiseAJourComptes()
                 onCompteChange?.invoke()
             } catch (e: Exception) {
-                _uiState.update { it.copy(isConfirmationArchivageVisible = false, erreur = "Erreur archivage: ${e.message}") }
+                _uiState.update { it.copy(isConfirmationArchivageVisible = true, erreur = "Erreur archivage: ${e.message}") }
             }
         }
     }
 
     /** Retourne un message à afficher si l'enveloppe de la dette a été laissée active. */
     private suspend fun archiverEnveloppeDetteSiTerminee(dette: CompteDette): String? {
-        val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+        val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
         val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
-        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
         // DF11 : le lien par ID d'abord ; sinon un seul homonyme dans la catégorie Dettes, jamais ailleurs
         val envDette = dette.details.enveloppeId?.let { id -> enveloppes.firstOrNull { it.id == id && !it.estArchive } }
             ?: enveloppes.singleOrNull { it.nom.equals(dette.nom, ignoreCase = true) && catDettes != null && it.categorieId == catDettes.id && !it.estArchive }
@@ -267,7 +265,7 @@ class ComptesViewModel(
             return "Dette archivée. Son enveloppe « ${envDette.nom} » reste active : la dette n'est pas terminée."
         }
 
-        val soldeEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(envDette.id).getOrElse { emptyList() }
+        val soldeEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(envDette.id).getOrThrow()
             .groupBy { it.mois.time }
             .maxByOrNull { it.key }?.value?.sumOf { it.solde } ?: 0.0
         if (kotlin.math.abs(soldeEnveloppe) > 0.009) {
@@ -276,7 +274,7 @@ class ComptesViewModel(
         }
 
         // Archiver (jamais supprimer) : l'historique d'allocation et les références restent intacts
-        enveloppeRepository.mettreAJourEnveloppe(envDette.copy(estArchive = true))
+        enveloppeRepository.mettreAJourEnveloppe(envDette.copy(estArchive = true)).getOrThrow()
         return null
     }
 
