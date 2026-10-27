@@ -1,6 +1,7 @@
 package com.xburnsx.toutiebudget.ui.pret_personnel
 
 import com.xburnsx.toutiebudget.utils.lancerUneFois
+import com.google.gson.JsonParser
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.PretPersonnel
@@ -86,7 +87,12 @@ class PretPersonnelViewModel(
                 .filter { t ->
                     (t.type == TypeTransaction.Pret || t.type == TypeTransaction.RemboursementRecu ||
                      t.type == TypeTransaction.Emprunt || t.type == TypeTransaction.RemboursementDonne) &&
-                    (t.sousItems?.contains(pretId) == true)
+                    (t.sousItems?.let { source ->
+                        runCatching {
+                            val donnees = JsonParser.parseString(source).asJsonObject
+                            donnees.get("pret_personnel_id")?.asString == pretId
+                        }.getOrDefault(false)
+                    } == true)
                 }
                 .sortedByDescending { it.date }
             val items = txs.map { t ->
@@ -106,6 +112,7 @@ class PretPersonnelViewModel(
             }
             val recordActif = pretPersonnelRepository.lister().getOrThrow()
                 .firstOrNull { it.id == pretId }
+                ?: throw IllegalStateException("Dossier introuvable ou supprimé")
 
             // Un autre dossier a été ouvert entre-temps : ne pas afficher ces données
             if (dossierDemande != pretId) return@launch
