@@ -234,6 +234,8 @@ class AjoutTransactionViewModel(
                 // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
                 val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
                 
+                if (resultEnveloppes.isFailure) resultEnveloppes.getOrThrow()
+                if (resultCategories.isFailure) resultCategories.getOrThrow()
                 if (resultEnveloppes.isSuccess && resultCategories.isSuccess) {
                     allEnveloppes = resultEnveloppes.getOrThrow()
                     allCategories = resultCategories.getOrThrow()
