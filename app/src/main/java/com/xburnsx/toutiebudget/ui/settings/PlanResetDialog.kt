@@ -117,8 +117,12 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                         Text(erreur ?: "", color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { tentative++ }) { Text("Réessayer") }
                     }
-                    apercu!!.lignes.isEmpty() -> Box(Modifier.weight(1f)) {
-                        Text("Aucun argent assigné à remettre pour ce mois.")
+                    apercu!!.lignes.isEmpty() -> Column(Modifier.weight(1f)) {
+                        Text("Aucun argent assigné pouvant être remis pour ce mois.")
+                        if (apercu!!.ignorees.isNotEmpty()) {
+                            Text("Provenance inconnue ou compte archivé : ${apercu!!.ignorees.joinToString()}",
+                                color = MaterialTheme.colorScheme.error)
+                        }
                     }
                     else -> LazyColumn(modifier = Modifier.weight(1f)) {
                         items(apercu!!.lignes, key = { it.allocationId }) { ligne ->
@@ -150,7 +154,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                         if (apercu!!.ignorees.isNotEmpty()) {
                             item {
                                 Text(
-                                    "Laissées telles quelles (compte d'origine inconnu) : ${apercu!!.ignorees.joinToString()}",
+                                    "Laissées telles quelles (compte inconnu ou archivé) : ${apercu!!.ignorees.joinToString()}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     modifier = Modifier.padding(top = 8.dp)
@@ -170,7 +174,10 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                     }
                 }
                 if (apercu != null) {
-                    erreur?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                    erreur?.let { message ->
+                        Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                        TextButton(onClick = { tentative++ }, enabled = !enCours) { Text("Actualiser l'aperçu") }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
@@ -207,7 +214,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                     scope.launch {
                         service.appliquer(a, idsSelectionnes)
                             .onSuccess { faites ->
-                                termine = "${faites.size} enveloppe(s) remises dans « Prêt à placer »."
+                                termine = "${faites.size} allocation(s) remises dans « Prêt à placer »."
                                 tentative++
                             }
                             .onFailure {
