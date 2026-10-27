@@ -125,7 +125,12 @@ fun CarteCreditDetailCard(
 
             // Intérêts : estimation seulement (CC5)
             if (dette > 0.005) {
-                if (d.naturesMouvements.values.any {
+                val tauxAchatsConnu = MoteurCarteCredit.tauxPourNature(
+                    carte, com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte.ACHAT
+                ) != null
+                if (!tauxAchatsConnu) {
+                    Ligne("Intérêts estimés (30 jours)", "Taux achats non configuré")
+                } else if (d.naturesMouvements.values.any {
                     it != com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte.ACHAT
                 }) {
                     Ligne("Intérêts estimés (30 jours)", "Non calculables sans ventilation des soldes")
