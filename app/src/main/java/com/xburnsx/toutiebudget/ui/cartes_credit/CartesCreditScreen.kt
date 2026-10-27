@@ -116,6 +116,7 @@ fun GestionCarteCreditScreen(
                 item {
                     RelevesCarteCard(
                         carte = carteCredit,
+                        transactionsCarte = uiState.transactionsCarte,
                         onAjouter = { viewModel.ouvrirReleve(null) },
                         onModifier = { viewModel.ouvrirReleve(it) },
                         onComptabiliserInterets = { viewModel.comptabiliserInterets(it) },
