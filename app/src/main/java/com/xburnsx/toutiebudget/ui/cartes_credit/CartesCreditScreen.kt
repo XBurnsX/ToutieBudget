@@ -25,6 +25,7 @@ import com.xburnsx.toutiebudget.ui.cartes_credit.composants.SimulateurCarte
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierCarteCreditDialog
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierFraisDialog
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ReleveDialog
+import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ImporterRelevesCsvDialog
 import com.xburnsx.toutiebudget.ui.composants_communs.DialogErreur
 
 /**
@@ -127,6 +128,7 @@ fun GestionCarteCreditScreen(
                         carte = carteCredit,
                         transactionsCarte = uiState.transactionsCarte,
                         onAjouter = { viewModel.ouvrirReleve(null) },
+                        onImporter = viewModel::ouvrirImportRelevesCsv,
                         onModifier = { viewModel.ouvrirReleve(it) },
                         onComptabiliserInterets = { viewModel.comptabiliserInterets(it) },
                         onComptabiliserFrais = { viewModel.comptabiliserFrais(it) },
@@ -185,6 +187,14 @@ fun GestionCarteCreditScreen(
             onChange = viewModel::modifierFormulaire,
             onSauvegarder = viewModel::sauvegarderModificationFrais,
             onDismiss = viewModel::fermerDialogs
+        )
+    }
+
+    if (uiState.afficherImportCsv && carteCredit != null) {
+        ImporterRelevesCsvDialog(
+            carte = carteCredit,
+            onImporter = viewModel::importerRelevesCsv,
+            onFermer = viewModel::fermerImportRelevesCsv
         )
     }
 
