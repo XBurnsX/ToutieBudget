@@ -69,11 +69,41 @@ object MoteurDette {
 
     fun totalVerse(transactionsDette: List<Transaction>): Double = arrondi(paiementsReels(transactionsDette).sumOf { it.montant })
 
-    /** Échéances complètes couvertes par les versements (un paiement partiel ne compte pas pour une). */
-    fun echeancesCouvertes(dette: CompteDette, transactionsDette: List<Transaction>): Int? {
-        val v = versementPrevu(dette) ?: return null
-        if (v <= 0) return null
-        return (totalVerse(transactionsDette) / v + 0.0001).toInt()
+    /** DF3 : nombre indicatif d'échéances contractuelles couvertes à date.
+     * Un extra versé d'avance ne crée pas de faux mois échus; si les dates
+     * contractuelles sont inconnues, aucun compteur d'échéances n'est inventé.
+     */
+    fun echeancesCouvertes(
+        dette: CompteDette, transactionsDette: List<Transaction>, aujourdHui: Date = Date()
+    ): Int? {
+        val mensualite = versementPrevu(dette)?.takeIf { it.isFinite() && it > 0.005 }
+            ?: return null
+        val depart = MoteurCarteCredit.lireDate(dette.details.dateDebut) ?: return null
+        val jour = dette.details.jourVersement?.takeIf { it in 1..31 } ?: return null
+        val fin = MoteurCarteCredit.lireDate(dette.details.dateFin)
+        val dateLimite = if (fin != null && fin.before(aujourdHui)) fin else aujourdHui
+        if (dateLimite.before(depart)) return 0
+        val debutContrat = debutJour(depart)
+        val limite = debutJour(dateLimite)
+        val mois = Calendar.getInstance().apply {
+            time = debutContrat
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        var echeancesExigibles = 0
+        repeat(MAX_PERIODES) {
+            val echeance = (mois.clone() as Calendar).apply {
+                set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
+            }.time
+            if (!echeance.before(debutContrat) && !echeance.after(limite)) {
+                echeancesExigibles++
+            }
+            if (echeance.after(limite)) return@repeat
+            mois.add(Calendar.MONTH, 1)
+        }
+        val total = arrondi(paiementsReels(transactionsDette, aujourdHui).sumOf { it.montant })
+        if (!total.isFinite()) return null
+        val equivalents = kotlin.math.floor((total + 0.005) / mensualite).toInt()
+        return equivalents.coerceIn(0, echeancesExigibles)
     }
 
     // ===== Intérêts et frais confirmés (DF7, DA6) =====
