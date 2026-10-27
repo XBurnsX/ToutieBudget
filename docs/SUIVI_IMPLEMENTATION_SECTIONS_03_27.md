@@ -99,33 +99,29 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État : exigences codées et reprises. Pas de build ni de validation Android.**
 
-## Section 10 — Cartes de crédit : EN COURS (NE PAS PASSER À 11)
+## Section 10 — Cartes de crédit : CODAGE TRAITÉ (CC1–CC11)
 
-| ID | Ce qui existe / a été corrigé dans le code | Audit encore ouvert |
-|---|---|---|
-| CC1 | MoteurCarteCredit centralise soldes signés, minimums, simulation, taux et arrondis. Formulaires refusent désormais les nombres non finis. | Cohérence de tous les écrans à revérifier |
-| CC2 | Paiement bancaire/carte avec deux transactions liées par ID; correction de l'annulation Room, journal obligatoire, plus d'enveloppe liée seulement par homonyme hors de la catégorie. | Flux complexes dettes liées, annulations et rapprochement à revoir |
-| CC3 | Solde saisi signé; correction manuelle et journal maintenant dans une transaction Room unique. | État des formulaires et cas solde créditeur à revérifier |
-| CC4 | Cycles et dates dans DetailsCarte; lecture stricte, saisie rejetant échéance avant relevé, sauvegarde des relevés refusée si carte devenue obsolète. | Import réel/échéances bancaires à vérifier |
-| CC5 | Estimation quotidienne datée avec taux recalculé à chaque jour (expiration de promo); seules les vraies entrées Paiement jouent sur la présomption de grâce. | Distinguer achats/avances/transferts/promotions avec historique catégorisé reste à implémenter |
-| CC6 | Relevés officiels distincts des estimations; comptabilisation des intérêts atomique et idempotente; dates/montants vérifiés, relevé déjà facturé protégé contre suppression et retouche d'intérêts, concurrence des éditions évitée. | Import/rapprochement officiels et correction tracée des relevés déjà facturés à construire |
-| CC7 | Profil minimum configurable; règle officielle du relevé prioritaire; montants manuels non étiquetés comme officiels; minimums invalides refusés; seuls les vrais paiements carte comptent. | Cas Desjardins et financements contractuels à revoir |
-| CC8 | Moteur central, simulation mois par mois; frais datés projetés, frais ponctuels non inventés; valeurs non finies, pourcentages et durées invalides refusés sans fausses prévisions. | Calendrier des versements selon dates réelles et nouveaux relevés à revoir |
-| CC9 | Alertes fondées sur données locales et dates; retard basé sur paiement enregistré avant échéance, non un faux statut bancaire confirmé. | Cas limite de cycle à revoir |
-| CC10 | Frais mensuels, annuels, ponctuels et taux distincts; déduplication par nom/type/date sans effacer l'historique. | Gestion détaillée des taux datés à revoir |
-| CC11 | RelevesCarteCard compare intérêts estimés/réels et cumule par année; SimulateurCarte compare remboursement minimum et accéléré. | Couverture complète des comparatifs à revoir |
+- **CC1/CC3** — Calculs centralisés, solde signé, disponible non plafonné, montant minimum distinct du solde du relevé; corrections manuelles et journal dans une même transaction Room. Refus de NaN/Infinity.
+- **CC2** — Paiement réel uniquement depuis Transactions, avec sorties/entrées liées, ajustements d'enveloppes, comptes et historiques dans une transaction Room. Le nom d'une personne ou d'un frais seul ne suffit pas à établir un lien avec une dette.
+- **CC4** — Dates contractuelles de clôture et d'échéance, relevé officiel distinct de l'estimation; dates civiles et contrôle des échéances.
+- **CC5** — Classifications explicites par ID (achat/avance/transfert), mises en file à la sauvegarde; ventilation du solde et intérêts futurs par taux réel déclaré, même en présence de plusieurs taux. Reconstruction du cycle basée sur le dernier relevé et vérification de rapprochement; calcul indisponible plutôt que faux chiffre lorsque les opérations, les règles de grâce ou l'origine des fonds sont insuffisantes. Taux promo pris selon dates et calendrier civil.
+- **CC6** — Saisie et import volontaire de relevés CSV structurés, aperçu avant import, dédoublonnage par date, montants au cent; intérêts/frais officiels comptabilisés uniquement sur confirmation. Possibilité de marquer « déjà inclus », évitant de débiter deux fois.
+- **CC7** — Minimum officiel prioritaire; estimation configurable à partir du solde de relevé et du profil (5 % de référence pour Desjardins/Québec). Montants manuels et estimations jamais présentés comme bancaires confirmés.
+- **CC8** — Échéancier mois par mois, frais datés, minimum recalculé, taux multiples avec ventilation déclarée et hypothèse d'affectation du capital affichée. Stratégies fixe, pourcentage, minimum et date cible; protection contre les chiffres impossibles.
+- **CC9** — Alertes fondées sur dates et mouvements enregistrés; échéance confirmée requise pour signaler un retard, paiement le jour de l'échéance reconnu et calculs indépendants du changement d'heure.
+- **CC10** — Frais mensuels/annuels/ponctuels datés, sans facturation fictive; sauvegarde atomique qui ne remplace pas silencieusement des données concurrentes. Taux achats, avances, transferts, promotion datée et retard.
+- **CC11** — Historique par relevé, achats/paiements locaux comparés aux montants officiels du cycle, intérêts réels versus estimations et cumul annuel; simulations accélérées versus minimum et tableau détaillé.
 
-**Constat bloquant connu** : le modèle générique `Transaction` ne porte pas encore le type bancaire achat / avance / transfert ainsi que la date de comptabilisation; il est donc impossible de garantir le moteur CC5 exigé sur ces mouvements sans compléter les données et leur migration. Les relevés facturés corrigés demandent également une opération d'ajustement réversible avec trace plutôt qu'un effacement. Ne PAS prétendre ce travail achevé.
+**Limites assumées du modèle** : un CSV structuré ne prouve pas qu'une opération a été reçue par la banque; les règles exactes de délai de grâce, d'imputation d'un paiement multi-taux, les contrats de financement et les relevés manquants ne peuvent pas être déduits automatiquement. Les simulations indiquent leurs hypothèses ou se déclarent indisponibles. Aucune écriture bancaire automatique n'a été ajoutée.
 
-**Ne pas déclarer la section 10 terminée avant confrontation complète de CC1 à CC11.**
-Toutes les corrections citées ont été poussées sur `main`; compilation Android et tests E2E non exécutés.
+**État** : codage des exigences couvert, sans compilation Android, sans exécution des tests et sans validation sur de vrais relevés/Room/PocketBase. Section 11 suivante; ne pas interpréter ce statut comme « zéro bug garanti ».
 
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 10 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
+| 11 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
 
 ## Règles de suivi
 
