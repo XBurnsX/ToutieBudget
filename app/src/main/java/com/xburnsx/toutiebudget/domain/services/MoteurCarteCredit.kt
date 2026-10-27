@@ -227,7 +227,7 @@ object MoteurCarteCredit {
             ?: carte.details.jourCloture?.let { prochaineCloture(carte, aujourdHui)?.let { c -> Calendar.getInstance().apply { time = c; add(Calendar.MONTH, -1) }.time } }
             ?: return null
         val fin = debutJour(aujourdHui)
-        val jours = TimeUnit.MILLISECONDS.toDays(fin.time - debutJour(debut).time).toInt()
+        val jours = joursCivilsEntre(debut, fin)
         if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
         // Des journées antérieures au cycle actuel ou une saisie future ne
         // permettent pas de reconstituer un historique bancaire fiable.
@@ -369,7 +369,7 @@ object MoteurCarteCredit {
 
         for (mois in 1..dureeMax) {
             val dateMois = cal.time
-            val jours = max(1, TimeUnit.MILLISECONDS.toDays(dateMois.time - dateMoisPrecedent.time).toInt())
+            val jours = max(1, joursCivilsEntre(dateMoisPrecedent, dateMois))
             val interets = arrondi(interetsEstimes(solde, tauxEffectif(carte, dateMois), jours))
             // CC8/CC10 : appliquer les frais à la bonne date, pas ajouter
             // tous les frais annuels arbitrairement au 12e mois.
@@ -453,6 +453,13 @@ object MoteurCarteCredit {
         }
         return arrondiHaut(haut)
     }
+
+    /** Les jours de calendrier restent exacts lors des changements d'heure au Québec. */
+    private fun joursCivilsEntre(debut: Date, fin: Date): Int =
+        java.time.temporal.ChronoUnit.DAYS.between(
+            debut.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+            fin.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+        ).toInt()
 
     private fun debutJour(date: Date): Date = Calendar.getInstance().apply {
         time = date
