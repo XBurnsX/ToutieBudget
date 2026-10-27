@@ -159,6 +159,7 @@ interface ArgentService {
         montant: Double,
         note: String? = null,
         // DF14 : date choisie dans Transactions ; détermine aussi le mois de l'enveloppe
-        date: java.util.Date = java.util.Date()
+        date: java.util.Date = java.util.Date(),
+        operationId: String? = null // AT14 : paiement rejoué sans double débit
     ): Result<Unit>
 }
