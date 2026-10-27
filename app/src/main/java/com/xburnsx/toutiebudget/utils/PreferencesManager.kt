@@ -14,6 +14,7 @@ object PreferencesManager {
     private const val KEY_NOTIF_OBJ_JOURS_AVANT = "notif_obj_jours_avant"
     private const val KEY_NOTIF_ENV_NEGATIF = "notif_env_negatif"
     private const val KEY_NOTIF_PAIEMENT_JOUR = "notif_paiement_jour"
+    private const val KEY_NOTIF_ECHEANCE_DETTES = "notif_echeance_dettes"
     private const val KEY_SHOW_ARCHIVED = "show_archived"
     private const val KEY_ARCHIVE_AUTO_ENABLED = "archive_auto_enabled"
     private const val KEY_ARCHIVE_MONTHS = "archive_months"
@@ -111,6 +112,16 @@ object PreferencesManager {
     fun getNotifEnveloppeNegative(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_NOTIF_ENV_NEGATIF, true)
+    }
+
+    /** DA3 : rappel d'action volontaire, désactivé par défaut. */
+    fun getNotifEcheanceDettes(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_NOTIF_ECHEANCE_DETTES, false)
+
+    fun setNotifEcheanceDettes(context: Context, active: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_NOTIF_ECHEANCE_DETTES, active) }
     }
 
     fun setNotifPaiementJour(context: Context, jour: Int) {
