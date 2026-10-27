@@ -10,6 +10,7 @@ import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.PretPersonnelRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -25,14 +26,25 @@ class StatistiquesViewModel(
     private val categorieRepository: com.xburnsx.toutiebudget.data.repositories.CategorieRepository,
     private val compteRepository: CompteRepository,
     private val pretPersonnelRepository: PretPersonnelRepository,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    /** SA6 : valeurs nettes constatées (null = pas d'historique, ex. tests). */
+    private val historiquePatrimoine: com.xburnsx.toutiebudget.data.services.HistoriquePatrimoine? = null
 ) : ViewModel() {
+
+    /** SA1 : comptes proposés au filtre (id, nom), relus avec le patrimoine. */
+    private var comptesConnus: List<Pair<String, String>> = emptyList()
+
+    private fun debutDuMois(date: Date): Date = Calendar.getInstance().apply {
+        time = date; set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.time
 
     private val _uiState = MutableStateFlow(StatistiquesUiState(isLoading = true))
     val uiState: StateFlow<StatistiquesUiState> = _uiState
 
     // Map pour résoudre allocation -> enveloppe
     private var allocationIdToEnveloppeId: Map<String, String> = emptyMap()
+    private var nomsEnveloppes: Map<String, String> = emptyMap()
     /** ST9 : lignes exactement prises en compte dans le Top tiers (montant des fractions admissibles). */
     private var transactionsTopTiers: Map<String, List<Transaction>> = emptyMap()
     private val ID_SANS_ENVELOPPE = "__SANS_ENV__"
@@ -157,11 +169,13 @@ class StatistiquesViewModel(
             // IF2 / IF12 / CC2 : les anciennes écritures techniques ne sont ni des revenus ni des dépenses
             // (réconciliations enregistrées « Mise à jour : … », paiements de carte enregistrés « Emprunt »)
             val filtreComptes = _uiState.value.comptesFiltres
-            val transactions6Mois = transactionsResult.getOrNull().orEmpty().filterNot { tx ->
-                ((tx.type == TypeTransaction.Revenu || tx.type == TypeTransaction.Depense) &&
+            // Mêmes règles pour la période et ses périodes de référence (SA3)
+            fun admissible(tx: Transaction): Boolean =
+                !(((tx.type == TypeTransaction.Revenu || tx.type == TypeTransaction.Depense) &&
                     tx.tiersUtiliser?.startsWith("Mise à jour : ") == true) ||
-                    (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits")
-            }.filter { filtreComptes.isEmpty() || it.compteId in filtreComptes }
+                    (tx.type == TypeTransaction.Emprunt && tx.collectionCompte == "comptes_credits")) &&
+                    (filtreComptes.isEmpty() || tx.compteId in filtreComptes)
+            val transactions6Mois = transactionsResult.getOrNull().orEmpty().filter(::admissible)
             // Transactions strictement pour la période sélectionnée (tops, KPIs)
             val transactions = transactions6Mois.filter { it.date >= debut && it.date <= fin }
             
@@ -195,146 +209,117 @@ class StatistiquesViewModel(
             val totalSortiesTresorerie = ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estSortieTresorerie)
             val totalEntreesTresorerie = ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estEntreeTresorerie)
 
-            // Top 5 Enveloppes dépensées (exclure dettes/cartes crédit etc.)
-            // Règle: ne considérer que les transactions ayant allocationMensuelleId non null
+            // Tops, répartition, catégories et prévu/réel : une seule agrégation, en cents exacts (ST18).
             val allocationsParId = allocations.associate { it.id to it.enveloppeId }
-
             val enveloppeIdParNom = enveloppes.associateBy({ it.id }, { it.nom })
 
-            // 1) Agréger les transactions simples (non fractionnées) par enveloppe via allocation -> enveloppe
-            val depenseParEnveloppeSimple: MutableMap<String, Double> = mutableMapOf()
-            depenses.filter { !it.estFractionnee }.forEach { tx ->
-                val envId = when (tx.type) {
-                    TypeTransaction.PaiementEffectue -> {
-                        // Pour les PaiementEffectue, utiliser un ID spécial pour les identifier
-                        "__PAIEMENT_EFFECTUE__"
-                    }
-                    TypeTransaction.RemboursementDonne, 
-                    TypeTransaction.TransfertSortant,
-                    TypeTransaction.Pret,
-                    TypeTransaction.Emprunt -> {
-                        // Ces types n'ont pas d'enveloppe par design - les ignorer des statistiques d'enveloppes
-                        null
-                    }
-                    else -> {
-                        // Pour les vraies dépenses, essayer de récupérer l'enveloppe
-                        tx.allocationMensuelleId?.let { allocationsParId[it] }
-                    }
+            // Part de chaque dépense par enveloppe : transaction simple (via son allocation) ou fractions.
+            // ST2/ST10 : seules les dépenses de consommation entrent ici ; un paiement de carte n'est jamais une enveloppe.
+            fun partsParEnveloppe(tx: Transaction): List<Pair<String, Long>> =
+                if (tx.estFractionnee) {
+                    ReglesStatistiques.lireFractions(tx).map { it.enveloppeId to ReglesStatistiques.cents(it.montant) }
+                } else {
+                    listOfNotNull(tx.allocationMensuelleId?.let { allocationsParId[it] }?.let { it to ReglesStatistiques.cents(tx.montant) })
                 }
-                
-                // Ne traiter que si on a un envId valide
-                if (envId != null) {
-                    if (envId != "__PAIEMENT_EFFECTUE__" && envId in enveloppeIdsExclus) {
-                        // ignorer les dépenses sur Dettes/Cartes de crédit
-                    } else {
-                        depenseParEnveloppeSimple[envId] = (depenseParEnveloppeSimple[envId] ?: 0.0) + tx.montant
-                    }
-                }
-                // Si envId est null, on ignore complètement la transaction (pas de "Sans enveloppe")
-            }
 
-            // 2) Agréger les sous-items des transactions fractionnées par enveloppeId
-            val depenseParEnveloppeFractions: MutableMap<String, Double> = mutableMapOf()
-            depenses.filter { it.estFractionnee }.forEach { tx ->
-                ReglesStatistiques.lireFractions(tx).forEach { fraction ->
-                    if (fraction.enveloppeId !in enveloppeIdsExclus) {
-                        depenseParEnveloppeFractions[fraction.enveloppeId] =
-                            (depenseParEnveloppeFractions[fraction.enveloppeId] ?: 0.0) + fraction.montant
+            val depenseParEnveloppeCents = mutableMapOf<String, Long>()
+            val achatsCarteParEnveloppeCents = mutableMapOf<String, Long>()
+            depenses.forEach { tx ->
+                partsParEnveloppe(tx).forEach { (envId, montant) ->
+                    depenseParEnveloppeCents[envId] = (depenseParEnveloppeCents[envId] ?: 0L) + montant
+                    if (tx.collectionCompte == "comptes_credits") {
+                        achatsCarteParEnveloppeCents[envId] = (achatsCarteParEnveloppeCents[envId] ?: 0L) + montant
                     }
                 }
             }
+            // Les enveloppes « Dettes » / « Cartes de crédit » ne sont pas de la consommation à classer.
+            val depenseParEnveloppe: Map<String, Double> = depenseParEnveloppeCents
+                .filterKeys { it !in enveloppeIdsExclus }
+                .mapValues { it.value / 100.0 }
 
-            // 3) Fusionner les deux sources
-            val depenseParEnveloppe: Map<String, Double> =
-                (depenseParEnveloppeSimple.keys + depenseParEnveloppeFractions.keys)
-                    .associateWith { envId ->
-                        (depenseParEnveloppeSimple[envId] ?: 0.0) + (depenseParEnveloppeFractions[envId] ?: 0.0)
-                    }
+            fun itemEnveloppe(envId: String, montant: Double) =
+                TopItem(id = envId, label = enveloppeIdParNom[envId] ?: "Enveloppe inconnue", montant = montant, pourcentage = 0.0)
 
-            // 4) Construire le Top 5 par enveloppe (maintenant sans "Sans enveloppe")
-            val top5Enveloppes = depenseParEnveloppe.entries
-                .map { (envId, montant) ->
-                    val label = when (envId) {
-                        "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
-                        else -> enveloppeIdParNom[envId] ?: "Enveloppe inconnue"
-                    }
-                    TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
-                }
-                .sortedByDescending { it.montant }
-                .take(5)
-                .let { items ->
-                    val totalAdmissible = depenseParEnveloppe.values.sum()
-                    items.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissible)) }
-                }
+            // ST7 : pourcentages sur le total réellement admissible au graphique
+            val totalAdmissibleEnveloppes = depenseParEnveloppe.values.sum()
+            val repartitionTriee = depenseParEnveloppe.entries.map { (id, m) -> itemEnveloppe(id, m) }.sortedByDescending { it.montant }
+            val top5Enveloppes = repartitionTriee.take(5)
+                .map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissibleEnveloppes)) }
 
-            // 5) Construire la répartition complète avec 20 enveloppes
-            val repartitionTriee = depenseParEnveloppe.entries
-                .map { (envId, montant) ->
-                    val label = when (envId) {
-                        "__PAIEMENT_EFFECTUE__" -> "Paiements de dettes/cartes"
-                        else -> enveloppeIdParNom[envId] ?: "Enveloppe inconnue"
-                    }
-                    TopItem(id = envId, label = label, montant = montant, pourcentage = 0.0)
-                }
-                .sortedByDescending { it.montant }
-            val totalRepartition = repartitionTriee.sumOf { it.montant }
+            // ST8 : 20 enveloppes + « Autres », total cohérent
             val repartitionEnveloppes = buildList {
                 addAll(repartitionTriee.take(20))
-                val autres = repartitionTriee.drop(20).sumOf { it.montant }
+                val autres = MoneyFormatter.roundAmount(repartitionTriee.drop(20).sumOf { it.montant })
                 if (autres > 0.0) add(TopItem("__AUTRES__", "Autres", autres, 0.0))
-            }.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalRepartition)) }
+            }.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissibleEnveloppes)) }
 
-            // Top 5 Tiers
-            val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
-            // Calculer les dépenses par tiers en excluant les enveloppes de catégories "Dettes"/"Cartes de crédit"
-            val depenseParTiersMutable = mutableMapOf<String, Double>()
+            // SA4 : catégorie -> enveloppes (une enveloppe archivée garde sa catégorie)
+            val nomsCategories = categories.associateBy({ it.id }, { it.nom })
+            val categorieDeEnveloppe = enveloppes.associateBy({ it.id }, { it.categorieId })
+            val parCategorie = depenseParEnveloppe.entries.groupBy { categorieDeEnveloppe[it.key] ?: "__SANS_CATEGORIE__" }
+            val depensesParCategorie = parCategorie.map { (catId, lignes) ->
+                TopItem(
+                    id = catId,
+                    label = nomsCategories[catId] ?: "Sans catégorie",
+                    montant = MoneyFormatter.roundAmount(lignes.sumOf { it.value }),
+                    pourcentage = 0.0
+                )
+            }.sortedByDescending { it.montant }
+                .map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissibleEnveloppes)) }
+            val enveloppesParCategorie = parCategorie.mapValues { (_, lignes) ->
+                val totalCategorie = lignes.sumOf { it.value }
+                lignes.map { (id, m) -> itemEnveloppe(id, m).copy(pourcentage = ReglesStatistiques.pourcentage(m, totalCategorie)) }
+                    .sortedByDescending { it.montant }
+            }
+
+            // SA7 : prévu (assigné sur les mois de la période) vs réel
+            val assigneParEnveloppeCents = allocations
+                .filter { !it.mois.before(debutDuMois(debut)) && !it.mois.after(fin) && it.enveloppeId !in enveloppeIdsExclus }
+                .groupBy { it.enveloppeId }
+                .mapValues { (_, a) -> a.sumOf { ReglesStatistiques.cents(it.alloue) } }
+            val prevuReel = ReglesStatistiques.prevuVsReel(
+                assigneParEnveloppeCents,
+                achatsCarteParEnveloppeCents.filterKeys { it !in enveloppeIdsExclus },
+                depenseParEnveloppeCents.filterKeys { it !in enveloppeIdsExclus }
+            ).map { (enveloppeIdParNom[it.enveloppeId] ?: "Enveloppe inconnue") to it }
+
+            // Top 5 Tiers — ST9/ST18 : clé = nom normalisé, lignes du clic = celles du montant
+            val depenseParTiersCents = mutableMapOf<String, Long>()
+            val nomAffiche = mutableMapOf<String, String>()
             val detailParTiers = mutableMapOf<String, MutableList<Transaction>>()
             depenses.forEach { tx ->
-                val tiersKey = tx.tiersUtiliser ?: return@forEach
-                if (!tx.estFractionnee) {
+                val nom = tx.tiersUtiliser?.takeIf { it.isNotBlank() } ?: return@forEach
+                val cle = ReglesStatistiques.cleTiers(nom)
+                val parts = if (tx.estFractionnee) {
+                    ReglesStatistiques.lireFractions(tx).filter { it.enveloppeId !in enveloppeIdsExclus }
+                        .map { it.enveloppeId to ReglesStatistiques.cents(it.montant) }
+                } else {
                     val envId = tx.allocationMensuelleId?.let { allocationsParId[it] }
-                    if (envId == null || envId !in enveloppeIdsExclus) {
-                        depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + tx.montant
-                        detailParTiers.getOrPut(tiersKey) { mutableListOf() }.add(tx)
-                    }
-                } else if (tx.estFractionnee) {
-                    val portions = ReglesStatistiques.lireFractions(tx)
-                        .filter { it.enveloppeId !in enveloppeIdsExclus }
-                    if (portions.isNotEmpty()) {
-                        val montantEligible = ReglesStatistiques.totalAuCent(
-                            portions.map { fraction ->
-                                tx.copy(montant = fraction.montant)
-                            }
-                        ) { true }
-                        depenseParTiersMutable[tiersKey] =
-                            (depenseParTiersMutable[tiersKey] ?: 0.0) + montantEligible
-                        val detail = portions.joinToString("; ") {
-                            "${enveloppeIdParNom[it.enveloppeId] ?: it.enveloppeId} : " +
-                                com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(it.montant)
-                        }
-                        val noteDetail = listOfNotNull(
-                            tx.note?.takeIf { it.isNotBlank() },
-                            "Fractions admissibles : $detail"
-                        ).joinToString(" · ")
-                        detailParTiers.getOrPut(tiersKey) { mutableListOf() }
-                            .add(tx.copy(montant = montantEligible, note = noteDetail))
-                    }
+                    if (envId != null && envId in enveloppeIdsExclus) emptyList()
+                    else listOf((envId ?: "") to ReglesStatistiques.cents(tx.montant))
                 }
+                if (parts.isEmpty()) return@forEach
+                val montantCents = parts.sumOf { it.second }
+                depenseParTiersCents[cle] = (depenseParTiersCents[cle] ?: 0L) + montantCents
+                nomAffiche.putIfAbsent(cle, nom.trim())
+                val ligne = if (tx.estFractionnee) {
+                    val detail = parts.joinToString("; ") { (envId, c) ->
+                        "${enveloppeIdParNom[envId] ?: envId} : " + MoneyFormatter.formatAmount(c / 100.0)
+                    }
+                    tx.copy(
+                        montant = montantCents / 100.0,
+                        note = listOfNotNull(tx.note?.takeIf { it.isNotBlank() }, "Fractions admissibles : $detail").joinToString(" · ")
+                    )
+                } else tx
+                detailParTiers.getOrPut(cle) { mutableListOf() }.add(ligne)
             }
-            val depenseParTiers = depenseParTiersMutable
-
-            val top5Tiers = depenseParTiers
-                .entries
-                .map { (tiersKey, montant) ->
-                    val label = tiersToNom[tiersKey] ?: tiersKey
-                    TopItem(id = tiersKey, label = label, montant = montant, pourcentage = 0.0)
-                }
+            val totalAdmissibleTiers = depenseParTiersCents.values.sum() / 100.0
+            val top5Tiers = depenseParTiersCents.entries
+                .map { (cle, c) -> TopItem(id = cle, label = nomAffiche[cle] ?: cle, montant = c / 100.0, pourcentage = 0.0) }
                 .sortedByDescending { it.montant }
                 .take(5)
-                .let { items ->
-                    val totalAdmissible = depenseParTiers.values.sum()
-                    items.map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissible)) }
-                }
+                .map { it.copy(pourcentage = ReglesStatistiques.pourcentage(it.montant, totalAdmissibleTiers)) }
+            val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
 
             // Dépenses des 6 derniers mois (étiquette MMM)
             val sixMoisLabels = mutableListOf<String>()
@@ -380,10 +365,39 @@ class StatistiquesViewModel(
                 transactions6Mois, debut, fin, 30
             )
 
+            // SA3 : période précédente et même période l'an dernier, mois partiel comparé à jours égaux.
+            // Une référence illisible reste « indisponible », jamais un 0 $ ni un pourcentage infini.
+            suspend fun totauxReference(reference: ReglesStatistiques.ReferenceComparaison): Pair<Double, Double>? {
+                val (refDebut, refFin) = ReglesStatistiques.periodeDeReference(debut, fin, reference) ?: return null
+                val liste = if (!refDebut.before(debut6Mois)) {
+                    transactions6Mois.filter { it.date >= refDebut && it.date <= refFin }
+                } else {
+                    transactionRepository.recupererTransactionsParPeriode(refDebut, refFin).getOrNull()
+                        ?.filter(::admissible) ?: return null
+                }
+                return ReglesStatistiques.totalAuCent(liste, ReglesStatistiques::estDepenseBudget) to
+                    ReglesStatistiques.totalAuCent(liste, ReglesStatistiques::estRevenuBudget)
+            }
+            val refPrecedente = totauxReference(ReglesStatistiques.ReferenceComparaison.PERIODE_PRECEDENTE)
+            val refAnnee = totauxReference(ReglesStatistiques.ReferenceComparaison.ANNEE_PRECEDENTE)
+            // Pour comparer à jours égaux, l'actuel s'arrête aujourd'hui (rien d'un futur non arrivé).
+            val maintenant = Date()
+            val transactionsAJour = transactions.filter { !it.date.after(maintenant) }
+            val depensesAJour = ReglesStatistiques.totalAuCent(transactionsAJour, ReglesStatistiques::estDepenseBudget)
+            val revenusAJour = ReglesStatistiques.totalAuCent(transactionsAJour, ReglesStatistiques::estRevenuBudget)
+
+            // SA6 : on note la valeur nette du jour (mois courant, tous comptes, calcul complet), puis on lit les points réels.
+            if (estMoisCourant(debut) && filtreComptes.isEmpty()) {
+                runCatching { historiquePatrimoine?.enregistrer(java.time.LocalDate.now(), totauxFinanciers.third) }
+            }
+            val pointsPatrimoine = runCatching { historiquePatrimoine?.lire() }.getOrNull().orEmpty()
+                .map { (jour, valeur) -> jour.toString() to valeur }
+
 
             if (generation != generationChargement) return@launch
             // ST14 : ne publier la table allocation/enveloppe qu'avec les KPI du bon mois.
             allocationIdToEnveloppeId = allocationsParId
+            nomsEnveloppes = enveloppeIdParNom
             transactionsTopTiers = detailParTiers.mapValues { it.value.toList() }
             _uiState.value = StatistiquesUiState(
                 isLoading = false,
@@ -413,6 +427,15 @@ class StatistiquesViewModel(
                 ,comptesFiltres = filtreComptes
                 ,totalEntreesTresorerie = totalEntreesTresorerie
                 ,totalSortiesTresorerie = totalSortiesTresorerie
+                ,comptesDisponibles = comptesConnus
+                ,comparaisonDepensesPrecedente = ReglesStatistiques.comparer(depensesAJour, refPrecedente?.first)
+                ,comparaisonRevenusPrecedente = ReglesStatistiques.comparer(revenusAJour, refPrecedente?.second)
+                ,comparaisonDepensesAnnee = ReglesStatistiques.comparer(depensesAJour, refAnnee?.first)
+                ,comparaisonRevenusAnnee = ReglesStatistiques.comparer(revenusAJour, refAnnee?.second)
+                ,depensesParCategorie = depensesParCategorie
+                ,enveloppesParCategorie = enveloppesParCategorie
+                ,historiquePatrimoine = pointsPatrimoine
+                ,prevuReel = prevuReel
             )
             } catch (annulation: CancellationException) {
                 // Un nouveau choix de période annule normalement la demande précédente.
@@ -479,12 +502,37 @@ class StatistiquesViewModel(
                 } catch (_: Exception) { false }
             } else false
         }
-        ouvrirModalTransactions("Transactions - ${_uiState.value.top5Enveloppes.firstOrNull { it.id == enveloppeId }?.label ?: "Enveloppe"}", selection)
+        ouvrirModalTransactions("Transactions - ${nomsEnveloppes[enveloppeId] ?: "Enveloppe"}", selection)
     }
 
     /** ST9 : le total du clic est composé des MÊMES lignes que son Top tiers. */
     fun ouvrirModalTransactionsPourTiers(tiersId: String, label: String) {
         ouvrirModalTransactions("Transactions - $label", transactionsTopTiers[tiersId].orEmpty())
+    }
+
+    /**
+     * SA8 : CSV des transactions de la période et des filtres affichés (rien n'est écrit dans la base).
+     * Null tant que le calcul est incomplet : on n'exporte pas un rapport partiel comme s'il était complet.
+     */
+    fun exporterCsv(): String? {
+        val etat = _uiState.value
+        if (etat.isLoading || etat.calculIncomplet) return null
+        val nomsComptes = etat.comptesDisponibles.toMap()
+        return ReglesStatistiques.exporterCsv(
+            transactions = etat.transactionsPeriode,
+            nomEnveloppe = { tx ->
+                if (tx.estFractionnee) {
+                    runCatching {
+                        ReglesStatistiques.lireFractions(tx).joinToString(" + ") {
+                            "${nomsEnveloppes[it.enveloppeId] ?: "?"} ${MoneyFormatter.formatAmount(it.montant)}"
+                        }
+                    }.getOrDefault("Fractions illisibles")
+                } else {
+                    tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }?.let { nomsEnveloppes[it] }.orEmpty()
+                }
+            },
+            nomCompte = { id -> nomsComptes[id] ?: id }
+        )
     }
 
     fun fermerModalTransactions() {
@@ -580,6 +628,10 @@ class StatistiquesViewModel(
             if (tousLesComptes.isSuccess) {
                 // IF16 : patrimoine COURANT = comptes actifs + dettes archivées encore dues (archivée ≠ remboursée) ;
                 // les comptes archivés (anciens placements, chèques fermés) ne comptent plus
+                comptesConnus = tousLesComptes.getOrNull().orEmpty()
+                    .filter { !it.estArchive }
+                    .sortedBy { it.nom.lowercase() }
+                    .map { it.id to it.nom }
                 val comptes = tousLesComptes.getOrNull().orEmpty().filter { compte ->
                     !compte.estArchive || (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005)
                 }

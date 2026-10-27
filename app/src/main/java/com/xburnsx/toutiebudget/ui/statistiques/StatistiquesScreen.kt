@@ -268,6 +268,10 @@ private fun StatistiquesContent(
             )
         }
 
+        // SA1 / SA8 : filtre par compte et export de ce qui est affiché
+        FiltreComptes(uiState, viewModel)
+        BoutonExportCsv(uiState, viewModel)
+
         if (uiState.calculIncomplet) {
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -377,6 +381,12 @@ private fun StatistiquesContent(
         }
 
         Moyenne7JoursChart(uiState)
+
+        // SA3, SA4, SA7, SA6
+        CarteComparaisons(uiState)
+        CarteCategories(uiState, viewModel)
+        CartePrevuReel(uiState)
+        CartePatrimoine(uiState)
 
         // Sélecteur retiré (désormais dans la topbar)
 

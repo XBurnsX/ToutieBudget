@@ -50,5 +50,19 @@ data class StatistiquesUiState(
     val modalOuvert: Boolean = false,
     val modalTitre: String = "",
     val modalTransactions: List<Transaction> = emptyList(),
-    val hasMoreData: Boolean = true
+    val hasMoreData: Boolean = true,
+    /** SA1 : comptes qu'on peut filtrer (id, nom). */
+    val comptesDisponibles: List<Pair<String, String>> = emptyList(),
+    /** SA3 : comparaison des dépenses et revenus avec la période précédente et la même période l'an dernier. */
+    val comparaisonDepensesPrecedente: ReglesStatistiques.Comparaison? = null,
+    val comparaisonRevenusPrecedente: ReglesStatistiques.Comparaison? = null,
+    val comparaisonDepensesAnnee: ReglesStatistiques.Comparaison? = null,
+    val comparaisonRevenusAnnee: ReglesStatistiques.Comparaison? = null,
+    /** SA4 : dépenses par catégorie, puis par enveloppe de chaque catégorie. */
+    val depensesParCategorie: List<TopItem> = emptyList(),
+    val enveloppesParCategorie: Map<String, List<TopItem>> = emptyMap(),
+    /** SA6 : valeurs nettes réellement constatées (aucune reconstitution). */
+    val historiquePatrimoine: List<Pair<String, Double>> = emptyList(),
+    /** SA7 : prévu (assigné) vs réel par enveloppe. */
+    val prevuReel: List<Pair<String, ReglesStatistiques.PrevuReel>> = emptyList()
 )

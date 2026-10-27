@@ -284,7 +284,8 @@ import android.content.Context
                   categorieRepository = categorieRepository,
                   compteRepository = compteRepository,
                   pretPersonnelRepository = pretPersonnelRepository,
-                  realtimeSyncService = realtimeSyncService
+                  realtimeSyncService = realtimeSyncService,
+                  historiquePatrimoine = com.xburnsx.toutiebudget.data.services.HistoriquePatrimoineLocal(appContext)
               )
           }
           return statistiquesViewModel!!

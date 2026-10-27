@@ -5,6 +5,7 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -117,6 +118,73 @@ object ReglesStatistiques {
                     .movePointRight(2).longValueExact()
             }
         return cents / 100.0
+    }
+
+    /** ST18 : montant exact en cents (jamais d'addition de Double pour un total d'argent). */
+    fun cents(montant: Double): Long =
+        BigDecimal.valueOf(montant).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact()
+
+    /**
+     * ST18 : « Irving » et « irving  » sont le même tiers ; « Irving Port-Cartier » reste un autre tiers.
+     * Les transactions gardent le NOM du tiers : la clé stable est ce nom normalisé.
+     */
+    fun cleTiers(nom: String): String = nom.trim().replace(Regex("\\s+"), " ").lowercase()
+
+    /** SA3 : comparaison avec une période de référence ; null = base manquante ou nulle (jamais « +infini % »). */
+    data class Comparaison(val reference: Double?, val ecart: Double?, val pourcentage: Double?)
+
+    fun comparer(actuel: Double, reference: Double?): Comparaison {
+        if (reference == null || !reference.isFinite()) return Comparaison(null, null, null)
+        return Comparaison(
+            reference = reference,
+            ecart = MoneyFormatter.roundAmount(actuel - reference),
+            pourcentage = variationPourcentage(actuel, reference)
+        )
+    }
+
+    /** SA7 : par enveloppe, ce qui était prévu (assigné) et ce qui a vraiment été dépensé. */
+    data class PrevuReel(val enveloppeId: String, val prevu: Double, val reel: Double) {
+        val ecart: Double get() = MoneyFormatter.roundAmount(prevu - reel)
+    }
+
+    /**
+     * SA7 : « prévu » = argent assigné aux enveloppes sur la période. Un achat par carte augmente aussi
+     * l'assigné de l'enveloppe (CC : son solde ne bouge pas) ; on le retire pour ne pas compter la carte deux fois.
+     * « réel » = dépenses de consommation des transactions (simples et fractions).
+     */
+    fun prevuVsReel(
+        assigneParEnveloppeCents: Map<String, Long>,
+        achatsCarteParEnveloppeCents: Map<String, Long>,
+        depensesParEnveloppeCents: Map<String, Long>
+    ): List<PrevuReel> =
+        (assigneParEnveloppeCents.keys + depensesParEnveloppeCents.keys).map { id ->
+            val prevu = (assigneParEnveloppeCents[id] ?: 0L) - (achatsCarteParEnveloppeCents[id] ?: 0L)
+            PrevuReel(id, prevu / 100.0, (depensesParEnveloppeCents[id] ?: 0L) / 100.0)
+        }.filter { it.prevu != 0.0 || it.reel != 0.0 }
+            .sortedByDescending { it.reel }
+
+    /**
+     * SA8 : CSV lisible dans Excel/LibreOffice en français (séparateur « ; », virgule décimale, BOM UTF-8).
+     * Une transaction fractionnée garde une ligne, avec le partage par enveloppe.
+     */
+    fun exporterCsv(
+        transactions: List<Transaction>,
+        nomEnveloppe: (Transaction) -> String,
+        nomCompte: (String) -> String
+    ): String {
+        fun champ(valeur: String): String =
+            if (valeur.any { it == ';' || it == '"' || it == '\n' || it == '\r' }) "\"" + valeur.replace("\"", "\"\"") + "\"" else valeur
+        fun montant(valeur: Double): String =
+            BigDecimal.valueOf(valeur).setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ',')
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.CANADA_FRENCH)
+        val lignes = transactions.sortedBy { it.date }.map { tx ->
+            val signe = if (estSortieTresorerie(tx)) -1.0 else 1.0
+            listOf(
+                format.format(tx.date), tx.type.name, tx.tiersUtiliser.orEmpty(), nomCompte(tx.compteId),
+                nomEnveloppe(tx), montant(signe * tx.montant), tx.note.orEmpty()
+            ).joinToString(";") { champ(it) }
+        }
+        return "﻿" + (listOf("Date;Type;Tiers;Compte;Enveloppe;Montant ($);Note") + lignes).joinToString("\r\n") + "\r\n"
     }
 
     fun pourcentage(montant: Double, totalAdmissible: Double): Double =
