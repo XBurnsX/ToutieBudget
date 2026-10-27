@@ -9,6 +9,7 @@ import com.xburnsx.toutiebudget.data.modeles.MouvementPlacement
 import com.xburnsx.toutiebudget.data.modeles.PositionTitre
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeValorisation
+import com.xburnsx.toutiebudget.data.modeles.TypeMouvementPlacement
 import com.xburnsx.toutiebudget.data.modeles.Valorisation
 import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
@@ -113,17 +114,48 @@ class InvestissementViewModel(
         }
     }
 
-    fun enregistrerPosition(position: PositionTitre) = modifierDetails {
-        copy(positions = positions.filter { it.id != position.id } + position)
+    fun enregistrerPosition(position: PositionTitre) {
+        val coutAuCent = runCatching {
+            java.math.BigDecimal.valueOf(position.coutTotal)
+                .setScale(2, java.math.RoundingMode.UNNECESSARY)
+        }.getOrNull()
+        if (position.symbole.isBlank() || position.devise.isBlank() ||
+            !position.quantite.isFinite() || position.quantite <= 0.0 ||
+            coutAuCent == null || !position.coutTotal.isFinite() || position.coutTotal < 0.0 ||
+            (position.cours != null && (!position.cours.isFinite() || position.cours < 0.0)) ||
+            (position.dateCours != null && MoteurCarteCredit.lireDate(position.dateCours) == null) ||
+            position.valeur?.isFinite() == false
+        ) {
+            _uiState.update { it.copy(message = "Position invalide : quantité, coût ou cours à corriger.") }
+            return
+        }
+        modifierDetails { copy(positions = positions.filter { it.id != position.id } + position) }
     }
 
-    fun supprimerPosition(id: String) = modifierDetails { copy(positions = positions.filter { it.id != id }) }
-
-    fun enregistrerMouvement(mouvement: MouvementPlacement) = modifierDetails {
-        copy(mouvements = mouvements.filter { it.id != mouvement.id } + mouvement)
+    fun supprimerPosition(id: String) = modifierDetails {
+        copy(positions = positions.filter { it.id != id })
     }
 
-    fun supprimerMouvement(id: String) = modifierDetails { copy(mouvements = mouvements.filter { it.id != id }) }
+    fun enregistrerMouvement(mouvement: MouvementPlacement) {
+        val montantAuCent = runCatching {
+            java.math.BigDecimal.valueOf(mouvement.montant)
+                .setScale(2, java.math.RoundingMode.UNNECESSARY)
+        }.getOrNull()
+        if (MoteurCarteCredit.lireDate(mouvement.date) == null ||
+            montantAuCent == null || !mouvement.montant.isFinite() || mouvement.montant < 0.0 ||
+            (mouvement.quantite != null && (!mouvement.quantite.isFinite() || mouvement.quantite < 0.0)) ||
+            (mouvement.gainRealise != null && !mouvement.gainRealise.isFinite()) ||
+            (mouvement.type == TypeMouvementPlacement.VENTE && mouvement.gainRealise == null)
+        ) {
+            _uiState.update { it.copy(message = "Mouvement invalide : date, montant ou gain réalisé manquant.") }
+            return
+        }
+        modifierDetails { copy(mouvements = mouvements.filter { it.id != mouvement.id } + mouvement) }
+    }
+
+    fun supprimerMouvement(id: String) = modifierDetails {
+        copy(mouvements = mouvements.filter { it.id != id })
+    }
 
     private fun enregistrer(
         apres: suspend (CompteInvestissement, CompteInvestissement) -> Unit = { _, _ -> },
@@ -141,6 +173,12 @@ class InvestissementViewModel(
                         ?: throw IllegalStateException("Compte de placement introuvable")
                     if (aJour.estArchive) throw IllegalStateException("Compte archivé : réactive-le d'abord.")
                     val resultat = transformation(aJour)
+                    val details = resultat.details
+                    if (listOfNotNull(details.encaisse, details.retirableConnu, details.valeurDepart)
+                            .any { !it.isFinite() || it < 0.0 } ||
+                        (details.encaisse != null && details.retirableConnu != null &&
+                         details.retirableConnu > details.encaisse + 0.000001)
+                    ) throw IllegalStateException("Encaisse ou montant retirable invalide.")
                     if (!resultat.solde.isFinite() || resultat.solde < 0) {
                         throw IllegalStateException("Valeur de placement invalide.")
                     }
