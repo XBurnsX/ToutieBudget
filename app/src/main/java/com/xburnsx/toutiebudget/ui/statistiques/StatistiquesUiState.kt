@@ -42,6 +42,10 @@ data class StatistiquesUiState(
     val depenses6DerniersMois: List<Pair<String, Double>> = emptyList(),
     val revenus6DerniersMois: List<Pair<String, Double>> = emptyList(),
     val moyennes7Jours: List<Pair<String, Double>> = emptyList(),
+    // SA5 : null = periode future/inapplicable, jamais un faux zero.
+    val moyenneQuotidiennePeriode: Double? = null,
+    val moyenneQuotidienne7Jours: Double? = null,
+    val moyenneQuotidienne30Jours: Double? = null,
     val tiersToNom: Map<String, String> = emptyMap(),
     val modalOuvert: Boolean = false,
     val modalTitre: String = "",
