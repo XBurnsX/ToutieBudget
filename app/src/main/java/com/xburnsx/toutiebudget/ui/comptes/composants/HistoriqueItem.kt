@@ -84,7 +84,7 @@ fun HistoriqueItem(
                     val obj = element.asJsonObject
                     val description = obj.get("description")?.asString ?: ""
                     val montant = obj.get("montant")?.asDouble ?: 0.0
-                    val enveloppeId = obj.get("enveloppeId")?.asString ?: ""
+                    val enveloppeId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString ?: ""
                     Triple(description, montant, enveloppeId)
                 }
             } catch (_: Exception) {
