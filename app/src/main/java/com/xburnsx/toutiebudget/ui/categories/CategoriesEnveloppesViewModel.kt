@@ -42,6 +42,7 @@ class CategoriesEnveloppesViewModel(
     // Cache des données pour optimiser les performances
     private var categoriesMap = mapOf<String, Categorie>()
     private var enveloppesList = listOf<Enveloppe>()
+    private var generationChargement = 0L
 
     init {
         // Initialiser avec un état vide mais fonctionnel
@@ -54,35 +55,20 @@ class CategoriesEnveloppesViewModel(
      * Met à jour l'interface utilisateur de manière fluide.
      */
     fun chargerDonnees() {
+        val generation = ++generationChargement
         viewModelScope.launch {
             try {
                 // Charger les données en parallèle
                 val categoriesResult = categorieRepository.recupererToutesLesCategories()
                 val enveloppesResult = enveloppeRepository.recupererToutesLesEnveloppes()
 
-                val categories = categoriesResult.getOrElse {
-                    emptyList()
-                }
-                val enveloppes = enveloppesResult.getOrElse {
-                    emptyList()
-                }
+                // CE6 : un échec réseau/Room n'est JAMAIS une liste vide.
+                val categoriesCorrigees = categoriesResult.getOrThrow()
+                val enveloppes = enveloppesResult.getOrThrow()
+                if (generation != generationChargement) return@launch
 
-                // 🔥 CORRIGER LES ORDRES SI TOUS SONT À 0
-                val categoriesCorrigees = if (categories.all { it.ordre == 0 } && categories.size > 1) {
-                    categories.mapIndexed { index, categorie ->
-                        val categorieCorrigee = categorie.copy(ordre = index)
-
-                        // Mettre à jour dans PocketBase immédiatement
-                        launch {
-                            categorieRepository.mettreAJourCategorie(categorieCorrigee)
-                        }
-
-                        categorieCorrigee
-                    }
-                } else {
-                    categories
-                }
-
+                // CE12 : aucune réécriture des ordres au simple chargement.
+                // Une migration contrôlée doit être séparée de l'affichage.
                 // Mettre à jour le cache
                 categoriesMap = categoriesCorrigees.associateBy { it.id }
                 enveloppesList = enveloppes.filter { !it.estArchive }
@@ -100,6 +86,7 @@ class CategoriesEnveloppesViewModel(
                 }
 
             } catch (e: Exception) {
+                if (generation != generationChargement) return@launch
                 _uiState.update {
                     it.copy(
                         isLoading = false,
