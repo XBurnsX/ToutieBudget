@@ -34,15 +34,19 @@ class PretPersonnelViewModel(
 
     // P4 : dossier dont le détail est attendu ; une réponse d'un autre dossier est ignorée
     private var dossierDemande: String? = null
+    private var generationListe = 0L
+    private var generationDetail = 0L
 
     init {
         // Ne rien faire ici; l'écran déclenchera charger() dans LaunchedEffect pour garantir un refresh à chaque ouverture
     }
 
     fun charger() {
+        val generation = ++generationListe
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, erreur = null) }
             val result = pretPersonnelRepository.lister()
+            if (generation != generationListe) return@launch
             result.onSuccess { entries ->
                 // Un dossier actif reste visible même à 0 $ (ex. réactivé) ; l'archivage le retire
                 val itemsPret = entries
@@ -76,6 +80,7 @@ class PretPersonnelViewModel(
     }
 
     fun chargerHistoriquePourPret(pretId: String, nomTiers: String) {
+        val generation = ++generationDetail
         dossierDemande = pretId
         // P4 : vider le détail précédent AVANT de charger le nouveau
         _uiState.update {
@@ -115,7 +120,7 @@ class PretPersonnelViewModel(
                 ?: throw IllegalStateException("Dossier introuvable ou supprimé")
 
             // Un autre dossier a été ouvert entre-temps : ne pas afficher ces données
-            if (dossierDemande != pretId) return@launch
+            if (dossierDemande != pretId || generation != generationDetail) return@launch
 
             // PP6 : montant déjà remboursé selon les remboursements liés à ce dossier
             val rembourse = txs
@@ -131,7 +136,7 @@ class PretPersonnelViewModel(
                 )
             }
             } catch (e: Exception) {
-                if (dossierDemande == pretId) {
+                if (dossierDemande == pretId && generation == generationDetail) {
                     _uiState.update { it.copy(
                         isLoadingHistorique = false,
                         historique = emptyList(),
@@ -144,6 +149,7 @@ class PretPersonnelViewModel(
     }
 
     fun clearHistorique() {
+        generationDetail++
         dossierDemande = null
         _uiState.update {
             it.copy(historique = emptyList(), isLoadingHistorique = false, detailPret = null, erreurAction = null)
