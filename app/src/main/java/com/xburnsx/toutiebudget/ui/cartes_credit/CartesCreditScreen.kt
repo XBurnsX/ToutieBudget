@@ -19,6 +19,7 @@ import com.xburnsx.toutiebudget.ui.cartes_credit.composants.AlertesCartesCredit
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.CarteCreditDetailCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.FraisMensuelsCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.NaturesMouvementsCarteCard
+import com.xburnsx.toutiebudget.ui.cartes_credit.composants.VentilationCarteCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.RelevesCarteCard
 import com.xburnsx.toutiebudget.ui.cartes_credit.composants.SimulateurCarte
 import com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.ModifierCarteCreditDialog
@@ -110,6 +111,14 @@ fun GestionCarteCreditScreen(
                         carte = carteCredit,
                         transactions = uiState.transactionsCarte,
                         onClasser = viewModel::definirNatureMouvement
+                    )
+                }
+
+                item {
+                    VentilationCarteCard(
+                        carte = carteCredit,
+                        onEnregistrer = viewModel::enregistrerVentilationCourante,
+                        onEffacer = viewModel::effacerVentilationCourante
                     )
                 }
 
