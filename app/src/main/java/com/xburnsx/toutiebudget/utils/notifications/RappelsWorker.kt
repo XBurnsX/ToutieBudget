@@ -103,7 +103,41 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
             } catch (_: Exception) { /* ignore */ }
         }
 
-        // Retiré: rappel paiement dettes/cartes par jour du mois
+        // DA3 : rappel volontaire d'une action à faire, jamais d'un simple
+        // changement de progression. Seules les dettes ayant une échéance
+        // contractuelle ET un solde restant non payé sont concernées.
+        if (PreferencesManager.getNotifEcheanceDettes(ctx)) {
+            val comptes = AppModule.provideCompteRepository()
+                .recupererTousLesComptes().getOrThrow()
+                .filterIsInstance<com.xburnsx.toutiebudget.data.modeles.CompteDette>()
+                .filter { !it.estArchive && it.soldeDette < -0.005 }
+            val transactions = AppModule.provideTransactionRepository()
+            comptes.forEach { dette ->
+                val mouvements = transactions.recupererTransactionsPourCompte(
+                    dette.id, "comptes_dettes"
+                ).getOrThrow()
+                val echeance = com.xburnsx.toutiebudget.domain.services.MoteurDette
+                    .etatProchaineEcheance(dette, mouvements)
+                    ?: return@forEach
+                val dateJour = Calendar.getInstance().apply {
+                    time = echeance.date
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                if (dateJour.timeInMillis in calToday.timeInMillis..calLimit.timeInMillis &&
+                    echeance.reste > 0.005) {
+                    val dateTxt = SimpleDateFormat("d MMM", Locale.CANADA_FRENCH).format(dateJour.time)
+                    notify(
+                        "dette:${dette.id}:${dateJour.get(Calendar.YEAR)}:${dateJour.get(Calendar.DAY_OF_YEAR)}",
+                        "Paiement à faire : ${dette.nom}",
+                        "${MoneyFormatter.formatAmount(echeance.reste)} attendu d'ici le ${dateTxt}. " +
+                            "À confirmer avec le prêteur."
+                    )
+                }
+            }
+        }
 
         // Archivage automatique supprimé (non pertinent pour l'app budget)
 
