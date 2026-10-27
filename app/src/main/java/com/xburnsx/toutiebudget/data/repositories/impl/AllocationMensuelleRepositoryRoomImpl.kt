@@ -217,27 +217,22 @@ class AllocationMensuelleRepositoryRoomImpl(
                     allocationsPourEnveloppeEtMois.first().toAllocationMensuelleModel()
                 }
                 
-                // Cas 3: 🔥 PLUSIEURS ALLOCATIONS -> FUSIONNER SEULEMENT SI NÉCESSAIRE !
+                // A2 — Plusieurs lignes de même mois : ne PAS fusionner puis effacer
+                // des lignes qui peuvent être référencées par des transactions.
+                // Ne PAS attribuer au compte « dominant » les fonds d'un autre.
                 else -> {
-                    // 🔥 FUSION INTELLIGENTE : Ne fusionner que si on a vraiment des doublons
-                    val allocationsAvecMontant = allocationsPourEnveloppeEtMois.filter { it.solde != 0.0 || it.alloue != 0.0 }
-                    val allocationsVides = allocationsPourEnveloppeEtMois.filter { it.solde == 0.0 && it.alloue == 0.0 }
-                    
-                    if (allocationsAvecMontant.size == 1 && allocationsVides.isNotEmpty()) {
-                        // Cas simple : 1 allocation avec montant + allocations vides → Supprimer les vides
-                        // 🔥 NETTOYAGE SIMPLE : Suppression de ${allocationsVides.size} allocations vides
-                        nettoyerDoublonsAllocations(allocationsVides, allocationsAvecMontant.first().id)
-                        allocationsAvecMontant.first().toAllocationMensuelleModel()
-                    } else if (allocationsAvecMontant.size > 1) {
-                        // Cas complexe : Plusieurs allocations avec montant → Fusionner
-                        // 🔥 FUSION RÉELLE : ${allocationsAvecMontant.size} allocations avec montant trouvées, fusion en cours...
-                        val allocationFusionnee = fusionnerAllocations(allocationsAvecMontant, mois)
-                        nettoyerDoublonsAllocations(allocationsAvecMontant, allocationFusionnee.id)
-                        allocationFusionnee
-                    } else {
-                        // Cas par défaut : Retourner la première allocation
-                        // 🔥 AUCUNE FUSION : Retour de la première allocation
-                        allocationsPourEnveloppeEtMois.first().toAllocationMensuelleModel()
+                    val actives = allocationsPourEnveloppeEtMois.filter {
+                        kotlin.math.round(it.solde * 100.0).toLong() != 0L ||
+                        kotlin.math.round(it.alloue * 100.0).toLong() != 0L ||
+                        kotlin.math.round(it.depense * 100.0).toLong() != 0L
+                    }
+                    when (actives.size) {
+                        0 -> allocationsPourEnveloppeEtMois.first().toAllocationMensuelleModel()
+                        1 -> actives.single().toAllocationMensuelleModel()
+                        else -> throw IllegalStateException(
+                            "Plusieurs allocations financières existent pour cette enveloppe et ce mois. " +
+                            "La répartition est bloquée pour protéger la provenance et l'historique."
+                        )
                     }
                 }
             }
