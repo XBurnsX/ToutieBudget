@@ -273,80 +273,105 @@ object MoteurCarteCredit {
      * avec les transactions datées. Si le dernier relevé a été payé en entier avant l'échéance,
      * les achats sont présumés dans le délai de grâce (0 $). Rien n'est ajouté au solde.
      */
-    fun interetsCycleCourant(carte: CompteCredit, transactionsCarte: List<Transaction>, aujourdHui: Date = Date()): EstimationCycle? {
-        val releve = dernierReleve(carte)
-        val debut = lireDate(releve?.dateEmission)
-            ?: carte.details.jourCloture?.let { prochaineCloture(carte, aujourdHui)?.let { c -> Calendar.getInstance().apply { time = c; add(Calendar.MONTH, -1) }.time } }
-            ?: return null
-        val fin = debutJour(aujourdHui)
-        val jours = joursCivilsEntre(debut, fin)
-        if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
-        // Des journées antérieures au cycle actuel ou une saisie future ne
-        // permettent pas de reconstituer un historique bancaire fiable.
-        if (releve != null && releve.soldeOfficiel < 0.0) {
-            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
-                avertissement = "Le solde du relevé est invalide; vérifie le montant officiel.")
-        }
-        if (tauxPourNature(carte, NatureMouvementCarte.ACHAT) == null) return EstimationCycle(
-            0.0, debut, jours, false, estimationDisponible = false,
-            avertissement = "Le taux annuel des achats n'est pas configuré."
+    fun interetsCycleCourant(
+        carte: CompteCredit,
+        transactionsCarte: List<Transaction>,
+        aujourdHui: Date = Date()
+    ): EstimationCycle? {
+        val releve = dernierReleve(carte) ?: return EstimationCycle(
+            montant = 0.0, debut = debutJour(aujourdHui), jours = 0,
+            graceProbable = false, estimationDisponible = false,
+            avertissement = "Ajoute un relevé officiel pour ancrer le cycle; aucun historique d'intérêts n'est inventé."
         )
-        // CC5 : un relevé ancien ne représente pas le cycle actuel.
+        val debut = lireDate(releve.dateEmission) ?: return null
+        val jours = joursCivilsEntre(debut, aujourdHui)
+        if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
         if (jours > 62) return EstimationCycle(
             0.0, debut, jours, false, estimationDisponible = false,
             avertissement = "Le dernier relevé est trop ancien pour reconstituer le cycle courant."
         )
-        val charges = transactionsCarte.filter { t ->
-            !t.date.before(debut) && !t.date.after(aujourdHui) &&
-                (t.type == TypeTransaction.Depense ||
-                    t.type == TypeTransaction.TransfertSortant ||
-                    t.type == TypeTransaction.Pret ||
-                    t.type == TypeTransaction.PaiementEffectue)
-        }
-        val qualifications = carte.details.naturesMouvements
-        val naturePartielle = charges.any { qualifications[it.id] == null }
-        val mouvementsTauxDistincts = charges.any {
-            val nature = qualifications[it.id]
-            nature == NatureMouvementCarte.AVANCE_FONDS ||
-                nature == NatureMouvementCarte.TRANSFERT_SOLDE
-        }
-        if (naturePartielle || mouvementsTauxDistincts) {
-            return EstimationCycle(
-                0.0, debut, jours, false, estimationDisponible = false,
-                avertissement = if (naturePartielle)
-                    "Nature de certains mouvements inconnue. Classe-les pour identifier les taux applicables."
-                else
-                    "Avances/transferts présents : sans les soldes ventilés et la règle de répartition des paiements de la banque, un chiffre exact serait trompeur."
-            )
+        if (!releve.soldeOfficiel.isFinite() || releve.soldeOfficiel < 0 ||
+            !carte.solde.isFinite()
+        ) return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+            avertissement = "Solde de carte ou de relevé invalide.")
+
+        if (tauxPourNature(carte, NatureMouvementCarte.ACHAT, debut) == null) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Le taux annuel des achats n'est pas configuré.")
         }
 
-        val echeance = lireDate(releve?.dateEcheance)
-        val payeEnEntier = releve != null && echeance != null &&
-            transactionsCarte.filter {
+        val zone = java.time.ZoneId.systemDefault()
+        val debutCivil = debut.toInstant().atZone(zone).toLocalDate()
+        val aujourdHuiCivil = aujourdHui.toInstant().atZone(zone).toLocalDate()
+        val mouvements = transactionsCarte.filter { tx ->
+            val jour = tx.date.toInstant().atZone(zone).toLocalDate()
+            jour.isAfter(debutCivil) && !jour.isAfter(aujourdHuiCivil) &&
+                !tx.date.after(aujourdHui)
+        }
+        val typesCharges = setOf(
+            TypeTransaction.Depense, TypeTransaction.TransfertSortant,
+            TypeTransaction.Pret, TypeTransaction.PaiementEffectue
+        )
+        val charges = mouvements.filter { it.type in typesCharges }
+        val natures = carte.details.naturesMouvements
+        if (charges.any { natures[it.id] == null }) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Des dépenses n'ont pas de catégorie bancaire. Classe les mouvements.")
+        }
+        if (charges.any { natures[it.id] != NatureMouvementCarte.ACHAT }) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Plusieurs taux sont concernés : consulter la projection ventilée et le relevé réel.")
+        }
+        if (mouvements.any { !it.montant.isFinite() || it.montant < 0.0 }) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Montant de transaction invalide dans ce cycle.")
+        }
+
+        val changementsParJour = mouvements.groupBy {
+            it.date.toInstant().atZone(zone).toLocalDate()
+        }.mapValues { (_, tx) -> tx.sumOf { effetSurDette(it) } }
+        // Le solde du relevé est notre seul point d'ancrage vérifiable.
+        // Si un paiement, une correction de solde ou des frais ne sont pas
+        // présents dans l'historique, on ne fabrique PAS un solde quotidien.
+        val detteActuelleSignee = -carte.solde
+        val detteReconstitueeAuReleve = detteActuelleSignee - changementsParJour.values.sum()
+        if (kotlin.math.abs(detteReconstitueeAuReleve - releve.soldeOfficiel) > 0.015) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Les mouvements ne rapprochent pas le solde courant du dernier relevé. " +
+                    "Vérifie les paiements, frais et corrections avant l'estimation.")
+        }
+
+        val echeance = lireDate(releve.dateEcheance)
+        val paiementCompletDansDelai = echeance != null &&
+            mouvements.filter {
                 it.type == TypeTransaction.Paiement &&
-                    !debutJour(it.date).before(debutJour(debut)) &&
-                    !debutJour(it.date).after(debutJour(echeance))
-            }
-                .sumOf { it.montant } + 0.005 >= releve.soldeOfficiel
-        if (payeEnEntier) return EstimationCycle(0.0, debut, jours, true)
+                    !it.date.toInstant().atZone(zone).toLocalDate().isAfter(
+                        echeance.toInstant().atZone(zone).toLocalDate()
+                    )
+            }.sumOf { it.montant } + 0.005 >= releve.soldeOfficiel
+        if (paiementCompletDansDelai) return EstimationCycle(
+            0.0, debut, jours, true,
+            avertissement = "Délai de grâce présumé, selon les paiements saisis et les conditions de la banque."
+        )
 
-        // Solde de chaque jour en remontant à partir du solde actuel
-        val apresDebut = transactionsCarte.filter { !it.date.before(debut) }
-        var total = 0.0
-        val cal = Calendar.getInstance().apply { time = fin }
-        var detteDuJour = dette(carte)
-        for (i in 0 until jours) {
-            val jourCourant = cal.time
-            cal.add(Calendar.DAY_OF_MONTH, -1)
-            val veille = cal.time
-            // CC5 : respecter le taux promotionnel ou régulier POUR chaque jour,
-            // y compris le jour où une promotion expire dans un même cycle.
-            total += interetsEstimes(detteDuJour, tauxEffectif(carte, veille), 1)
-            // Annuler l'effet des transactions de ce jour pour obtenir le solde de la veille
-            val effetJour = apresDebut.filter { !it.date.before(veille) && it.date.before(jourCourant) }.sumOf { effetSurDette(it) }
-            detteDuJour = max(0.0, detteDuJour - effetJour)
+        var detteFinJour = detteActuelleSignee -
+            (changementsParJour[aujourdHuiCivil] ?: 0.0)
+        var jour = aujourdHuiCivil.minusDays(1)
+        var cumul = 0.0
+        repeat(jours) {
+            val date = Date.from(jour.atStartOfDay(zone).toInstant())
+            val taux = tauxPourNature(carte, NatureMouvementCarte.ACHAT, date)
+                ?: return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                    avertissement = "Le taux applicable à une des dates est inconnu.")
+            cumul += interetsEstimes(kotlin.math.max(0.0, detteFinJour), taux, 1)
+            detteFinJour -= changementsParJour[jour] ?: 0.0
+            jour = jour.minusDays(1)
         }
-        return EstimationCycle(arrondi(total), debut, jours, false)
+        return EstimationCycle(
+            arrondi(cumul), debut, jours, false,
+            avertissement = "Estimation indicative : suppose que le solde du relevé relève du taux achats; " +
+                "le délai de grâce et les règles exactes dépendent du contrat."
+        )
     }
 
     // ===== Simulations et plans (CC8) =====
