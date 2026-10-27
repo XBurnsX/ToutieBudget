@@ -159,6 +159,7 @@ class PretPersonnelViewModel(
     /** PP2 / PP3 : archiver ou réactiver un dossier, sans toucher au solde ni à l'historique. */
     fun changerArchivage(pretId: String, archiver: Boolean) {
         viewModelScope.lancerUneFois(verrouPret) {
+            try {
             val dossiers = pretPersonnelRepository.lister().getOrElse { e ->
                 _uiState.update { it.copy(erreurAction = "Impossible de charger les dossiers : ${e.message}") }
                 return@lancerUneFois
@@ -178,6 +179,9 @@ class PretPersonnelViewModel(
                 .onFailure { e ->
                     _uiState.update { it.copy(erreurAction = "Échec : ${e.message}") }
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreurAction = "Erreur d'archivage : ${e.message}") }
+            }
         }
     }
 
