@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -56,6 +58,7 @@ class BudgetViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouAssignation = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    private val mutexPreferencesBudget = Mutex()
 
     // Service de reset automatique des objectifs bihebdomadaires
     private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
@@ -811,15 +814,21 @@ class BudgetViewModel(
      */
     private fun synchroniserPreferencesBudget() {
         viewModelScope.launch(Dispatchers.IO) {
+            mutexPreferencesBudget.withLock {
             try {
                 if (preferenceRepository.preferencesBudgetEnAttenteEnvoi()) {
+                    val categoriesEnvoyees = preferenceRepository.recupererCategoriesOuvertes()
+                    val favoritesEnvoyes = preferenceRepository.recupererEnveloppesFavorites()
                     realtimeSyncService.mettreAJourPreferencesUtilisateur(
                         mapOf(
-                            "categories_ouvertes" to preferenceRepository.recupererCategoriesOuvertes(),
-                            "enveloppes_favorites" to preferenceRepository.recupererEnveloppesFavorites().toList()
+                            "categories_ouvertes" to categoriesEnvoyees,
+                            "enveloppes_favorites" to favoritesEnvoyes.toList()
                         )
                     )
-                    preferenceRepository.marquerPreferencesBudgetEnvoyees()
+                    // A4/C2 : un clic effectué pendant la requête doit rester en attente.
+                    if (preferenceRepository.recupererCategoriesOuvertes() == categoriesEnvoyees &&
+                        preferenceRepository.recupererEnveloppesFavorites() == favoritesEnvoyes
+                    ) preferenceRepository.marquerPreferencesBudgetEnvoyees()
                     return@launch
                 }
 
@@ -842,6 +851,7 @@ class BudgetViewModel(
                 }
             } catch (_: Exception) {
                 // Hors ligne ou serveur indisponible : l'état local reste affiché
+            }
             }
         }
     }
