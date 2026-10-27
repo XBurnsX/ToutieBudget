@@ -57,8 +57,13 @@ object MoteurCarteCredit {
     /** Taux appliqué aux achats à une date donnée (promotion en cours si configurée). */
     fun tauxEffectif(carte: CompteCredit, date: Date = Date()): Double {
         val d = carte.details
+        val debutPromo = lireDate(d.debutPromo)
         val finPromo = lireDate(d.finPromo)
-        return if (d.tauxPromo != null && finPromo != null && !date.after(finPromo)) d.tauxPromo else tauxAchats(carte)
+        val dansPromotion = d.tauxPromo != null &&
+            (debutPromo == null || !date.before(debutPromo)) &&
+            (finPromo == null || !date.after(finPromo)) &&
+            (debutPromo != null || finPromo != null)
+        return if (dansPromotion) d.tauxPromo!! else tauxAchats(carte)
     }
 
     /** Intérêts estimés pour un nombre de jours sur un montant dû (taux annuel / 365, calcul quotidien). */
