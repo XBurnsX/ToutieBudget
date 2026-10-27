@@ -69,16 +69,16 @@ class BudgetViewModel(
     private var cacheEnveloppes: List<Enveloppe> = emptyList()
     private var cacheAllocations: List<AllocationMensuelle> = emptyList()
     private var cacheCategories: List<Categorie> = emptyList()
-    private var generationChargementBudget = 0L
+    @Volatile private var generationChargementBudget = 0L
     
     // Garder en mémoire le mois sélectionné pour les rafraîchissements automatiques
-    private var moisSelectionne: Date = Date()
+    @Volatile private var moisSelectionne: Date = Date()
 
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
 
     // Affichage des archivés
-    private var showArchived: Boolean = false
+    @Volatile private var showArchived: Boolean = false
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
