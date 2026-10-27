@@ -224,7 +224,9 @@ private fun SectionResume(dette: CompteDette, uiState: DetteUiState) {
         Ligne("Montant initial", MoneyFormatter.formatAmount(dette.montantInitial))
         val paiements = MoteurDette.paiementsReels(uiState.transactions)
         Ligne("Versé (${paiements.size} versement${if (paiements.size > 1) "s" else ""})", MoneyFormatter.formatAmount(MoteurDette.totalVerse(uiState.transactions)))
-        MoteurDette.echeancesCouvertes(dette, uiState.transactions)?.let { Ligne("Échéances complètes couvertes", "$it") }
+        MoteurDette.echeancesCouvertes(dette, uiState.transactions)?.let {
+            Ligne("Équivalent de mensualités (selon montants)", "$it")
+        }
         Ligne("Intérêts ajoutés (confirmés)", MoneyFormatter.formatAmount(MoteurDette.interetsAjoutes(dette)))
         if (MoteurDette.fraisAjoutes(dette) > 0.005) Ligne("Frais ajoutés (confirmés)", MoneyFormatter.formatAmount(MoteurDette.fraisAjoutes(dette)))
         Note("Intérêts payés : indisponibles tant que le prêteur ne fournit pas la décomposition de vos versements.")
