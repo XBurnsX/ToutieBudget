@@ -44,6 +44,7 @@ class VirerArgentViewModel(
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var allCategories: List<Categorie> = emptyList()
+    private var generationChargement = 0L
 
     init {
         chargerDonneesInitiales()
@@ -86,15 +87,23 @@ class VirerArgentViewModel(
     // ===== CHARGEMENT DES DONNÉES (V6 : erreurs visibles, reprise possible) =====
 
     private fun chargerDonneesInitiales() {
+        val generation = ++generationChargement
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(erreurChargement = null) }
-                allComptes = compteRepository.recupererTousLesComptes().getOrThrow().filter { !it.estArchive }
-                allEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().filter { !it.estArchive }
-                allAllocations = enveloppeRepository.recupererAllocationsPourMois(_uiState.value.moisSelectionne).getOrThrow()
-                allCategories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                val mois = _uiState.value.moisSelectionne
+                val comptes = compteRepository.recupererTousLesComptes().getOrThrow().filter { !it.estArchive }
+                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().filter { !it.estArchive }
+                val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+                val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                if (generation != generationChargement) return@launch
+                allComptes = comptes
+                allEnveloppes = enveloppes
+                allAllocations = allocations
+                allCategories = categories
                 configurerSourcesEtDestinationsPourMode()
             } catch (e: Exception) {
+                if (generation != generationChargement) return@launch
                 _uiState.update {
                     it.copy(isLoading = false, erreurChargement = "Impossible de charger les comptes et enveloppes : ${e.message}")
                 }
@@ -103,12 +112,16 @@ class VirerArgentViewModel(
     }
 
     private fun chargerAllocationsPourMois(mois: Date) {
+        val generation = ++generationChargement
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(erreurChargement = null) }
-                allAllocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+                val allocations = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+                if (generation != generationChargement) return@launch
+                allAllocations = allocations
                 configurerSourcesEtDestinationsPourMode()
             } catch (e: Exception) {
+                if (generation != generationChargement) return@launch
                 _uiState.update {
                     it.copy(erreurChargement = "Impossible de charger les allocations du mois : ${e.message}")
                 }
