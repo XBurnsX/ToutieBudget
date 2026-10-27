@@ -17,6 +17,8 @@ import javax.inject.Inject
 import com.xburnsx.toutiebudget.data.modeles.CompteCheque
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.CompteInvestissement
+import com.xburnsx.toutiebudget.data.modeles.ModeSuiviPlacement
 
 /**
  * Implémentation du service ArgentService qui gère les opérations financières.
@@ -576,90 +578,118 @@ class ArgentServiceImpl @Inject constructor(
         nomCompteDest: String,
         date: Date
     ): Result<Unit> = runCatching { operationAtomique.executer {
-        if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du virement doit être positif.")
-        if (compteSourceId == compteDestId) throw IllegalArgumentException("La source et la destination ne peuvent pas être identiques.")
+        if (!montant.isFinite() || montant <= 0.0) {
+            throw IllegalArgumentException("Montant de virement invalide.")
+        }
         val montantArrondi = MoneyFormatter.roundAmount(montant)
-
-        val compteSource = compteRepository.recupererCompteParIdToutesCollections(compteSourceId).getOrThrow()
-        val compteDest = compteRepository.recupererCompteParIdToutesCollections(compteDestId).getOrThrow()
-        if (compteSource.estArchive || compteDest.estArchive) throw IllegalStateException("Un des comptes est archivé.")
-        if (compteSource.utilisateurId.isNotBlank() && compteDest.utilisateurId.isNotBlank() &&
-            compteSource.utilisateurId != compteDest.utilisateurId
-        ) throw IllegalStateException("Les deux comptes n'appartiennent pas au même utilisateur.")
-        if (compteSource.solde + 0.005 < montantArrondi) {
-            throw IllegalStateException("Solde insuffisant sur le compte '$nomCompteSource'.")
+        if (montantArrondi <= 0.0 ||
+            kotlin.math.abs(montant - montantArrondi) > 0.0000001) {
+            throw IllegalArgumentException("Virement positif au cent exact requis.")
+        }
+        require(compteSourceId != compteDestId) { "Un compte ne peut pas se virer à lui-même." }
+        val source = compteRepository.recupererCompteParIdToutesCollections(compteSourceId).getOrThrow()
+        val destination = compteRepository.recupererCompteParIdToutesCollections(compteDestId).getOrThrow()
+        if (source.estArchive || destination.estArchive) {
+            throw IllegalStateException("Compte source ou destination archivé.")
+        }
+        if (source.utilisateurId.isBlank() || destination.utilisateurId.isBlank() ||
+            source.utilisateurId != destination.utilisateurId) {
+            throw IllegalStateException("Le virement doit appartenir au même utilisateur identifié.")
+        }
+        if (!source.solde.isFinite() || !destination.solde.isFinite() ||
+            source.solde + 0.000001 < montantArrondi) {
+            throw IllegalStateException("Solde disponible insuffisant ou invalide.")
         }
 
-        // 1. Source (un compte chèque perd aussi ce montant de son « Prêt à placer »)
-        if (compteSource is CompteCheque) {
-            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteSource.id, compteSource.collection, -montantArrondi, true).getOrThrow()
+        // IF6 : une valorisation boursière n'est pas une liquidité retirable.
+        // En mode détaillé, exiger une donnée retirable confirmée et l'encaisse
+        // suffisante si celle-ci est connue. En mode simple la valeur est une
+        // estimation manuelle; l'écran en avertit déjà l'utilisateur.
+        if (source is CompteInvestissement) {
+            val d = source.details
+            val retirable = d.retirableConnu
+            if (d.mode == ModeSuiviPlacement.DETAILLE && retirable == null) {
+                throw IllegalStateException(
+                    "Montant réellement retirable inconnu : renseigne la disponibilité du courtier."
+                )
+            }
+            if (retirable != null && (!retirable.isFinite() || retirable + 0.000001 < montantArrondi)) {
+                throw IllegalStateException("Espèces retirables insuffisantes selon le courtier.")
+            }
+            if (d.encaisse != null && (!d.encaisse.isFinite() || d.encaisse + 0.000001 < montantArrondi)) {
+                throw IllegalStateException("Encaisse connue insuffisante pour ce retrait.")
+            }
+        }
+        // IF4/IF9 : soldes et deux mouvements reliés par le même ID dans la
+        // même transaction Room. En cas d'erreur l'opération entière s'annule;
+        // aucune écriture de compensation ni SyncJob inverse n'est générée.
+        if (source is CompteCheque) {
+            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                source.id, source.collection, -montantArrondi, true
+            ).getOrThrow()
+        } else if (source is CompteInvestissement) {
+            val details = source.details.copy(
+                encaisse = source.details.encaisse?.let { MoneyFormatter.roundAmount(it - montantArrondi) },
+                retirableConnu = source.details.retirableConnu?.let { MoneyFormatter.roundAmount(it - montantArrondi) }
+            )
+            compteRepository.mettreAJourCompte(source.copy(
+                solde = MoneyFormatter.roundAmount(source.solde - montantArrondi),
+                detailsInvestissementJson = details.versJson()
+            )).getOrThrow()
         } else {
-            compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, MoneyFormatter.roundAmount(compteSource.solde - montantArrondi))
+            compteRepository.mettreAJourSolde(
+                source.id, source.collection, MoneyFormatter.roundAmount(source.solde - montantArrondi)
+            )
         }
 
-        val annulerSource: suspend () -> Unit = {
-            if (compteSource is CompteCheque) {
-                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteSource.id, compteSource.collection, montantArrondi, true)
-            } else {
-                compteRepository.mettreAJourSolde(compteSource.id, compteSource.collection, compteSource.solde)
-            }
+        if (destination is CompteCheque) {
+            compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
+                destination.id, destination.collection, montantArrondi, true
+            ).getOrThrow()
+        } else if (destination is CompteInvestissement) {
+            // Un dépôt augmente l'encaisse connue, pas automatiquement les
+            // fonds RETIRABLES (les délais de règlement du courtier varient).
+            val details = destination.details.copy(
+                encaisse = destination.details.encaisse?.let {
+                    MoneyFormatter.roundAmount(it + montantArrondi)
+                }
+            )
+            compteRepository.mettreAJourCompte(destination.copy(
+                solde = MoneyFormatter.roundAmount(destination.solde + montantArrondi),
+                detailsInvestissementJson = details.versJson()
+            )).getOrThrow()
+        } else {
+            compteRepository.mettreAJourSolde(
+                destination.id, destination.collection,
+                MoneyFormatter.roundAmount(destination.solde + montantArrondi)
+            )
         }
 
-        // 2. Destination
-        try {
-            if (compteDest is CompteCheque) {
-                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteDest.id, compteDest.collection, montantArrondi, true).getOrThrow()
-            } else {
-                compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, MoneyFormatter.roundAmount(compteDest.solde + montantArrondi))
-            }
-        } catch (e: Exception) {
-            annulerSource()
-            throw Exception("Erreur mise à jour du compte destination : ${e.message}")
-        }
-
-        // 3. Les deux écritures liées
-        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"${IdGenerator.generateId()}\"}"
-        val sortante = Transaction(
+        val operationId = IdGenerator.generateId()
+        val lienOperation = "{\"$CLE_OPERATION_PAIEMENT\":\"$operationId\"}"
+        val sortie = Transaction(
             id = IdGenerator.generateId(),
-            utilisateurId = compteSource.utilisateurId,
+            utilisateurId = source.utilisateurId,
             type = TypeTransaction.TransfertSortant,
             montant = montantArrondi,
             date = date,
-            compteId = compteSource.id,
-            collectionCompte = compteSource.collection,
+            compteId = source.id,
+            collectionCompte = source.collection,
             allocationMensuelleId = null,
             sousItems = lienOperation,
-            tiersUtiliser = nomCompteDest,
+            tiersUtiliser = destination.nom,
             note = null
         )
-        val entrante = sortante.copy(
+        transactionRepository.creerTransaction(sortie).getOrThrow()
+        transactionRepository.creerTransaction(sortie.copy(
             id = IdGenerator.generateId(),
-            utilisateurId = compteDest.utilisateurId,
+            utilisateurId = destination.utilisateurId,
             type = TypeTransaction.TransfertEntrant,
-            compteId = compteDest.id,
-            collectionCompte = compteDest.collection,
-            tiersUtiliser = nomCompteSource
-        )
-        try {
-            transactionRepository.creerTransaction(sortante).getOrThrow()
-            try {
-                transactionRepository.creerTransaction(entrante).getOrThrow()
-            } catch (e: Exception) {
-                transactionRepository.supprimerTransaction(sortante.id)
-                throw e
-            }
-        } catch (e: Exception) {
-            // Remettre les deux soldes : aucun argent ne doit se perdre ni se créer
-            if (compteDest is CompteCheque) {
-                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteDest.id, compteDest.collection, -montantArrondi, true)
-            } else {
-                compteRepository.mettreAJourSolde(compteDest.id, compteDest.collection, compteDest.solde)
-            }
-            annulerSource()
-            throw Exception("Erreur d'enregistrement du virement : ${e.message}")
-        }
-    }
-    }
+            compteId = destination.id,
+            collectionCompte = destination.collection,
+            tiersUtiliser = source.nom
+        )).getOrThrow()
+    } }
 
     /**
      * Paiement d'une carte de crédit ou d'une dette (CC2).
