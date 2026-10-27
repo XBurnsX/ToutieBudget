@@ -123,13 +123,15 @@ class SupprimerTransactionUseCase(
                 retours += { transactionRepository.creerTransaction(tx).getOrThrow() }
             }
         } catch (e: Exception) {
-            retours.asReversed().forEach { retour -> runCatching { retour() } }
+            // DF9/DF10 : operationAtomique est une transaction Room. Laisser
+            // remonter l'erreur provoque le rollback de TOUTES les écritures.
+            // Rejouer des écritures compensatoires ici créerait de nouveaux
+            // SyncJobs, voire un double remboursement.
             throw e
         }
-
-        // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
-        BudgetEvents.refreshManual()
     }
+        // Rafraîchir seulement après le commit de la transaction.
+        BudgetEvents.refreshManual()
     }
 
     private fun estMoitieDePaiement(tx: Transaction): Boolean =
