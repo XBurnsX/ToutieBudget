@@ -431,12 +431,13 @@ class EcransModifierSupprimerTest {
     }
 
     @Test
-    fun `supprimer une enveloppe jamais utilisee - effacee`() = test {
+    fun `supprimer une enveloppe vide - elle disparait de la liste (archivee par prudence, CE1)`() = test {
         b.categorie("c1", "Maison")
         val loyer = b.enveloppe("loyer", "Loyer", categorieId = "c1")
         val vm = categories()
         vm.onOuvrirConfirmationSuppressionEnveloppe(loyer); vm.onConfirmerSuppressionEnveloppe(); attendre()
-        assertFalse(b.enveloppes.containsKey("loyer"))
+        assertTrue(b.enveloppes["loyer"]?.estArchive != false, "effacée ou archivée")
+        assertTrue(vm.uiState.value.enveloppesGroupees.values.flatten().none { it.id == "loyer" })
     }
 
     @Test

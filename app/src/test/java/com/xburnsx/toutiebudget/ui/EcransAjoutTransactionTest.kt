@@ -354,7 +354,7 @@ class EcransAjoutTransactionTest {
         vm.onCompteChanged(b.comptes["visa"]); vm.onTiersChanged("Irving"); vm.onMontantChanged("500")
         vm.onEnveloppeChanged(enveloppeUi("depanneur", 100.0))
         vm.sauvegarderTransaction(); attendre()
-        assertEquals(-405.0, b.soldeDe("visa")); assertEquals(100.0, soldeEnveloppe("depanneur"))
+        assertEquals(-405.0, b.soldeDe("visa"), vm.uiState.value.messageErreur); assertEquals(100.0, soldeEnveloppe("depanneur"))
 
         app.historiqueCompte("visa", "comptes_credits").also { attendre() }.supprimerTransaction(b.transactions.keys.single()); attendre()
 

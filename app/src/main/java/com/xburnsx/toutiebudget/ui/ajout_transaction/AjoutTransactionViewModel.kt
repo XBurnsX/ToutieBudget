@@ -1266,7 +1266,9 @@ class AjoutTransactionViewModel(
                             !allocationActuelle.alloue.isFinite() ||
                             !allocationActuelle.depense.isFinite()
                         ) throw IllegalStateException("Montants d'allocation invalides.")
-                        if (kotlin.math.round(allocationActuelle.solde * 100.0).toLong() > 0L &&
+                        // Une carte de crédit dépense toujours une enveloppe financée par un compte chèque : pas de refus pour elle.
+                        if (compte !is CompteCredit &&
+                            kotlin.math.round(allocationActuelle.solde * 100.0).toLong() > 0L &&
                             allocationActuelle.compteSourceId != null &&
                             allocationActuelle.compteSourceId != compte.id
                         ) throw IllegalStateException("Cette enveloppe est financée par un autre compte.")

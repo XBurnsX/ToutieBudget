@@ -202,7 +202,6 @@ class InvestissementViewModel(
                     if (!resultat.solde.isFinite()) {
                         throw IllegalStateException("Valeur de placement invalide.")
                     }
-                    val details = resultat.details
                     if (listOfNotNull(details.valeurDepart, details.encaisse, details.retirableConnu)
                             .any { !it.isFinite() || it < 0.0 } ||
                         details.positions.any { position ->

@@ -19,13 +19,19 @@ import kotlin.test.assertTrue
 /** Section 11 : l'exemple du TXT (1 200 $ à 0 % sur 12 mois) et les règles sans valeur inventée. */
 class MoteurDetteTest {
 
+    /** Contrat commencé il y a 6 mois, versements le 15. */
+    private val debutContrat: String = java.text.SimpleDateFormat("yyyy-MM-dd").format(
+        Calendar.getInstance().apply { add(Calendar.MONTH, -6) }.time
+    )
+
     private fun dette(
         solde: Double,
         initial: Double = 1200.0,
         taux: Double? = 0.0,
         duree: Int? = 12,
         versement: Double? = null,
-        details: DetailsDette = DetailsDette(mode = ModeDette.FINANCE)
+        // DA2 : un contrat a un jour de versement connu (le moteur n'en invente plus)
+        details: DetailsDette = DetailsDette(mode = ModeDette.FINANCE, jourVersement = 15, dateDebut = debutContrat)
     ) = CompteDette(
         id = "d1", nom = "Auto", soldeDette = solde, estArchive = false, ordre = 0, montantInitial = initial,
         tauxInteret = taux, paiementMinimum = versement, dureeMoisPret = duree, detailsDetteJson = details.versJson()

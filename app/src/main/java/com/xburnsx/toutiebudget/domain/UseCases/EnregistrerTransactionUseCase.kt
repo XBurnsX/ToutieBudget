@@ -307,7 +307,9 @@ class EnregistrerTransactionUseCase(
                     !allocationExistante.alloue.isFinite() ||
                     !allocationExistante.depense.isFinite()
                 ) throw IllegalStateException("Les montants de l'allocation sont invalides.")
-                if (allocationExistante.solde > 0.005 &&
+                // Une carte de crédit dépense toujours une enveloppe financée par un compte chèque : pas de refus pour elle.
+                if (collectionCompte != "comptes_credits" &&
+                    allocationExistante.solde > 0.005 &&
                     allocationExistante.compteSourceId != null &&
                     (allocationExistante.compteSourceId != compteId ||
                         (allocationExistante.collectionCompteSource != null &&

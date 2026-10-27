@@ -58,7 +58,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         id: String,
         nouveauSolde: Double,
         nouvelleDepense: Double
-    ) = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)
@@ -299,7 +299,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         id: String,
         compteSourceId: String,
         collectionCompteSource: String
-    ) = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)

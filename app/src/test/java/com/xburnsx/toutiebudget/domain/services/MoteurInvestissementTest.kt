@@ -74,15 +74,15 @@ class MoteurInvestissementTest {
     }
 
     @Test
-    fun `rendement pondere dans le temps retire les depots`() {
-        // 1 000 $ -> dépôt 1 000 $ -> valeur 2 000 $ : aucun rendement, seulement un dépôt
+    fun `rendement pondere dans le temps indisponible avec un depot entre deux valeurs`() {
+        // IA10 : 1 000 $ -> dépôt 1 000 $ -> valeur 2 000 $. Sans valeur juste avant le dépôt, un TWR
+        // exact est impossible : « indisponible », jamais un chiffre inventé.
         val details = DetailsInvestissement(
             valeurDepart = 1000.0, dateDepart = MoteurCarteCredit.ecrireDate(jour(-60)),
             valorisations = listOf(Valorisation(date = MoteurCarteCredit.ecrireDate(jour(-10)), valeur = 2000.0, type = TypeValorisation.MARCHE))
         )
         val c = compte(2000.0, details)
-        val twr = assertNotNull(MoteurInvestissement.rendementPondereTemps(c, listOf(virement(TypeTransaction.TransfertEntrant, 1000.0, jour(-30)))))
-        assertTrue(abs(twr) < 0.0001, "TWR=$twr")
+        assertNull(MoteurInvestissement.rendementPondereTemps(c, listOf(virement(TypeTransaction.TransfertEntrant, 1000.0, jour(-30)))))
     }
 
     @Test

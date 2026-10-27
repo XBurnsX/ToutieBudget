@@ -31,6 +31,31 @@ class BanqueEnMemoire {
     val categories = linkedMapOf<String, Categorie>()
     val historique = mutableListOf<String>()
 
+    /** Photo de toute la base, pour imiter l'annulation d'une transaction Room. */
+    fun instantane(): () -> Unit {
+        val c = LinkedHashMap(comptes); val t = LinkedHashMap(transactions); val a = LinkedHashMap(allocations)
+        val e = LinkedHashMap(enveloppes); val k = LinkedHashMap(categories); val h = historique.toList()
+        return {
+            comptes.clear(); comptes.putAll(c); transactions.clear(); transactions.putAll(t)
+            allocations.clear(); allocations.putAll(a); enveloppes.clear(); enveloppes.putAll(e)
+            categories.clear(); categories.putAll(k); historique.clear(); historique.addAll(h)
+        }
+    }
+
+    /** Comme OperationAtomiqueRoom : tout le bloc est validé ensemble, ou toute la base revient. */
+    fun transaction(autres: AutresDepotsEnMemoire? = null) = object : com.xburnsx.toutiebudget.utils.OperationAtomique {
+        override suspend fun <T> executer(bloc: suspend () -> T): T {
+            val remettre = instantane()
+            val remettreAutres = autres?.instantane()
+            try {
+                return bloc()
+            } catch (e: Throwable) {
+                remettre(); remettreAutres?.invoke()
+                throw e
+            }
+        }
+    }
+
     /** Nom d'une opération à faire échouer (ex. "creerTransaction#2" = le 2e appel). */
     var echouerSur: String? = null
     private val compteurs = mutableMapOf<String, Int>()
@@ -234,6 +259,11 @@ class AutresDepotsEnMemoire {
     private var n = 1
     /** Date du dernier rollover (null = jamais fait). */
     var dernierRollover: java.util.Date? = java.util.Date()
+
+    fun instantane(): () -> Unit {
+        val t = LinkedHashMap(tiers); val p = LinkedHashMap(prets)
+        return { tiers.clear(); tiers.putAll(t); prets.clear(); prets.putAll(p) }
+    }
 
     val depotTiers = object : com.xburnsx.toutiebudget.data.repositories.TiersRepository {
         override suspend fun recupererTousLesTiers() = Result.success(tiers.values.toList())

@@ -29,10 +29,11 @@ class OperationsArgentTest {
         b.depotComptes, b.depotTransactions, b.depotAllocations,
         VirementUseCase(b.depotComptes, b.depotAllocations, b.depotTransactions, b.depotEnveloppes,
             ValidationProvenanceService(b.depotEnveloppes, b.depotComptes), b.historiqueService),
-        b.depotEnveloppes, b.depotCategories, b.historiqueService
+        b.depotEnveloppes, b.depotCategories, b.historiqueService,
+        operationAtomique = b.transaction()
     )
-    private val virementsBudget = VirementBudgetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService)
-    private val suppression = SupprimerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations)
+    private val virementsBudget = VirementBudgetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService, operationAtomique = b.transaction())
+    private val suppression = SupprimerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations, operationAtomique = b.transaction())
     private val maintenant = Date()
 
     // ===== Exemple de provenance du guide (BLEU / ROUGE) =====
@@ -264,7 +265,7 @@ class OperationsArgentTest {
         b.enveloppe("epicerie")
         // Report de 50 $ + 100 $ assignés ce mois, 30 $ dépensés -> solde 120 $
         b.allocation("epicerie", maintenant, solde = 120.0, alloue = 100.0, depense = 30.0, provenance = "bleu")
-        val service = PlanResetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService)
+        val service = PlanResetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService, operationAtomique = b.transaction())
         val apercu = service.preparerApercu(maintenant).getOrThrow()
         assertEquals(70.0, apercu.lignes.single().montant)
         val resultat = service.appliquer(maintenant, setOf("epicerie"))

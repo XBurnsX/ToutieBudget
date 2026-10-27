@@ -42,39 +42,46 @@ class AppliEnMemoire {
     private fun <T : androidx.lifecycle.ViewModel> T.suivi(): T = also { ecrans.put(java.util.UUID.randomUUID().toString(), it) }
     fun fermer() = ecrans.clear()
 
+    /** Les opérations composées passent par une transaction en mémoire, comme Room dans l'app. */
+    val tx = b.transaction(autres)
+
     private val provenance = ValidationProvenanceService(b.depotEnveloppes, b.depotComptes)
     val argent = ArgentServiceImpl(
         b.depotComptes, b.depotTransactions, b.depotAllocations,
         VirementUseCase(b.depotComptes, b.depotAllocations, b.depotTransactions, b.depotEnveloppes, provenance, b.historiqueService),
-        b.depotEnveloppes, b.depotCategories, b.historiqueService
+        b.depotEnveloppes, b.depotCategories, b.historiqueService,
+        operationAtomique = tx
     )
-    val enregistrer = EnregistrerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService)
-    val supprimer = SupprimerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations, autres.depotPrets)
+    val enregistrer = EnregistrerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService, operationAtomique = tx)
+    val supprimer = SupprimerTransactionUseCase(b.depotTransactions, b.depotComptes, b.depotEnveloppes, b.depotAllocations, autres.depotPrets, operationAtomique = tx)
 
     fun ajoutTransaction() = AjoutTransactionViewModel(
         b.depotComptes, b.depotEnveloppes, b.depotCategories, autres.depotTiers, b.depotAllocations, enregistrer,
-        b.depotTransactions, autres.depotPrets, argent, realtime, b.historiqueService
+        b.depotTransactions, autres.depotPrets, argent, realtime, b.historiqueService,
+        operationAtomique = tx
     ).suivi()
 
     fun virer() = VirerArgentViewModel(
         b.depotComptes, b.depotEnveloppes, b.depotCategories, argent, realtime,
-        VirementBudgetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService)
+        VirementBudgetService(b.depotComptes, b.depotEnveloppes, b.depotAllocations, b.historiqueService, operationAtomique = tx)
     ).suivi()
 
     fun budget() = BudgetViewModel(
         b.depotComptes, b.depotEnveloppes, b.depotCategories, b.depotAllocations, autres.preferences,
         VerifierEtExecuterRolloverUseCase(RolloverServiceImpl(b.depotEnveloppes, b.depotAllocations), autres.preferences),
-        realtime, provenance, ObjectifCalculator(), b.historiqueService
+        realtime, provenance, ObjectifCalculator(), b.historiqueService,
+        operationAtomique = tx
     ).suivi()
 
-    fun comptes() = ComptesViewModel(b.depotComptes, realtime, b.depotCategories, b.depotEnveloppes, b.depotTransactions, b.historiqueService).suivi()
-    fun cartes() = CartesCreditViewModel(CarteCreditRepositoryImpl(b.depotComptes, b.depotTransactions), realtime, b.historiqueService).suivi()
-    fun dette() = DetteViewModel(b.depotComptes, b.depotTransactions, b.depotEnveloppes, b.depotCategories, b.historiqueService).suivi()
-    fun placement() = InvestissementViewModel(b.depotComptes, b.depotTransactions, b.historiqueService, realtime).suivi()
+    fun comptes() = ComptesViewModel(b.depotComptes, realtime, b.depotCategories, b.depotEnveloppes, b.depotTransactions, b.historiqueService, operationAtomique = tx).suivi()
+    fun cartes() = CartesCreditViewModel(CarteCreditRepositoryImpl(b.depotComptes, b.depotTransactions), realtime, b.historiqueService, operationAtomique = tx).suivi()
+    fun dette() = DetteViewModel(b.depotComptes, b.depotTransactions, b.depotEnveloppes, b.depotCategories, b.historiqueService, operationAtomique = tx).suivi()
+    fun placement() = InvestissementViewModel(b.depotComptes, b.depotTransactions, b.historiqueService, realtime, operationAtomique = tx).suivi()
     fun prets() = PretPersonnelViewModel(autres.depotPrets, b.depotTransactions, b.depotComptes).suivi()
 
     fun modifier() = ModifierTransactionViewModel(
-        b.depotComptes, b.depotEnveloppes, b.depotCategories, autres.depotTiers, b.depotTransactions, b.depotAllocations, enregistrer, supprimer
+        b.depotComptes, b.depotEnveloppes, b.depotCategories, autres.depotTiers, b.depotTransactions, b.depotAllocations, enregistrer, supprimer,
+        operationAtomique = tx
     ).suivi()
     fun historiqueCompte(compteId: String, collection: String = "comptes_cheques") = HistoriqueCompteViewModel(
         b.depotTransactions, b.depotEnveloppes, autres.depotTiers, supprimer,
