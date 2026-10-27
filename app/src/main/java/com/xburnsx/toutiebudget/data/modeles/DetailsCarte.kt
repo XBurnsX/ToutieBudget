@@ -83,7 +83,9 @@ data class ReleveCarte(
     val fraisFactures: Double = 0.0,
     val paiementsRecus: Double = 0.0,
     /** Vrai quand les intérêts facturés ont été ajoutés au solde de la carte dans l'app (une seule fois). */
-    val interetsComptabilises: Boolean = false
+    val interetsComptabilises: Boolean = false,
+    /** Vrai quand les frais officiels ont été ajoutés au solde de la carte (jamais automatiquement). */
+    val fraisComptabilises: Boolean = false
 )
 
 /**
