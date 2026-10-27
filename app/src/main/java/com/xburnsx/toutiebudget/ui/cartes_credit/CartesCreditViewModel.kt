@@ -279,6 +279,41 @@ class CartesCreditViewModel(
         }
     }
 
+    // ===== Import contrôlé des relevés officiels (CC6) =====
+
+    fun ouvrirImportRelevesCsv() {
+        _uiState.update { it.copy(afficherImportCsv = true) }
+    }
+
+    fun fermerImportRelevesCsv() {
+        _uiState.update { it.copy(afficherImportCsv = false) }
+    }
+
+    fun importerRelevesCsv(contenu: String) {
+        val carte = _uiState.value.carteSelectionnee ?: return
+        if (contenu.length > 250_000) {
+            _uiState.update { it.copy(messageErreur = "Fichier CSV trop volumineux.") }
+            return
+        }
+        val releves = com.xburnsx.toutiebudget.domain.services.ImportRelevesCarteCsv.lire(contenu)
+            .getOrElse { erreur ->
+                _uiState.update { it.copy(messageErreur = "Import impossible : ${erreur.message}") }
+                return
+            }
+        val dates = carte.details.releves.map { it.dateEmission }.toSet()
+        val nouveaux = releves.filter { it.dateEmission !in dates }
+        if (nouveaux.isEmpty()) {
+            _uiState.update { it.copy(messageInfo = "Tous ces relevés existent déjà. Aucun import effectué.") }
+            return
+        }
+        // Une écriture unique et contrôlée : les relevés déjà présents,
+        // leurs flags « comptabilisé/déjà inclus » et leurs journaux restent intacts.
+        enregistrerDetails(carte, carte.details.copy(releves = carte.details.releves + nouveaux)) {
+            it.copy(afficherImportCsv = false,
+                messageInfo = "${nouveaux.size} relevé(s) officiel(s) importé(s) sans changer le solde.")
+        }
+    }
+
     // ===== Relevés officiels (CC4, CC6) =====
 
     fun ouvrirReleve(releve: ReleveCarte?) {
