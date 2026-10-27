@@ -171,6 +171,7 @@ class BudgetViewModel(
      */
     fun chargerDonneesBudget(moisCible: Date = Date()) {
         val generation = ++generationChargementBudget
+        val generationPreferencesAuDebut = generationPreferencesBudget
         // Le mois demandé doit aussi être celui des assignations pendant le chargement.
         moisSelectionne = moisCible
         // Bloquer immédiatement les assignations et aperçus sur les données du
@@ -265,8 +266,12 @@ class BudgetViewModel(
                         isLoading = false,
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
                         categoriesEnveloppes = categoriesEnveloppesUi,
-                        categoriesOuvertes = categoriesOuvertes,
-                        enveloppesFavorites = enveloppesFavorites,
+                        // C2 : un clic effectué pendant la lecture Room ne peut
+                        // pas être remplacé par un état de préférences plus ancien.
+                        categoriesOuvertes = if (generationPreferencesBudget == generationPreferencesAuDebut)
+                            categoriesOuvertes else it.categoriesOuvertes,
+                        enveloppesFavorites = if (generationPreferencesBudget == generationPreferencesAuDebut)
+                            enveloppesFavorites else it.enveloppesFavorites,
                         messageChargement = null,
                         erreur = null
                     )
