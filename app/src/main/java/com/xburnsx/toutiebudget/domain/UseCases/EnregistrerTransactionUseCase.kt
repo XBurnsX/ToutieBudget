@@ -63,8 +63,8 @@ class EnregistrerTransactionUseCase(
         }
 
         return try {
-            // AT4 : transaction, compte et enveloppe réussissent ensemble ou sont tous défaits
-            operationAtomique.executer {
+            // AT4 : la notification ne part QU'APRÈS le commit Room.
+            val resultat = operationAtomique.executer {
               toutOuRien {
 
                 // AT11/AT12/AT19 : le compte et l'enveloppe sont relus dans la
@@ -236,12 +236,11 @@ class EnregistrerTransactionUseCase(
                     mettreAJourSoldeEnveloppe(allocationMensuelleId, montant, collectionCompte).getOrThrow()
                 }
 
-                // 🔄 DÉCLENCHER EXPLICITEMENT LE RAFRAÎCHISSEMENT DE L'INTERFACE
-                BudgetEvents.refreshManual()
-
                 Result.success(Unit)
               }
             }
+            BudgetEvents.refreshManual()
+            resultat
         } catch (e: Exception) {
             return Result.failure(e)
         }
