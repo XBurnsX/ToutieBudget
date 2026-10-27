@@ -59,6 +59,79 @@ class EcransAjoutTransactionTest {
 
     // ===== AT4 / AT14 : rejouer la meme operation =====
 
+    private fun cleBrouillon(vm: com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel): String {
+        val champ = vm.javaClass.getDeclaredField("idOperationBrouillon")
+        champ.isAccessible = true
+        return champ.get(vm) as String
+    }
+
+    private fun restaurerCleBrouillon(
+        vm: com.xburnsx.toutiebudget.ui.ajout_transaction.AjoutTransactionViewModel, cle: String
+    ) {
+        val champ = vm.javaClass.getDeclaredField("idOperationBrouillon")
+        champ.isAccessible = true
+        champ.set(vm, cle)
+    }
+
+    @Test
+    fun `emprunt rejoue apres une reponse perdue - pas de double credit`() = test {
+        b.cheque("chq", 1000.0, 100.0)
+        val vm = formulaire()
+        val cle = cleBrouillon(vm)
+        vm.onModeOperationChanged("Emprunt")
+        vm.onTypeDetteChanged("Dette contractée")
+        vm.onCompteChanged(b.comptes["chq"])
+        vm.onTiersChanged("Alex")
+        vm.onMontantChanged("20000")
+        vm.sauvegarderTransaction(); attendre()
+        assertEquals(1200.0, b.soldeDe("chq"))
+        assertEquals(300.0, b.cheque("chq").pretAPlacer)
+
+        restaurerCleBrouillon(vm, cle) // Rejouer un ancien brouillon après succès local incertain.
+        vm.onModeOperationChanged("Emprunt")
+        vm.onTypeDetteChanged("Dette contractée")
+        vm.onCompteChanged(b.comptes["chq"])
+        vm.onTiersChanged("Alex")
+        vm.onMontantChanged("20000")
+        vm.sauvegarderTransaction(); attendre()
+        assertEquals(1200.0, b.soldeDe("chq"))
+        assertEquals(300.0, b.cheque("chq").pretAPlacer)
+        assertEquals(1, b.transactions.size)
+        assertEquals(1, app.autres.prets.size)
+    }
+
+    @Test
+    fun `remboursement personnel rejoue - pas de second debit`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        app.autres.prets["p1"] = PretPersonnel(
+            id = "p1", nomTiers = "Alex", montantInitial = 200.0,
+            solde = -200.0, type = TypePretPersonnel.DETTE, created = "2026-01-01"
+        )
+        val vm = formulaire()
+        val cle = cleBrouillon(vm)
+        vm.onModeOperationChanged("Emprunt")
+        vm.onTypeDetteChanged("Remboursement donné")
+        vm.onCompteChanged(b.comptes["chq"])
+        vm.onTiersChanged("Alex")
+        vm.onMontantChanged("5000")
+        vm.sauvegarderTransaction(); attendre()
+        assertEquals(950.0, b.soldeDe("chq"))
+        assertEquals(-150.0, app.autres.prets.getValue("p1").solde)
+
+        restaurerCleBrouillon(vm, cle)
+        vm.onModeOperationChanged("Emprunt")
+        vm.onTypeDetteChanged("Remboursement donné")
+        vm.onCompteChanged(b.comptes["chq"])
+        vm.onTiersChanged("Alex")
+        vm.onMontantChanged("5000")
+        vm.sauvegarderTransaction(); attendre()
+        assertEquals(950.0, b.soldeDe("chq"))
+        assertEquals(-150.0, app.autres.prets.getValue("p1").solde)
+        assertEquals(1, b.transactions.size)
+    }
+
+
+
     @Test
     fun `idempotence de depense - retry meme ID ne debite pas deux fois`() = test {
         b.cheque("chq", 1000.0, 0.0)
