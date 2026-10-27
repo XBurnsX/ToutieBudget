@@ -37,6 +37,8 @@ class CartesCreditViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouCarte = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    @Volatile private var generationCartes = 0L
+    @Volatile private var generationHistorique = 0L
 
     private val _uiState = MutableStateFlow(CartesCreditUiState())
     val uiState: StateFlow<CartesCreditUiState> = _uiState.asStateFlow()
@@ -57,55 +59,89 @@ class CartesCreditViewModel(
     // ===== Chargement =====
 
     fun chargerCartesCredit() {
+        val generation = ++generationCartes
         viewModelScope.launch {
-            carteCreditRepository.recupererCartesCredit()
-                .onSuccess { cartes ->
-                    val selection = _uiState.value.carteSelectionnee?.let { s -> cartes.find { it.id == s.id } }
-                    _uiState.update { it.copy(cartesCredit = cartes, carteSelectionnee = selection ?: it.carteSelectionnee) }
-                    selection?.let { chargerTransactions(it) }
+            val resultat = carteCreditRepository.recupererCartesCredit()
+            if (generation != generationCartes) return@launch
+            resultat.onSuccess { cartes ->
+                val selectionId = _uiState.value.carteSelectionnee?.id
+                val selection = cartes.firstOrNull { it.id == selectionId }
+                _uiState.update { courant ->
+                    courant.copy(
+                        cartesCredit = cartes,
+                        carteSelectionnee = selection,
+                        messageErreur = if (selectionId != null && selection == null)
+                            "La carte sélectionnée n'existe plus." else courant.messageErreur,
+                        transactionsCarte = if (selection == null) emptyList() else courant.transactionsCarte,
+                        alertes = if (selection == null) emptyList() else courant.alertes
+                    )
                 }
-                .onFailure { erreur ->
-                    _uiState.update { it.copy(messageErreur = "Erreur lors du chargement: ${erreur.message}") }
-                }
+                selection?.let { viewModelScope.launch { chargerTransactions(it) } }
+            }.onFailure { erreur ->
+                _uiState.update { it.copy(messageErreur = "Erreur lors du chargement : ${erreur.message}") }
+            }
         }
     }
 
     fun chargerCarteSpecifique(carteCreditId: String) {
+        val generation = ++generationCartes
+        // Les transactions/alertes de la carte précédemment ouverte disparaissent tout de suite.
+        generationHistorique++
+        _uiState.update { it.copy(
+            estEnChargement = true, carteSelectionnee = null,
+            transactionsCarte = emptyList(), alertes = emptyList(), messageErreur = null
+        ) }
         viewModelScope.launch {
-            _uiState.update { it.copy(estEnChargement = true, messageErreur = null) }
-            carteCreditRepository.recupererCartesCredit()
-                .onSuccess { cartes ->
-                    val carte = cartes.find { it.id == carteCreditId }
-                    _uiState.update { it.copy(
-                        cartesCredit = cartes,
-                        carteSelectionnee = carte,
-                        estEnChargement = false,
-                        messageErreur = if (carte == null) "Carte introuvable ou archivée" else null
-                    ) }
-                    carte?.let { chargerTransactions(it) }
-                }
-                .onFailure { erreur ->
-                    _uiState.update { it.copy(estEnChargement = false, messageErreur = "Erreur lors du chargement: ${erreur.message}") }
-                }
+            val resultat = carteCreditRepository.recupererCartesCredit()
+            if (generation != generationCartes) return@launch
+            resultat.onSuccess { cartes ->
+                val carte = cartes.firstOrNull { it.id == carteCreditId }
+                _uiState.update { it.copy(
+                    cartesCredit = cartes,
+                    carteSelectionnee = carte,
+                    estEnChargement = false,
+                    messageErreur = if (carte == null) "Carte introuvable ou archivée" else null
+                ) }
+                carte?.let { viewModelScope.launch { chargerTransactions(it) } }
+            }.onFailure { erreur ->
+                _uiState.update { it.copy(
+                    estEnChargement = false, messageErreur = "Erreur lors du chargement : ${erreur.message}"
+                ) }
+            }
         }
     }
 
     private suspend fun chargerTransactions(carte: CompteCredit) {
-        val transactions = carteCreditRepository.recupererHistoriqueTransactions(carte.id).getOrElse { erreur ->
-            _uiState.update { it.copy(messageErreur = "Historique de carte indisponible : ${erreur.message}",
-                transactionsCarte = emptyList(), alertes = emptyList()) }
-            return
-        }
-        _uiState.update {
-            it.copy(
-                transactionsCarte = transactions,
-                alertes = GenerateurAlertesCarte.generer(carte, transactions)
-            )
+        val generation = ++generationHistorique
+        val resultat = carteCreditRepository.recupererHistoriqueTransactions(carte.id)
+        if (generation != generationHistorique ||
+            _uiState.value.carteSelectionnee?.id != carte.id) return
+        resultat.onSuccess { transactions ->
+            _uiState.update { courant ->
+                if (courant.carteSelectionnee?.id != carte.id) courant
+                else courant.copy(
+                    transactionsCarte = transactions,
+                    alertes = GenerateurAlertesCarte.generer(carte, transactions)
+                )
+            }
+        }.onFailure { erreur ->
+            _uiState.update { courant ->
+                if (courant.carteSelectionnee?.id != carte.id) courant
+                else courant.copy(
+                    messageErreur = "Historique de carte indisponible : ${erreur.message}",
+                    transactionsCarte = emptyList(), alertes = emptyList()
+                )
+            }
         }
     }
 
     fun selectionnerCarte(carte: CompteCredit) {
-        _uiState.update { it.copy(carteSelectionnee = carte) }
+        generationCartes++
+        generationHistorique++
+        _uiState.update { it.copy(
+            carteSelectionnee = carte,
+            transactionsCarte = emptyList(), alertes = emptyList()
+        ) }
         viewModelScope.launch { chargerTransactions(carte) }
     }
 
