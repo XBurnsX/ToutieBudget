@@ -512,15 +512,6 @@ class ComptesViewModel(
                     tauxInteret = formState.tauxCarte.replace(',', '.').toDoubleOrNull(),
                     detailsCarteJson = com.xburnsx.toutiebudget.data.modeles.DetailsCarte(emetteur = formState.emetteurCarte).versJson()
                 )
-                "Dette" -> CompteDette(
-                    id = IdGenerator.generateId(), // connu d'avance pour relier son enveloppe (DF11)
-                    nom = formState.nom,
-                    soldeDette = -soldeInitial, // dette négative à la création
-                    estArchive = false,
-                    ordre = 0,
-                    montantInitial = soldeInitial,
-                    prixTotal = soldeInitial
-                )
                 "Investissement" -> CompteInvestissement(
                     nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0,
                     // IA2 : la valeur à la création est la valeur de départ connue du suivi
@@ -554,56 +545,10 @@ class ComptesViewModel(
 
                         when (nouveauCompte) {
                             is CompteDette -> {
-                                // 1) Assurer la catégorie "Dettes" et la forcer en première position
-                                val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                                val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) } ?: run {
-                                    val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
-                                        id = "",
-                                        utilisateurId = utilisateurId,
-                                        nom = "Dettes",
-                                        ordre = 0
-                                    )
-                                    categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
-                                }
-                                
-                                try {
-                                    if (catDettes.ordre != 0) {
-                                        categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 0))
-                                    }
-                                    val autres = categories.filter { it.id != catDettes.id }.sortedBy { it.ordre }
-                                    autres.forEachIndexed { index, c ->
-                                        val targetOrdre = index + 1
-                                        if (c.ordre != targetOrdre) {
-                                            categorieRepository.mettreAJourCategorie(c.copy(ordre = targetOrdre))
-                                        }
-                                    }
-                                } catch (_: Exception) {}
-
-                                // 2) Créer l'enveloppe associée à la dette
-                                val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
-                                    id = IdGenerator.generateId(),
-                                    utilisateurId = utilisateurId,
-                                    nom = nouveauCompte.nom,
-                                    categorieId = catDettes.id,
-                                    estArchive = false,
-                                    ordre = 0,
-                                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
-                                    objectifMontant = 0.0,
-                                    dateObjectif = null,
-                                    dateDebutObjectif = null,
-                                    objectifJour = null,
-                                    resetApresEcheance = false
-                                )
-                                enveloppeRepository.creerEnveloppe(env)
-                                // DF11 : lien permanent dette -> enveloppe (par ID, plus par nom)
-                                compteRepository.mettreAJourCompte(
-                                    nouveauCompte.copy(
-                                        utilisateurId = utilisateurId,
-                                        detailsDetteJson = nouveauCompte.details.copy(enveloppeId = env.id).versJson()
-                                    )
-                                )
+                                // Toute dette doit avoir été créée atomiquement plus haut.
+                                throw IllegalStateException("Création de dette hors transaction interdite.")
                             }
-                            
+
                             is CompteCredit -> {
                                 // Assurer catégories et ordre: Cartes de crédit (0), Dettes (1), autres (2+)
                                 val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
