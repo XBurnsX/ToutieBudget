@@ -44,11 +44,15 @@ fun RelevesCarteCard(
     onAjouter: () -> Unit,
     onModifier: (ReleveCarte) -> Unit,
     onComptabiliserInterets: (String) -> Unit,
-    onComptabiliserFrais: (String) -> Unit
+    onComptabiliserFrais: (String) -> Unit,
+    onDejaInclus: (releveId: String, estInteret: Boolean) -> Unit
 ) {
     val releves = carte.details.relevesTries
     var confirmerInterets by remember(carte.id) { mutableStateOf<ReleveCarte?>(null) }
     var confirmerFrais by remember(carte.id) { mutableStateOf<ReleveCarte?>(null) }
+    var confirmerDejaInclus by remember(carte.id) {
+        mutableStateOf<Pair<ReleveCarte, Boolean>?>(null)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -106,19 +110,35 @@ fun RelevesCarteCard(
                         color = Color.Gray,
                         style = MaterialTheme.typography.bodySmall
                     )
-                    if (releve.interetsFactures > 0.005 && !releve.interetsComptabilises) {
+                    if (releve.interetsFactures > 0.005 &&
+                        !releve.interetsComptabilises && !releve.interetsDejaInclus) {
                         TextButton(onClick = { confirmerInterets = releve }) {
-                            Text("Ajouter ces intérêts au solde de la carte")
+                            Text("Ajouter ces intérêts au solde")
+                        }
+                        TextButton(onClick = { confirmerDejaInclus = releve to true }) {
+                            Text("Intérêts déjà inclus dans mon solde")
                         }
                     } else if (releve.interetsComptabilises) {
-                        Text("Intérêts déjà ajoutés au solde.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        Text("Intérêts ajoutés au solde par l'app.", color = Color.Gray,
+                            style = MaterialTheme.typography.bodySmall)
+                    } else if (releve.interetsDejaInclus) {
+                        Text("Intérêts marqués comme déjà inclus (aucun débit).",
+                            color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     }
-                    if (releve.fraisFactures > 0.005 && !releve.fraisComptabilises) {
+                    if (releve.fraisFactures > 0.005 &&
+                        !releve.fraisComptabilises && !releve.fraisDejaInclus) {
                         TextButton(onClick = { confirmerFrais = releve }) {
                             Text("Ajouter ces frais officiels au solde")
                         }
+                        TextButton(onClick = { confirmerDejaInclus = releve to false }) {
+                            Text("Frais déjà inclus dans mon solde")
+                        }
                     } else if (releve.fraisComptabilises) {
-                        Text("Frais déjà ajoutés au solde.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                        Text("Frais ajoutés au solde par l'app.", color = Color.Gray,
+                            style = MaterialTheme.typography.bodySmall)
+                    } else if (releve.fraisDejaInclus) {
+                        Text("Frais marqués comme déjà inclus (aucun débit).",
+                            color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 if (index < releves.lastIndex) HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
@@ -197,6 +217,27 @@ fun RelevesCarteCard(
                 }) { Text("Ajouter") }
             },
             dismissButton = { TextButton(onClick = { confirmerFrais = null }) { Text("Annuler") } }
+        )
+    }
+    confirmerDejaInclus?.let { (releve, estInteret) ->
+        AlertDialog(
+            onDismissRequest = { confirmerDejaInclus = null },
+            title = { Text("Déjà compris dans le solde ?") },
+            text = { Text(
+                "Confirme que les ${if (estInteret) "intérêts" else "frais"} de " +
+                    "${MoneyFormatter.formatAmount(if (estInteret) releve.interetsFactures else releve.fraisFactures)} " +
+                    "du relevé sont DÉJÀ compris dans le solde actuel. " +
+                    "Aucun débit supplémentaire ne sera effectué. Le choix sera conservé dans l'historique."
+            ) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDejaInclus(releve.id, estInteret)
+                    confirmerDejaInclus = null
+                }) { Text("Confirmer") }
+            },
+            dismissButton = { TextButton(onClick = { confirmerDejaInclus = null }) {
+                Text("Annuler")
+            } }
         )
     }
 }
