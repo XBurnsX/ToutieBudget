@@ -40,12 +40,17 @@ fun ReleveDialog(
     var paiements by remember { mutableStateOf(t(releve.paiementsRecus)) }
     var confirmerSuppression by remember { mutableStateOf(false) }
 
-    fun n(s: String) = s.trim().replace(" ", "").replace(',', '.').takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+    fun n(s: String) = s.trim().replace(" ", "").replace(',', '.')
+        .takeIf { it.isNotEmpty() }?.toDoubleOrNull()?.takeIf { it.isFinite() }
     val erreurEmission = if (MoteurCarteCredit.lireDate(emission.trim()) == null) "Date AAAA-MM-JJ" else null
     val erreurEcheance = if (echeance.isNotBlank() && MoteurCarteCredit.lireDate(echeance.trim()) == null) "Date AAAA-MM-JJ" else null
-    val erreurSolde = if (n(solde) == null) "Solde du relevé requis" else null
+    val erreurSolde = if (n(solde) == null || n(solde)!! < 0.0) "Montant dû sur le relevé requis (positif ou zéro)" else null
+    val erreurDates = if (echeance.isNotBlank() && erreurEmission == null && erreurEcheance == null &&
+        MoteurCarteCredit.lireDate(echeance.trim())!!.before(MoteurCarteCredit.lireDate(emission.trim()))
+    ) "L'échéance ne peut pas précéder le relevé." else null
     val erreursMontants = listOf(minimum, interets, frais, paiements).any { it.isNotBlank() && (n(it) == null || n(it)!! < 0) }
-    val valide = erreurEmission == null && erreurEcheance == null && erreurSolde == null && !erreursMontants
+    val valide = erreurEmission == null && erreurEcheance == null && erreurDates == null &&
+        erreurSolde == null && !erreursMontants
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -53,7 +58,7 @@ fun ReleveDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Champ("Date d'émission (AAAA-MM-JJ)", emission, erreurEmission, texte = true) { emission = it }
-                Champ("Date d'échéance (AAAA-MM-JJ)", echeance, erreurEcheance, texte = true) { echeance = it }
+                Champ("Date d'échéance (AAAA-MM-JJ)", echeance, erreurEcheance ?: erreurDates, texte = true) { echeance = it }
                 Champ("Solde du relevé ($)", solde, erreurSolde) { solde = it }
                 Champ("Paiement minimum ($)", minimum, null) { minimum = it }
                 Champ("Intérêts facturés ($)", interets, null, aide = "Déjà inclus dans le solde du relevé.") { interets = it }
