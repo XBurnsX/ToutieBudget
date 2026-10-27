@@ -255,10 +255,19 @@ fun AjoutTransactionScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            "Maximum dû : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(centsDus / 100.0)}",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "Maximum dû : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(centsDus / 100.0)}",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                            if ((uiState.montant.toLongOrNull() ?: 0L) > centsDus) {
+                                                Text(
+                                                    "Paiement supérieur au solde restant. Réduis le montant.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
                                         TextButton(
                                             onClick = { viewModel.onMontantChanged(centsDus.toString()) },
                                             enabled = centsDus > 0 && !uiState.estEnTrainDeSauvegarder
