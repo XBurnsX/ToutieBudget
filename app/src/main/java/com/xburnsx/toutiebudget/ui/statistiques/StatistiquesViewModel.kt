@@ -483,18 +483,29 @@ class StatistiquesViewModel(
         )
     }
 
-    // Ouvrir la modal pour toutes les dépenses de la période
+    // SA2 : les listes des KPI suivent la vue sélectionnée.
+    // Un paiement de carte n'est pas une dépense de consommation, mais
+    // figure dans les flux qui sortent réellement du compte.
     fun ouvrirModalDepenses() {
-        val txPeriode = _uiState.value.transactionsPeriode
-        val depenses = txPeriode.filter(ReglesStatistiques::estDepenseBudget)
-        ouvrirModalTransactions("Toutes les dépenses - ${_uiState.value.periode?.label ?: "Période"}", depenses)
+        val etat = _uiState.value
+        val flux = etat.vue == VueStatistiques.FLUX_TRESORERIE
+        val sorties = etat.transactionsPeriode.filter {
+            if (flux) ReglesStatistiques.estSortieTresorerie(it)
+            else ReglesStatistiques.estDepenseBudget(it)
+        }
+        val titre = if (flux) "Sorties de trésorerie" else "Dépenses de consommation"
+        ouvrirModalTransactions("$titre - ${etat.periode?.label ?: "Période"}", sorties)
     }
 
-    // Ouvrir la modal pour tous les revenus de la période
     fun ouvrirModalRevenus() {
-        val txPeriode = _uiState.value.transactionsPeriode
-        val revenus = txPeriode.filter(ReglesStatistiques::estRevenuBudget)
-        ouvrirModalTransactions("Tous les revenus - ${_uiState.value.periode?.label ?: "Période"}", revenus)
+        val etat = _uiState.value
+        val flux = etat.vue == VueStatistiques.FLUX_TRESORERIE
+        val entrees = etat.transactionsPeriode.filter {
+            if (flux) ReglesStatistiques.estEntreeTresorerie(it)
+            else ReglesStatistiques.estRevenuBudget(it)
+        }
+        val titre = if (flux) "Entrées de trésorerie" else "Revenus gagnés"
+        ouvrirModalTransactions("$titre - ${etat.periode?.label ?: "Période"}", entrees)
     }
     
     // Fonctions de pagination pour les listes de transactions
