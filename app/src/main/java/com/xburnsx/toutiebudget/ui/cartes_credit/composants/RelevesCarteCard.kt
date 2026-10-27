@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.ReleveCarte
+import com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.util.concurrent.TimeUnit
@@ -123,18 +124,37 @@ fun RelevesCarteCard(
                 if (index < releves.lastIndex) HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
             }
 
-            // CC11 : cumul des intérêts RÉELLEMENT facturés par année
-            val parAnnee = releves.groupBy { it.dateEmission.take(4) }.mapValues { (_, r) -> r.sumOf { it.interetsFactures } }
-                .filterValues { it > 0.005 }
+            // CC11 : chaque année, distinguer les intérêts FACTURÉS par la banque
+            // de l'estimation simple fondée sur le relevé précédent.
+            val parAnnee = releves.groupBy { it.dateEmission.take(4) }
             if (parAnnee.isNotEmpty()) {
                 HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                Text("Intérêts facturés par année", color = Color.White, fontWeight = FontWeight.Medium)
-                parAnnee.toSortedMap(compareByDescending { it }).forEach { (annee, total) ->
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(annee, color = Color.LightGray, modifier = Modifier.weight(1f))
-                        Text(MoneyFormatter.formatAmount(total), color = Color.White)
+                Text("Intérêts par année (relevés)", color = Color.White,
+                    fontWeight = FontWeight.Medium)
+                parAnnee.toSortedMap(compareByDescending { it }).forEach { (annee, relevements) ->
+                    val reels = relevements.sumOf { it.interetsFactures }
+                    val estimations = relevements.map { releve ->
+                        val indice = releves.indexOfFirst { it.id == releve.id }
+                        releves.getOrNull(indice + 1)?.let { precedent ->
+                            interetsEstimesPeriode(carte, precedent, releve)
+                        }
+                    }
+                    val estimationsCompletes = estimations.isNotEmpty() && estimations.all { it != null }
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(annee, color = Color.LightGray, fontWeight = FontWeight.Medium)
+                        Text("Facturés (officiels) : ${MoneyFormatter.formatAmount(reels)}",
+                            color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Text(if (estimationsCompletes)
+                            "Référence estimée : ${MoneyFormatter.formatAmount(estimations.sumOf { it ?: 0.0 })}"
+                            else "Référence estimée : données insuffisantes",
+                            color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     }
                 }
+                Text(
+                    "L'estimation de référence suppose un solde stable au taux achats entre deux relevés. " +
+                        "Elle n'inclut pas les paiements ni les taux spéciaux : ce n'est pas un montant bancaire.",
+                    color = Color.Gray, style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -181,13 +201,16 @@ fun RelevesCarteCard(
     }
 }
 
-/** Estimation pour la période entre deux relevés à partir du solde officiel précédent (comparaison seulement). */
+/** Estimation indicative, jamais un taux bancaire confirmé. */
 private fun interetsEstimesPeriode(carte: CompteCredit, precedent: ReleveCarte, releve: ReleveCarte): Double? {
+    if (carte.details.naturesMouvements.values.any { it != NatureMouvementCarte.ACHAT }) return null
     val debut = MoteurCarteCredit.lireDate(precedent.dateEmission) ?: return null
-    val fin = MoteurCarteCredit.lireDate(releve.dateEmission) ?: return null
-    val jours = TimeUnit.MILLISECONDS.toDays(fin.time - debut.time).toInt()
-    if (jours <= 0) return null
+    val dateDebut = runCatching { java.time.LocalDate.parse(precedent.dateEmission) }.getOrNull() ?: return null
+    val dateFin = runCatching { java.time.LocalDate.parse(releve.dateEmission) }.getOrNull() ?: return null
+    val jours = java.time.temporal.ChronoUnit.DAYS.between(dateDebut, dateFin).toInt()
+    if (jours !in 1..62 || !precedent.soldeOfficiel.isFinite()) return null
+    val taux = MoteurCarteCredit.tauxPourNature(carte, NatureMouvementCarte.ACHAT, debut) ?: return null
     return MoteurCarteCredit.arrondi(
-        MoteurCarteCredit.interetsEstimes(precedent.soldeOfficiel, MoteurCarteCredit.tauxEffectif(carte, debut), jours)
+        MoteurCarteCredit.interetsEstimes(precedent.soldeOfficiel, taux, jours)
     )
 }
