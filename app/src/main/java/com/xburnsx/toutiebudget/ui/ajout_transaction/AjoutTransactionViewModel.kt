@@ -71,6 +71,8 @@ class AjoutTransactionViewModel(
     private var allocationsIndisponibles = false
     /** Début de l'opération courante : permet à AA5 de ne suivre que ses propres écritures. */
     private var debutDerniereEcriture: Long? = null
+    // AT4/AT14 : identifiant conservé pour les nouvelles tentatives du même brouillon.
+    private var idOperationBrouillon: String = IdGenerator.generateId()
 
     init {
         chargerDonneesInitiales()
@@ -458,6 +460,7 @@ class AjoutTransactionViewModel(
      * Réinitialise pour une nouvelle transaction.
      */
     fun nouvelleTransaction() {
+        idOperationBrouillon = IdGenerator.generateId()
         _uiState.update { 
             AjoutTransactionUiState(
                 isLoading = false,
@@ -563,6 +566,8 @@ class AjoutTransactionViewModel(
      * ne reste pas vrai : l'écran ne relance donc pas la navigation une 2e fois.
      */
     private fun terminerAvecSucces(message: String, detteSoldee: Boolean = false) {
+        // Une nouvelle saisie = nouvelle opération; un échec gardera l'ancien ID.
+        idOperationBrouillon = IdGenerator.generateId()
         val avant = _uiState.value
         _uiState.update {
             AjoutTransactionUiState(
@@ -1162,11 +1167,21 @@ class AjoutTransactionViewModel(
                         else -> "comptes_cheques"
                     }
                     val montantDollars = MoneyFormatter.roundAmount(montant / 100.0)
-                    val idTransaction = IdGenerator.generateId()
+                    val idTransaction = idOperationBrouillon
 
                     // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
                     val transactionPrincipale = runCatching {
                         operationAtomique.executer {
+                            // Rejeu après réponse perdue : jamais retoucher les fractions.
+                            val dejaEnregistree = transactionRepository.recupererTransactionParId(idTransaction).getOrNull()
+                            if (dejaEnregistree != null) {
+                                if (dejaEnregistree.type != typeTransaction ||
+                                    dejaEnregistree.compteId != compte.id ||
+                                    !dejaEnregistree.estFractionnee ||
+                                    kotlin.math.abs(dejaEnregistree.montant - montantDollars) > 0.000001
+                                ) throw IllegalStateException("L'identifiant de cette opération est déjà utilisé.")
+                                return@executer
+                            }
                             // AT4 : création d'allocation, JSON des fractions et
                             // écritures de comptes dans la MÊME transaction Room.
                         val compteConfirme = compteRepository.recupererCompteParIdToutesCollections(compte.id).getOrThrow()
@@ -1252,7 +1267,8 @@ class AjoutTransactionViewModel(
                                 date = dateTransaction,
                                 estFractionnee = true,
                                 sousItems = sousItemsJson,
-                                id = idTransaction
+                                id = idTransaction,
+                                verifierIdempotence = true
                             ).getOrThrow()
 
                             // Chaque fraction touche son allocation ; une allocation introuvable arrête tout
@@ -1470,7 +1486,9 @@ class AjoutTransactionViewModel(
                         enveloppeId = enveloppeId,
                         tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction",
                         note = state.note.takeIf { it.isNotBlank() },
-                        date = dateTransaction
+                        date = dateTransaction,
+                        id = idOperationBrouillon,
+                        verifierIdempotence = true
                     )
 
                     // 🔍 LOG DEBUG : Tracer le résultat de la création
