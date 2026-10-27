@@ -79,7 +79,7 @@ import androidx.compose.material.icons.filled.Menu
 
 /** A3 : filtres d'enveloppes proposés à la demande. */
 enum class FiltreEnveloppes(val libelle: String) {
-    FAVORITES("Favorites"),
+    FAVORITES("Favoris"),
     NEGATIVES("Négatives"),
     SANS_FONDS("Sans fonds"),
     A_FINANCER("Objectif à financer"),
