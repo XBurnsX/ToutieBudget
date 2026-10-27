@@ -313,7 +313,7 @@ data class FormulaireDette(
         n(montantInitial).let { if (it == null || it < 0 || !it.isFinite()) e["montant"] = "Montant positif requis" }
         if (versementPrevu.isNotBlank()) n(versementPrevu).let { if (it == null || it < 0 || !it.isFinite()) e["versement"] = "Montant invalide" }
         if (mode == ModeDette.FINANCE) {
-            n(taux).let { if (it == null || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
+            n(taux).let { if (it == null || !it.isFinite() || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
             dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
         } else {
             if (taux.isNotBlank()) n(taux).let { if (it == null || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100" }
@@ -326,6 +326,12 @@ data class FormulaireDette(
         val fin = MoteurCarteCredit.lireDate(dateFin.trim())
         if (debut != null && fin != null && fin.before(debut)) e["dateFin"] = "La fin précède le début"
         if (jourVersement.isNotBlank() && jourVersement.trim().toIntOrNull() !in 1..31) e["jour"] = "Jour entre 1 et 31"
+        if (changementsTaux.any { c ->
+                MoteurCarteCredit.lireDate(c.date) == null ||
+                    !c.taux.isFinite() || c.taux !in 0.0..100.0
+            } || changementsTaux.map { it.date }.distinct().size != changementsTaux.size) {
+            e["taux"] = "Historique de taux invalide : vérifie chaque date et chaque taux (0 à 100 %)."
+        }
         return e
     }
 
