@@ -294,8 +294,10 @@ class DetteViewModel(
     }
 
     private fun nombre(texte: String): Double? =
-        texte.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
-            ?.takeIf { it.isFinite() }
+        runCatching {
+            java.math.BigDecimal(texte.trim().replace(" ", "").replace(',', '.'))
+                .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+        }.getOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
 }
 
 data class DetteUiState(
@@ -334,10 +336,21 @@ data class FormulaireDette(
     /** DF6 : aucune valeur négative, non numérique, NaN ou division par zéro n'est acceptée. */
     fun valider(): Map<String, String> {
         val e = mutableMapOf<String, String>()
-        fun n(s: String) = s.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+        fun n(s: String): Double? {
+            val normalise = s.trim().replace(" ", "").replace(',', '.')
+            val nombre = runCatching {
+                java.math.BigDecimal(normalise)
+                    .setScale(2, java.math.RoundingMode.UNNECESSARY)
+            }.getOrNull() ?: return null
+            return nombre.toDouble().takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
+        }
         if (nom.isBlank()) e["nom"] = "Nom requis"
-        n(montantInitial).let { if (it == null || it < 0 || !it.isFinite()) e["montant"] = "Montant positif requis" }
-        if (versementPrevu.isNotBlank()) n(versementPrevu).let { if (it == null || it < 0 || !it.isFinite()) e["versement"] = "Montant invalide" }
+        n(montantInitial).let {
+            if (it == null || it < 0) e["montant"] = "Montant invalide (maximum deux décimales)"
+        }
+        if (versementPrevu.isNotBlank()) n(versementPrevu).let {
+            if (it == null || it < 0) e["versement"] = "Versement invalide (maximum deux décimales)"
+        }
         if (mode == ModeDette.FINANCE) {
             n(taux).let { if (it == null || !it.isFinite() || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
             dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
