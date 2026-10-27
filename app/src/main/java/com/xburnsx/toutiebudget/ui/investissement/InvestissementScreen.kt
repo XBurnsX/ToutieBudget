@@ -353,13 +353,16 @@ private fun SectionRepartition(compte: CompteInvestissement) {
         1 -> MoteurInvestissement.repartitionParTitre(compte)
         else -> MoteurInvestissement.repartitionParDevise(compte)
     }
-    if (parts.isEmpty()) return
     Carte("Répartition") {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("Catégorie", "Titre", "Devise").forEachIndexed { i, l -> FilterChip(selected = vue == i, onClick = { vue = i }, label = { Text(l) }) }
         }
-        parts.forEach { Ligne(it.libelle, "${MoneyFormatter.formatAmount(it.valeur)} · ${"%.1f".format(it.pourcentage)} %") }
-        Note("Encaisse incluse ; positions sans cours exclues. Devises non converties.")
+        if (parts.isEmpty()) {
+            Note("Répartition indisponible : prix/positions manquants ou devises non convertibles en CAD sans taux FX connu.")
+        } else {
+            parts.forEach { Ligne(it.libelle, "${MoneyFormatter.formatAmount(it.valeur)} · ${"%.1f".format(it.pourcentage)} %") }
+            Note("Répartition indicative des valeurs connues en CAD; positions sans cours non additionnées.")
+        }
     }
 }
 
