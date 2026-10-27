@@ -189,11 +189,11 @@ Les sections suivantes ne seront pas abordées avant la clôture de la section 1
 
 **État : codage local repris; BANQ-06/IA8 restent conditionnés à l'accès d'un fournisseur bancaire.** Compilation Android, tests Room, multi-appareil et E2E reportés sur décision de l'utilisateur. Ce suivi ne prétend pas que la synchronisation Wealthsimple existe déjà.
 
-## Section 13 — Ajouter transaction (EN COURS, 27 octobre 2026)
+## Section 13 — Ajouter transaction : REVUE DE CODAGE TRAITÉE (27 octobre 2026)
 
 Référence : les **28 exigences** AT1–AT21 et AA1–AA7 du TXT maître.
-Plusieurs corrections existaient déjà sur `main` avant cette reprise (dernier commit précédent : `6fb30b5`).
-**Ne pas déclarer la section terminée** : il reste à vérifier chaque exigence contre le code, notamment l'idempotence multi-appareils et l'association du statut de synchro à l'opération précise. Aucun E2E ni compilation n'est revendiqué.
+Plusieurs corrections existaient déjà sur `main` avant cette reprise (HEAD initial : `6fb30b5`).
+**Ce statut vise exclusivement la revue statique et le codage local.** Il ne signifie PAS que les 28 exigences ont réussi en Android, ni que le binaire compile, ni que les reprises après fermeture brutale ou conflits PocketBase ont été observées en conditions réelles. Les intégrations bancaires BANQ-01–06 restent reportées.
 
 | IDs / chemin | Ce qui a été codé pendant cette reprise | Commit |
 |---|---|---|
@@ -206,15 +206,51 @@ Plusieurs corrections existaient déjà sur `main` avant cette reprise (dernier 
 | AT4, `EnregistrerTransactionUseCase` | Événement de rafraîchissement du budget après commit, pas pendant transaction Room | `9e9efeb` |
 | Tests de régression ajoutés (non exécutés) | Statut AA5, échec de journal AT15, provenance et archivage AT11/AT12/AT19, total de fractions discordant | `cf3d9e8`, `ef3e696`, `b5af8a3`, `80745a8`, `a2994ec` |
 
-**À contrôler avant de clôturer :** suivi AA5 attaché à des identifiants de tâches d'une opération plutôt qu'à la seule heure; anti-doublons de transactions lors des reprises/synchronisations; validation finale de tous les modes; compilation et E2E reportés selon la consigne.
+### Revue statique des IDs retenus (sans preuve E2E)
+
+| ID | Parcours de codage revu |
+|---|---|
+| AT1 | Emprunt créé une fois, dossier/compte/prêt à placer liés, clé de brouillon stable |
+| AT2 | Remboursement donné débite une fois, groupe FIFO et anti-rejeu |
+| AT3 | Somme remboursable et vérification du dossier avant débit |
+| AT4 | `OperationAtomiqueRoom`, transactions + SyncJobs; aucun retour inverse dans rollback Room |
+| AT5 | Date choisie transmise au service paiement carte/dette et aux deux écritures |
+| AT6 | Allocations chargées pour le mois sélectionné et génération de requête |
+| AT7 | Invalidation des fractions après changement du contexte |
+| AT8 | Débit unique et allocations individuelles, carte de crédit cohérente |
+| AT9 | JSON `enveloppe_id` et ancienne clé `enveloppeId` dans création, modification, historique et statistiques |
+| AT10 | Notes des fractions conservées en JSON, édition, historique |
+| AT11 | Total exact en cents, enveloppes actives, compte et provenance relus sous Room |
+| AT12 | Provenance vérifiée par allocation; aucune réattribution silencieuse d'historique |
+| AT13 | Collection `comptes_investissement` canonique |
+| AT14 | Verrou d'enregistrement et IDs d'opération stables pour dépense, fractions, prêts, remboursements et paiement |
+| AT15 | Erreurs des résultats et du journal propagées pour empêcher faux succès |
+| AT16 | Une trace globale de compte pour les remboursements ventilés par dossiers |
+| AT17 | Un message, effacement et navigation contrôlés après succès |
+| AT18 | Tiers normalisés, doublons évités dans le dropdown ET le repository |
+| AT19 | Source distincte, cible carte/dette active, montant/dette revalidés |
+| AT20 | Brouillon gardé après échec et sélections invalidées si archives |
+| AT21 | Allocations illisibles bloquent la dépense et affichent une erreur |
+| AA1 | Aperçu court compte/enveloppe/montant/date avant sauvegarde |
+| AA2 | Suggestions du tiers exact, non imposées, sans assimilation arbitraire d'homonymes |
+| AA3 | Dossier précis ou FIFO explicite |
+| AA4 | Reprise de dépense/revenu en brouillon sans écriture automatique ni réemploi d'ID |
+| AA5 | Statut des nouveaux SyncJobs de l'opération, avec tâches de compte déjà compactées |
+| AA6 | Avertissement de date future, sans interdiction |
+| AA7 | Clavier et insets système, sans espacement figé par hauteur d'écran |
+
+**Nouveaux commits pendant la reprise** : `3c6791a`, `ff53b70`, `91906af`, `e121240`, `b9e0ec8`, `152745f`, `a00a9d7`, `275cb7b`, `0888f7a`, `33f3959`, `d644e2f`, `bf46da7`, `8338c8f`, `313af4e`, `20225c2`, `cd92e33`, `6c675dc`, `cf951b6`, `ffce171`, `affc65e`, `648edb1`, `ad0c370`. Ces commits ne constituent pas une preuve de compilation.
+
+**Limites connues à tester** : retour réseau, suppression/nettoyage de SyncJobs pendant l'accusé de réception, multi-appareils et reprise d'un formulaire après *process kill*. Un nouvel enregistrement intentionnel après redémarrage reçoit un nouvel ID; la détection de correspondance avec l'import bancaire appartient à BANQ-06. Aucun test Android ni compilation n'a été exécuté au cours de cette reprise.
 
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 13 | **EN COURS**, voir tableau de la section 13. |
-| 14 à 27 | Reprise exhaustive par ID non achevée; ne pas avancer tant que 13 n'est pas clôturée. |
+| 13 | **Revue de codage traitée (28 IDs)**; compilation, E2E et conflits de synchronisation non validés. |
+| 14 | **PROCHAINE SECTION** — statistiques, reprendre chaque ID ST1–ST20 / SA1–SA8. |
+| 15 à 27 | Reprise exhaustive par ID non achevée. |
 
 ## Règles de suivi
 
