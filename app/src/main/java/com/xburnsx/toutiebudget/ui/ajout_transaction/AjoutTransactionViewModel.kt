@@ -463,6 +463,7 @@ class AjoutTransactionViewModel(
      * Réinitialise pour une nouvelle transaction.
      */
     fun nouvelleTransaction() {
+        if (_uiState.value.estEnTrainDeSauvegarder) return
         idOperationBrouillon = IdGenerator.generateId()
         _uiState.update { 
             AjoutTransactionUiState(
@@ -684,6 +685,7 @@ class AjoutTransactionViewModel(
      * (l'utilisateur les choisit de nouveau). Paiements, virements et prêts ne se reprennent pas ici.
      */
     fun reprendreTransaction(transactionId: String) {
+        if (_uiState.value.estEnTrainDeSauvegarder) return
         viewModelScope.launch {
             val tx = transactionRepository.recupererTransactionParId(transactionId).getOrNull()
             if (tx == null) {
@@ -717,6 +719,7 @@ class AjoutTransactionViewModel(
                 tx.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it)?.enveloppeId }
             } else null
 
+            idOperationBrouillon = IdGenerator.generateId() // AA4 : duplicata = nouveau brouillon
             _uiState.update { state ->
                 state.copy(
                     modeOperation = "Standard",
@@ -889,6 +892,7 @@ class AjoutTransactionViewModel(
      */
     fun sauvegarderTransaction() {
         val state = _uiState.value
+        val idAuClic = idOperationBrouillon // Ne change jamais pendant la coroutine
         
         if (!state.peutSauvegarder) {
             return
@@ -956,7 +960,7 @@ class AjoutTransactionViewModel(
                             Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second)
                                 .atZone(ZoneId.systemDefault()).toInstant())
                         },
-                        operationId = idOperationBrouillon
+                        operationId = idAuClic
                     )
                     
                     // DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}
@@ -1033,7 +1037,7 @@ class AjoutTransactionViewModel(
                         operationAtomique.executer {
                             // AT14 : un ancien succes relance avec le meme brouillon
                             // ne doit creer ni second dossier ni nouvelle variation.
-                            val precedente = transactionRepository.recupererTransactionParId(idOperationBrouillon).getOrNull()
+                            val precedente = transactionRepository.recupererTransactionParId(idAuClic).getOrNull()
                             if (precedente != null) {
                                 if (precedente.type != TypeTransaction.Pret ||
                                     precedente.compteId != compte.id ||
@@ -1053,7 +1057,7 @@ class AjoutTransactionViewModel(
                             // persister la transaction pour historique
                             transactionRepository.creerTransaction(
                                 Transaction(
-                                    id = idOperationBrouillon,
+                                    id = idAuClic,
                                     utilisateurId = utilisateurId,
                                     type = TypeTransaction.Pret,
                                     montant = montantDollars,
@@ -1087,7 +1091,7 @@ class AjoutTransactionViewModel(
                         terminerAvecSucces("Prêt enregistré")
                         return@lancerUneFois
                     } else if (state.typePret == "Remboursement reçu") {
-                        enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId)
+                        enregistrerRemboursementPersonnel(nomTiers, recu = true, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId, groupeOperation = idAuClic)
                         terminerAvecSucces("Remboursement reçu enregistré")
                         return@lancerUneFois
                     }
@@ -1120,7 +1124,7 @@ class AjoutTransactionViewModel(
                         operationAtomique.executer {
                             // AT14 : un ancien succes relance avec le meme brouillon
                             // ne doit creer ni second dossier ni nouvelle variation.
-                            val precedente = transactionRepository.recupererTransactionParId(idOperationBrouillon).getOrNull()
+                            val precedente = transactionRepository.recupererTransactionParId(idAuClic).getOrNull()
                             if (precedente != null) {
                                 if (precedente.type != TypeTransaction.Emprunt ||
                                     precedente.compteId != compte.id ||
@@ -1139,7 +1143,7 @@ class AjoutTransactionViewModel(
                             ).getOrThrow()
                             transactionRepository.creerTransaction(
                                 Transaction(
-                                    id = idOperationBrouillon,
+                                    id = idAuClic,
                                     utilisateurId = utilisateurId,
                                     type = TypeTransaction.Emprunt,
                                     montant = montantDollars,
@@ -1174,7 +1178,7 @@ class AjoutTransactionViewModel(
                         terminerAvecSucces("Emprunt enregistré")
                         return@lancerUneFois
                     } else if (state.typeDette == "Remboursement donné") {
-                        enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId)
+                        enregistrerRemboursementPersonnel(nomTiers, recu = false, montantDollars = montantDollars, compte = compte, collectionCompte = collectionCompte, date = dateTx2, note = state.note.takeIf { it.isNotBlank() }, dossierId = state.dossierChoisiId, groupeOperation = idAuClic)
                         terminerAvecSucces("Remboursement donné enregistré")
                         return@lancerUneFois
                     }
@@ -1204,7 +1208,7 @@ class AjoutTransactionViewModel(
                         else -> "comptes_cheques"
                     }
                     val montantDollars = MoneyFormatter.roundAmount(montant / 100.0)
-                    val idTransaction = idOperationBrouillon
+                    val idTransaction = idAuClic
 
                     // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
                     val transactionPrincipale = runCatching {
@@ -1524,7 +1528,7 @@ class AjoutTransactionViewModel(
                         tiersUtiliser = state.tiersUtiliser.takeIf { it.isNotBlank() } ?: "Transaction",
                         note = state.note.takeIf { it.isNotBlank() },
                         date = dateTransaction,
-                        id = idOperationBrouillon,
+                        id = idAuClic,
                         verifierIdempotence = true
                     )
 
@@ -1595,12 +1599,13 @@ class AjoutTransactionViewModel(
         collectionCompte: String,
         date: Date,
         note: String?,
-        dossierId: String? = null // AA3 : un dossier précis ; null = du plus ancien au plus récent
+        dossierId: String? = null, // AA3 : un dossier précis ; null = du plus ancien au plus récent
+        groupeOperation: String = idOperationBrouillon
     ) {
         val typePret = if (recu) com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
         else com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE
         // AT14 : toutes les portions d'un meme remboursement portent la meme cle.
-        val groupeRemboursement = idOperationBrouillon
+        val groupeRemboursement = groupeOperation
         suspend fun remboursementDejaEnregistre(): Boolean {
             val existantes = transactionRepository.recupererToutesLesTransactions().getOrThrow()
                 .filter { tx ->
