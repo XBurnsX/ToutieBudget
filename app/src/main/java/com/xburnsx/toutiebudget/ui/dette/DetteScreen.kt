@@ -83,6 +83,10 @@ fun DetteScreen(
     var echeancierOuvert by remember { mutableStateOf(false) }
 
     LaunchedEffect(detteId) { viewModel.chargerDette(detteId) }
+    // DA5 : fermeture seulement après validation Room ET de la trace d'ajustement.
+    LaunchedEffect(uiState.ajustementReussiCompteur) {
+        if (uiState.ajustementReussiCompteur > 0) dialogueAjustement = null
+    }
     // Le ViewModel est partagé : on repart d'un état vide à chaque sortie de l'écran
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { viewModel.reinitialiser() } }
 
@@ -164,7 +168,7 @@ fun DetteScreen(
             enCours = uiState.isSaving,
             onConfirmer = { montant, date, note ->
                 viewModel.ajusterSolde(type, montant, date, note)
-                dialogueAjustement = null
+                // Conserver les champs saisis jusqu'à la confirmation de réussite.
             },
             onAnnuler = { dialogueAjustement = null }
         )
@@ -414,7 +418,7 @@ private fun DialogueAjustement(
     val valeur = montant.replace(',', '.').replace(" ", "").toDoubleOrNull()?.takeIf { it >= 0 && it.isFinite() }
     val dateValide = MoteurCarteCredit.lireDate(date.trim()) != null
     AlertDialog(
-        onDismissRequest = onAnnuler,
+        onDismissRequest = { if (!enCours) onAnnuler() },
         title = { Text(type.libelle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -434,7 +438,7 @@ private fun DialogueAjustement(
                 Text("Confirmer")
             }
         },
-        dismissButton = { TextButton(onClick = onAnnuler) { Text("Annuler") } }
+        dismissButton = { TextButton(onClick = onAnnuler, enabled = !enCours) { Text("Annuler") } }
     )
 }
 
