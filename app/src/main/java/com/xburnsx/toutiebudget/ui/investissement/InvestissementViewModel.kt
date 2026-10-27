@@ -144,8 +144,7 @@ class InvestissementViewModel(
         if (MoteurCarteCredit.lireDate(mouvement.date) == null ||
             montantAuCent == null || !mouvement.montant.isFinite() || mouvement.montant < 0.0 ||
             (mouvement.quantite != null && (!mouvement.quantite.isFinite() || mouvement.quantite < 0.0)) ||
-            (mouvement.gainRealise != null && !mouvement.gainRealise.isFinite()) ||
-            (mouvement.type == TypeMouvementPlacement.VENTE && mouvement.gainRealise == null)
+            (mouvement.gainRealise != null && !mouvement.gainRealise.isFinite())
         ) {
             _uiState.update { it.copy(message = "Mouvement invalide : date, montant ou gain réalisé manquant.") }
             return
