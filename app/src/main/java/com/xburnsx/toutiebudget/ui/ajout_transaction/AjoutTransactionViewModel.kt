@@ -56,6 +56,7 @@ class AjoutTransactionViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouSauvegarde = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    private val verrouCreationTiers = com.xburnsx.toutiebudget.utils.VerrouOperation()
 
     private val _uiState = MutableStateFlow(AjoutTransactionUiState())
     val uiState: StateFlow<AjoutTransactionUiState> = _uiState.asStateFlow()
@@ -706,10 +707,23 @@ class AjoutTransactionViewModel(
             return
         }
 
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouCreationTiers) {
             _uiState.update { it.copy(isLoadingTiers = true) }
 
             try {
+                // AT18 : le cache du dropdown peut être périmé ou un autre
+                // clic vient tout juste de créer ce tiers; relire Room.
+                val tiersActuels = tiersRepository.recupererTousLesTiers().getOrThrow()
+                val dejaExistant = tiersActuels.firstOrNull { cleTiers(it.nom) == cle }
+                if (dejaExistant != null) {
+                    allTiers = tiersActuels
+                    _uiState.update { state ->
+                        state.copy(isLoadingTiers = false,
+                            tiersDisponibles = tiersActuels,
+                            tiersUtiliser = dejaExistant.nom).calculerValidite()
+                    }
+                    return@lancerUneFois
+                }
                 val nouveauTiers = Tiers(nom = nomTiers.trim())
                 val result = tiersRepository.creerTiers(nouveauTiers)
 
