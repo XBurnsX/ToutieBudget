@@ -241,14 +241,14 @@ object MoteurCarteCredit {
 
     // ===== Paiements depuis un relevé (CC9) =====
 
-    private val typesPaiement = setOf(
-        TypeTransaction.Paiement, TypeTransaction.Emprunt, TypeTransaction.TransfertEntrant,
+    private val typesReduisantDette = setOf(
+        TypeTransaction.Paiement, TypeTransaction.TransfertEntrant,
         TypeTransaction.Revenu, TypeTransaction.RemboursementRecu
     )
 
     /** Effet d'une transaction de la carte sur la dette : + augmente la dette, - la réduit. */
     private fun effetSurDette(tx: Transaction): Double =
-        if (tx.type in typesPaiement) -tx.montant else tx.montant
+        if (tx.type in typesReduisantDette) -tx.montant else tx.montant
 
     // CC7/CC9 : seules les vraies transactions de paiement de carte
     // couvrent le minimum. Un revenu/remboursement marchand ne doit pas
