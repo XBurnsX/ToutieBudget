@@ -62,7 +62,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         try {
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)
-                ?: return@withContext
+                ?: throw IllegalStateException("Allocation mensuelle introuvable pour la mise à jour : $id")
 
             // 2. Mettre à jour les montants
             val nouvelleAllocation = allocationEntity.copy(
@@ -85,7 +85,9 @@ class AllocationMensuelleRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
         } catch (e: Exception) {
-            // Gérer l'erreur silencieusement
+            // AT4/AT15 : ne jamais valider une dépense ou une provenance
+            // si l'allocation Room ou son SyncJob n'a pas été enregistré.
+            throw e
         }
     }
 
@@ -301,7 +303,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         try {
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)
-                ?: return@withContext
+                ?: throw IllegalStateException("Allocation mensuelle introuvable pour la mise à jour : $id")
 
             // 2. Mettre à jour le compte source
             val nouvelleAllocation = allocationEntity.copy(
@@ -324,7 +326,9 @@ class AllocationMensuelleRepositoryRoomImpl(
             )
             syncJobDao.insertSyncJob(syncJob)
         } catch (e: Exception) {
-            // Gérer l'erreur silencieusement
+            // AT4/AT15 : ne jamais valider une dépense ou une provenance
+            // si l'allocation Room ou son SyncJob n'a pas été enregistré.
+            throw e
         }
     }
 
