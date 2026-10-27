@@ -204,16 +204,29 @@ fun SyncJobScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val echouees = syncJobs.count { it.status == "FAILED" }
+                            val enAttente = syncJobs.count { it.status == "PENDING" }
+                            val statut = when {
+                                isSyncRunning -> "Synchronisation en cours..."
+                                echouees > 0 -> "$echouees tâche(s) bloquée(s)"
+                                enAttente > 0 -> "$enAttente tâche(s) en attente"
+                                else -> "Synchronisation à jour"
+                            }
+                            val couleurStatut = when {
+                                echouees > 0 && !isSyncRunning -> Color(0xFFF44336)
+                                isSyncRunning || enAttente > 0 -> Color(0xFFFFA500)
+                                else -> Color(0xFF4CAF50)
+                            }
                             Icon(
-                                if (isSyncRunning) Icons.Default.Sync else Icons.Default.Sync,
+                                Icons.Default.Sync,
                                 contentDescription = null,
-                                tint = if (isSyncRunning) Color(0xFFFFA500) else Color(0xFF4CAF50),
+                                tint = couleurStatut,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isSyncRunning) "Synchronisation en cours..." else "Prêt à synchroniser",
-                                color = if (isSyncRunning) Color(0xFFFFA500) else Color(0xFF4CAF50),
+                                text = statut,
+                                color = couleurStatut,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
