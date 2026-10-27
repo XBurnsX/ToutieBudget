@@ -107,7 +107,13 @@ fun CarteCreditDetailCard(
                 )
                 Text(minimum.source, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
             }
-            MoteurCarteCredit.prochaineEcheance(carte)?.let { Ligne("Prochaine échéance", formatJour.format(it)) }
+            MoteurCarteCredit.prochaineEcheance(carte)?.let { echeance ->
+                val echeanceReleve = MoteurCarteCredit.lireDate(releve?.dateEcheance)
+                val officielle = echeanceReleve != null &&
+                    MoteurCarteCredit.ecrireDate(echeanceReleve) == MoteurCarteCredit.ecrireDate(echeance)
+                Ligne(if (officielle) "Échéance du relevé (officielle)"
+                    else "Prochaine échéance estimée", formatJour.format(echeance))
+            }
             MoteurCarteCredit.prochaineCloture(carte)?.let { Ligne("Prochain relevé", formatJour.format(it)) }
 
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
