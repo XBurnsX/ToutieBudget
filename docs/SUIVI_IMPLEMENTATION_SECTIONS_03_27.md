@@ -99,6 +99,25 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État : exigences codées et reprises. Pas de build ni de validation Android.**
 
+## Section 10 — Cartes de crédit : EN COURS (NE PAS PASSER À 11)
+
+| ID | Ce qui existe / a été corrigé dans le code | Audit encore ouvert |
+|---|---|---|
+| CC1 | MoteurCarteCredit centralise soldes signés, minimums, simulation, taux et arrondis. Formulaires refusent désormais les nombres non finis. | Cohérence de tous les écrans à revérifier |
+| CC2 | Paiement bancaire/carte avec deux transactions liées par ID; correction de l'annulation Room, journal obligatoire, plus d'enveloppe liée seulement par homonyme hors de la catégorie. | Flux complexes dettes liées, annulations et rapprochement à revoir |
+| CC3 | Solde saisi signé; correction manuelle et journal maintenant dans une transaction Room unique. | État des formulaires et cas solde créditeur à revérifier |
+| CC4 | Cycles et dates dans DetailsCarte; lecture des dates désormais stricte. | Dates de relevé importées à vérifier |
+| CC5 | Estimation quotidienne depuis transactions datées; les remboursements marchands ne sont plus interprétés comme paiements officiels pour la grâce. | Catégories achats/avances/transferts à revérifier |
+| CC6 | Relevés officiels distincts des estimations; comptabilisation des intérêts facturés désormais atomique et refusée si déjà faite. | Import et rapprochement complets à revoir |
+| CC7 | Profil de minimum configurable; règle officielle du relevé prioritaire; seuls les vrais paiements de carte comptent pour le minimum. | Cas Desjardins (contrat, financements, retards) à revoir |
+| CC8 | Simulations et plans dans MoteurCarteCredit; frais récurrents projetés d'après date connue, jamais frais ponctuels inventés. | Calendrier de versements / nouveaux relevés à revoir |
+| CC9 | Alertes fondées sur données locales et dates; retard basé sur paiement enregistré avant échéance, non un faux statut bancaire confirmé. | Cas limite de cycle à revoir |
+| CC10 | Frais mensuels, annuels, ponctuels et taux distincts; déduplication par nom/type/date sans effacer l'historique. | Gestion détaillée des taux datés à revoir |
+| CC11 | RelevesCarteCard compare intérêts estimés/réels et cumule par année; SimulateurCarte compare remboursement minimum et accéléré. | Couverture complète des comparatifs à revoir |
+
+**Ne pas déclarer la section 10 terminée avant confrontation complète de CC1 à CC11.**
+Toutes les corrections citées ont été poussées sur `main`; compilation Android et tests E2E non exécutés.
+
 ## Sections restantes
 
 | Sections | État |
