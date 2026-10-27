@@ -236,6 +236,12 @@ class AllocationMensuelleRepositoryRoomImpl(
                             val financements = actives.filter {
                                 kotlin.math.round(it.solde * 100.0).toLong() > 0L
                             }
+                            if (financements.isEmpty()) {
+                                // Les anciennes lignes à solde nul/négatif restent
+                                // intactes. L'assignation décidera si elle doit créer
+                                // une nouvelle ligne pour un autre compte source.
+                                return@withContext actives.first().toAllocationMensuelleModel()
+                            }
                             val comptes = financements.map { it.compteSourceId }.distinct()
                             if (comptes.size != 1 || comptes.singleOrNull().isNullOrBlank()) {
                                 throw IllegalStateException(
