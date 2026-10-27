@@ -1611,10 +1611,16 @@ class AjoutTransactionViewModel(
      * Ouvre l'interface de fractionnement de transaction.
      */
     fun ouvrirFractionnement() {
-        // S'assurer que les enveloppes sont chargées
-        if (_uiState.value.enveloppesDisponibles.isEmpty()) {
-            // Recharger les données si les enveloppes ne sont pas disponibles
-            chargerDonneesInitiales()
+        val state = _uiState.value
+        if (state.allocationsIndisponibles || state.isLoading) {
+            _uiState.update { it.copy(messageErreur =
+                "Impossible de fractionner sans les soldes du mois. Appuie sur Réessayer.") }
+            if (!state.isLoading) chargerDonneesInitiales()
+            return
+        }
+        if (state.enveloppesDisponibles.isEmpty()) {
+            _uiState.update { it.copy(messageErreur = "Aucune enveloppe active disponible.") }
+            return
         }
         _uiState.update { it.copy(estEnModeFractionnement = true) }
     }
@@ -1630,14 +1636,21 @@ class AjoutTransactionViewModel(
      * Confirme le fractionnement de la transaction.
      */
     fun confirmerFractionnement(fractions: List<FractionTransaction>) {
-        // Les montants sont maintenant en dollars dans le dialog
-        _uiState.update { 
-            it.copy(
-                estEnModeFractionnement = false,
-                fractionnementEffectue = true, // Marquer que le fractionnement a été effectué
-                fractionsSauvegardees = fractions // Sauvegarder les fractions pour les réutiliser
-            ).calculerValidite() // Recalculer la validité pour activer le bouton Enregistrer
+        val etat = _uiState.value
+        val aValider = etat.copy(fractionsSauvegardees = fractions, fractionnementEffectue = true)
+        if (etat.allocationsIndisponibles || !aValider.fractionsCorrespondentAuMontant() ||
+            fractions.any { f -> etat.enveloppesDisponibles.none { it.id == f.enveloppeId } }
+        ) {
+            _uiState.update { it.copy(messageErreur =
+                "Fractions non valides pour ce montant ou ce mois. Corrige les montants avant de confirmer.") }
+            return
         }
+        _uiState.update { it.copy(
+            estEnModeFractionnement = false,
+            fractionnementEffectue = true,
+            fractionsSauvegardees = fractions,
+            messageErreur = null
+        ).calculerValidite() }
     }
 
     /**
