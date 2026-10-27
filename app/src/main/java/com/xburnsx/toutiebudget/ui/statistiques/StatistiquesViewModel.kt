@@ -39,6 +39,7 @@ class StatistiquesViewModel(
     private var _currentPage = 0
     private var _hasMoreData = true
     private var chargement: Job? = null
+    private var chargementPage: Job? = null
     private var generationChargement = 0L
 
     init {
@@ -76,9 +77,12 @@ class StatistiquesViewModel(
         chargement?.cancel()
         val generation = ++generationChargement
         reinitialiserPagination()
+        // ST13/ST14 : publier la période demandée AVANT tout chargement suspendu.
+        // Une notification temps réel ne doit pas recharger l'ancien mois.
+        val periode = Periode(debut, fin, label)
+        _uiState.value = _uiState.value.copy(isLoading = true, erreur = null, periode = periode)
         chargement = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, erreur = null)
-            val periode = Periode(debut, fin, label)
+            if (generation != generationChargement) return@launch
 
             // Charger toutes les transactions sur la fenêtre des 6 derniers mois (pour le graphique)
             val calSix = Calendar.getInstance().apply {
@@ -454,47 +458,45 @@ class StatistiquesViewModel(
     }
     
     // Fonctions de pagination pour les listes de transactions
+    // ST17 : l'écran calcule ses KPI depuis la période complète; la pagination
+    // ne peut ni dédoubler les écritures ni modifier les sommes déjà établies.
     fun chargerPageSuivante() {
-        if (!_hasMoreData) return
-        
-        _currentPage++
-        val offset = _currentPage * _pageSize
-        
-        viewModelScope.launch {
-            val periode = _uiState.value.periode
-            if (periode != null) {
-                val transactionsSupplementaires = transactionRepository.recupererTransactionsParPeriode(
-                    periode.debut, 
-                    periode.fin, 
-                    _pageSize, 
-                    offset
-                )
-                
-                if (transactionsSupplementaires.isSuccess) {
-                    val nouvellesTransactions = transactionsSupplementaires.getOrNull().orEmpty()
-                    if (nouvellesTransactions.size < _pageSize) {
-                        _hasMoreData = false
-                    }
-                    
-                    // Mettre à jour l'état avec les nouvelles transactions
-                    val transactionsActuelles = _uiState.value.transactionsPeriode.toMutableList()
-                    transactionsActuelles.addAll(nouvellesTransactions)
-                    val sansDoublons = transactionsActuelles.distinctBy { it.id }
-                    
-                    _uiState.value = _uiState.value.copy(
-                        transactionsPeriode = sansDoublons,
-                        hasMoreData = _hasMoreData
-                    )
-                }
+        if (!_hasMoreData || _uiState.value.isLoading || chargementPage?.isActive == true) return
+        val periode = _uiState.value.periode ?: return
+        val generation = generationChargement
+        val prochainePage = _currentPage + 1
+        val offset = prochainePage * _pageSize
+
+        chargementPage = viewModelScope.launch {
+            val resultat = transactionRepository.recupererTransactionsParPeriode(
+                periode.debut, periode.fin, _pageSize, offset
+            )
+            // ST14 : ignorer toute page devenue obsolète pendant l'attente Room.
+            if (generation != generationChargement || _uiState.value.periode != periode) return@launch
+            if (resultat.isFailure) {
+                // Ne pas avancer le curseur: le prochain clic peut reprendre cette page.
+                return@launch
             }
+            val nouvelles = resultat.getOrThrow()
+            _currentPage = prochainePage
+            if (nouvelles.size < _pageSize) _hasMoreData = false
+            val precedentes = _uiState.value.transactionsPeriode
+            val fusion = (precedentes + nouvelles).distinctBy { it.id }
+                .sortedWith(compareByDescending<Transaction> { it.date }.thenBy { it.id })
+            _uiState.value = _uiState.value.copy(
+                transactionsPeriode = fusion,
+                hasMoreData = _hasMoreData
+            )
         }
     }
-    
+
     fun reinitialiserPagination() {
+        chargementPage?.cancel()
+        chargementPage = null
         _currentPage = 0
         _hasMoreData = true
     }
-    
+
     fun rafraichirListeTransactions() {
         reinitialiserPagination()
         val periode = _uiState.value.periode
