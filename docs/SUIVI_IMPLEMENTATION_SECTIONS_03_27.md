@@ -157,12 +157,27 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État : codage de la section 11 repris et documenté; validation Gradle, intégration PocketBase et scénarios multi-appareils toujours non exécutés conformément aux instructions.** Ces tests pourraient révéler des modifications supplémentaires. La section suivante pour le codage est la 12.
 
+## Section 12 — Investissements : codage repris (IF1–IF17 / IA1–IA10)
+
+| Exigences | Revue et corrections dans le code |
+|---|---|
+| IF1/IF2/IF7 | Collection canonique `comptes_investissement`, valeur de marché/correction distinctes d'un revenu ou d'une dépense, valorisations datées avec ancienne valeur et journal Room. |
+| IF3/IF4/IF8/IF9/IF12/IF13/IF14 | Apports/retraits représentés par virements liés et signés, deux soldes et deux mouvements sous une transaction Room; date choisie conservée. Montants invalides et total du patrimoine non finis refusés, sans fausses écritures de revenus. |
+| IF5/IF6/IF11 | Repositories avec erreurs propagées, contrôles propriétaire/archives/liquidités disponibles et montant au cent; la valeur du portefeuille n'est pas assimilée à une encaisse retirable. |
+| IF10/IA8 | Mécanisme BANQ commun conservé, sans prétendre que Plaid donne accès aux positions Wealthsimple ou qu'un import réel a été effectué. Rapprochements ambigus non validés automatiquement. |
+| IF15/IF16/IF17 | Archivage/réactivation par même ID, comptes actifs distincts des archivés dans patrimoine courant; fermeture du formulaire seulement après écriture locale. Saisie de solde initial invalide refuse la création plutôt que d'inventer 0 $. |
+| IA1–IA3 | Mode SIMPLE ou DÉTAILLÉ, types CELI/REER/CELIAPP, capital net versé avec valeur et date de départ connues, gains et performance distincts. Vente sans coût connu ≠ faux gain nul; flux du jour d'instantané et futurs ne sont pas comptés à tort. |
+| IA4/IA5/IA6 | Courbe de points datés connus sans cours inventés, positions fractionnaires et devises, mouvements internes achats/ventes/dividendes/distributions/intérêts/frais. |
+| IA7–IA10 | Type canadien comme métadonnée sans estimation fiscale; répartition uniquement si titres et encaisse rapprochent la valeur et sont convertibles; performances TWR ou TRI seulement avec données suffisantes, avec refus des rendements simplifiés trompeurs. |
+
+**État : parcours et codage existant consolidés; build Android et validation réelle Room/PocketBase, banques et appareils non exécutés.** Les restrictions d'accès des connecteurs externes ne sont pas remplacées par une simulation de liaison bancaire.
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 12 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
+| 13 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
 
 ## Règles de suivi
 
