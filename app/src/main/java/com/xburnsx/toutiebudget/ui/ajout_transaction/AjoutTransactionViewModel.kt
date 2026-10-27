@@ -1146,8 +1146,12 @@ class AjoutTransactionViewModel(
                         operationAtomique.executer {
                             // AT4 : création d'allocation, JSON des fractions et
                             // écritures de comptes dans la MÊME transaction Room.
+                        val compteConfirme = compteRepository.recupererCompteParIdToutesCollections(compte.id).getOrThrow()
+                        if (compteConfirme.estArchive || compteConfirme.collection != collectionPrincipale ||
+                            compteConfirme.utilisateurId != compte.utilisateurId
+                        ) throw IllegalStateException("Compte de fractionnement archivé ou modifié.")
                         val enveloppesConfirmees = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                            .filter { !it.estArchive && it.utilisateurId == compte.utilisateurId }
+                            .filter { !it.estArchive && it.utilisateurId == compteConfirme.utilisateurId }
                             .associateBy { it.id }
                         val sousItems = fractions.mapIndexed { index, fraction ->
                             val env = enveloppesConfirmees[fraction.enveloppeId]
@@ -1170,6 +1174,17 @@ class AjoutTransactionViewModel(
                             else -> "comptes_cheques"
                         }
                         
+                        // AT11/AT12 : provenance et soldes relus SOUS la
+                        // transaction. Un financement positif d'un autre compte
+                        // ne peut pas servir une dépense sur celui sélectionné.
+                        if (!allocationActuelle.solde.isFinite() ||
+                            !allocationActuelle.alloue.isFinite() ||
+                            !allocationActuelle.depense.isFinite()
+                        ) throw IllegalStateException("Montants d'allocation invalides.")
+                        if (kotlin.math.round(allocationActuelle.solde * 100.0).toLong() > 0L &&
+                            allocationActuelle.compteSourceId != null &&
+                            allocationActuelle.compteSourceId != compte.id
+                        ) throw IllegalStateException("Cette enveloppe est financée par un autre compte.")
                         // Ne pas réattribuer un ancien historique inconnu à ce compte.
                         if (allocationActuelle.compteSourceId == null &&
                             (kotlin.math.abs(allocationActuelle.alloue) > 0.005 ||
