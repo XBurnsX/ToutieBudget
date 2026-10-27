@@ -334,7 +334,8 @@ import android.content.Context
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
      private val investissementViewModel by lazy {
          com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel(
-             compteRepository, transactionRepository, historiqueAllocationService, realtimeSyncService
+             compteRepository, transactionRepository, historiqueAllocationService, realtimeSyncService,
+             operationAtomique = operationAtomique
          )
      }
      fun provideInvestissementViewModel(): com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel = investissementViewModel
