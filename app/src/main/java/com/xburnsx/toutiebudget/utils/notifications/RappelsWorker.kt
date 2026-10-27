@@ -20,6 +20,7 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         if (!PreferencesManager.getNotificationsEnabled(ctx)) return Result.success()
+        if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return Result.success()
 
         val budgetVm = AppModule.provideBudgetViewModel()
         // S’assurer que les données sont fraîches
@@ -28,10 +29,13 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
         val state = budgetVm.uiState.value
 
         // 1) Enveloppes négatives (exclure la catégorie "Dettes")
-        state.categoriesEnveloppes.flatMap { cat ->
-            if (cat.nomCategorie.equals("Dettes", ignoreCase = true)) emptyList() else cat.enveloppes
-        }.filter { it.solde < 0 }.forEach { env ->
-            notify("Enveloppe négative", "${env.nom} est en négatif: ${env.solde}")
+        if (PreferencesManager.getNotifEnveloppeNegative(ctx)) {
+            state.categoriesEnveloppes.flatMap { cat ->
+                if (cat.nomCategorie.equals("Dettes", ignoreCase = true)) emptyList() else cat.enveloppes
+            }.filter { kotlin.math.round(it.solde * 100.0).toLong() < 0L }.forEach { env ->
+                notify("deficit:${env.id}", "Enveloppe négative",
+                    "${env.nom} est en négatif : ${MoneyFormatter.formatAmount(env.solde)}")
+            }
         }
 
         // 2) Objectifs à X jours
@@ -72,7 +76,7 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
                     val dateTxt = SimpleDateFormat("d MMM", Locale.getDefault()).format(target.time)
                     val titre = "Verifiez ${env.nom} d'ici le ${dateTxt} - ${montantTxt} necessaire"
                     val descriptif = "Objectif: ${MoneyFormatter.formatAmount(env.objectif)} • Alloué: ${MoneyFormatter.formatAmount(env.alloueCumulatif)} • Reste: ${montantTxt}"
-                    notify(titre, descriptif)
+                    notify("objectif:${env.id}:${target.get(Calendar.YEAR)}:${target.get(Calendar.DAY_OF_YEAR)}", titre, descriptif)
                 }
             } catch (_: Exception) { /* ignore */ }
         }
@@ -84,7 +88,7 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
         return Result.success()
     }
 
-    private fun notify(title: String, text: String) {
+    private fun notify(cle: String, title: String, text: String) {
         val channelId = "toutie_rappels"
         ensureChannel(channelId)
         val notification = NotificationCompat.Builder(applicationContext, channelId)
@@ -93,7 +97,13 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify((Math.random() * 100000).toInt(), notification)
+        // PR12 : une même alerte met à jour sa notification au lieu de la multiplier.
+        val identifiant = cle.hashCode() and Int.MAX_VALUE
+        try {
+            NotificationManagerCompat.from(applicationContext).notify(identifiant, notification)
+        } catch (_: SecurityException) {
+            // PR15 : permission refusée ou révoquée pendant l'exécution.
+        }
     }
 
     private fun ensureChannel(channelId: String) {
