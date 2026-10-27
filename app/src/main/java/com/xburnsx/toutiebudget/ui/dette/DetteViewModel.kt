@@ -186,42 +186,74 @@ class DetteViewModel(
      */
     fun ajusterSolde(type: TypeAjustementDette, montantSaisi: Double, date: String, note: String?) {
         val id = _uiState.value.dette?.id ?: return
+        val montant = runCatching {
+            java.math.BigDecimal.valueOf(montantSaisi)
+                .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+        }.getOrNull()
+        val dateValide = MoteurCarteCredit.lireDate(date.trim()) != null
+        if (montant == null || !montant.isFinite() || montant < 0.0 ||
+            (type != TypeAjustementDette.SOLDE_OFFICIEL && montant <= 0.0) || !dateValide
+        ) {
+            _uiState.update { it.copy(messageErreur =
+                "Montant au cent positif et date AAAA-MM-JJ valide requis pour l'ajustement.") }
+            return
+        }
         if (_uiState.value.isSaving) return
+
         viewModelScope.lancerUneFois(verrouDette) {
             _uiState.update { it.copy(isSaving = true, messageErreur = null) }
             try {
-                val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
-                    ?: throw Exception("Dette introuvable")
-                val soldeAvant = aJour.soldeDette
-                val soldeApres = MoneyFormatter.roundAmount(
-                    when (type) {
-                        TypeAjustementDette.SOLDE_OFFICIEL -> -abs(montantSaisi) // montant restant officiel
-                        TypeAjustementDette.INTERETS, TypeAjustementDette.FRAIS -> soldeAvant - abs(montantSaisi)
-                    }
-                )
-                val ajustement = AjustementDette(date = date, type = type, soldeAvant = soldeAvant, soldeApres = soldeApres, note = note)
-                val details = aJour.details.copy(ajustements = aJour.details.ajustements + ajustement)
-                val aSauver = aJour.copy(soldeDette = soldeApres, detailsDetteJson = details.versJson())
-                compteRepository.mettreAJourCompte(aSauver).getOrThrow()
-                try {
+                // DF10 / DA5 : solde officiel, trace et SyncJobs dans un seul
+                // commit Room. Une erreur du journal annule l'ajustement.
+                val aSauver = operationAtomique.executer {
+                    val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
+                        ?: throw IllegalStateException("Dette introuvable.")
+                    val soldeAvant = aJour.soldeDette
+                    if (!soldeAvant.isFinite()) throw IllegalStateException("Solde de dette invalide.")
+                    val soldeApres = MoneyFormatter.roundAmount(
+                        when (type) {
+                            TypeAjustementDette.SOLDE_OFFICIEL -> -montant
+                            TypeAjustementDette.INTERETS, TypeAjustementDette.FRAIS -> soldeAvant - montant
+                        }
+                    )
+                    if (!soldeApres.isFinite()) throw IllegalStateException("Montant de dette trop élevé.")
+                    val ajustement = AjustementDette(
+                        date = date.trim(), type = type, soldeAvant = soldeAvant,
+                        soldeApres = soldeApres, note = note?.trim()?.ifBlank { null }
+                    )
+                    val details = aJour.details.copy(
+                        ajustements = aJour.details.ajustements + ajustement
+                    )
+                    val actualisee = aJour.copy(
+                        soldeDette = soldeApres,
+                        detailsDetteJson = details.versJson()
+                    )
+                    compteRepository.mettreAJourCompte(actualisee).getOrThrow()
                     historiqueAllocationService.enregistrerAjustementCompte(
-                        compte = aSauver,
+                        compte = actualisee,
                         typeAction = "AJUSTEMENT_DETTE",
-                        description = "${type.libelle} — ${aSauver.nom} : ${MoneyFormatter.formatAmount(soldeAvant)} → ${MoneyFormatter.formatAmount(soldeApres)}" +
-                            (note?.let { " ($it)" } ?: ""),
+                        description = "${type.libelle} — ${actualisee.nom} : " +
+                            "${MoneyFormatter.formatAmount(soldeAvant)} → " +
+                            "${MoneyFormatter.formatAmount(soldeApres)}" +
+                            (note?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""),
                         montant = soldeApres - soldeAvant,
                         soldeAvant = soldeAvant,
                         soldeApres = soldeApres,
                         pretAPlacerAvant = 0.0,
                         pretAPlacerApres = 0.0
                     )
-                } catch (e: Exception) {
-                    android.util.Log.e("ToutieBudget", "Trace d'ajustement de dette non enregistrée: ${e.message}")
+                    actualisee
                 }
-                com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated() // la page Comptes se recharge sur cet événement
-                _uiState.update { it.copy(isSaving = false, dette = aSauver, messageInfo = "Solde de la dette mis à jour.") }
+                com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated()
+                _uiState.update { it.copy(
+                    isSaving = false, dette = aSauver,
+                    messageInfo = "Solde de la dette et historique mis à jour."
+                ) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isSaving = false, messageErreur = "Échec de l'ajustement : ${e.message}") }
+                _uiState.update { it.copy(
+                    isSaving = false,
+                    messageErreur = "Échec de l'ajustement (aucune écriture partielle) : ${e.message}"
+                ) }
             }
         }
     }
