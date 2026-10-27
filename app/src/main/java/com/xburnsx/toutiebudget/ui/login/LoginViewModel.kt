@@ -174,7 +174,7 @@ class LoginViewModel : ViewModel() {
                     it.copy(
                         estEnChargement = false,
                         connexionReussie = false,
-                        erreur = "Mode de connexion non supporté. Contactez le support.",
+                        erreur = "Google n'a pas fourni le code d'autorisation requis. Recommencez la connexion Google et vérifiez la configuration OAuth.",
                         messageChargement = ""
                     )
                 }
@@ -182,8 +182,9 @@ class LoginViewModel : ViewModel() {
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
-                        connexionReussie = true,
-                        messageChargement = "Connexion réussie (mode local)"
+                        connexionReussie = false,
+                        erreur = "Connexion impossible : aucun code d'autorisation Google vérifiable.",
+                        messageChargement = ""
                     )
                 }
             }
