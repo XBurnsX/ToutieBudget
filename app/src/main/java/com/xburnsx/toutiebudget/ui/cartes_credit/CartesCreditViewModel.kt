@@ -246,8 +246,27 @@ class CartesCreditViewModel(
     fun sauvegarderReleve(releve: ReleveCarte) {
         val carte = _uiState.value.carteSelectionnee ?: return
         val d = carte.details
+        val ancien = d.releves.firstOrNull { it.id == releve.id }
+        // CC6 : le même relevé peut être corrigé, mais pas d'une manière
+        // qui désynchronise un intérêt déjà facturé au compte et journalisé.
+        if (ancien?.interetsComptabilises == true &&
+            (releve.interetsFactures != ancien.interetsFactures ||
+             releve.dateEmission != ancien.dateEmission ||
+             !releve.interetsComptabilises)
+        ) {
+            _uiState.update { it.copy(messageErreur =
+                "Ce relevé a déjà des intérêts comptabilisés. Corrige d'abord la carte et sa trace; ne modifie pas les intérêts ici.") }
+            return
+        }
+        if (MoteurCarteCredit.lireDate(releve.dateEmission) == null ||
+            (releve.dateEcheance != null && MoteurCarteCredit.lireDate(releve.dateEcheance) == null) ||
+            listOfNotNull(releve.soldeOfficiel, releve.minimumOfficiel, releve.interetsFactures,
+                releve.fraisFactures, releve.paiementsRecus).any { !it.isFinite() || it < 0.0 }
+        ) {
+            _uiState.update { it.copy(messageErreur = "Date ou montant officiel de relevé invalide.") }
+            return
+        }
         val releves = d.releves.filter { it.id != releve.id } + releve
-        // Un même relevé (même date de clôture) n'est jamais conservé en double
         if (releves.count { it.dateEmission == releve.dateEmission } > 1) {
             _uiState.update { it.copy(messageErreur = "Un relevé du ${releve.dateEmission} existe déjà.") }
             return
@@ -258,6 +277,12 @@ class CartesCreditViewModel(
     fun supprimerReleve(releveId: String) {
         val carte = _uiState.value.carteSelectionnee ?: return
         val d = carte.details
+        val ancien = d.releves.firstOrNull { it.id == releveId } ?: return
+        if (ancien.interetsComptabilises) {
+            _uiState.update { it.copy(messageErreur =
+                "Suppression bloquée : les intérêts de ce relevé ont déjà été ajoutés à la carte et à son historique.") }
+            return
+        }
         enregistrerDetails(carte, d.copy(releves = d.releves.filter { it.id != releveId })) { it.copy(releveEnEdition = null) }
     }
 
