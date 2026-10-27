@@ -747,16 +747,33 @@ class BudgetViewModel(
             throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
         }
 
-        // 2. Allocation du mois créée au besoin dans la même transaction Room.
-        val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
-        if (!allocationFusionnee.solde.isFinite() || !allocationFusionnee.alloue.isFinite() ||
-            !allocationFusionnee.depense.isFinite()
+        // 2. Garder la provenance historique : lorsqu'une allocation A est
+        // épuisée et qu'on finance désormais depuis B, ne PAS réattribuer
+        // les dépenses/alloués historiques de A à B. Ouvrir une ligne distincte.
+        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
+        if (!allocationExistante.solde.isFinite() || !allocationExistante.alloue.isFinite() ||
+            !allocationExistante.depense.isFinite()
         ) throw IllegalStateException("Allocation mensuelle invalide.")
-        val allocationFinale = allocationFusionnee.copy(
-            solde = MoneyFormatter.roundAmount(allocationFusionnee.solde + montantDollars),
-            alloue = MoneyFormatter.roundAmount(allocationFusionnee.alloue + montantDollars),
-            compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSource.id else allocationFusionnee.compteSourceId,
-            collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
+        val nouvelleProvenance = allocationExistante.compteSourceId != null &&
+            allocationExistante.compteSourceId != compteSource.id &&
+            kotlin.math.round(allocationExistante.solde * 100.0).toLong() <= 0L
+        val allocationDeBase = if (nouvelleProvenance) {
+            allocationMensuelleRepository.creerNouvelleAllocation(
+                allocationExistante.copy(
+                    id = "",
+                    solde = 0.0,
+                    alloue = 0.0,
+                    depense = 0.0,
+                    compteSourceId = compteSource.id,
+                    collectionCompteSource = compteSource.collection
+                )
+            )
+        } else allocationExistante
+        val allocationFinale = allocationDeBase.copy(
+            solde = MoneyFormatter.roundAmount(allocationDeBase.solde + montantDollars),
+            alloue = MoneyFormatter.roundAmount(allocationDeBase.alloue + montantDollars),
+            compteSourceId = if (allocationDeBase.solde <= 0.0) compteSource.id else allocationDeBase.compteSourceId,
+            collectionCompteSource = if (allocationDeBase.solde <= 0.0) compteSource.collection else allocationDeBase.collectionCompteSource
         )
         if (!allocationFinale.solde.isFinite() || !allocationFinale.alloue.isFinite()) {
             throw IllegalStateException("Débordement des montants de l'allocation.")
@@ -764,17 +781,30 @@ class BudgetViewModel(
         allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
         // L'échec de journalisation doit aussi annuler la transaction Room.
-        historiqueAllocationService.enregistrerModificationAllocation(
-            allocationAvant = allocationFusionnee,
-            allocationApres = allocationFinale,
-            compte = compteSource,
-            enveloppe = enveloppe,
-            montantModification = montantDollars,
-            soldeAvant = compteSource.solde,
-            soldeApres = compteSource.solde,
-            pretAPlacerAvant = compteSource.pretAPlacer,
-            pretAPlacerApres = nouveauPretAPlacer
-        )
+        if (nouvelleProvenance) {
+            historiqueAllocationService.enregistrerCreationAllocation(
+                allocation = allocationFinale,
+                compte = compteSource,
+                enveloppe = enveloppe,
+                montant = montantDollars,
+                soldeAvant = compteSource.solde,
+                soldeApres = compteSource.solde,
+                pretAPlacerAvant = compteSource.pretAPlacer,
+                pretAPlacerApres = nouveauPretAPlacer
+            )
+        } else {
+            historiqueAllocationService.enregistrerModificationAllocation(
+                allocationAvant = allocationDeBase,
+                allocationApres = allocationFinale,
+                compte = compteSource,
+                enveloppe = enveloppe,
+                montantModification = montantDollars,
+                soldeAvant = compteSource.solde,
+                soldeApres = compteSource.solde,
+                pretAPlacerAvant = compteSource.pretAPlacer,
+                pretAPlacerApres = nouveauPretAPlacer
+            )
+        }
 
         return compteModifie
     }
