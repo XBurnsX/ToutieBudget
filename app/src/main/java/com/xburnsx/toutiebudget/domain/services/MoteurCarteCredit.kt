@@ -310,7 +310,8 @@ object MoteurCarteCredit {
         }
         val typesCharges = setOf(
             TypeTransaction.Depense, TypeTransaction.TransfertSortant,
-            TypeTransaction.Pret, TypeTransaction.PaiementEffectue
+            TypeTransaction.Pret, TypeTransaction.PaiementEffectue,
+            TypeTransaction.Emprunt, TypeTransaction.RemboursementDonne
         )
         val charges = mouvements.filter { it.type in typesCharges }
         val natures = carte.details.naturesMouvements
