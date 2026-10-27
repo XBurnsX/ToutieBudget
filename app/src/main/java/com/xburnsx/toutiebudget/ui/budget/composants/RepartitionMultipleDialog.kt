@@ -89,8 +89,11 @@ fun RepartitionMultipleDialog(
     val montants: Map<String, Long?> = saisies.mapValues { (_, texte) -> texteVersCentimes(texte) }
     val saisieInvalide = montants.values.any { it == null }
     val montantsValides = montants.mapNotNull { (id, c) -> if (c != null && c > 0) id to c else null }.toMap()
-    val totalCentimes = montantsValides.values.sum()
-    val disponibleCentimes = compte?.let { Math.round(it.pretAPlacer * 100) } ?: 0L
+    val totalCentimesOuErreur = runCatching {
+        montantsValides.values.fold(0L) { total, valeur -> Math.addExact(total, valeur) }
+    }.getOrNull()
+    val totalCentimes = totalCentimesOuErreur ?: 0L
+    val disponibleCentimes = compte?.let { Math.round(it.pretAPlacer * 100.0) } ?: 0L
     val resteCentimes = disponibleCentimes - totalCentimes
 
     Dialog(
@@ -232,6 +235,9 @@ fun RepartitionMultipleDialog(
                     )
                 }
 
+                if (totalCentimesOuErreur == null) {
+                    Text("Total trop élevé pour une répartition valide.", color = MaterialTheme.colorScheme.error)
+                }
                 erreur?.let {
                     Text(
                         it,
@@ -245,7 +251,7 @@ fun RepartitionMultipleDialog(
                 if (!apercu) {
                     Button(
                         onClick = { apercu = true },
-                        enabled = compte != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide,
+                        enabled = compte != null && totalCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide && !enCours,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Aperçu") }
                 } else {
@@ -257,7 +263,7 @@ fun RepartitionMultipleDialog(
                         ) { Text("Modifier") }
                         Button(
                             onClick = { compteId?.let { onConfirmer(it, montantsValides) } },
-                            enabled = !enCours && compte != null && resteCentimes >= 0,
+                            enabled = !enCours && compte != null && totalCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide,
                             modifier = Modifier.weight(1f)
                         ) {
                             if (enCours) {
