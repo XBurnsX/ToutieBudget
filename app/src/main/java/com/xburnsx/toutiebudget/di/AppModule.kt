@@ -181,7 +181,8 @@ import android.content.Context
             realtimeSyncService = realtimeSyncService,
             validationProvenanceService = validationProvenanceService,
             objectifCalculator = objectifCalculator,
-            historiqueAllocationService = historiqueAllocationService
+            historiqueAllocationService = historiqueAllocationService,
+            operationAtomique = operationAtomique
         )
      }
      
