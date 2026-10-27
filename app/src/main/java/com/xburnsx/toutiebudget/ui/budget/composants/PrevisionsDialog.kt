@@ -143,8 +143,16 @@ fun PrevisionsDialog(
     )
 
     if (choisirDate) {
+        // Material DatePicker attend le jour civil exprimé à minuit UTC.
+        // Passer directement le timestamp local peut décaler le jour affiché.
+        val jourLocal = Calendar.getInstance().apply { time = limite ?: moisSelectionne }
+        val jourUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(jourLocal.get(Calendar.YEAR), jourLocal.get(Calendar.MONTH),
+                jourLocal.get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+        }
         val etat = rememberDatePickerState(
-            initialSelectedDateMillis = (limite ?: moisSelectionne).time
+            initialSelectedDateMillis = jourUtc.timeInMillis
         )
         DatePickerDialog(
             onDismissRequest = { choisirDate = false },
