@@ -45,7 +45,9 @@ fun NaturesMouvementsCarteCard(
         it.type == TypeTransaction.Depense ||
             it.type == TypeTransaction.TransfertSortant ||
             it.type == TypeTransaction.Pret ||
-            it.type == TypeTransaction.PaiementEffectue
+            it.type == TypeTransaction.PaiementEffectue ||
+            it.type == TypeTransaction.Emprunt ||
+            it.type == TypeTransaction.RemboursementDonne
     }.sortedByDescending { it.date }
 
     Card(
