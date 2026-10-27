@@ -117,6 +117,27 @@ class DetteViewModel(
             try {
                 val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
                     ?: throw Exception("Dette introuvable")
+                val avant = etat.dette ?: throw IllegalStateException("Dossier initial introuvable")
+                // DF15 : les mouvements financiers d'un autre appareil restent prioritaires;
+                // les changements CONCURRENTIELS de paramètres demandent une résolution
+                // explicite, pas une écriture aveugle du brouillon périmé.
+                val configModifieeAilleurs =
+                    aJour.nom != avant.nom ||
+                    aJour.montantInitial != avant.montantInitial ||
+                    aJour.tauxInteret != avant.tauxInteret ||
+                    aJour.dureeMoisPret != avant.dureeMoisPret ||
+                    aJour.paiementMinimum != avant.paiementMinimum ||
+                    aJour.details.mode != avant.details.mode ||
+                    aJour.details.dateDebut != avant.details.dateDebut ||
+                    aJour.details.dateFin != avant.details.dateFin ||
+                    aJour.details.jourVersement != avant.details.jourVersement ||
+                    aJour.details.enveloppeId != avant.details.enveloppeId ||
+                    aJour.details.tauxVariable != avant.details.tauxVariable ||
+                    aJour.details.changementsTaux != avant.details.changementsTaux
+                if (configModifieeAilleurs) throw IllegalStateException(
+                    "Les paramètres de cette dette ont été modifiés ailleurs. " +
+                        "Recharge le dossier avant de sauvegarder; ton brouillon n'a pas été écrasé."
+                )
                 val details = aJour.details.copy(
                     mode = f.mode,
                     dateDebut = f.dateDebut.trim().ifBlank { null },
@@ -145,7 +166,7 @@ class DetteViewModel(
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        isSaved = avertissement == null,
+                        isSaved = true, // l'écriture a réussi et le solde financier à jour est préservé
                         dette = aSauver,
                         formulaire = formulaire,
                         formulaireInitial = formulaire,
@@ -215,7 +236,9 @@ class DetteViewModel(
         _uiState.update { it.copy(messageErreur = null, messageInfo = null) }
     }
 
-    private fun nombre(texte: String): Double? = texte.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+    private fun nombre(texte: String): Double? =
+        texte.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+            ?.takeIf { it.isFinite() }
 }
 
 data class DetteUiState(
