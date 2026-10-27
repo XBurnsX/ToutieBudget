@@ -196,6 +196,21 @@ fun VirerArgentScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // IF8 : date réelle pour les deux écritures entre comptes, y compris
+            // rétroactive; les virements internes d'enveloppes utilisent leur mois.
+            if (uiState.mode == VirementMode.COMPTES) {
+                OutlinedTextField(
+                    value = uiState.dateOperation,
+                    onValueChange = viewModel::onDateOperationChange,
+                    label = { Text("Date du virement (AAAA-MM-JJ)") },
+                    singleLine = true,
+                    isError = runCatching {
+                        java.time.LocalDate.parse(uiState.dateOperation.trim())
+                    }.isFailure,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             // V6 : chargement en échec → message clair + reprise sans tout ressaisir
             uiState.erreurChargement?.let { message ->
                 Card(
