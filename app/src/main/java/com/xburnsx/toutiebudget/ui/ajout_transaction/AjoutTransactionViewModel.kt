@@ -898,8 +898,9 @@ class AjoutTransactionViewModel(
             // Les tâches plus anciennes (ou créées pour une autre action) ne sont
             // pas une preuve de synchronisation de la transaction courante.
             idsJobsOperation = null
-            idsJobsAvantEcriture = syncJobDao?.getAllSyncJobs()?.first()?.map { it.id }?.toSet()
-                ?: emptySet()
+            idsJobsAvantEcriture = runCatching {
+                syncJobDao?.getAllSyncJobs()?.first()?.map { it.id }?.toSet() ?: emptySet()
+            }.getOrDefault(emptySet())
             debutDerniereEcriture = System.currentTimeMillis()
             _uiState.update {
                 it.copy(
@@ -954,7 +955,8 @@ class AjoutTransactionViewModel(
                         date = java.time.LocalDateTime.now().let { maintenant ->
                             Date.from(state.dateTransaction.atTime(maintenant.hour, maintenant.minute, maintenant.second)
                                 .atZone(ZoneId.systemDefault()).toInstant())
-                        }
+                        },
+                        operationId = idOperationBrouillon
                     )
                     
                     // DEBUG: Résultat paiement: ${if (result.isSuccess) "SUCCÈS" else "ÉCHEC: ${result.exceptionOrNull()?.message}"}
