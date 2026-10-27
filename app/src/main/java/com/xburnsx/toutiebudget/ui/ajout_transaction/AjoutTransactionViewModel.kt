@@ -630,7 +630,9 @@ class AjoutTransactionViewModel(
             if (tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
                 runCatching {
                     com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray.forEach { element ->
-                        element.asJsonObject.get("enveloppeId")?.asString?.let { ids += it }
+                        val champs = element.asJsonObject
+                        (champs.get("enveloppe_id") ?: champs.get("enveloppeId"))
+                            ?.takeIf { !it.isJsonNull }?.asString?.let { ids += it }
                     }
                 }
             } else {
@@ -669,7 +671,8 @@ class AjoutTransactionViewModel(
                 runCatching {
                     com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray.mapIndexedNotNull { index, element ->
                         val o = element.asJsonObject
-                        val enveloppeId = o.get("enveloppeId")?.asString ?: return@mapIndexedNotNull null
+                        val enveloppeId = (o.get("enveloppe_id") ?: o.get("enveloppeId"))
+                            ?.takeIf { !it.isJsonNull }?.asString ?: return@mapIndexedNotNull null
                         if (allEnveloppes.find { it.id == enveloppeId }?.estArchive != false) return@mapIndexedNotNull null
                         FractionTransaction(
                             id = "f${index + 1}",
