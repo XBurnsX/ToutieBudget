@@ -33,7 +33,10 @@ class PlanResetService(
         val nomEnveloppe: String,
         val compteId: String,
         val nomCompte: String,
-        val montant: Double
+        val montant: Double,
+        val soldeAvant: Double,
+        val alloueAvant: Double,
+        val depenseAvant: Double
     )
 
     data class Apercu(
@@ -57,7 +60,7 @@ class PlanResetService(
         if (!alloue.isFinite() || !depense.isFinite() || !solde.isFinite()) {
             throw IllegalStateException("Allocation invalide : les montants ne sont pas finis.")
         }
-        return MoneyFormatter.roundAmount(minOf(maxOf(alloue - depense, 0.0), maxOf(solde, 0.0)))
+        return MoneyFormatter.roundAmount(minOf(maxOf(alloue - maxOf(depense, 0.0), 0.0), maxOf(solde, 0.0)))
     }
 
     suspend fun preparerApercu(moisCible: Date): Result<Apercu> = runCatching {
@@ -74,12 +77,19 @@ class PlanResetService(
         allocations.forEach { allocation ->
             val montant = montantRetournable(allocation.alloue, allocation.depense, allocation.solde)
             if (montant < 0.01) return@forEach
-            val nom = enveloppes[allocation.enveloppeId]?.nom ?: return@forEach
+            val nom = enveloppes[allocation.enveloppeId]?.nom
+            if (nom == null) {
+                ignorees.add("Enveloppe supprimée (${allocation.enveloppeId})")
+                return@forEach
+            }
             val compte = allocation.compteSourceId?.let { comptes[it] }
-            if (compte == null) {
+            if (compte == null || compte.estArchive) {
                 ignorees.add(nom)
             } else {
-                lignes.add(LigneRetour(allocation.id, allocation.enveloppeId, nom, compte.id, compte.nom, montant))
+                lignes.add(LigneRetour(
+                    allocation.id, allocation.enveloppeId, nom, compte.id, compte.nom,
+                    montant, allocation.solde, allocation.alloue, allocation.depense
+                ))
             }
         }
         Apercu(mois, lignes.sortedBy { it.nomEnveloppe.lowercase() }, ignorees.sorted())
@@ -114,6 +124,9 @@ class PlanResetService(
                 val montant = montantRetournable(avant.alloue, avant.depense, avant.solde)
                 if (avant.enveloppeId != ligne.enveloppeId ||
                     avant.compteSourceId != ligne.compteId ||
+                    MoneyFormatter.roundAmount(avant.solde) != MoneyFormatter.roundAmount(ligne.soldeAvant) ||
+                    MoneyFormatter.roundAmount(avant.alloue) != MoneyFormatter.roundAmount(ligne.alloueAvant) ||
+                    MoneyFormatter.roundAmount(avant.depense) != MoneyFormatter.roundAmount(ligne.depenseAvant) ||
                     MoneyFormatter.roundAmount(montant) != MoneyFormatter.roundAmount(ligne.montant)
                 ) throw IllegalStateException(
                     "La répartition a changé depuis l'aperçu pour « ${enveloppe.nom} ». Recharge avant de confirmer."
