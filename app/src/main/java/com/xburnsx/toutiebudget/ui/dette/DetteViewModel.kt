@@ -170,7 +170,7 @@ class DetteViewModel(
                 val aSauver = aJour.copy(
                     nom = f.nom.trim(),
                     montantInitial = nombre(f.montantInitial) ?: aJour.montantInitial,
-                    tauxInteret = if (f.taux.isBlank()) null else nombre(f.taux),
+                    tauxInteret = if (f.taux.isBlank()) null else f.taux.trim().replace(" ", "").replace(',', '.').toDoubleOrNull(),
                     dureeMoisPret = f.dureeMois.trim().toIntOrNull(),
                     paiementMinimum = nombre(f.versementPrevu),
                     detailsDetteJson = details.versJson()
@@ -351,11 +351,13 @@ data class FormulaireDette(
         if (versementPrevu.isNotBlank()) n(versementPrevu).let {
             if (it == null || it < 0) e["versement"] = "Versement invalide (maximum deux décimales)"
         }
+        fun t(s: String) = s.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
         if (mode == ModeDette.FINANCE) {
-            n(taux).let { if (it == null || !it.isFinite() || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
+            t(taux).let { if (it == null) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
             dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
         } else {
-            if (taux.isNotBlank()) n(taux).let { if (it == null || it < 0 || it > 100) e["taux"] = "Taux entre 0 et 100" }
+            if (taux.isNotBlank() && t(taux) == null) e["taux"] = "Taux entre 0 et 100"
             if (dureeMois.isNotBlank() && dureeMois.trim().toIntOrNull() !in 1..600) e["duree"] = "Durée de 1 à 600 mois"
         }
         listOf("dateDebut" to dateDebut, "dateFin" to dateFin).forEach { (cle, v) ->
