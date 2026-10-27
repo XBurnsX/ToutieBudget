@@ -582,21 +582,22 @@ class BudgetViewModel(
             try {
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Assignation de l'argent...") }
 
+                if (montantCentimes <= 0L) throw IllegalArgumentException("Le montant doit être positif.")
                 val montantDollars = montantCentimes / 100.0
 
-                // 1. Vérifier que le compte source existe et a assez d'argent "prêt à placer"
-                val compteSource = cacheComptes.find { it.id == compteSourceId }
-                if (compteSource !is CompteCheque) {
-                    throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
-                }
-
-                if (compteSource.pretAPlacer < montantDollars) {
+                // Relecture juste avant l'opération : les caches peuvent avoir été
+                // modifiés sur un autre appareil entre affichage et validation.
+                val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
+                    .firstOrNull { it.id == compteSourceId } as? CompteCheque
+                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
+                if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                if (compteSource.pretAPlacer + 0.00001 < montantDollars) {
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
-
-                // 2. Vérifier que l'enveloppe existe
-                val enveloppe = cacheEnveloppes.find { it.id == enveloppeId }
+                val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                    .firstOrNull { it.id == enveloppeId }
                     ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
+                if (enveloppe.estArchive) throw IllegalStateException("Cette enveloppe est archivée.")
 
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
                 validerProvenance(enveloppeId, compteSourceId, mois)
