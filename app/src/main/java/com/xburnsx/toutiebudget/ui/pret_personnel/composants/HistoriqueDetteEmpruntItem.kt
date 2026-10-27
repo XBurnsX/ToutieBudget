@@ -94,7 +94,7 @@ fun HistoriqueDetteEmpruntItem(
 	val cs = MaterialTheme.colorScheme
 	val d = uiState.detailPret
 	// P4 : tant que le BON dossier n'est pas chargé, on n'affiche que le chargement
-	val enChargement = uiState.isLoadingHistorique || d == null
+	val enChargement = uiState.isLoadingHistorique
 	val isPret = d?.type == TypePretPersonnel.PRET
 	var confirmerArchivage by remember { mutableStateOf(false) }
 
@@ -125,6 +125,11 @@ fun HistoriqueDetteEmpruntItem(
                             .padding(vertical = 24.dp),
                         horizontalArrangement = Arrangement.Center
                     ) { CircularProgressIndicator() }
+                    return@Column
+                }
+                if (d == null) {
+                    Text(uiState.erreurAction ?: "Ce dossier est introuvable.",
+                        color = cs.error, style = MaterialTheme.typography.bodyMedium)
                     return@Column
                 }
 
@@ -172,8 +177,8 @@ fun HistoriqueDetteEmpruntItem(
 		confirmButton = { TextButton(onClick = onDismiss) { Text("Fermer") } },
 		dismissButton = {
 			// PP2 / PP3 : archivage manuel ou réactivation, sans paiement ni changement de solde
-			if (!enChargement) {
-				TextButton(onClick = {
+			if (!enChargement && d != null) {
+                TextButton(onClick = {
 					if (d!!.estArchive) onChangerArchivage(false) else confirmerArchivage = true
 				}) {
 					Text(if (d!!.estArchive) "Réactiver" else "Archiver")
