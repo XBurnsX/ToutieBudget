@@ -123,6 +123,7 @@ class CartesCreditViewModel(
             tauxAvances = d.tauxAvances?.toString() ?: "",
             tauxTransferts = d.tauxTransferts?.toString() ?: "",
             tauxPromo = d.tauxPromo?.toString() ?: "",
+            debutPromo = d.debutPromo ?: "",
             finPromo = d.finPromo ?: "",
             tauxRetard = d.tauxRetard?.toString() ?: "",
             jourCloture = d.jourCloture?.toString() ?: "",
@@ -157,7 +158,13 @@ class CartesCreditViewModel(
         }
         if (f.jourCloture.isNotBlank() && f.jourCloture.trim().toIntOrNull() !in 1..31) erreurs["cloture"] = "Jour entre 1 et 31"
         if (f.joursAvantEcheance.isNotBlank() && f.joursAvantEcheance.trim().toIntOrNull() !in 1..60) erreurs["delai"] = "Entre 1 et 60 jours"
+        if (f.debutPromo.isNotBlank() && MoteurCarteCredit.lireDate(f.debutPromo.trim()) == null) erreurs["debutPromo"] = "Date AAAA-MM-JJ"
         if (f.finPromo.isNotBlank() && MoteurCarteCredit.lireDate(f.finPromo.trim()) == null) erreurs["finPromo"] = "Date AAAA-MM-JJ"
+        val debutPromo = MoteurCarteCredit.lireDate(f.debutPromo.trim())
+        val finPromo = MoteurCarteCredit.lireDate(f.finPromo.trim())
+        if (debutPromo != null && finPromo != null && debutPromo.after(finPromo)) {
+            erreurs["debutPromo"] = "Le début doit précéder la fin de la promotion"
+        }
         listOf("plancher" to f.plancherMinimum, "minimum" to f.paiementMinimum).forEach { (cle, v) ->
             if (v.isNotBlank()) nombre(v).let { if (it == null || it < 0) erreurs[cle] = "Montant invalide" }
         }
@@ -177,6 +184,7 @@ class CartesCreditViewModel(
                 tauxAvances = nombre(f.tauxAvances),
                 tauxTransferts = nombre(f.tauxTransferts),
                 tauxPromo = nombre(f.tauxPromo),
+                debutPromo = f.debutPromo.trim().ifBlank { null },
                 finPromo = f.finPromo.trim().ifBlank { null },
                 tauxRetard = nombre(f.tauxRetard),
                 jourCloture = f.jourCloture.trim().toIntOrNull(),
