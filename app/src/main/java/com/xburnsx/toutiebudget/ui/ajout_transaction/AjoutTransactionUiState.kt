@@ -90,10 +90,21 @@ data class AjoutTransactionUiState(
 ) {
     /** Somme des fractions = montant saisi, en cents exacts, chaque fraction positive et avec une enveloppe. */
     fun fractionsCorrespondentAuMontant(): Boolean {
-        val totalCents = montant.toDoubleOrNull()?.let { Math.round(it) } ?: return false
+        val totalCents = montant.toLongOrNull()?.takeIf { it > 0L } ?: return false
         if (fractionsSauvegardees.isEmpty()) return false
-        if (fractionsSauvegardees.any { it.montant <= 0 || it.enveloppeId.isBlank() }) return false
-        return fractionsSauvegardees.sumOf { Math.round(it.montant) } == totalCents
+        var total = 0L
+        for (fraction in fractionsSauvegardees) {
+            val cents = fraction.montant
+            if (!cents.isFinite() || cents <= 0.0 || cents != kotlin.math.floor(cents) ||
+                cents >= Long.MAX_VALUE.toDouble() || fraction.enveloppeId.isBlank()
+            ) return false
+            total = try {
+                Math.addExact(total, cents.toLong())
+            } catch (_: ArithmeticException) {
+                return false
+            }
+        }
+        return total == totalCents
     }
 
     /**
