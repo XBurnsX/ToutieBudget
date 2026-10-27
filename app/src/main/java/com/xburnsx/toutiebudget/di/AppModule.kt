@@ -323,7 +323,9 @@ import android.content.Context
      fun provideLoginViewModel(): LoginViewModel = LoginViewModel()
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
-     fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
+     fun provideCompteRepository(): CompteRepository = compteRepository
+    fun provideTransactionRepository(): TransactionRepository = transactionRepository
+    fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
      fun provideCartesCreditViewModel(): CartesCreditViewModel = cartesCreditViewModel
      fun provideAjoutTransactionViewModel(): AjoutTransactionViewModel = ajoutTransactionViewModel
      fun provideModifierTransactionViewModel(): ModifierTransactionViewModel = modifierTransactionViewModel
