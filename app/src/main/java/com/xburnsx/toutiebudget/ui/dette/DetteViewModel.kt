@@ -16,6 +16,8 @@ import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,7 +38,8 @@ class DetteViewModel(
     private val transactionRepository: TransactionRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val historiqueAllocationService: HistoriqueAllocationService
+    private val historiqueAllocationService: HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -46,8 +49,10 @@ class DetteViewModel(
     val uiState: StateFlow<DetteUiState> = _uiState.asStateFlow()
 
     private var detteIdCourante: String? = null
+    @Volatile private var generationChargementDette = 0L
 
     fun chargerDette(detteId: String) {
+        val generation = ++generationChargementDette
         detteIdCourante = detteId
         // Tout de suite : l'écran ne doit pas réagir à l'état d'une visite précédente
         _uiState.update { DetteUiState(isLoading = true) }
@@ -56,8 +61,9 @@ class DetteViewModel(
                 val dette = compteRepository.getCompteById(detteId, "comptes_dettes") as? CompteDette
                     ?: throw Exception("Dette non trouvée")
                 val transactions = transactionRepository.recupererTransactionsPourCompte(detteId, "comptes_dettes")
-                    .getOrElse { emptyList() }
+                    .getOrThrow()
                 val formulaire = FormulaireDette.depuis(dette, trouverEnveloppeLiee(dette))
+                if (generation != generationChargementDette || detteIdCourante != detteId) return@launch
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -68,7 +74,9 @@ class DetteViewModel(
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreurChargement = "Erreur lors du chargement : ${e.message}") }
+                if (generation == generationChargementDette && detteIdCourante == detteId) {
+                    _uiState.update { it.copy(isLoading = false, erreurChargement = "Erreur lors du chargement : ${e.message}") }
+                }
             }
         }
     }
@@ -198,6 +206,7 @@ class DetteViewModel(
     }
 
     fun reinitialiser() {
+        generationChargementDette++
         detteIdCourante = null
         _uiState.value = DetteUiState()
     }
