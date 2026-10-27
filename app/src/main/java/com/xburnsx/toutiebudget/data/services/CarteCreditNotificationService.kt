@@ -78,9 +78,13 @@ object GenerateurAlertesCarte {
             val paye = MoteurCarteCredit.paiementsDepuis(transactionsCarte, emission)
             val payeAvantEcheance = transactionsCarte.filter {
                 it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement &&
-                    !it.date.before(emission) && !it.date.after(echeance)
+                    !debutJour(it.date).before(debutJour(emission)) &&
+                    !debutJour(it.date).after(debutJour(echeance))
             }.sumOf { kotlin.math.max(0.0, it.montant) }
-            val joursRestants = TimeUnit.MILLISECONDS.toDays(echeance.time - debutJour(aujourdHui).time)
+            val joursRestants = java.time.temporal.ChronoUnit.DAYS.between(
+                debutJour(aujourdHui).toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                echeance.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            )
             when {
                 joursRestants < 0 && payeAvantEcheance + 0.005 < minimum -> alertes += AlerteCarteCredit(
                     TypeAlerte.PAIEMENT_EN_RETARD, carte,
@@ -105,7 +109,10 @@ object GenerateurAlertesCarte {
         }
 
         MoteurCarteCredit.prochaineCloture(carte, aujourdHui)?.let { cloture ->
-            val jours = TimeUnit.MILLISECONDS.toDays(cloture.time - debutJour(aujourdHui).time)
+            val jours = java.time.temporal.ChronoUnit.DAYS.between(
+                debutJour(aujourdHui).toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                cloture.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            )
             if (jours in 0..JOURS_ECHEANCE_PROCHE) {
                 alertes += AlerteCarteCredit(
                     TypeAlerte.PROCHAIN_RELEVE, carte, "Prochain relevé le ${format.format(cloture)}.", Priorite.BASSE
