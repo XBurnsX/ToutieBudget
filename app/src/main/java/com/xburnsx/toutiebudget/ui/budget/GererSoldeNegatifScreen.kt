@@ -33,6 +33,11 @@ fun GererSoldeNegatifScreen(
     onVirementClick: (enveloppeId: String, montantNegatif: Double, mois: Date) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // GN1/GN2 : la page doit lire les allocations du mois envoyé par Budget,
+    // non réutiliser par hasard celles du mois courant du ViewModel partagé.
+    LaunchedEffect(moisSelectionne.time) {
+        viewModel.chargerDonneesBudget(moisSelectionne)
+    }
     
     // Filtrer uniquement les enveloppes avec solde négatif
     val enveloppesNegatives = uiState.categoriesEnveloppes
@@ -100,7 +105,12 @@ fun GererSoldeNegatifScreen(
             }
         } else if (uiState.erreur != null) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text(text = "Impossible de charger les enveloppes : ${uiState.erreur}", color = MaterialTheme.colorScheme.error)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "Impossible de charger les enveloppes : ${uiState.erreur}", color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = { viewModel.chargerDonneesBudget(moisSelectionne) }) {
+                        Text("Réessayer")
+                    }
+                }
             }
         } else if (enveloppesNegatives.isEmpty()) {
             // Aucune enveloppe négative
