@@ -368,6 +368,7 @@ class ModifierTransactionViewModel(
                              "id" to fraction.id.ifBlank { "fraction_${index + 1}" },
                              "description" to nomEnveloppe,
                              "enveloppeId" to fraction.enveloppeId,
+                             "enveloppe_id" to fraction.enveloppeId, // AT9 : clé canonique
                              "montant" to montantEnDollars,
                              "allocation_mensuelle_id" to allocationActuelle.id,
                              "transactionParenteId" to null,
@@ -510,9 +511,10 @@ class ModifierTransactionViewModel(
                 val obj = element.asJsonObject
                 FractionTransaction(
                     id = obj.get("id")?.asString ?: "fraction_${index + 1}",
-                    enveloppeId = obj.get("enveloppeId")?.asString.orEmpty(),
+                    enveloppeId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))
+                        ?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
                     montant = kotlin.math.round((obj.get("montant")?.asDouble ?: 0.0) * 100.0),
-                    note = obj.get("note")?.asString.orEmpty()
+                    note = obj.get("note")?.takeIf { !it.isJsonNull }?.asString.orEmpty()
                 )
             }
         }.getOrDefault(emptyList())
