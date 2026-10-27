@@ -37,10 +37,21 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 | Section | IDs retenus | État du codage | Vérifications restantes |
 |---|---|---|---|
 | 3. Accueil / Budget | A2, A3, A4, A5, A7 | Code présent. A2 révisé avec transaction Room; filtres au cent, favoris synchronisés en série; aperçus protégés | Compilation + validation des écritures Room/SyncJobs |
-| 4. Paramètres / Plan Reset | A8 / BUD-01 | Code présent. Transaction Room et prévisualisation multi-source sans confondre les comptes | Compilation + compatibilité allocation historique / rollover |
+| 4. Paramètres / Plan Reset | A8 / BUD-01 | **Codage traité** : action volontaire dans Paramètres, aperçu par allocation/compte, confirmation explicite, sélection par ID, détection d'aperçu périmé, restauration Room atomique, aucune suppression de transaction ni modification des autres mois | Compilation Gradle et vérification Room/PocketBase sur appareil non exécutées |
 | 5. Correctifs Budget | C2, C3, C4 | Code présent : persistance locale/PocketBase, fermeture par succès propre à l'opération, dollars CAD | Compilation + intégration UI |
 | 6. Prêt personnel | P3–P7, PP2, PP3, PP6 | Code présent. Erreurs des historiques et de l'archivage rendues explicites | Compilation + intégrité des remboursements multi-dossiers |
 | 7. Virer argent | V1–V8, VA4–VA6 | Code présent. Transaction Room déjà injectée; journaux désormais obligatoires; gestion d'exception dans le ViewModel | Compilation + cas de provenance multi-allocation |
+
+## Section 4 — Revue de codage clôturée (A8 / BUD-01)
+
+- Fonction accessible dans Paramètres, sans reset automatique.
+- Aperçu réel par allocation avec provenance **par compte** et choix de chaque ligne; les homonymes de comptes et les multiples allocations ne sont plus fusionnés par nom.
+- Au moment de confirmer, vérification sous la même transaction Room : ID, compte d'origine, solde, alloué, dépensé et montant de chaque ligne. Si une donnée a changé, aucune opération n'est validée.
+- Le remboursement retourne uniquement la portion assignée **et non dépensée**, plafonnée à l'alloué et au solde restant; aucune opération n'altère un autre mois, ni les transactions, ni le report.
+- Comptes archivés et provenances inconnues signalés et laissés intacts.
+- Erreur visible avec actualisation de l'aperçu; succès explicite; les SyncJobs sont créés avec les écritures Room.
+
+**État : codage A8 traité; build et vérification d'exécution non réalisés.** La section 5 est la suivante pour le codage.
 
 ## Section 8 — Comptes
 
