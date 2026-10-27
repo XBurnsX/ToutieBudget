@@ -614,11 +614,27 @@ fun MainAppScaffold(
                 val moisInt = backStackEntry.arguments?.getString("moisInt") ?: "1"
                 val anneeInt = backStackEntry.arguments?.getString("anneeInt") ?: "2024"
                 
-                // Créer une date valide
-                val calendar = Calendar.getInstance()
-                calendar.set(Calendar.YEAR, anneeInt.toInt())
-                calendar.set(Calendar.MONTH, moisInt.toInt() - 1) // -1 car Calendar.MONTH commence à 0
-                calendar.set(Calendar.DAY_OF_MONTH, 1) // Premier jour du mois
+                // NV10 : arguments invalides = écran explicatif, jamais crash
+                // ni montant inventé à 0 $ lors d'un virement.
+                val moisNumero = moisInt.toIntOrNull()
+                val anneeNumero = anneeInt.toIntOrNull()
+                val montant = montantNegatif.toDoubleOrNull()
+                if (enveloppeId.isBlank() || moisNumero == null || moisNumero !in 1..12 ||
+                    anneeNumero == null || anneeNumero !in 1900..2100 ||
+                    montant == null || !montant.isFinite() || montant <= 0.0
+                ) {
+                    Text("Virement prérempli impossible : paramètres manquants ou invalides.")
+                    return@composable
+                }
+                val calendar = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, anneeNumero)
+                    set(Calendar.MONTH, moisNumero - 1)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
                 val dateMois = calendar.time
                 
                 val viewModel = AppModule.provideVirerArgentViewModel()
@@ -628,7 +644,7 @@ fun MainAppScaffold(
                         bottomBarNavController.retourDepuis("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}")
                     },
                     enveloppePreselectionnee = enveloppeId,
-                    montantPreselectionne = montantNegatif.toDoubleOrNull() ?: 0.0,
+                    montantPreselectionne = montant,
                     moisPreselectionne = dateMois
                 )
             }
