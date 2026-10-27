@@ -159,8 +159,24 @@ object MoteurInvestissement {
 
     data class Part(val libelle: String, val valeur: Double, val pourcentage: Double)
 
-    /** Par catégorie d'actif, encaisse comprise ; seulement les positions dont la valeur est connue. */
+    /** IA9 : afficher des pourcentages seulement quand tout le portefeuille
+     * est documenté et se rapproche de la valeur totale du compte.
+     */
+    private fun repartitionComplete(compte: CompteInvestissement): Boolean {
+        val d = compte.details
+        val encaisse = d.encaisse ?: return false
+        if (!encaisse.isFinite() || encaisse < 0.0 || !compte.solde.isFinite()) return false
+        if (d.positions.any {
+            !it.devise.equals("CAD", ignoreCase = true) ||
+                it.valeur == null || it.valeur?.isFinite() != true || it.valeur!! < 0.0
+        }) return false
+        val totalDocumente = encaisse + d.positions.sumOf { it.valeur!! }
+        return kotlin.math.abs(totalDocumente - compte.solde) <= 0.015
+    }
+
+    /** Par catégorie d'actif, encaisse comprise ; montants en CAD rapprochés. */
     fun repartitionParCategorie(compte: CompteInvestissement): List<Part> {
+        if (!repartitionComplete(compte)) return emptyList()
         val d = compte.details
         if (d.positions.any { !it.devise.equals("CAD", ignoreCase = true) }) return emptyList()
         val valeurs = d.positions.filter { it.valeur != null }.groupBy { it.categorie.libelle }
@@ -170,6 +186,7 @@ object MoteurInvestissement {
     }
 
     fun repartitionParTitre(compte: CompteInvestissement): List<Part> {
+        if (!repartitionComplete(compte)) return emptyList()
         val d = compte.details
         if (d.positions.any { !it.devise.equals("CAD", ignoreCase = true) }) return emptyList()
         val valeurs = d.positions.filter { it.valeur != null && it.valeur!!.isFinite() }
@@ -180,6 +197,7 @@ object MoteurInvestissement {
     }
 
     fun repartitionParDevise(compte: CompteInvestissement): List<Part> {
+        if (!repartitionComplete(compte)) return emptyList()
         val d = compte.details
         // IA9 : un graphique global CAD/USD sans taux FX n'est pas une
         // répartition comparable. Ne pas additionner des unités différentes.
