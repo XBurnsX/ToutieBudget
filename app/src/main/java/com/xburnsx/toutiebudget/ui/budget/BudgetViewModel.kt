@@ -577,8 +577,8 @@ class BudgetViewModel(
     }
 
     // C3 : signale la réussite d'UNE assignation (id de l'enveloppe) pour fermer SA fenêtre seulement
-    private val _assignationReussie = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val assignationReussie: SharedFlow<String> = _assignationReussie.asSharedFlow()
+    private val _assignationReussie = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 1)
+    val assignationReussie: SharedFlow<Pair<String, String>> = _assignationReussie.asSharedFlow()
 
     // A2 : résultat d'une répartition vers plusieurs enveloppes
     private val _resultatRepartition = MutableSharedFlow<ResultatRepartition>(extraBufferCapacity = 1)
@@ -599,7 +599,8 @@ class BudgetViewModel(
     fun assignerArgentAEnveloppe(
         enveloppeId: String,
         compteSourceId: String,
-        montantCentimes: Long
+        montantCentimes: Long,
+        operationId: String = ""
     ) {
         viewModelScope.lancerUneFois(verrouAssignation) {
             try {
@@ -628,7 +629,7 @@ class BudgetViewModel(
                     executerAssignation(compteSource, enveloppe, montantDollars, mois)
                 }
 
-                _assignationReussie.tryEmit(enveloppeId)
+                _assignationReussie.tryEmit(enveloppeId to operationId)
                 rechargerApresModification()
 
             } catch (e: Exception) {
