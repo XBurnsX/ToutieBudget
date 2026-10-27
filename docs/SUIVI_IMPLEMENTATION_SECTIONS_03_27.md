@@ -116,12 +116,35 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État** : codage des exigences couvert, sans compilation Android, sans exécution des tests et sans validation sur de vrais relevés/Room/PocketBase. Section 11 suivante; ne pas interpréter ce statut comme « zéro bug garanti ».
 
+## Section 11 — Dettes : CODAGE REVU (DF1–DF15, DA1–DA7)
+
+| Exigence | Travail présent dans le code |
+|---|---|
+| DF1 | Brouillon indépendant et sauvegarde unique; retour sans écriture et confirmation si changements |
+| DF2 | Solde `soldeDette` conservé indépendamment du montant initial, taux, durée et simulation |
+| DF3 | Paiements par date/ID/montant et équivalent mensuel clairement distingué du compteur brut |
+| DF4 | Moteur Dette unique, sans valeur de taux ou durée inventée |
+| DF5 | Dates réelles, échéance et fin de mois 29–31 selon contrat |
+| DF6 | Montants au cent, taux finis (précision distincte), limites de durée, grands nombres rejetés |
+| DF7 | Intérêts facturés distingués des intérêts futurs; intérêts payés marqués indisponibles si décomposition absente |
+| DF8 | Contrôle du solde restant relu dans la transaction Room; maximum dû et bouton « Payer le solde » dans Transactions |
+| DF9 | Débit/crédit sous ID partagé, suppression d'une contrepartie unique seulement, restauration des soldes/allocations/archives et refus de la modification isolée |
+| DF10 | Paiement, ajustement, journal et SyncJobs sous transaction Room; les erreurs ne sont pas cachées |
+| DF11 | Création compte dette + catégorie + enveloppe + lien par ID dans un seul commit Room; migration legacy uniquement par homonyme UNIQUE de la bonne catégorie/propriétaire |
+| DF12 | Archivage non destructeur; toutes périodes/provenances vérifiées avant fermeture de l'enveloppe; catégorie Dettes sans enveloppe active masquée en Budget |
+| DF13 | Rechargement réel, erreurs de lecture et d'écriture visibles, formulaire d'ajustement conservé en échec |
+| DF14 | Date choisie dans Transactions utilisée sur les deux côtés du paiement et le mois d'allocation |
+| DF15 | Configuration relue sous transaction Room, conflits détectés, version courante du solde conservée |
+| DA1–DA7 | Deux modes de dette, échéanciers/simulations, échéance future, ajustement daté atomique, capital/intérêts clairement distingués et taux variable daté sans réécriture du passé |
+
+**Statut : codage revu.** Compilation, exécution Android, intégration PocketBase multi-appareil et tests E2E reportés. L'atomicité locale Room ne suffit pas, à elle seule, à prouver une résolution de conflits distante. Ne jamais marquer ces scénarios « PASS » sans exécution.
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 11 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
+| 12 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
 
 ## Règles de suivi
 
