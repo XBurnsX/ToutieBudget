@@ -60,6 +60,28 @@ class EcransAjoutTransactionTest {
     // ===== AT4 / AT15 : tout ou rien =====
 
     @Test
+    fun `historique de transaction directe en erreur - aucun succes ni transaction restante`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("depanneur")
+        b.allocation("depanneur", maintenant, solde = 100.0, provenance = "chq")
+        b.echouerSur = "enregistrerTransactionDirecte"
+        val retour = app.enregistrer.executer(
+            typeTransaction = TypeTransaction.Depense,
+            montant = 5.0,
+            compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            enveloppeId = "depanneur",
+            tiersUtiliser = "Irving",
+            date = maintenant
+        )
+
+        assertTrue(retour.isFailure, "Le journal obligatoire ne peut pas echouer silencieusement")
+        assertEquals(1000.0, b.soldeDe("chq"))
+        assertTrue(b.transactions.isEmpty(), "La transaction est defaite en cas d'erreur du journal")
+    }
+
+
+    @Test
     fun `pret accorde dont la transaction echoue - ni dossier ni debit`() = test {
         b.cheque("chq", 1000.0, 1000.0)
         b.echouerSur = "creerTransaction"
