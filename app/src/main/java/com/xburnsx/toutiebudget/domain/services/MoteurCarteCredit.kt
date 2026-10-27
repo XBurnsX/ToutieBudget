@@ -151,6 +151,26 @@ object MoteurCarteCredit {
         return MinimumAPayer(minimumEstime(carte, base), false, prochaineEcheance(carte), "Estimation (${carte.details.pourcentageMinimumEffectif} %)")
     }
 
+    /**
+     * CC7 : estimation de ce qui reste du minimum après les paiements SAISIS
+     * depuis l'émission du relevé. Ne jamais compter les paiements que le relevé
+     * lui-même inclut déjà, ni présenter cet ajustement comme confirmé par la banque.
+     */
+    fun minimumRestantSelonTransactions(
+        carte: CompteCredit,
+        transactionsCarte: List<Transaction>
+    ): MinimumAPayer? {
+        val minimum = minimumAPayer(carte) ?: return null
+        val emission = lireDate(dernierReleve(carte)?.dateEmission) ?: return minimum
+        val paiements = paiementsDepuis(transactionsCarte, emission)
+        if (paiements <= 0.0) return minimum
+        return minimum.copy(
+            montant = arrondi(max(0.0, minimum.montant - paiements)),
+            officiel = false,
+            source = "Estimation restante d'après les paiements saisis (à vérifier sur le relevé bancaire)"
+        )
+    }
+
     // ===== Paiements depuis un relevé (CC9) =====
 
     private val typesPaiement = setOf(
