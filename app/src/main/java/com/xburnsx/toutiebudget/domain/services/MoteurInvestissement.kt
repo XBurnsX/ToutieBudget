@@ -38,7 +38,10 @@ object MoteurInvestissement {
     /** Capital net versé = valeur de départ connue + apports - retraits ; null tant que la valeur de départ est inconnue. */
     fun capitalNetVerse(compte: CompteInvestissement, transactions: List<Transaction>): Double? {
         val depart = compte.details.valeurDepart ?: return null
-        return arrondi(depart + apports(transactions) - retraits(transactions))
+        val dateDepart = MoteurCarteCredit.lireDate(compte.details.dateDepart) ?: return null
+        val fluxApresDepart = flux(transactions).filter { !it.date.before(dateDepart) }
+        val capital = depart + fluxApresDepart.sumOf { it.montant }
+        return capital.takeIf { it.isFinite() }?.let(::arrondi)
     }
 
     /** IA3 : variation totale (réalisée + non réalisée) par rapport au capital net versé. */
@@ -67,9 +70,12 @@ object MoteurInvestissement {
 
     /** Plus-value latente des positions dont le cours est connu ; null si aucun cours. */
     fun gainNonRealise(compte: CompteInvestissement): Double? {
-        val avecCours = compte.details.positions.filter { it.cours != null }
-        if (avecCours.isEmpty()) return null
-        return arrondi(avecCours.sumOf { (it.valeur ?: 0.0) - it.coutTotal })
+        val positions = compte.details.positions
+        if (positions.isEmpty() || positions.any {
+                it.valeur == null || it.valeur?.isFinite() != true || !it.coutTotal.isFinite()
+            }) return null
+        val gain = positions.sumOf { it.valeur!! - it.coutTotal }
+        return gain.takeIf { it.isFinite() }?.let(::arrondi)
     }
 
     // ===== Valeurs datées (IA4) =====
@@ -152,22 +158,30 @@ object MoteurInvestissement {
 
     fun repartitionParTitre(compte: CompteInvestissement): List<Part> {
         val d = compte.details
-        val valeurs = d.positions.filter { it.valeur != null }.associate { it.symbole to it.valeur!! }.toMutableMap()
+        val valeurs = d.positions.filter { it.valeur != null && it.valeur!!.isFinite() }
+            .groupBy { it.symbole }.mapValues { (_, positions) -> positions.sumOf { it.valeur!! } }
+            .toMutableMap()
         d.encaisse?.takeIf { it > 0 }?.let { valeurs["Encaisse"] = it }
         return parts(valeurs)
     }
 
     fun repartitionParDevise(compte: CompteInvestissement): List<Part> {
         val d = compte.details
-        val valeurs = d.positions.filter { it.valeur != null }.groupBy { it.devise }
-            .mapValues { (_, p) -> p.sumOf { it.valeur!! } }.toMutableMap()
+        // IA9 : un graphique global CAD/USD sans taux FX n'est pas une
+        // répartition comparable. Ne pas additionner des unités différentes.
+        val devises = d.positions.filter { it.valeur != null }.map { it.devise }.toSet()
+        if (devises.size > 1 || (devises.isNotEmpty() && "CAD" !in devises && d.encaisse != null)) {
+            return emptyList()
+        }
+        val valeurs = d.positions.filter { it.valeur != null && it.valeur!!.isFinite() }
+            .groupBy { it.devise }.mapValues { (_, p) -> p.sumOf { it.valeur!! } }.toMutableMap()
         d.encaisse?.takeIf { it > 0 }?.let { valeurs["CAD (encaisse)"] = (valeurs["CAD (encaisse)"] ?: 0.0) + it }
         return parts(valeurs)
     }
 
     private fun parts(valeurs: Map<String, Double>): List<Part> {
         val total = valeurs.values.sum()
-        if (total <= 0) return emptyList()
+        if (!total.isFinite() || total <= 0 || valeurs.values.any { !it.isFinite() || it < 0 }) return emptyList()
         return valeurs.map { (k, v) -> Part(k, arrondi(v), v / total * 100) }.sortedByDescending { it.valeur }
     }
 }
