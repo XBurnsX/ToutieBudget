@@ -68,6 +68,22 @@ object MoteurCarteCredit {
         return if (dansPromotion) d.tauxPromo!! else tauxAchats(carte)
     }
 
+    /**
+     * CC5 : taux par nature du mouvement. Null signifie taux NON CONNU,
+     * jamais zéro par défaut. Une promotion générique connue est appliquée
+     * aux achats seulement : elle ne réduit pas implicitement les avances.
+     */
+    fun tauxPourNature(
+        carte: CompteCredit,
+        nature: NatureMouvementCarte,
+        date: Date = Date()
+    ): Double? = when (nature) {
+        NatureMouvementCarte.ACHAT ->
+            carte.tauxInteret?.let { tauxEffectif(carte, date) }
+        NatureMouvementCarte.AVANCE_FONDS -> carte.details.tauxAvances
+        NatureMouvementCarte.TRANSFERT_SOLDE -> carte.details.tauxTransferts
+    }?.takeIf { it.isFinite() && it >= 0.0 }
+
     /** Intérêts estimés pour un nombre de jours sur un montant dû (taux annuel / 365, calcul quotidien). */
     fun interetsEstimes(montantDu: Double, tauxAnnuel: Double, jours: Int): Double =
         if (montantDu <= 0 || tauxAnnuel <= 0 || jours <= 0) 0.0 else montantDu * tauxAnnuel / 100.0 / JOURS_PAR_AN * jours
@@ -213,6 +229,10 @@ object MoteurCarteCredit {
         val fin = debutJour(aujourdHui)
         val jours = TimeUnit.MILLISECONDS.toDays(fin.time - debutJour(debut).time).toInt()
         if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
+        if (tauxPourNature(carte, NatureMouvementCarte.ACHAT) == null) return EstimationCycle(
+            0.0, debut, jours, false, estimationDisponible = false,
+            avertissement = "Le taux annuel des achats n'est pas configuré."
+        )
         // CC5 : un relevé ancien ne représente pas le cycle actuel.
         if (jours > 62) return EstimationCycle(
             0.0, debut, jours, false, estimationDisponible = false,
@@ -318,6 +338,14 @@ object MoteurCarteCredit {
         }
         var solde = dette(carte)
         if (solde <= 0.005) return ResultatSimulation(emptyList(), 0, 0.0, 0.0, 0.0)
+        if (tauxPourNature(carte, NatureMouvementCarte.ACHAT, debut) == null) {
+            return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+                "Taux annuel des achats manquant : simulation non fiable.")
+        }
+        if (carte.details.naturesMouvements.values.any { it != NatureMouvementCarte.ACHAT }) {
+            return ResultatSimulation(emptyList(), null, 0.0, 0.0, 0.0,
+                "Avances/transferts détectés : le simulateur exige les soldes ventilés par taux.")
+        }
 
         val fraisConfigures = carte.fraisMensuels
         val cal = Calendar.getInstance().apply { time = prochaineEcheance(carte, debut) ?: debut }
