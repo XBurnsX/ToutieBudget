@@ -39,6 +39,35 @@ class ReglesStatistiquesTest {
         assertEquals(0.22, ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estDepenseBudget), 0.0001)
     }
 
+    @Test fun `fractions acceptent ancienne et nouvelle cle mais pas total incomplet`() {
+        val ancien = tx(TypeTransaction.Depense, 10.0).copy(
+            estFractionnee = true,
+            sousItems = """[{"enveloppeId":"epicerie","montant":4.0},
+                             {"enveloppe_id":"loyer","montant":6.0}]"""
+        )
+        val fractions = ReglesStatistiques.lireFractions(ancien)
+        assertEquals(2, fractions.size)
+        assertEquals("epicerie", fractions.first().enveloppeId)
+        assertEquals("loyer", fractions.last().enveloppeId)
+        val fauxTotal = ancien.copy(sousItems = """[{"enveloppe_id":"epicerie","montant":4.0}]""")
+        assertTrue(runCatching { ReglesStatistiques.lireFractions(fauxTotal) }.isFailure)
+    }
+
+    @Test fun `aucune moyenne actuelle pour une periode entierement future`() {
+        val maintenant = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 10, 12, 0, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val debutFutur = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val finFuture = Calendar.getInstance().apply {
+            set(2026, Calendar.NOVEMBER, 30, 23, 59, 59); set(Calendar.MILLISECOND, 999)
+        }.time
+        assertTrue(ReglesStatistiques.moyenneDepenses7Jours(
+            emptyList(), finFuture, maintenant, dateDebutPeriode = debutFutur
+        ).isEmpty())
+    }
+
     @Test fun `moyenne 7 jours inclut toute la derniere journee et exclut les jours futurs`() {
         val maintenant = Calendar.getInstance().apply {
             set(2026, Calendar.OCTOBER, 10, 12, 0, 0); set(Calendar.MILLISECOND, 0)
