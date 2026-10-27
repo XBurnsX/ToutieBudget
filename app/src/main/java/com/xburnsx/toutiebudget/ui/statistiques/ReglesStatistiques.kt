@@ -10,6 +10,49 @@ import java.math.RoundingMode
 
 /** Définitions uniques utilisées par tous les indicateurs et graphiques (ST1-ST3). */
 object ReglesStatistiques {
+    enum class ReferenceComparaison { PERIODE_PRECEDENTE, ANNEE_PRECEDENTE }
+
+    /**
+     * SA3 : fenetre avec meme portion de jours que la periode effective.
+     * Pour un mois civil commence le 1er, le precedent commence le 1er
+     * (et s'arrete au jour comparable si le mois est partiel).
+     */
+    fun periodeDeReference(
+        debut: Date,
+        fin: Date,
+        reference: ReferenceComparaison,
+        maintenant: Date = Date()
+    ): Pair<Date, Date>? {
+        if (fin.before(debut) || debut.after(maintenant)) return null
+        val finEffective = minOf(fin, maintenant)
+        val zone = java.time.ZoneId.systemDefault()
+        val debutZ = debut.toInstant().atZone(zone)
+        val finZ = finEffective.toInstant().atZone(zone)
+        if (reference == ReferenceComparaison.ANNEE_PRECEDENTE) {
+            return Date.from(debutZ.minusYears(1).toInstant()) to Date.from(finZ.minusYears(1).toInstant())
+        }
+        val premierDuMois = debutZ.dayOfMonth == 1 &&
+            debutZ.hour == 0 && debutZ.minute == 0 && debutZ.second == 0
+        if (premierDuMois && debutZ.year == finZ.year && debutZ.month == finZ.month) {
+            val premierPrecedent = debutZ.minusMonths(1)
+            val dernierPrecedent = finZ.minusMonths(1)
+            return Date.from(premierPrecedent.toInstant()) to Date.from(dernierPrecedent.toInstant())
+        }
+        // Periodes glissantes : meme duree juste avant le debut.
+        val dureeMillis = finEffective.time - debut.time
+        val finPrecedente = Date(debut.time - 1L)
+        val debutPrecedent = Date(finPrecedente.time - dureeMillis)
+        return debutPrecedent to finPrecedente
+    }
+
+    /** Un zéro de référence n'autorise pas un « +infini % ». */
+    fun variationPourcentage(actuel: Double, reference: Double?): Double? {
+        if (reference == null || !reference.isFinite() || !actuel.isFinite() ||
+            kotlin.math.abs(reference) < 0.005
+        ) return null
+        return (actuel - reference) * 100.0 / reference
+    }
+
     data class FractionDepense(val enveloppeId: String, val montant: Double)
 
     /**
