@@ -59,9 +59,13 @@ object MoteurDette {
     // ===== Versements réels (DF3) =====
 
     /** Paiements réellement enregistrés sur la dette, par date et montant. */
-    fun paiementsReels(transactionsDette: List<Transaction>): List<Transaction> =
-        transactionsDette.filter { it.type == TypeTransaction.Paiement }
-            .sortedBy { it.date }
+    fun paiementsReels(
+        transactionsDette: List<Transaction>, jusquAu: Date = Date()
+    ): List<Transaction> =
+        transactionsDette.filter {
+            it.type == TypeTransaction.Paiement &&
+                it.montant.isFinite() && it.montant > 0.0 && !it.date.after(jusquAu)
+        }.sortedBy { it.date }
 
     fun totalVerse(transactionsDette: List<Transaction>): Double = arrondi(paiementsReels(transactionsDette).sumOf { it.montant })
 
@@ -110,7 +114,9 @@ object MoteurDette {
         val echeance = prochaineEcheance(dette, aujourdHui) ?: return null
         val prevu = min(versementPrevu(dette) ?: return null, restant(dette) + totalVerseDepuis(dette, transactionsDette, echeance))
         val debutPeriode = Calendar.getInstance().apply { time = echeance; add(Calendar.MONTH, -1) }.time
-        val verse = arrondi(paiementsReels(transactionsDette).filter { it.date.after(debutPeriode) && !it.date.after(finJour(echeance)) }.sumOf { it.montant })
+        val verse = arrondi(paiementsReels(transactionsDette, aujourdHui).filter {
+            it.date.after(debutPeriode) && !it.date.after(finJour(echeance))
+        }.sumOf { it.montant })
         val statut = when {
             verse + 0.005 >= prevu -> StatutEcheance.PAYEE
             verse > 0.005 -> StatutEcheance.PARTIELLE
