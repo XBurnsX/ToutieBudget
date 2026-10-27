@@ -203,7 +203,7 @@ import android.content.Context
          }
          
          private val cartesCreditViewModel: CartesCreditViewModel by lazy {
-        CartesCreditViewModel(cartesCreditRepository, realtimeSyncService, historiqueAllocationService)
+        CartesCreditViewModel(cartesCreditRepository, realtimeSyncService, historiqueAllocationService, operationAtomique)
     }
 
      private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
