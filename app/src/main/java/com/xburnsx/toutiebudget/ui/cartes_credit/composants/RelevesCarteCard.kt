@@ -45,6 +45,7 @@ fun RelevesCarteCard(
     carte: CompteCredit,
     transactionsCarte: List<Transaction>,
     onAjouter: () -> Unit,
+    onImporter: () -> Unit,
     onModifier: (ReleveCarte) -> Unit,
     onComptabiliserInterets: (String) -> Unit,
     onComptabiliserFrais: (String) -> Unit,
@@ -70,6 +71,7 @@ fun RelevesCarteCard(
                     color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
+                TextButton(onClick = onImporter) { Text("Importer CSV") }
                 IconButton(onClick = onAjouter) {
                     Icon(Icons.Default.Add, contentDescription = "Ajouter un relevé", tint = Color.White)
                 }
