@@ -13,6 +13,7 @@ import java.util.Date
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import com.xburnsx.toutiebudget.utils.OperationAtomique
 import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueRoom
 
 
 /**
@@ -154,7 +155,11 @@ class EnregistrerTransactionUseCase(
                     throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
                 }
                 val idCree = resultTransaction.getOrThrow().id
-                siEchec { transactionRepository.supprimerTransaction(idCree) }
+                // Room annule automatiquement; ne pas fabriquer de SyncJob inverse
+                // pendant une transaction qui va deja faire rollback.
+                if (operationAtomique !is OperationAtomiqueRoom) {
+                    siEchec { transactionRepository.supprimerTransaction(idCree).getOrThrow() }
+                }
 
                 // 📝 ENREGISTRER DANS L'HISTORIQUE
                 try {
@@ -251,7 +256,9 @@ class EnregistrerTransactionUseCase(
 
                 // 3. Mettre à jour les soldes, l'un après l'autre pour pouvoir défaire le premier si le second échoue
                 mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant).getOrThrow()
-                siEchec { mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant, sens = -1.0).getOrThrow() }
+                if (operationAtomique !is OperationAtomiqueRoom) {
+                    siEchec { mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant, sens = -1.0).getOrThrow() }
+                }
                 if (!allocationMensuelleId.isNullOrBlank()) {
                     mettreAJourSoldeEnveloppe(allocationMensuelleId, montant, collectionCompte).getOrThrow()
                 }
