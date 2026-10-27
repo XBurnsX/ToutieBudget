@@ -118,7 +118,8 @@ fun GestionCarteCreditScreen(
                         carte = carteCredit,
                         onAjouter = { viewModel.ouvrirReleve(null) },
                         onModifier = { viewModel.ouvrirReleve(it) },
-                        onComptabiliserInterets = { viewModel.comptabiliserInterets(it) }
+                        onComptabiliserInterets = { viewModel.comptabiliserInterets(it) },
+                        onComptabiliserFrais = { viewModel.comptabiliserFrais(it) }
                     )
                 }
 
