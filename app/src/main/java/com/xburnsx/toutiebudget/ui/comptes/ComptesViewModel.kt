@@ -294,12 +294,20 @@ class ComptesViewModel(
             return "Dette archivée. Son enveloppe « ${envDette.nom} » reste active : la dette n'est pas terminée."
         }
 
-        val soldeEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(envDette.id).getOrThrow()
-            .groupBy { it.mois.time }
-            .maxByOrNull { it.key }?.value?.sumOf { it.solde } ?: 0.0
-        if (kotlin.math.abs(soldeEnveloppe) > 0.009) {
-            return "Dette archivée. Son enveloppe « ${envDette.nom} » contient encore " +
-                "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeEnveloppe)} : elle reste active."
+        val allocations = enveloppeRepository.recupererAllocationsEnveloppe(envDette.id).getOrThrow()
+        if (allocations.any { !it.solde.isFinite() }) {
+            throw IllegalStateException("Solde d'allocation invalide : archivage d'enveloppe refusé.")
+        }
+        // DF12 : ne PAS regarder seulement le dernier mois, ni sommer une
+        // allocation positive et négative de provenances différentes : cela
+        // pourrait masquer des réservations futures ou de l'argent réel.
+        val allocationsNonSoldees = allocations.filter {
+            kotlin.math.round(it.solde * 100.0).toLong() != 0L
+        }
+        if (allocationsNonSoldees.isNotEmpty()) {
+            return "Dette archivée. L'enveloppe « ${envDette.nom} » reste active : " +
+                "${allocationsNonSoldees.size} allocation(s) de périodes ou provenances " +
+                "différentes comportent encore des fonds ou un déficit à régulariser."
         }
 
         // Archiver (jamais supprimer) : l'historique d'allocation et les références restent intacts
