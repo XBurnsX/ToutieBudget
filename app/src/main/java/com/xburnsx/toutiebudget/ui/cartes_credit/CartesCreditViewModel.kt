@@ -194,34 +194,39 @@ class CartesCreditViewModel(
                 detailsCarteJson = details.versJson()
             )
 
-            carteCreditRepository.mettreAJourCarteCredit(carteModifiee)
-                .onSuccess {
-                    // CC3 : une correction du solde est journalisée, sans inventer de paiement bancaire
-                    if (abs(nouveauSolde - carteOriginale.solde) > 0.005) {
-                        try {
-                            historiqueAllocationService.enregistrerAjustementCompte(
-                                compte = carteModifiee,
-                                typeAction = "CORRECTION_SOLDE_CARTE",
-                                description = "Correction du solde de ${carteModifiee.nom} : " +
-                                    "${MoneyFormatter.formatAmount(carteOriginale.solde)} → ${MoneyFormatter.formatAmount(nouveauSolde)}",
-                                montant = nouveauSolde - carteOriginale.solde,
-                                soldeAvant = carteOriginale.solde,
-                                soldeApres = nouveauSolde,
-                                pretAPlacerAvant = 0.0,
-                                pretAPlacerApres = 0.0
-                            )
-                        } catch (e: Exception) {
-                            android.util.Log.e("ToutieBudget", "Trace de correction de carte non enregistrée: ${e.message}")
-                        }
+            try {
+                operationAtomique.executer {
+                    val actuelle = carteCreditRepository.recupererCartesCredit().getOrThrow()
+                        .firstOrNull { it.id == carteOriginale.id }
+                        ?: throw IllegalStateException("Carte introuvable ou archivée")
+                    if (actuelle != carteOriginale) {
+                        throw IllegalStateException("La carte a changé depuis l'ouverture du formulaire : actualise ses données.")
                     }
-                    _uiState.update { it.copy(afficherDialogModification = false, enregistrementEnCours = false, carteSelectionnee = carteModifiee) }
-                    chargerCartesCredit()
-                    realtimeSyncService.declencherMiseAJourComptes()
+                    carteCreditRepository.mettreAJourCarteCredit(carteModifiee).getOrThrow()
+                    // CC3 : correction manuelle + journal doivent réussir ensemble.
+                    if (abs(nouveauSolde - carteOriginale.solde) > 0.005) {
+                        historiqueAllocationService.enregistrerAjustementCompte(
+                            compte = carteModifiee,
+                            typeAction = "CORRECTION_SOLDE_CARTE",
+                            description = "Correction du solde de ${carteModifiee.nom} : " +
+                                "${MoneyFormatter.formatAmount(carteOriginale.solde)} → ${MoneyFormatter.formatAmount(nouveauSolde)}",
+                            montant = nouveauSolde - carteOriginale.solde,
+                            soldeAvant = carteOriginale.solde,
+                            soldeApres = nouveauSolde,
+                            pretAPlacerAvant = 0.0,
+                            pretAPlacerApres = 0.0
+                        )
+                    }
                 }
-                .onFailure { erreur ->
-                    // CO6 : le formulaire reste ouvert avec les valeurs
-                    _uiState.update { it.copy(enregistrementEnCours = false, messageErreur = "Erreur lors de la modification: ${erreur.message}") }
-                }
+                _uiState.update { it.copy(afficherDialogModification = false,
+                    enregistrementEnCours = false, carteSelectionnee = carteModifiee, messageErreur = null) }
+                chargerCartesCredit()
+                realtimeSyncService.declencherMiseAJourComptes()
+            } catch (erreur: Exception) {
+                // CC3 : laisser ouverts les champs et montrer l'erreur.
+                _uiState.update { it.copy(enregistrementEnCours = false,
+                    messageErreur = "Erreur lors de la modification : ${erreur.message}") }
+            }
         }
     }
 
