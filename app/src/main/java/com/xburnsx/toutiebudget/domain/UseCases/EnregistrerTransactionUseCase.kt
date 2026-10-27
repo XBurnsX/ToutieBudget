@@ -140,7 +140,9 @@ class EnregistrerTransactionUseCase(
                 try {
                     val compte = compteRepository.getCompteById(compteId, collectionCompte)
                     val enveloppe = if (!allocationMensuelleId.isNullOrBlank()) {
-                        enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeId }
+                        enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                            .find { it.id == enveloppeId && !it.estArchive }
+                            ?: throw IllegalStateException("Enveloppe d'historique introuvable.")
                     } else null
                     
                     if (compte is CompteCheque) {
@@ -171,29 +173,44 @@ class EnregistrerTransactionUseCase(
                                 val gson = com.google.gson.Gson()
                                 val type = object : com.google.gson.reflect.TypeToken<List<Map<String, Any>>>() {}.type
                                 val fractions = gson.fromJson<List<Map<String, Any>>>(sousItems, type)
-                                
+                                    ?: throw IllegalArgumentException("Fractions manquantes.")
+                                if (fractions.isEmpty()) throw IllegalArgumentException("Aucune fraction à enregistrer.")
+                                val enveloppesParId = enveloppeRepository.recupererToutesLesEnveloppes()
+                                    .getOrThrow().filter { !it.estArchive }.associateBy { it.id }
+                                var totalCents = 0L
+
                                 for ((index, fraction) in fractions.withIndex()) {
-                                    val enveloppeIdFraction = fraction["enveloppe_id"] as? String
-                                    val montantFraction = (fraction["montant"] as? Double) ?: 0.0
-                                    
-                                    if (enveloppeIdFraction != null && montantFraction > 0) {
-                                        val enveloppeFraction = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeIdFraction }
-                                        
-                                        if (enveloppeFraction != null) {
-                                            android.util.Log.d("ToutieBudget", "🔄 ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement historique pour fraction ${index + 1}: ${enveloppeFraction.nom} - ${String.format("%.2f", montantFraction)}$")
-                                            historiqueAllocationService.enregistrerTransactionDirecte(
-                                                compte = compte,
-                                                enveloppe = enveloppeFraction,
-                                                typeTransaction = "FRACTION_${typeTransaction.name}",
-                                                montant = -montantFraction, // Négatif car c'est une dépense
-                                                soldeAvant = compte.solde,
-                                                soldeApres = compte.solde, // Le solde ne change pas pour les fractions
-                                                pretAPlacerAvant = compte.pretAPlacer,
-                                                pretAPlacerApres = compte.pretAPlacer, // Le prêt à placer ne change pas pour les fractions
-                                                note = "Fraction ${index + 1} de transaction fractionnée"
-                                            )
-                                        }
+                                    // AT9/AT10/AT11 : lecture canonique + ancienne forme et note individuelle.
+                                    val idFraction = (fraction["enveloppe_id"] ?: fraction["enveloppeId"]) as? String
+                                        ?: throw IllegalArgumentException("Fraction sans enveloppe.")
+                                    val montantFraction = fraction["montant"] as? Double
+                                        ?: throw IllegalArgumentException("Fraction sans montant.")
+                                    if (!montantFraction.isFinite() || montantFraction <= 0.0) {
+                                        throw IllegalArgumentException("Montant d'une fraction invalide.")
                                     }
+                                    val cents = kotlin.math.round(montantFraction * 100.0).toLong()
+                                    if (cents <= 0L ||
+                                        kotlin.math.abs(montantFraction * 100.0 - cents) > 0.000001
+                                    ) throw IllegalArgumentException("Fraction non exacte au cent.")
+                                    totalCents = Math.addExact(totalCents, cents)
+                                    val enveloppeFraction = enveloppesParId[idFraction]
+                                        ?: throw IllegalStateException("Enveloppe de fraction introuvable ou archivée.")
+                                    val noteFraction = (fraction["note"] as? String)?.takeIf { it.isNotBlank() }
+                                        ?: "Fraction ${index + 1} de transaction fractionnée"
+                                    historiqueAllocationService.enregistrerTransactionDirecte(
+                                        compte = compte,
+                                        enveloppe = enveloppeFraction,
+                                        typeTransaction = "FRACTION_${typeTransaction.name}",
+                                        montant = -montantFraction,
+                                        soldeAvant = compte.solde,
+                                        soldeApres = compte.solde,
+                                        pretAPlacerAvant = compte.pretAPlacer,
+                                        pretAPlacerApres = compte.pretAPlacer,
+                                        note = noteFraction
+                                    )
+                                }
+                                if (totalCents != kotlin.math.round(montant * 100.0).toLong()) {
+                                    throw IllegalArgumentException("Somme des fractions différente du montant total.")
                                 }
                                 android.util.Log.d("ToutieBudget", "✅ ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement historique des fractions réussi")
                             } catch (e: Exception) {
