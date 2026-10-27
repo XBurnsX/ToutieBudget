@@ -139,6 +139,24 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **Statut : codage revu.** Compilation, exécution Android, intégration PocketBase multi-appareil et tests E2E reportés. L'atomicité locale Room ne suffit pas, à elle seule, à prouver une résolution de conflits distante. Ne jamais marquer ces scénarios « PASS » sans exécution.
 
+## Section 11 — Dettes : codage repris (DF1–DF15 / DA1–DA7)
+
+| Exigences | Parcours et garde-fous de codage |
+|---|---|
+| DF1/DF2/DF15 | Brouillon enregistré sur une seule confirmation; les soldes réels et paiements d'une autre écriture ne sont pas écrasés, et une configuration devenue différente déclenche une erreur explicite. |
+| DF3/DA3 | Les versements réels proviennent des transactions datées. Le compteur des mensualités couvertes est plafonné aux échéances exigibles, puis recalculé sur ajout/annulation d'un paiement lié. Statut à venir = payé/partiel/non payé. Notifications d'action sur échéance impayée **opt-in**, sans alerte de progression. |
+| DF4/DF5/DF6/DF14 | Moteur central sans taux ou durée inventés, dates contractuelles persistées, saisies au cent, taux valides, échéances des 29–31 adaptées aux fins de mois, et mois de budget tiré de la date de paiement sélectionnée. |
+| DF7/DA6 | Intérêts et frais confirmés tirés des ajustements; intérêts futurs prévisionnels séparés; intérêts « réellement payés » déclarés indisponibles sans ventilation officielle. |
+| DF8 | Solde restant affiché dans Transactions avec action « Payer le solde »; contrôle visuel, validation de l'état du formulaire et nouvelle vérification en centimes sous transaction avant tout débit. |
+| DF9/DF10 | Création de la sortie et de l'entrée d'un paiement avec UUID commun; annulation en paire seulement, compte/dette/allocations/dossier restaurés dans transaction Room. Ancienne paire ambiguë refusée; pas de compensations produisant des SyncJobs contraires après erreur. |
+| DF11/DF12 | Lien dette-enveloppe conservé par ID, catégorie et utilisateur; aucun homonyme arbitraire. À extinction, archives non destructives et enveloppe gardée active tant qu'il existe des fonds ou déficits, même dans un autre mois. |
+| DF13 | Messages d'erreur et véritables relances de lecture, formulaire conservé si sauvegarde ou ajustement échouent. |
+| DA1/DA2/DA4 | Dette simple et prêt financé distincts; échéancier et simulations à la demande, avec hypothèses explicites et calendrier contractuel, sans modifier le solde réel. |
+| DA5 | Ajustement officiel daté et journalisé dans la même transaction Room, sans créer de faux paiement. |
+| DA7 | Changements de taux datés et validés; taux anciens conservés sans les réappliquer quand l'option variable est désactivée. |
+
+**État : codage de la section 11 repris et documenté; validation Gradle, intégration PocketBase et scénarios multi-appareils toujours non exécutés conformément aux instructions.** Ces tests pourraient révéler des modifications supplémentaires. La section suivante pour le codage est la 12.
+
 ## Sections restantes
 
 | Sections | État |
