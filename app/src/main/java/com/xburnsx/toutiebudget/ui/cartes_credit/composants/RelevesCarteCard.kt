@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
+import com.xburnsx.toutiebudget.data.modeles.Transaction
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.data.modeles.ReleveCarte
 import com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
@@ -41,6 +43,7 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun RelevesCarteCard(
     carte: CompteCredit,
+    transactionsCarte: List<Transaction>,
     onAjouter: () -> Unit,
     onModifier: (ReleveCarte) -> Unit,
     onComptabiliserInterets: (String) -> Unit,
@@ -84,6 +87,18 @@ fun RelevesCarteCard(
             releves.forEachIndexed { index, releve ->
                 val precedent = releves.getOrNull(index + 1)
                 val estime = precedent?.let { interetsEstimesPeriode(carte, it, releve) }
+                val paiementsApp = precedent?.let { precedente ->
+                    val debut = MoteurCarteCredit.lireDate(precedente.dateEmission)
+                    val fin = MoteurCarteCredit.lireDate(releve.dateEmission)
+                    if (debut == null || fin == null) null else {
+                        val jourDebut = debut.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        val jourFin = fin.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        transactionsCarte.filter { tx ->
+                            val jour = tx.date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                            tx.type == TypeTransaction.Paiement && jour.isAfter(jourDebut) && !jour.isAfter(jourFin)
+                        }.sumOf { kotlin.math.max(0.0, it.montant) }
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -110,6 +125,16 @@ fun RelevesCarteCard(
                         color = Color.Gray,
                         style = MaterialTheme.typography.bodySmall
                     )
+                    paiementsApp?.let { paiementsSaisis ->
+                        val diff = MoteurCarteCredit.arrondi(releve.paiementsRecus - paiementsSaisis)
+                        Text("Paiements carte saisis : ${MoneyFormatter.formatAmount(paiementsSaisis)}" +
+                            " · paiements et crédits officiels : ${MoneyFormatter.formatAmount(releve.paiementsRecus)}",
+                            color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                        if (kotlin.math.abs(diff) > 0.005) Text(
+                            "Écart indicatif : ${MoneyFormatter.formatAmount(diff)}. " +
+                                "Vérifie crédits marchands, opérations manquantes ou dates; aucun mouvement créé automatiquement.",
+                            color = Color(0xFFFFB74D), style = MaterialTheme.typography.bodySmall)
+                    }
                     if (releve.interetsFactures > 0.005 &&
                         !releve.interetsComptabilises && !releve.interetsDejaInclus) {
                         TextButton(onClick = { confirmerInterets = releve }) {
