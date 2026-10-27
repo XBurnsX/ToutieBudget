@@ -601,23 +601,22 @@ class BudgetViewModel(
                 if (montantCentimes <= 0L) throw IllegalArgumentException("Le montant doit être positif.")
                 val montantDollars = montantCentimes / 100.0
 
-                // Relecture juste avant l'opération : les caches peuvent avoir été
-                // modifiés sur un autre appareil entre affichage et validation.
-                val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
-                    .firstOrNull { it.id == compteSourceId } as? CompteCheque
-                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
-                if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
-                if (Math.round(compteSource.pretAPlacer * 100.0) < montantCentimes) {
-                    throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
-                }
-                val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                    .firstOrNull { it.id == enveloppeId }
-                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
-                if (enveloppe.estArchive) throw IllegalStateException("Cette enveloppe est archivée.")
-
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
-                validerProvenance(enveloppeId, compteSourceId, mois)
+                // A2 : relire fonds, cible et provenance sous le verrou Room.
+                // Rien de financier ne peut changer entre ces contrôles et l'écriture.
                 operationAtomique.executer {
+                    val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
+                        .firstOrNull { it.id == compteSourceId } as? CompteCheque
+                        ?: throw IllegalStateException("Compte source introuvable")
+                    if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                    if (Math.round(compteSource.pretAPlacer * 100.0) < montantCentimes) {
+                        throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
+                    }
+                    val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                        .firstOrNull { it.id == enveloppeId }
+                        ?: throw IllegalStateException("Enveloppe cible introuvable")
+                    if (enveloppe.estArchive) throw IllegalStateException("Cette enveloppe est archivée.")
+                    validerProvenance(enveloppeId, compteSourceId, mois)
                     executerAssignation(compteSource, enveloppe, montantDollars, mois)
                 }
 
@@ -653,37 +652,32 @@ class BudgetViewModel(
 
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Répartition de l'argent...") }
 
-                // Relire le compte et les enveloppes à jour avant de valider
-                val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
-                    .find { it.id == compteSourceId } as? CompteCheque
-                    ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
-                if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
-                val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                    .associateBy { it.id }
-
-                // A2 : refuser une somme en centimes qui déborde Long avant toute écriture.
+                // A2 : calcul en centimes AVANT l'écriture, puis validation intégrale
+                // à l'intérieur de la transaction Room (pas de fenêtre de concurrence).
                 val totalCentimes = montants.values.fold(0L) { total, montant ->
                     Math.addExact(total, montant)
                 }
-                val totalDollars = totalCentimes / 100.0
-                if (Math.round(compteSource.pretAPlacer * 100.0) < totalCentimes) {
-                    throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
-                }
-
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
-                montants.keys.forEach { enveloppeId ->
-                    val enveloppe = enveloppes[enveloppeId]
-                        ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
-                    if (enveloppe.estArchive) throw IllegalStateException("L'enveloppe « ${enveloppe.nom} » est archivée.")
-                    try {
-                        validerProvenance(enveloppeId, compteSourceId, mois)
-                    } catch (e: Exception) {
-                        throw Exception("${enveloppe.nom} : ${e.message}")
-                    }
-                }
-
-                // A2 : comptes, allocations ET journal dans la même transaction Room.
                 operationAtomique.executer {
+                    val compteSource = compteRepository.recupererTousLesComptes().getOrThrow()
+                        .find { it.id == compteSourceId } as? CompteCheque
+                        ?: throw IllegalStateException("Compte source introuvable")
+                    if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
+                    if (Math.round(compteSource.pretAPlacer * 100.0) < totalCentimes) {
+                        throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
+                    }
+                    val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                        .associateBy { it.id }
+                    montants.keys.forEach { enveloppeId ->
+                        val enveloppe = enveloppes[enveloppeId]
+                            ?: throw IllegalStateException("Enveloppe cible introuvable")
+                        if (enveloppe.estArchive) throw IllegalStateException("L'enveloppe « ${enveloppe.nom} » est archivée.")
+                        try {
+                            validerProvenance(enveloppeId, compteSourceId, mois)
+                        } catch (e: Exception) {
+                            throw IllegalStateException("${enveloppe.nom} : ${e.message}", e)
+                        }
+                    }
                     var compteCourant: CompteCheque = compteSource
                     montants.forEach { (enveloppeId, centimes) ->
                         val enveloppe = enveloppes.getValue(enveloppeId)
