@@ -66,17 +66,21 @@ fun PlanResetDialog(onFermer: () -> Unit) {
     LaunchedEffect(mois, tentative) {
         chargement = true
         erreur = null
+        apercu = null
+        choisies = emptySet()
         service.preparerApercu(mois)
             .onSuccess { a ->
                 apercu = a
-                choisies = a.lignes.map { it.enveloppeId }.toSet()
+                choisies = a.lignes.map { it.allocationId }.toSet()
             }
             .onFailure { erreur = "Impossible de préparer l'aperçu : ${it.message}" }
         chargement = false
     }
 
-    val lignesChoisies = apercu?.lignes?.filter { it.enveloppeId in choisies }.orEmpty()
-    val parCompte = lignesChoisies.groupBy { it.nomCompte }.mapValues { (_, l) -> l.sumOf { it.montant } }
+    val lignesChoisies = apercu?.lignes?.filter { it.allocationId in choisies }.orEmpty()
+    val parCompte = lignesChoisies.groupBy { it.compteId }.values.map { lignes ->
+        lignes.first().nomCompte to lignes.sumOf { it.montant }
+    }
 
     Dialog(
         onDismissRequest = { if (!enCours) onFermer() },
@@ -102,7 +106,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 Box(modifier = Modifier.padding(vertical = 8.dp)) {
-                    SelecteurMoisAnnee(moisSelectionne = mois, onMoisChange = { if (!enCours) mois = it })
+                    SelecteurMoisAnnee(moisSelectionne = mois, onMoisChange = { if (!enCours && !confirmer) mois = it })
                 }
 
                 when {
@@ -123,12 +127,12 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable(enabled = !enCours) {
-                                        choisies = if (ligne.enveloppeId in choisies) choisies - ligne.enveloppeId
-                                        else choisies + ligne.enveloppeId
+                                        choisies = if (ligne.allocationId in choisies) choisies - ligne.allocationId
+                                        else choisies + ligne.allocationId
                                     }
                             ) {
                                 Checkbox(
-                                    checked = ligne.enveloppeId in choisies,
+                                    checked = ligne.allocationId in choisies,
                                     onCheckedChange = null,
                                     enabled = !enCours
                                 )
@@ -171,7 +175,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = { confirmer = true },
-                    enabled = !enCours && !chargement && lignesChoisies.isNotEmpty(),
+                    enabled = !enCours && !chargement && erreur == null && lignesChoisies.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (enCours) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -187,7 +191,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
             title = { Text("Confirmer la nouvelle répartition") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${lignesChoisies.map { it.enveloppeId }.distinct().size} enveloppe(s) seront remises à zéro pour ce mois.")
+                    Text("${lignesChoisies.size} allocation(s) sélectionnée(s) dans ${lignesChoisies.map { it.enveloppeId }.distinct().size} enveloppe(s).")
                     parCompte.forEach { (nomCompte, total) ->
                         Text("$nomCompte : + ${MoneyFormatter.formatAmount(total)}")
                     }
@@ -197,14 +201,19 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                 TextButton(onClick = {
                     confirmer = false
                     val a = apercu ?: return@TextButton
+                    val idsSelectionnes = choisies.toSet()
                     enCours = true
                     erreur = null
                     scope.launch {
-                        service.appliquer(a.mois, choisies)
-                            .onSuccess { faites -> termine = "${faites.size} enveloppe(s) remises dans « Prêt à placer »." }
-                            .onFailure { erreur = it.message }
+                        service.appliquer(a, idsSelectionnes)
+                            .onSuccess { faites ->
+                                termine = "${faites.size} enveloppe(s) remises dans « Prêt à placer »."
+                                tentative++
+                            }
+                            .onFailure {
+                                erreur = it.message ?: "Le plan a changé : recharge l'aperçu avant de confirmer."
+                            }
                         enCours = false
-                        tentative++
                     }
                 }) { Text("Confirmer") }
             },
