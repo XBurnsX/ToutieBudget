@@ -26,12 +26,14 @@ object MoteurCarteCredit {
 
     private const val JOURS_PAR_AN = 365.0
     private const val MAX_MOIS = 600
-    private val formatJour get() = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val formatJour get() = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
 
     fun arrondi(montant: Double): Double = BigDecimal.valueOf(montant).setScale(2, RoundingMode.HALF_UP).toDouble()
     private fun arrondiHaut(montant: Double): Double = BigDecimal.valueOf(montant).setScale(2, RoundingMode.CEILING).toDouble()
 
-    fun lireDate(texte: String?): Date? = texte?.let { try { formatJour.parse(it) } catch (_: Exception) { null } }
+    fun lireDate(texte: String?): Date? = texte?.trim()?.takeIf {
+        it.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}"))
+    }?.let { try { formatJour.parse(it) } catch (_: Exception) { null } }
     fun ecrireDate(date: Date): String = formatJour.format(date)
 
     // ===== Solde, crédit, utilisation =====
@@ -232,8 +234,7 @@ object MoteurCarteCredit {
         var solde = dette(carte)
         if (solde <= 0.005) return ResultatSimulation(emptyList(), 0, 0.0, 0.0, 0.0)
 
-        val fraisMensuels = carte.fraisMensuels.filter { it.type == TypeFrais.MENSUEL }.sumOf { it.montant }
-        val fraisAnnuels = carte.fraisMensuels.filter { it.type == TypeFrais.ANNUEL }.sumOf { it.montant }
+        val fraisConfigures = carte.fraisMensuels
         val cal = Calendar.getInstance().apply { time = prochaineEcheance(carte, debut) ?: debut }
         if (prochaineEcheance(carte, debut) == null) cal.add(Calendar.MONTH, 1)
 
@@ -247,7 +248,26 @@ object MoteurCarteCredit {
             val dateMois = cal.time
             val jours = max(1, TimeUnit.MILLISECONDS.toDays(dateMois.time - dateMoisPrecedent.time).toInt())
             val interets = arrondi(interetsEstimes(solde, tauxEffectif(carte, dateMois), jours))
-            val frais = arrondi(fraisMensuels + if (mois % 12 == 0) fraisAnnuels else 0.0)
+            // CC8/CC10 : appliquer les frais à la bonne date, pas ajouter
+            // tous les frais annuels arbitrairement au 12e mois.
+            val frais = arrondi(fraisConfigures.sumOf { entree ->
+                if (!entree.montant.isFinite() || entree.montant < 0) {
+                    throw IllegalArgumentException("Frais de carte invalide")
+                }
+                val dateApplication = lireDate(entree.dateApplication)
+                if (dateApplication != null && dateMois.before(dateApplication)) return@sumOf 0.0
+                when (entree.type) {
+                    TypeFrais.MENSUEL -> entree.montant
+                    TypeFrais.ANNUEL -> if (dateApplication == null) {
+                        if (mois % 12 == 0) entree.montant else 0.0
+                    } else {
+                        val debutFrais = Calendar.getInstance().apply { time = dateApplication }
+                        val periode = Calendar.getInstance().apply { time = dateMois }
+                        if (periode.get(Calendar.MONTH) == debutFrais.get(Calendar.MONTH)) entree.montant else 0.0
+                    }
+                    TypeFrais.PONCTUEL -> 0.0 // Jamais inventer une facturation récurrente
+                }
+            })
             val du = arrondi(solde + interets + frais)
 
             val paiementVoulu = when (strategie) {
