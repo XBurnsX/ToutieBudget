@@ -28,6 +28,8 @@ data class DetailsCarte(
     // CC5 : catégorisation explicite des mouvements de carte par ID de transaction.
     // Persistée dans details_carte_json : aucune migration Room requise.
     val naturesMouvements: Map<String, NatureMouvementCarte> = emptyMap(),
+    // CC5 : ventilation déclarée explicitement du solde du jour; jamais inférée du seul total.
+    val ventilationCourante: VentilationSoldeCarte? = null,
     // CC6 : relevés officiels saisis par l'utilisateur
     val releves: List<ReleveCarte> = emptyList()
 ) {
@@ -100,3 +102,15 @@ enum class NatureMouvementCarte(val libelle: String) {
     AVANCE_FONDS("Avance de fonds"),
     TRANSFERT_SOLDE("Transfert de solde")
 }
+
+/**
+ * Solde dû par catégorie, tel que connu pour UNE date. Les trois montants
+ * doivent correspondre au total de dette de la carte; un avoir est géré à part.
+ * Ce modèle ne crée aucune dépense ni intérêt bancaire.
+ */
+data class VentilationSoldeCarte(
+    val dateReference: String,
+    val achats: Double,
+    val avances: Double,
+    val transferts: Double
+)
