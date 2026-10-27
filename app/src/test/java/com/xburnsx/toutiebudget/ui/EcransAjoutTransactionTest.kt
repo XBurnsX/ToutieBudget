@@ -82,6 +82,50 @@ class EcransAjoutTransactionTest {
 
 
     @Test
+    fun `depense simple refuse une allocation positive venue d'un autre compte`() = test {
+        b.cheque("source", 1000.0, 1000.0)
+        b.cheque("payeur", 500.0, 500.0)
+        b.enveloppe("epicerie")
+        b.allocation("epicerie", maintenant, solde = 75.0, provenance = "source")
+
+        val resultat = app.enregistrer.executer(
+            typeTransaction = TypeTransaction.Depense,
+            montant = 10.0,
+            compteId = "payeur",
+            collectionCompte = "comptes_cheques",
+            enveloppeId = "epicerie",
+            date = maintenant
+        )
+        assertTrue(resultat.isFailure)
+        assertTrue(b.transactions.isEmpty())
+        assertEquals(500.0, b.soldeDe("payeur"))
+        assertEquals(75.0, soldeEnveloppe("epicerie"))
+    }
+
+    @Test
+    fun `depense simple refuse un compte archive ou une enveloppe archivee`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("epicerie")
+        b.allocation("epicerie", maintenant, solde = 50.0, provenance = "chq")
+        b.comptes["chq"] = b.cheque("chq").copy(estArchive = true)
+
+        val compteArchive = app.enregistrer.executer(
+            TypeTransaction.Depense, 5.0, "chq", "comptes_cheques",
+            enveloppeId = "epicerie", date = maintenant
+        )
+        assertTrue(compteArchive.isFailure)
+        b.comptes["chq"] = b.cheque("chq").copy(estArchive = false)
+        b.enveloppes["epicerie"] = b.enveloppes.getValue("epicerie").copy(estArchive = true)
+        val enveloppeArchivee = app.enregistrer.executer(
+            TypeTransaction.Depense, 5.0, "chq", "comptes_cheques",
+            enveloppeId = "epicerie", date = maintenant
+        )
+        assertTrue(enveloppeArchivee.isFailure)
+        assertTrue(b.transactions.isEmpty())
+        assertEquals(1000.0, b.soldeDe("chq"))
+    }
+
+    @Test
     fun `pret accorde dont la transaction echoue - ni dossier ni debit`() = test {
         b.cheque("chq", 1000.0, 1000.0)
         b.echouerSur = "creerTransaction"
