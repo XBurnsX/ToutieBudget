@@ -1493,7 +1493,16 @@ class AjoutTransactionViewModel(
     ) {
         if (_uiState.value.messageConfirmation == null) return
         val statut = determinerStatutSynchronisation(jobs, depuis)
-        _uiState.update { it.copy(statutSynchronisation = statut) }
+        _uiState.update { courant ->
+            // Si le worker purge une tâche COMPLETED juste après l'avoir confirmée,
+            // ne pas régresser visuellement de « Synchronisée » à « Locale ».
+            val confirmeAvant = courant.statutSynchronisation == StatutSynchronisationEcriture.SYNCHRONISEE
+            val aucunJob = jobs.none { it.createdAt >= depuis }
+            courant.copy(
+                statutSynchronisation = if (confirmeAvant && aucunJob)
+                    StatutSynchronisationEcriture.SYNCHRONISEE else statut
+            )
+        }
     }
 
     /**
@@ -1712,7 +1721,10 @@ class AjoutTransactionViewModel(
     }
 }
 
-/** Fonction pure testable d'AA5. Les tâches plus anciennes ne concernent pas l'écriture affichée. */
+/** AA5 : seule une preuve positive (au moins un SyncJob terminé) permet « Synchronisée ».
+ * Aucune tâche visible ne prouve rien : le worker peut ne pas l'avoir encore créée,
+ * la file peut avoir été nettoyée, ou la lecture peut être incomplète.
+ */
 internal fun determinerStatutSynchronisation(
     jobs: List<com.xburnsx.toutiebudget.data.room.entities.SyncJob>,
     depuis: Long
@@ -1720,7 +1732,8 @@ internal fun determinerStatutSynchronisation(
     val jobsOperation = jobs.filter { it.createdAt >= depuis }
     return when {
         jobsOperation.any { it.status == "FAILED" || it.bloque } -> StatutSynchronisationEcriture.ECHEC
-        jobsOperation.any { it.status == "PENDING" || it.status == "IN_PROGRESS" } -> StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT
+        jobsOperation.isEmpty() || jobsOperation.any { it.status != "COMPLETED" } ->
+            StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT
         else -> StatutSynchronisationEcriture.SYNCHRONISEE
     }
 }
