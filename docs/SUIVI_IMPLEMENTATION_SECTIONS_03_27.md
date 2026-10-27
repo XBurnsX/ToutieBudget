@@ -243,14 +243,41 @@ Plusieurs corrections existaient déjà sur `main` avant cette reprise (HEAD ini
 
 **Limites connues à tester** : retour réseau, suppression/nettoyage de SyncJobs pendant l'accusé de réception, multi-appareils et reprise d'un formulaire après *process kill*. Un nouvel enregistrement intentionnel après redémarrage reçoit un nouvel ID; la détection de correspondance avec l'import bancaire appartient à BANQ-06. Aucun test Android ni compilation n'a été exécuté au cours de cette reprise.
 
+## Section 13 et rétablissement de la compilation (27 octobre 2026, soir)
+
+`main` ne compilait plus depuis `fd9eade` (26 oct.). Corrigé dans `8de778c` : types de retour `Unit` du dépôt
+d'allocations Room, import manquant d'`ArchivesScreen`, bloc dupliqué d'`InvestissementViewModel`.
+Achat par carte de crédit dans une enveloppe financée par un compte chèque de nouveau permis (une carte ne
+prend jamais l'argent de l'enveloppe ; le refus « financée par un autre compte » reste entre comptes chèque).
+**Compilation release + 143 tests JVM verts, deux fois.**
+
+## Section 14 — Statistiques (27 octobre 2026) — `33f4710`
+
+**Compilation release + 154 tests JVM verts.** 11 tests passent par le vrai `StatistiquesViewModel`
+(cas de vérification : Visa + paiement, emprunt, prêt, fractions, tiers, prévu/réel, filtre, comparaison, patrimoine, CSV).
+
+| ID | État | Notes |
+|---|---|---|
+| ST1, ST4–ST19 | FAIT | ST4 : « Valeur nette actuelle (pas historique) » pour un mois passé. ST10 : pseudo-enveloppe retirée. ST18 : cents exacts, tiers normalisés (casse/espaces) |
+| ST2, ST3 | PARTIEL | Paiements et capital exclus des dépenses ; mais intérêts et frais de carte comptabilisés ne créent pas de transaction, donc absents des dépenses |
+| ST20 | PARTIEL | Réessayer et états d'erreur présents ; zoom / petits écrans non vérifiés |
+| SA1 | FAIT | Filtre par compte affiché (tous ou sélection) |
+| SA2, SA5 | FAIT | (autre outil) vues Budget / Flux, moyennes 7/30 jours/période |
+| SA3 | FAIT | Période précédente et an dernier, à jours égaux ; base nulle = indisponible |
+| SA4 | FAIT | Catégorie → enveloppes → transactions |
+| SA6 | FAIT | Valeur nette notée chaque jour (mois courant, calcul complet), courbe des seuls points réels |
+| SA7 | FAIT | Prévu (assigné moins achats carte) vs réel par enveloppe |
+| SA8 | FAIT | Export CSV « ; », virgule décimale, BOM UTF-8 |
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 13 | **Revue de codage traitée (28 IDs)**; compilation, E2E et conflits de synchronisation non validés. |
-| 14 | **PROCHAINE SECTION** — statistiques, reprendre chaque ID ST1–ST20 / SA1–SA8. |
-| 15 à 27 | Reprise exhaustive par ID non achevée. |
+| 12 | IF10, IA8 bloqués par BANQ (reporté). |
+| 14 | ST2, ST3, ST20 partiels (voir ci-dessus). |
+| 15 | **PROCHAINE SECTION** — Modifier transaction (MT1–MT22, MA1–MA5). |
+| 16 à 25, 27 | Reprise exhaustive par ID non achevée. |
 
 ## Règles de suivi
 
