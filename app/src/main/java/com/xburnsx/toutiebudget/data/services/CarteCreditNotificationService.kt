@@ -76,15 +76,19 @@ object GenerateurAlertesCarte {
         if (releve != null && echeance != null && emission != null) {
             val minimum = releve.minimumOfficiel ?: MoteurCarteCredit.minimumEstime(carte, releve.soldeOfficiel)
             val paye = MoteurCarteCredit.paiementsDepuis(transactionsCarte, emission)
+            val payeAvantEcheance = transactionsCarte.filter {
+                it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement &&
+                    !it.date.before(emission) && !it.date.after(echeance)
+            }.sumOf { kotlin.math.max(0.0, it.montant) }
             val joursRestants = TimeUnit.MILLISECONDS.toDays(echeance.time - debutJour(aujourdHui).time)
             when {
-                paye + 0.005 >= minimum -> Unit // minimum couvert par les paiements enregistrés
-                joursRestants < 0 -> alertes += AlerteCarteCredit(
+                joursRestants < 0 && payeAvantEcheance + 0.005 < minimum -> alertes += AlerteCarteCredit(
                     TypeAlerte.PAIEMENT_EN_RETARD, carte,
-                    "Échéance du ${format.format(echeance)} passée : aucun paiement d'au moins " +
-                        "${MoneyFormatter.formatAmount(minimum)} trouvé dans l'app.",
+                    "Selon les paiements saisis, le minimum du relevé du ${format.format(echeance)} " +
+                        "n'a pas été couvert à temps. Vérifiez la réception par la banque.",
                     Priorite.HAUTE
                 )
+                paye + 0.005 >= minimum -> Unit // minimum couvert dans les mouvements locaux
                 joursRestants <= JOURS_ECHEANCE_PROCHE -> alertes += AlerteCarteCredit(
                     TypeAlerte.ECHEANCE_PROCHE, carte,
                     "Minimum de ${MoneyFormatter.formatAmount(minimum - paye)} à payer d'ici le ${format.format(echeance)}.",
