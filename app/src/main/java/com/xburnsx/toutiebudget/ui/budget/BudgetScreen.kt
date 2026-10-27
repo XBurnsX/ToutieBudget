@@ -405,7 +405,7 @@ fun BudgetScreen(
 
             // 🚨 CARTE D'ALERTE POUR ENVELOPPES NÉGATIVES
             val enveloppesNegatives = toutesEnveloppes
-                .filter { it.solde < -0.001 }
+                .filter { kotlin.math.round(it.solde * 100.0).toLong() < 0L }
                 .count()
 
             if (enveloppesNegatives > 0 && !filtreActif) {
