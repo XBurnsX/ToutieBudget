@@ -72,8 +72,8 @@ class VirementBudgetService(
         if (compte.pretAPlacer + 0.005 < montant) {
             throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compte.pretAPlacer))
         }
-        val avant = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJour)
-        provenanceActive(avant)?.let { provenance ->
+        val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJour)
+        provenanceActive(allocationExistante)?.let { provenance ->
             if (provenance != compte.id) {
                 throw IllegalArgumentException(
                     VirementErrorMessages.PretAPlacerVersEnveloppe.conflitProvenance(nomCompte(provenance), compte.nom)
@@ -81,6 +81,19 @@ class VirementBudgetService(
             }
         }
 
+        // V7 : ne pas attribuer l'ancien historique à un autre compte si le
+        // solde de l'allocation précédente était devenu nul/négatif.
+        val avaitHistorique = allocationExistante.compteSourceId != null ||
+            kotlin.math.round(allocationExistante.alloue * 100.0).toLong() != 0L ||
+            kotlin.math.round(allocationExistante.depense * 100.0).toLong() != 0L
+        val changerProvenance = avaitHistorique && allocationExistante.compteSourceId != compte.id &&
+            kotlin.math.round(allocationExistante.solde * 100.0).toLong() <= 0L
+        val avant = if (changerProvenance) {
+            allocationMensuelleRepository.creerNouvelleAllocation(allocationExistante.copy(
+                id = "", solde = 0.0, alloue = 0.0, depense = 0.0,
+                compteSourceId = compte.id, collectionCompteSource = compte.collection
+            ))
+        } else allocationExistante
         val nouveauPretAPlacer = MoneyFormatter.roundAmount(compte.pretAPlacer - montant)
         compteRepository.mettreAJourCompte(compte.copy(pretAPlacerRaw = nouveauPretAPlacer)).getOrThrow()
 
