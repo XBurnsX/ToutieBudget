@@ -25,6 +25,7 @@ object MoteurInvestissement {
 
     /** Seuls les virements sont des apports/retraits : un dépôt n'est ni un revenu ni un gain. */
     fun flux(transactions: List<Transaction>): List<Flux> = transactions.mapNotNull { tx ->
+        if (!tx.montant.isFinite() || tx.montant < 0.0) return@mapNotNull null
         when (tx.type) {
             TypeTransaction.TransfertEntrant -> Flux(tx.date, tx.montant)
             TypeTransaction.TransfertSortant -> Flux(tx.date, -tx.montant)
@@ -127,7 +128,9 @@ object MoteurInvestissement {
         val valeurDepart = d.valeurDepart ?: return null
         if ((aujourdHui.time - depart.time) / JOUR_MS < 30) return null
         val mouvements = mutableListOf(depart to -valeurDepart)
-        flux(transactions).forEach { mouvements += it.date to -it.montant }
+        flux(transactions).filter { !it.date.before(depart) }.forEach {
+            mouvements += it.date to -it.montant
+        }
         mouvements += aujourdHui to compte.solde
         if (mouvements.none { it.second > 0 } || mouvements.none { it.second < 0 }) return null
 
