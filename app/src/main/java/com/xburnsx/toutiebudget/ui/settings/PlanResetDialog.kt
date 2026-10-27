@@ -117,7 +117,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
                         Text("Aucun argent assigné à remettre pour ce mois.")
                     }
                     else -> LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(apercu!!.lignes, key = { it.enveloppeId }) { ligne ->
+                        items(apercu!!.lignes, key = { it.allocationId }) { ligne ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -187,7 +187,7 @@ fun PlanResetDialog(onFermer: () -> Unit) {
             title = { Text("Confirmer la nouvelle répartition") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${lignesChoisies.size} enveloppe(s) seront remises à zéro pour ce mois.")
+                    Text("${lignesChoisies.map { it.enveloppeId }.distinct().size} enveloppe(s) seront remises à zéro pour ce mois.")
                     parCompte.forEach { (nomCompte, total) ->
                         Text("$nomCompte : + ${MoneyFormatter.formatAmount(total)}")
                     }
