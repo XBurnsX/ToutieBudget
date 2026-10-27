@@ -2,6 +2,7 @@ package com.xburnsx.toutiebudget.domain.services
 
 import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.ReleveCarte
+import com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeFrais
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
@@ -59,9 +60,10 @@ object MoteurCarteCredit {
         val d = carte.details
         val debutPromo = lireDate(d.debutPromo)
         val finPromo = lireDate(d.finPromo)
+        val jour = debutJour(date)
         val dansPromotion = d.tauxPromo != null &&
-            (debutPromo == null || !date.before(debutPromo)) &&
-            (finPromo == null || !date.after(finPromo)) &&
+            (debutPromo == null || !jour.before(debutPromo)) &&
+            (finPromo == null || !jour.after(finPromo)) &&
             (debutPromo != null || finPromo != null)
         return if (dansPromotion) d.tauxPromo!! else tauxAchats(carte)
     }
@@ -169,7 +171,14 @@ object MoteurCarteCredit {
 
     // ===== Intérêts du cycle en cours (CC5) =====
 
-    data class EstimationCycle(val montant: Double, val debut: Date, val jours: Int, val graceProbable: Boolean)
+    data class EstimationCycle(
+        val montant: Double,
+        val debut: Date,
+        val jours: Int,
+        val graceProbable: Boolean,
+        val estimationDisponible: Boolean = true,
+        val avertissement: String? = null
+    )
 
     /**
      * Intérêts ESTIMÉS depuis le début du cycle, à partir du solde de chaque jour reconstitué
@@ -184,6 +193,34 @@ object MoteurCarteCredit {
         val fin = debutJour(aujourdHui)
         val jours = TimeUnit.MILLISECONDS.toDays(fin.time - debutJour(debut).time).toInt()
         if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
+        // CC5 : un relevé ancien ne représente pas le cycle actuel.
+        if (jours > 62) return EstimationCycle(
+            0.0, debut, jours, false, estimationDisponible = false,
+            avertissement = "Le dernier relevé est trop ancien pour reconstituer le cycle courant."
+        )
+        val charges = transactionsCarte.filter { t ->
+            !t.date.before(debut) && !t.date.after(aujourdHui) &&
+                (t.type == TypeTransaction.Depense ||
+                    t.type == TypeTransaction.TransfertSortant ||
+                    t.type == TypeTransaction.Pret ||
+                    t.type == TypeTransaction.PaiementEffectue)
+        }
+        val qualifications = carte.details.naturesMouvements
+        val naturePartielle = charges.any { qualifications[it.id] == null }
+        val mouvementsTauxDistincts = charges.any {
+            val nature = qualifications[it.id]
+            nature == NatureMouvementCarte.AVANCE_FONDS ||
+                nature == NatureMouvementCarte.TRANSFERT_SOLDE
+        }
+        if (naturePartielle || mouvementsTauxDistincts) {
+            return EstimationCycle(
+                0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = if (naturePartielle)
+                    "Nature de certains mouvements inconnue. Classe-les pour identifier les taux applicables."
+                else
+                    "Avances/transferts présents : sans les soldes ventilés et la règle de répartition des paiements de la banque, un chiffre exact serait trompeur."
+            )
+        }
 
         val echeance = lireDate(releve?.dateEcheance)
         val payeEnEntier = releve != null && echeance != null &&
