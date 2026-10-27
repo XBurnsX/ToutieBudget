@@ -120,6 +120,7 @@ fun BudgetScreen(
     // 🆕 ÉTATS POUR LE CLAVIER ENVELOPPE
     var enveloppeSelectionnee by remember { mutableStateOf<EnveloppeUi?>(null) }
     var showClavierEnveloppe by remember { mutableStateOf(false) }
+    var assignationAttendue by remember { mutableStateOf<String?>(null) }
     var comptesDisponibles by remember { mutableStateOf<List<CompteBudget>>(emptyList()) }
 
     // A3 / A5 : recherche et filtres à la demande (rien d'affiché tant qu'ils sont fermés)
@@ -154,10 +155,13 @@ fun BudgetScreen(
     // C3 : fermer le clavier seulement quand SON assignation a réussi
     // (un simple rafraîchissement du budget ne le ferme plus)
     LaunchedEffect(Unit) {
-        viewModel.assignationReussie.collect { enveloppeId ->
-            if (enveloppeSelectionnee?.id == enveloppeId) {
+        viewModel.assignationReussie.collect { (enveloppeId, operationId) ->
+            // C3 : un ancien appel ne doit jamais fermer un nouveau clavier
+            // ouvert sur la même enveloppe entretemps.
+            if (enveloppeSelectionnee?.id == enveloppeId && assignationAttendue == operationId) {
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
+                assignationAttendue = null
             }
         }
     }
@@ -549,20 +553,25 @@ fun BudgetScreen(
             comptePreselectionne = comptesDisponibles.firstOrNull(), // Premier compte par défaut
             onAssigner = { montantCentimes, compteSourceId ->
                 // 🎯 LOGIQUE D'ASSIGNATION - le clavier se ferme seulement sur réussite (C3)
+                val operationId = java.util.UUID.randomUUID().toString()
+                assignationAttendue = operationId
                 viewModel.assignerArgentAEnveloppe(
                     enveloppeId = enveloppeClavier.id,
                     compteSourceId = compteSourceId,
-                    montantCentimes = montantCentimes
+                    montantCentimes = montantCentimes,
+                    operationId = operationId
                 )
             },
             onFermer = {
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
+                assignationAttendue = null
             },
             onVoirHistorique = { enveloppeId, nomEnveloppe ->
                 onVoirHistoriqueEnveloppe(enveloppeId, nomEnveloppe)
                 showClavierEnveloppe = false
                 enveloppeSelectionnee = null
+                assignationAttendue = null
             },
             estFavori = enveloppeClavier.id in uiState.enveloppesFavorites,
             onBasculerFavori = { viewModel.basculerFavori(enveloppeClavier.id) }
