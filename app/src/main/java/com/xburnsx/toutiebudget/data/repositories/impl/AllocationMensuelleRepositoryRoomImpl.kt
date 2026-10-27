@@ -229,10 +229,22 @@ class AllocationMensuelleRepositoryRoomImpl(
                     when (actives.size) {
                         0 -> allocationsPourEnveloppeEtMois.first().toAllocationMensuelleModel()
                         1 -> actives.single().toAllocationMensuelleModel()
-                        else -> throw IllegalStateException(
-                            "Plusieurs allocations financières existent pour cette enveloppe et ce mois. " +
-                            "La répartition est bloquée pour protéger la provenance et l'historique."
-                        )
+                        else -> {
+                            // Conserver toutes les lignes et leurs IDs de transactions.
+                            // Si les fonds positifs appartiennent à un seul compte connu,
+                            // choisir sa ligne sans réattribuer les autres écritures.
+                            val financements = actives.filter {
+                                kotlin.math.round(it.solde * 100.0).toLong() > 0L
+                            }
+                            val comptes = financements.map { it.compteSourceId }.distinct()
+                            if (comptes.size != 1 || comptes.singleOrNull().isNullOrBlank()) {
+                                throw IllegalStateException(
+                                    "Allocations de provenances multiples ou inconnues : " +
+                                    "répartition bloquée afin de préserver les comptes d'origine."
+                                )
+                            }
+                            financements.first().toAllocationMensuelleModel()
+                        }
                     }
                 }
             }
