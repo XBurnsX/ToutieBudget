@@ -278,7 +278,7 @@ class HistoriqueCompteViewModel(
                             val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
                             jsonArray.mapNotNull { element ->
                                 val obj = element.asJsonObject
-                                val enveloppeId = obj.get("enveloppeId")?.asString
+                                val enveloppeId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
                                 if (enveloppeId != null) {
                                     enveloppesMap[enveloppeId]?.nom ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
                                 } else {
