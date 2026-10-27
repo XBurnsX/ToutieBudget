@@ -230,7 +230,9 @@ object MoteurDette {
             totalInterets += interets
             solde = soldeFinal
             if (solde <= 0.005) return Echeancier(periodes, numero, arrondi(totalInterets), date)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
             cal.add(Calendar.MONTH, 1)
+            cal.set(Calendar.DAY_OF_MONTH, min(jourContrat, cal.getActualMaximum(Calendar.DAY_OF_MONTH)))
         }
         return Echeancier(periodes, null, arrondi(totalInterets), null, "Plus de ${MAX_PERIODES / 12} ans avec ce versement.")
     }
