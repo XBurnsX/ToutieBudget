@@ -197,7 +197,7 @@ class StatistiquesViewModel(
 
             // Top 5 Enveloppes dépensées (exclure dettes/cartes crédit etc.)
             // Règle: ne considérer que les transactions ayant allocationMensuelleId non null
-            allocationIdToEnveloppeId = allocations.associate { it.id to it.enveloppeId }
+            val allocationsParId = allocations.associate { it.id to it.enveloppeId }
 
             val enveloppeIdParNom = enveloppes.associateBy({ it.id }, { it.nom })
 
@@ -218,7 +218,7 @@ class StatistiquesViewModel(
                     }
                     else -> {
                         // Pour les vraies dépenses, essayer de récupérer l'enveloppe
-                        tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
+                        tx.allocationMensuelleId?.let { allocationsParId[it] }
                     }
                 }
                 
@@ -292,7 +292,7 @@ class StatistiquesViewModel(
             depenses.forEach { tx ->
                 val tiersKey = tx.tiersUtiliser ?: return@forEach
                 if (!tx.estFractionnee) {
-                    val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
+                    val envId = tx.allocationMensuelleId?.let { allocationsParId[it] }
                     if (envId == null || envId !in enveloppeIdsExclus) {
                         depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + tx.montant
                         detailParTiers.getOrPut(tiersKey) { mutableListOf() }.add(tx)
@@ -373,6 +373,8 @@ class StatistiquesViewModel(
 
 
             if (generation != generationChargement) return@launch
+            // ST14 : ne publier la table allocation/enveloppe qu'avec les KPI du bon mois.
+            allocationIdToEnveloppeId = allocationsParId
             transactionsTopTiers = detailParTiers.mapValues { it.value.toList() }
             _uiState.value = StatistiquesUiState(
                 isLoading = false,
