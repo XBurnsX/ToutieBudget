@@ -59,6 +59,7 @@ class BudgetViewModel(
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouAssignation = com.xburnsx.toutiebudget.utils.VerrouOperation()
     private val mutexPreferencesBudget = Mutex()
+    private var generationPreferencesBudget = 0L
 
     // Service de reset automatique des objectifs bihebdomadaires
     private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
@@ -795,6 +796,7 @@ class BudgetViewModel(
      * @param nomCategorie Nom de la catégorie à basculer
      */
     fun toggleCategorie(nomCategorie: String) {
+        generationPreferencesBudget++
         _uiState.update { currentState ->
             val categoriesOuvertes = currentState.categoriesOuvertes.toMutableMap()
             val estOuverte = categoriesOuvertes[nomCategorie] ?: true // Par défaut ouvert
@@ -810,6 +812,7 @@ class BudgetViewModel(
 
     /** A4 : ajoute ou retire une enveloppe des favoris. */
     fun basculerFavori(enveloppeId: String) {
+        generationPreferencesBudget++
         _uiState.update { currentState ->
             val favorites = currentState.enveloppesFavorites.toMutableSet()
             if (!favorites.add(enveloppeId)) favorites.remove(enveloppeId)
@@ -828,6 +831,7 @@ class BudgetViewModel(
      * Hors ligne, rien ne change et l'envoi sera refait au prochain chargement.
      */
     private fun synchroniserPreferencesBudget() {
+        val generationAuDebut = generationPreferencesBudget
         viewModelScope.launch(Dispatchers.IO) {
             mutexPreferencesBudget.withLock {
             try {
@@ -853,7 +857,9 @@ class BudgetViewModel(
                 val favoritesServeur = (preferences["enveloppes_favorites"] as? List<*>)
                     ?.map { it.toString() }?.toSet()
 
-                // Un choix fait pendant la requête reste prioritaire
+                // A4 : une saisie optimiste peut précéder sa sauvegarde en local.
+                // Interdire qu'une vieille réponse serveur écrase le dernier clic.
+                if (generationPreferencesBudget != generationAuDebut) return@launch
                 if (preferenceRepository.preferencesBudgetEnAttenteEnvoi()) return@launch
                 if (categoriesServeur == null && favoritesServeur == null) return@launch
 
