@@ -522,7 +522,9 @@ class StatistiquesViewModel(
                 
                 // Filtrer les comptes par type
                 comptes.forEach { compte ->
-                    
+                    if (!compte.solde.isFinite()) {
+                        throw IllegalStateException("Solde de compte invalide : patrimoine indisponible.")
+                    }
                     when (compte.collection) {
                         "comptes_dettes" -> {
                             val compteDette = compte as com.xburnsx.toutiebudget.data.modeles.CompteDette
@@ -590,6 +592,9 @@ class StatistiquesViewModel(
                 val prets = pretsPersonnels.getOrNull().orEmpty()
                 
                 prets.forEach { pret ->
+                    if (!pret.solde.isFinite()) {
+                        throw IllegalStateException("Solde de prêt personnel invalide : patrimoine indisponible.")
+                    }
                     if (pret.solde < 0) {
                         totalDette += kotlin.math.abs(pret.solde)
                     } else {
@@ -607,6 +612,9 @@ class StatistiquesViewModel(
         // 3. Calculer la valeur nette (total valeur - total dette)
         // Si tu as 1000$ en cash et 500$ de dettes, ta valeur nette = 1000$ - 500$ = 500$
         val valeurNette = totalValeur - totalDette
+        if (!valeurNette.isFinite() || !totalValeur.isFinite() || !totalDette.isFinite()) {
+            throw IllegalStateException("Montants de patrimoine trop élevés ou invalides.")
+        }
         
         
         return Triple(totalDette, totalValeur, valeurNette)
