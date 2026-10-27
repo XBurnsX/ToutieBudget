@@ -81,6 +81,7 @@ fun PrevisionsDialog(
     val fin = finDuMois(moisSelectionne)
     var limite by remember { mutableStateOf<Date?>(null) } // null = fin du mois
     var choisirDate by remember { mutableStateOf(false) }
+    var erreurDate by remember { mutableStateOf<String?>(null) }
     val formatJour = remember { SimpleDateFormat("d MMM", Locale.CANADA_FRENCH) }
 
     val horizon = limite ?: fin
@@ -99,7 +100,7 @@ fun PrevisionsDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = limite == null,
-                        onClick = { limite = null },
+                        onClick = { limite = null; erreurDate = null },
                         label = { Text("Fin du mois") }
                     )
                     FilterChip(
@@ -109,6 +110,9 @@ fun PrevisionsDialog(
                     )
                 }
 
+                erreurDate?.let { message ->
+                    Text(message, color = MaterialTheme.colorScheme.error)
+                }
                 if (lignes.isEmpty()) {
                     Text("Rien à prévoir d'ici là.", style = MaterialTheme.typography.bodyMedium)
                 } else {
@@ -139,7 +143,9 @@ fun PrevisionsDialog(
     )
 
     if (choisirDate) {
-        val etat = rememberDatePickerState(initialSelectedDateMillis = (limite ?: Date()).time)
+        val etat = rememberDatePickerState(
+            initialSelectedDateMillis = (limite ?: moisSelectionne).time
+        )
         DatePickerDialog(
             onDismissRequest = { choisirDate = false },
             confirmButton = {
@@ -147,9 +153,19 @@ fun PrevisionsDialog(
                     etat.selectedDateMillis?.let { millis ->
                         // Le sélecteur donne minuit UTC : garder le jour choisi, en fin de journée locale
                         val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
-                        limite = Calendar.getInstance().apply {
+                        val dateChoisie = Calendar.getInstance().apply {
                             set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH), 23, 59, 59)
-                        }.time
+                            set(Calendar.MILLISECOND, 999)
+                        }
+                        val moisAffiche = Calendar.getInstance().apply { time = moisSelectionne }
+                        if (dateChoisie.get(Calendar.YEAR) != moisAffiche.get(Calendar.YEAR) ||
+                            dateChoisie.get(Calendar.MONTH) != moisAffiche.get(Calendar.MONTH)
+                        ) {
+                            erreurDate = "Choisis une date dans le mois affiché sur ton budget."
+                        } else {
+                            erreurDate = null
+                            limite = dateChoisie.time
+                        }
                     }
                     choisirDate = false
                 }) { Text("OK") }
