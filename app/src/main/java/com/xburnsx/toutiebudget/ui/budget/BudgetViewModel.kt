@@ -22,6 +22,8 @@ import com.xburnsx.toutiebudget.domain.services.ValidationProvenanceService
 import com.xburnsx.toutiebudget.domain.usecases.VerifierEtExecuterRolloverUseCase
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import com.xburnsx.toutiebudget.utils.OrganisationEnveloppesUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,7 +50,8 @@ class BudgetViewModel(
     private val realtimeSyncService: RealtimeSyncService,
     private val validationProvenanceService: ValidationProvenanceService,
     private val objectifCalculator: ObjectifCalculator,
-    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
+    private val historiqueAllocationService: com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -601,7 +604,9 @@ class BudgetViewModel(
 
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
                 validerProvenance(enveloppeId, compteSourceId, mois)
-                executerAssignation(compteSource, enveloppe, montantDollars, mois)
+                operationAtomique.executer {
+                    executerAssignation(compteSource, enveloppe, montantDollars, mois)
+                }
 
                 _assignationReussie.tryEmit(enveloppeId)
                 rechargerApresModification()
@@ -627,8 +632,6 @@ class BudgetViewModel(
     fun assignerAPlusieursEnveloppes(compteSourceId: String, montantsCentimes: Map<String, Long>) {
         viewModelScope.lancerUneFois(verrouAssignation) {
             val reussies = mutableListOf<String>()
-            var compteInitial: CompteCheque? = null
-            val allocationsInitiales = mutableListOf<AllocationMensuelle>()
             try {
                 if (montantsCentimes.isEmpty() || montantsCentimes.values.any { it <= 0L }) {
                     throw IllegalArgumentException("Chaque montant à répartir doit être positif.")
@@ -654,14 +657,7 @@ class BudgetViewModel(
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
 
-                compteInitial = compteSource
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
-                // Garder une copie des allocations AVANT les écritures, pour
-                // pouvoir compenser les changements si une étape suivante échoue.
-                montants.keys.forEach { enveloppeId ->
-                    enveloppeRepository.recupererAllocationMensuelle(enveloppeId, mois)
-                        .getOrThrow()?.let(allocationsInitiales::add)
-                }
                 montants.keys.forEach { enveloppeId ->
                     val enveloppe = enveloppes[enveloppeId]
                         ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
@@ -673,39 +669,23 @@ class BudgetViewModel(
                     }
                 }
 
-                var compteCourant: CompteCheque = compteSource
-                montants.forEach { (enveloppeId, centimes) ->
-                    val enveloppe = enveloppes.getValue(enveloppeId)
-                    compteCourant = executerAssignation(compteCourant, enveloppe, centimes / 100.0, mois)
-                    reussies.add(enveloppe.nom)
+                // A2 : comptes, allocations ET journal dans la même transaction Room.
+                operationAtomique.executer {
+                    var compteCourant: CompteCheque = compteSource
+                    montants.forEach { (enveloppeId, centimes) ->
+                        val enveloppe = enveloppes.getValue(enveloppeId)
+                        compteCourant = executerAssignation(compteCourant, enveloppe, centimes / 100.0, mois)
+                        reussies.add(enveloppe.nom)
+                    }
                 }
 
                 _resultatRepartition.tryEmit(ResultatRepartition(reussies))
                 rechargerApresModification()
             } catch (e: Exception) {
-                // A2 : compensation de la répartition si une étape échoue.
-                // Ce n'est PAS une transaction Room atomique : un rollback peut
-                // lui-même échouer et doit être signalé explicitement.
-                val echecsRestaurations = mutableListOf<String>()
-                if (reussies.isNotEmpty()) {
-                    allocationsInitiales.asReversed().forEach { allocation ->
-                        runCatching {
-                            allocationMensuelleRepository.mettreAJourAllocation(allocation)
-                        }.onFailure { echecsRestaurations.add("Allocation ${allocation.id}: ${it.message}") }
-                    }
-                    compteInitial?.let { ancienCompte ->
-                        runCatching { compteRepository.mettreAJourCompte(ancienCompte).getOrThrow() }
-                            .onFailure { echecsRestaurations.add("Compte: ${it.message}") }
-                    }
-                }
-                val details = if (echecsRestaurations.isEmpty()) messageErreurAssignation(e)
-                else messageErreurAssignation(e) + " — RESTAURATION INCOMPLÈTE : " +
-                    echecsRestaurations.joinToString("; ")
-                _resultatRepartition.tryEmit(
-                    ResultatRepartition(if (echecsRestaurations.isEmpty()) emptyList() else reussies, details)
-                )
+                val details = messageErreurAssignation(e)
+                _resultatRepartition.tryEmit(ResultatRepartition(emptyList(), details))
                 _uiState.update { it.copy(isLoading = false, messageChargement = null, erreur = details) }
-                if (reussies.isNotEmpty()) rechargerApresModification()
+                rechargerApresModification()
             }
         }
     }
@@ -746,42 +726,28 @@ class BudgetViewModel(
             throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
         }
 
-        // 2. Mettre à jour l'allocation. Si elle échoue, restaurer le compte.
-        val allocationFusionnee = try {
-            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
-        } catch (e: Exception) {
-            compteRepository.mettreAJourCompte(compteSource).getOrThrow()
-            throw e
-        }
+        // 2. Allocation du mois créée au besoin dans la même transaction Room.
+        val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
         val allocationFinale = allocationFusionnee.copy(
             solde = MoneyFormatter.roundAmount(allocationFusionnee.solde + montantDollars),
             alloue = MoneyFormatter.roundAmount(allocationFusionnee.alloue + montantDollars),
             compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSource.id else allocationFusionnee.compteSourceId,
             collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
         )
-        try {
-            allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
-        } catch (e: Exception) {
-            compteRepository.mettreAJourCompte(compteSource).getOrThrow()
-            throw e
-        }
+        allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
 
-        // 📝 ENREGISTRER DANS L'HISTORIQUE
-        try {
-            historiqueAllocationService.enregistrerModificationAllocation(
-                allocationAvant = allocationFusionnee,
-                allocationApres = allocationFinale,
-                compte = compteSource,
-                enveloppe = enveloppe,
-                montantModification = montantDollars,
-                soldeAvant = compteSource.solde,
-                soldeApres = compteSource.solde, // Le solde du compte ne change pas pour un virement prêt à placer
-                pretAPlacerAvant = compteSource.pretAPlacer,
-                pretAPlacerApres = nouveauPretAPlacer
-            )
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ BUDGET_VIEWMODEL : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
-        }
+        // L'échec de journalisation doit aussi annuler la transaction Room.
+        historiqueAllocationService.enregistrerModificationAllocation(
+            allocationAvant = allocationFusionnee,
+            allocationApres = allocationFinale,
+            compte = compteSource,
+            enveloppe = enveloppe,
+            montantModification = montantDollars,
+            soldeAvant = compteSource.solde,
+            soldeApres = compteSource.solde,
+            pretAPlacerAvant = compteSource.pretAPlacer,
+            pretAPlacerApres = nouveauPretAPlacer
+        )
 
         return compteModifie
     }
