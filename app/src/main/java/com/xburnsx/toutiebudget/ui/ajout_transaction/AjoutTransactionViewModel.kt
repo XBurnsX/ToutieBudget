@@ -1031,6 +1031,17 @@ class AjoutTransactionViewModel(
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
                         operationAtomique.executer {
+                            // AT14 : un ancien succes relance avec le meme brouillon
+                            // ne doit creer ni second dossier ni nouvelle variation.
+                            val precedente = transactionRepository.recupererTransactionParId(idOperationBrouillon).getOrNull()
+                            if (precedente != null) {
+                                if (precedente.type != TypeTransaction.Pret ||
+                                    precedente.compteId != compte.id ||
+                                    precedente.collectionCompte != collectionCompte ||
+                                    kotlin.math.abs(precedente.montant - montantDollars) > 0.000001
+                                ) throw IllegalStateException("Identifiant d'operation de pret deja utilise.")
+                                return@executer
+                            }
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
                             // Débiter le compte et le prêt à placer
                             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
@@ -1042,7 +1053,7 @@ class AjoutTransactionViewModel(
                             // persister la transaction pour historique
                             transactionRepository.creerTransaction(
                                 Transaction(
-                                    id = IdGenerator.generateId(),
+                                    id = idOperationBrouillon,
                                     utilisateurId = utilisateurId,
                                     type = TypeTransaction.Pret,
                                     montant = montantDollars,
@@ -1107,6 +1118,17 @@ class AjoutTransactionViewModel(
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
                         operationAtomique.executer {
+                            // AT14 : un ancien succes relance avec le meme brouillon
+                            // ne doit creer ni second dossier ni nouvelle variation.
+                            val precedente = transactionRepository.recupererTransactionParId(idOperationBrouillon).getOrNull()
+                            if (precedente != null) {
+                                if (precedente.type != TypeTransaction.Emprunt ||
+                                    precedente.compteId != compte.id ||
+                                    precedente.collectionCompte != collectionCompte ||
+                                    kotlin.math.abs(precedente.montant - montantDollars) > 0.000001
+                                ) throw IllegalStateException("Identifiant d'operation de pret deja utilise.")
+                                return@executer
+                            }
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
                             // Créditer le compte et le prêt à placer
                             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
@@ -1117,7 +1139,7 @@ class AjoutTransactionViewModel(
                             ).getOrThrow()
                             transactionRepository.creerTransaction(
                                 Transaction(
-                                    id = IdGenerator.generateId(),
+                                    id = idOperationBrouillon,
                                     utilisateurId = utilisateurId,
                                     type = TypeTransaction.Emprunt,
                                     montant = montantDollars,
