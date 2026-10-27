@@ -603,6 +603,9 @@ class ComptesViewModel(
                     form.pretAPlacer.replace(',', '.').toDoubleOrNull() ?: throw Exception("Prêt à placer invalide")
                 } else 0.0
 
+                if (!soldeDouble.isFinite() || !pretAPlacerDouble.isFinite()) {
+                    throw IllegalArgumentException("Solde ou prêt à placer invalide")
+                }
                 val compteModifie = when (compteOriginal) {
                     is CompteCheque -> compteOriginal.copy(
                         nom = form.nom,
@@ -629,6 +632,7 @@ class ComptesViewModel(
                 }
 
                 _uiState.update { it.copy(enregistrementEnCours = true) }
+                operationAtomique.executer {
                 compteRepository.mettreAJourCompte(compteModifie).getOrThrow()
 
                 val pretAvant = (compteOriginal as? CompteCheque)?.pretAPlacer ?: 0.0
@@ -636,7 +640,6 @@ class ComptesViewModel(
                 val soldeChange = kotlin.math.abs(compteModifie.solde - compteOriginal.solde) > 0.005
                 val pretChange = kotlin.math.abs(pretApres - pretAvant) > 0.005
                 if (soldeChange || pretChange) {
-                    try {
                         historiqueAllocationService.enregistrerAjustementCompte(
                             compte = compteModifie,
                             typeAction = "MODIFICATION_COMPTE",
@@ -649,9 +652,7 @@ class ComptesViewModel(
                             pretAPlacerAvant = pretAvant,
                             pretAPlacerApres = pretApres
                         )
-                    } catch (e: Exception) {
-                        android.util.Log.e("ToutieBudget", "Trace de modification du compte non enregistrée: ${e.message}")
-                    }
+                }
                 }
 
                 _uiState.update {
