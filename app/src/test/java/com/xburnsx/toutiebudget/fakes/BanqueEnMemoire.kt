@@ -219,7 +219,10 @@ class BanqueEnMemoire {
         override suspend fun enregistrerCreationAllocation(allocation: AllocationMensuelle, compte: CompteCheque, enveloppe: Enveloppe, montant: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double) { historique += "CREATION" }
         override suspend fun enregistrerModificationAllocation(allocationAvant: AllocationMensuelle, allocationApres: AllocationMensuelle, compte: CompteCheque, enveloppe: Enveloppe, montantModification: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double) { historique += "MODIFICATION" }
         override suspend fun enregistrerSuppressionAllocation(allocation: AllocationMensuelle, compte: CompteCheque, enveloppe: Enveloppe, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double) { historique += "SUPPRESSION" }
-        override suspend fun enregistrerTransactionDirecte(compte: CompteCheque, enveloppe: Enveloppe?, typeTransaction: String, montant: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double, note: String?) { historique += typeTransaction }
+        override suspend fun enregistrerTransactionDirecte(compte: CompteCheque, enveloppe: Enveloppe?, typeTransaction: String, montant: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double, note: String?) {
+            verifier("enregistrerTransactionDirecte")
+            historique += typeTransaction
+        }
         override suspend fun enregistrerAjustementCompte(compte: Compte, typeAction: String, description: String, montant: Double, soldeAvant: Double, soldeApres: Double, pretAPlacerAvant: Double, pretAPlacerApres: Double) { historique += typeAction }
     }
 }
