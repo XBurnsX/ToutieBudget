@@ -158,7 +158,8 @@ fun RepartitionMultipleDialog(
                         )
                         TextButton(onClick = {
                             toutesEnveloppes
-                                .filter { it.versementRecommande > 0.0 }
+                                .filter { !it.estArchive && it.versementRecommande.isFinite() &&
+                                    it.versementRecommande >= 0.01 }
                                 .forEach { saisies[it.id] = centimesVersTexte(Math.round(it.versementRecommande * 100)) }
                         }) { Text("Selon objectifs") }
                     }
