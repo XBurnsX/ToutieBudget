@@ -685,8 +685,6 @@ class CategoriesEnveloppesViewModel(
     fun onConfirmerSuppressionCategorie() {
         val nomCategorie = _uiState.value.categoriePourSuppression ?: return
 
-        onFermerConfirmationSuppressionCategorie()
-
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 val categorieObj = categoriesMap.values.find { it.nom == nomCategorie }
@@ -709,21 +707,11 @@ class CategoriesEnveloppesViewModel(
                     return@lancerUneFois
                 }
 
-                // Mise à jour instantanée de l'interface
-                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                nouveauxGroupes.remove(nomCategorie)
-
-                _uiState.update { currentState ->
-                    currentState.copy(enveloppesGroupees = nouveauxGroupes)
-                }
-
-                // Envoyer à PocketBase
-                categorieRepository.supprimerCategorie(categorieObj.id).onSuccess {
-
-                }.onFailure { erreur ->
-                    _uiState.update { it.copy(erreur = "Erreur suppression: ${erreur.message}") }
-                    chargerDonnees() // Recharger en cas d'erreur
-                }
+                // CE3/CE4 : ne pas masquer la catégorie avant le succès Room.
+                categorieRepository.supprimerCategorie(categorieObj.id).getOrThrow()
+                onFermerConfirmationSuppressionCategorie()
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
 
             } catch (e: Exception) {
                 _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
