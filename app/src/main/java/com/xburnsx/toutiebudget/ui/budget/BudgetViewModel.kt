@@ -627,6 +627,8 @@ class BudgetViewModel(
     fun assignerAPlusieursEnveloppes(compteSourceId: String, montantsCentimes: Map<String, Long>) {
         viewModelScope.lancerUneFois(verrouAssignation) {
             val reussies = mutableListOf<String>()
+            var compteInitial: CompteCheque? = null
+            val allocationsInitiales = mutableListOf<AllocationMensuelle>()
             try {
                 if (montantsCentimes.isEmpty() || montantsCentimes.values.any { it <= 0L }) {
                     throw IllegalArgumentException("Chaque montant à répartir doit être positif.")
@@ -652,7 +654,14 @@ class BudgetViewModel(
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
 
+                compteInitial = compteSource
                 val mois = obtenirPremierJourDuMois(moisSelectionne)
+                // Garder une copie des allocations AVANT les écritures, pour
+                // pouvoir compenser les changements si une étape suivante échoue.
+                montants.keys.forEach { enveloppeId ->
+                    enveloppeRepository.recupererAllocationMensuelle(enveloppeId, mois)
+                        .getOrThrow()?.let(allocationsInitiales::add)
+                }
                 montants.keys.forEach { enveloppeId ->
                     val enveloppe = enveloppes[enveloppeId]
                         ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Enveloppe cible"))
@@ -674,9 +683,28 @@ class BudgetViewModel(
                 _resultatRepartition.tryEmit(ResultatRepartition(reussies))
                 rechargerApresModification()
             } catch (e: Exception) {
-                e.printStackTrace()
-                _resultatRepartition.tryEmit(ResultatRepartition(reussies, messageErreurAssignation(e)))
-                _uiState.update { it.copy(isLoading = false, messageChargement = null) }
+                // A2 : compensation de la répartition si une étape échoue.
+                // Ce n'est PAS une transaction Room atomique : un rollback peut
+                // lui-même échouer et doit être signalé explicitement.
+                val echecsRestaurations = mutableListOf<String>()
+                if (reussies.isNotEmpty()) {
+                    allocationsInitiales.asReversed().forEach { allocation ->
+                        runCatching {
+                            allocationMensuelleRepository.mettreAJourAllocation(allocation)
+                        }.onFailure { echecsRestaurations.add("Allocation ${allocation.id}: ${it.message}") }
+                    }
+                    compteInitial?.let { ancienCompte ->
+                        runCatching { compteRepository.mettreAJourCompte(ancienCompte).getOrThrow() }
+                            .onFailure { echecsRestaurations.add("Compte: ${it.message}") }
+                    }
+                }
+                val details = if (echecsRestaurations.isEmpty()) messageErreurAssignation(e)
+                else messageErreurAssignation(e) + " — RESTAURATION INCOMPLÈTE : " +
+                    echecsRestaurations.joinToString("; ")
+                _resultatRepartition.tryEmit(
+                    ResultatRepartition(if (echecsRestaurations.isEmpty()) emptyList() else reussies, details)
+                )
+                _uiState.update { it.copy(isLoading = false, messageChargement = null, erreur = details) }
                 if (reussies.isNotEmpty()) rechargerApresModification()
             }
         }
