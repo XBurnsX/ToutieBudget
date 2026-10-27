@@ -346,14 +346,25 @@ class CartesCreditViewModel(
         apresSucces: (CartesCreditUiState) -> CartesCreditUiState = { it }
     ) {
         viewModelScope.lancerUneFois(verrouCarte) {
-            val carteMaj = carte.copy(detailsCarteJson = details.versJson())
-            carteCreditRepository.mettreAJourCarteCredit(carteMaj)
-                .onSuccess {
-                    _uiState.update { apresSucces(it.copy(carteSelectionnee = carteMaj)) }
-                    chargerTransactions(carteMaj)
-                    realtimeSyncService.declencherMiseAJourComptes()
+            try {
+                val carteMaj = operationAtomique.executer {
+                    val actuelle = carteCreditRepository.recupererCartesCredit().getOrThrow()
+                        .firstOrNull { it.id == carte.id } ?: throw IllegalStateException("Carte introuvable")
+                    if (actuelle != carte) {
+                        throw IllegalStateException(
+                            "La carte ou ses relevés ont changé. Recharge les données avant de sauvegarder."
+                        )
+                    }
+                    val maj = actuelle.copy(detailsCarteJson = details.versJson())
+                    carteCreditRepository.mettreAJourCarteCredit(maj).getOrThrow()
+                    maj
                 }
-                .onFailure { e -> _uiState.update { it.copy(messageErreur = "Erreur : ${e.message}") } }
+                _uiState.update { apresSucces(it.copy(carteSelectionnee = carteMaj, messageErreur = null)) }
+                chargerTransactions(carteMaj)
+                realtimeSyncService.declencherMiseAJourComptes()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(messageErreur = "Erreur : ${e.message}") }
+            }
         }
     }
 
