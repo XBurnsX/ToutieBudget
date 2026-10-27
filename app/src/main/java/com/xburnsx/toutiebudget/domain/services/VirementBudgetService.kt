@@ -68,8 +68,10 @@ class VirementBudgetService(
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
         val env = enveloppe(enveloppeId, VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(""))
-
-        if (compte.pretAPlacer + 0.005 < montant) {
+        if (compte.estArchive) throw IllegalStateException("Ce compte est archivé.")
+        if (!compte.pretAPlacer.isFinite() || !montant.isFinite() ||
+            kotlin.math.round(compte.pretAPlacer * 100.0).toLong() < kotlin.math.round(montant * 100.0).toLong()
+        ) {
             throw IllegalStateException(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compte.pretAPlacer))
         }
         val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJour)
@@ -151,15 +153,17 @@ class VirementBudgetService(
         val envDest = enveloppe(destinationId, VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_DESTINATION_INTROUVABLE)
 
         val sourceAvant = allocationMensuelleRepository.recupererOuCreerAllocation(sourceId, premierJour)
-        val destAvant = allocationMensuelleRepository.recupererOuCreerAllocation(destinationId, premierJour)
+        val destExistante = allocationMensuelleRepository.recupererOuCreerAllocation(destinationId, premierJour)
 
         // Sans argent dans la source, il n'y a pas de provenance à transmettre
-        if (sourceAvant.solde <= 0.01) {
-            throw IllegalStateException(VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_VIDE)
-        }
+        // V8 : le déficit d'une enveloppe est autorisé volontairement.
+        // Une source sans aucune provenance ne peut toutefois créer des fonds.
         val provenance = sourceAvant.compteSourceId
+        if (provenance.isNullOrBlank()) {
+            throw IllegalStateException("Impossible de virer depuis cette enveloppe : compte d'origine inconnu.")
+        }
         // Une destination vide ou négative est toujours compatible (on peut combler un déficit)
-        provenanceActive(destAvant)?.let { provenanceDest ->
+        provenanceActive(destExistante)?.let { provenanceDest ->
             if (provenance != null && provenanceDest != provenance) {
                 throw IllegalArgumentException(
                     VirementErrorMessages.EnveloppeVersEnveloppe.conflitProvenance(nomCompte(provenance), nomCompte(provenanceDest))
@@ -171,6 +175,18 @@ class VirementBudgetService(
             solde = MoneyFormatter.roundAmount(sourceAvant.solde - montant),
             alloue = MoneyFormatter.roundAmount(sourceAvant.alloue - montant)
         )
+        val destHistorique = destExistante.compteSourceId != null ||
+            kotlin.math.round(destExistante.alloue * 100.0).toLong() != 0L ||
+            kotlin.math.round(destExistante.depense * 100.0).toLong() != 0L
+        val nouvelleLigneDestination = destHistorique && destExistante.compteSourceId != provenance &&
+            kotlin.math.round(destExistante.solde * 100.0).toLong() <= 0L
+        val destAvant = if (nouvelleLigneDestination) {
+            allocationMensuelleRepository.creerNouvelleAllocation(destExistante.copy(
+                id = "", solde = 0.0, alloue = 0.0, depense = 0.0,
+                compteSourceId = provenance,
+                collectionCompteSource = sourceAvant.collectionCompteSource
+            ))
+        } else destExistante
         val destApres = destAvant.copy(
             solde = MoneyFormatter.roundAmount(destAvant.solde + montant),
             alloue = MoneyFormatter.roundAmount(destAvant.alloue + montant),
