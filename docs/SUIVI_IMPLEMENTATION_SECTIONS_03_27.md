@@ -172,6 +172,23 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État : parcours et codage existant consolidés; build Android et validation réelle Room/PocketBase, banques et appareils non exécutés.** Les restrictions d'accès des connecteurs externes ne sont pas remplacées par une simulation de liaison bancaire.
 
+## Section 12 — Investissements : CODAGE LOCAL REPRIS (IF1–IF17, IA1–IA10)
+
+| IDs | Code revu / corrigé |
+|---|---|
+| IF1–IF3 | Collection canonique `comptes_investissement`; revalorisation différente d'un revenu; apports et retraits calculés sur les transferts réels depuis la date de départ |
+| IF4–IF5 | Deux soldes + deux transactions liées + SyncJobs sous **une** transaction Room; aucune compensation qui créerait des écritures inverses; journal de valorisation obligatoire; formulaire maintenu en échec |
+| IF6 | Suivi détaillé : encaisse et retrait autorisé distincts de la valeur; retrait limité aux espèces réellement retirables connues; dépôt n'est pas déclaré immédiatement retirable |
+| IF7–IF9 | Valorisation datée et tracée, double sauvegarde bloquée, date de virement **saisissable** (jour exact) sur les deux transactions, ID de paire partagé |
+| IF10, IA8 | **Dépendance externe non finalisée : BANQ-06 / fournisseur Wealthsimple-Plaid/MX autorisé.** Aucun accès positions ou import bancaire réel n'est affirmé. Maintien des entrées manuelles et mécanismes de confirmation à intégrer dès disponibilité du connecteur |
+| IF11–IF13 | Comptes actifs du même propriétaire, montants au cent, balance des virements, positions à quantité fractionnaire et prix unitaires non tronqués; valeurs signées de portefeuille autorisées |
+| IF14–IF17 | Protection Room contre écrasement concurrent des paramètres/valeurs, archivage et réactivation même ID; patrimoine courant n'inclut pas placements archivés; éditeurs fermés seulement sur succès |
+| IA1–IA3 | Suivi simple/détaillé facultatif, capital net versé et gains distincts; manques de cours, coûts ou dates = « indisponible » |
+| IA4–IA7 | Points de valeur datés, positions détaillées, achats/ventes/dividendes/frais internes, types CELI/REER/CELIAPP, sans présumer fiscalité |
+| IA9–IA10 | Répartition des valeurs connues, blocage des comparaisons CAD/USD sans cours FX fiable; gains réalisés inconnus non convertis en 0 $; TWR et TRI sous hypothèses/documentation suffisantes |
+
+**État : codage local repris; BANQ-06/IA8 restent conditionnés à l'accès d'un fournisseur bancaire.** Compilation Android, tests Room, multi-appareil et E2E reportés sur décision de l'utilisateur. Ce suivi ne prétend pas que la synchronisation Wealthsimple existe déjà.
+
 ## Sections restantes
 
 | Sections | État |
