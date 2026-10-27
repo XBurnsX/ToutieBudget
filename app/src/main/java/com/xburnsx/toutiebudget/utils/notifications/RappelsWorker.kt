@@ -23,6 +23,12 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
         val ctx = applicationContext
         if (!PreferencesManager.getNotificationsEnabled(ctx)) return Result.success()
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return Result.success()
+        // PR14 : le test est un vrai message, même avec zéro enveloppe ou objectif.
+        if (inputData.getBoolean("notification_test", false)) {
+            notify("test:notification", "ToutieBudget — notification de test",
+                "Les notifications fonctionnent sur cet appareil.")
+            return Result.success()
+        }
 
         val budgetVm = AppModule.provideBudgetViewModel()
         // PR11 : rafraichirDonnees() déclenche une coroutine et retourne AVANT
