@@ -35,7 +35,9 @@ data class VirerArgentUiState(
     val selecteurOuvert: SelecteurOuvert = SelecteurOuvert.AUCUN,
     val isVirementButtonEnabled: Boolean = false,
     val mode: VirementMode = VirementMode.ENVELOPPES,
-    val moisSelectionne: Date = Date(), // ← DÉFAUT : Mois actuel, mais sera changé par l'UI
+    val moisSelectionne: Date = Date(), // Mois des virements d'enveloppes
+    // IF8 : date exacte des mouvements entre comptes (saisissable, rétroactive ou future).
+    val dateOperation: String = java.time.LocalDate.now().toString(),
     val erreurChargement: String? = null, // V6 : chargement en échec, avec « Réessayer »
     val provenanceParEnveloppe: Map<String, String?> = emptyMap() // VA5 : compte d'origine de chaque enveloppe
 )
