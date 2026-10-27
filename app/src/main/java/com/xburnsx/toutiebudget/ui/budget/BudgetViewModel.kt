@@ -644,6 +644,14 @@ class BudgetViewModel(
      * et chaque enveloppe garde la provenance de ce compte.
      */
     fun assignerAPlusieursEnveloppes(compteSourceId: String, montantsCentimes: Map<String, Long>) {
+        // A2 : sans réponse au formulaire, un clic pendant une autre assignation
+        // laissait l'aperçu sur « en cours » indéfiniment.
+        if (verrouAssignation.estPris) {
+            _resultatRepartition.tryEmit(
+                ResultatRepartition(emptyList(), "Une autre assignation est déjà en cours. Réessayez après sa fin.")
+            )
+            return
+        }
         viewModelScope.lancerUneFois(verrouAssignation) {
             val reussies = mutableListOf<String>()
             try {
