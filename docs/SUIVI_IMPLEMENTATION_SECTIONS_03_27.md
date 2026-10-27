@@ -40,7 +40,7 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 | 4. Paramètres / Plan Reset | A8 / BUD-01 | **Codage traité** : action volontaire dans Paramètres, aperçu par allocation/compte, confirmation explicite, sélection par ID, détection d'aperçu périmé, restauration Room atomique, aucune suppression de transaction ni modification des autres mois | Compilation Gradle et vérification Room/PocketBase sur appareil non exécutées |
 | 5. Correctifs Budget | C2, C3, C4 | **Codage traité** : C2 préférences locales/priorité au dernier clic; C3 réussite liée à un identifiant de requête unique; C4 affichage MoneyFormatter $ CA sur écran soldes négatifs | Build Android / UI non vérifiés |
 | 6. Prêt personnel | P3–P7, PP2, PP3, PP6 | **Codage traité** : types prêt/emprunt et « Archivés », détail stable et erreurs visibles, archiver/réactiver sans changer le solde, remboursement affiché dans détails, remboursements multi-dossiers validés avant écriture et sous transaction Room, journal inclus | Build Gradle / vérification Room non exécutés |
-| 7. Virer argent | V1–V8, VA4–VA6 | Code présent. Transaction Room déjà injectée; journaux désormais obligatoires; gestion d'exception dans le ViewModel | Compilation + cas de provenance multi-allocation |
+| 7. Virer argent | V1–V8, VA4–VA6 | **Codage traité** : mois choisi, allocations par ID/période, solde bancaire intact, transaction Room et journal obligatoires, sélecteurs qui se ferment, erreur/reprise, allocations distinctes pour nouvelle provenance, déficit volontaire conservé, récents/compatibilité/seuil de confirmation | Build et intégration sur appareil non exécutés |
 
 ## Section 4 — Revue de codage clôturée (A8 / BUD-01)
 
@@ -71,6 +71,16 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 - **PP6** — Initial, remboursé et restant affichés dans Détails; transactions retrouvées par ID JSON exact, sans rapprochement par sous-chaîne.
 
 **État : codage traité; compilation et E2E non exécutés.** Section 7 suivante.
+
+## Section 7 — Revue de codage clôturée (V1–V8, VA4–VA6)
+
+- **V1/V2** — Virements d'enveloppes sur mois sélectionné; recherche allocation par ID d'enveloppe et période, sans fusion destructive de lignes d'origines distinctes.
+- **V3/V4** — Transferts internes dans une transaction Room avec journal obligatoire, sans modifier le solde bancaire; « Prêt à placer » par compte.
+- **V5/V6** — Même sélecteur retouché = fermeture, clic extérieur = fermeture; erreurs visibles et verrou libéré en cas d'exception.
+- **V7/V8** — Provenance obligatoire pour les sorties; ancien historique préservé via une allocation distincte lors d'un changement de compte; virement d'enveloppe autorisé même si la source passe négative, pour autant que son compte d'origine soit identifiable.
+- **VA4–VA6** — Récents, compatibilité des destinations et confirmation facultative des gros virements déjà intégrés et conservés.
+
+**État : codage traité; compilation et scénarios Android non exécutés.** Section 8 suivante.
 
 ## Section 8 — Comptes
 
