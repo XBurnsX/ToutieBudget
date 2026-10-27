@@ -491,7 +491,13 @@ class ComptesViewModel(
                 }
                 return@lancerUneFois
             }
-            val soldeInitial = formState.solde.toDoubleOrNull() ?: 0.0
+            try {
+            val texteSolde = formState.solde.trim().replace(" ", "").replace(',', '.')
+            val soldeInitial = if (texteSolde.isBlank()) 0.0 else runCatching {
+                java.math.BigDecimal(texteSolde)
+                    .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+            }.getOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
+                ?: throw IllegalArgumentException("Solde initial invalide : maximum deux décimales.")
             val nouveauCompte = when(formState.type) {
                 "Compte chèque" -> CompteCheque(
                     nom = formState.nom,
@@ -626,6 +632,12 @@ class ComptesViewModel(
             }.onFailure { e ->
                 // CO6 : erreur visible, le formulaire reste ouvert avec les valeurs saisies
                 _uiState.update { it.copy(enregistrementEnCours = false, erreur = "Erreur création: ${e.message}") }
+            }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(
+                    enregistrementEnCours = false,
+                    erreur = "Compte non créé : ${e.message}"
+                ) }
             }
         }
     }
