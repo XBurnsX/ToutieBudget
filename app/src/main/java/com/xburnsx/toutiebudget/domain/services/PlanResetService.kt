@@ -6,6 +6,8 @@ import com.xburnsx.toutiebudget.data.repositories.CompteRepository
 import com.xburnsx.toutiebudget.data.repositories.EnveloppeRepository
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import java.util.Calendar
 import java.util.Date
 
@@ -21,7 +23,8 @@ class PlanResetService(
     private val compteRepository: CompteRepository,
     private val enveloppeRepository: EnveloppeRepository,
     private val allocationMensuelleRepository: AllocationMensuelleRepository,
-    private val historiqueAllocationService: HistoriqueAllocationService
+    private val historiqueAllocationService: HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) {
 
     data class LigneRetour(
@@ -61,15 +64,17 @@ class PlanResetService(
 
         val lignes = mutableListOf<LigneRetour>()
         val ignorees = mutableListOf<String>()
-        allocations.groupBy { it.enveloppeId }.forEach { (enveloppeId, allocs) ->
-            val montant = montantRetournable(allocs.sumOf { it.alloue }, allocs.sumOf { it.depense }, allocs.sumOf { it.solde })
+        // A8 : garder chaque allocation et SON compte d'origine distincts.
+        // La somme de plusieurs sources ne peut pas être créditée à la dernière.
+        allocations.forEach { allocation ->
+            val montant = montantRetournable(allocation.alloue, allocation.depense, allocation.solde)
             if (montant < 0.01) return@forEach
-            val nom = enveloppes[enveloppeId]?.nom ?: return@forEach
-            val compte = allocs.lastOrNull { it.compteSourceId != null }?.compteSourceId?.let { comptes[it] }
+            val nom = enveloppes[allocation.enveloppeId]?.nom ?: return@forEach
+            val compte = allocation.compteSourceId?.let { comptes[it] }
             if (compte == null) {
                 ignorees.add(nom)
             } else {
-                lignes.add(LigneRetour(enveloppeId, nom, compte.id, compte.nom, montant))
+                lignes.add(LigneRetour(allocation.enveloppeId, nom, compte.id, compte.nom, montant))
             }
         }
         Apercu(mois, lignes.sortedBy { it.nomEnveloppe.lowercase() }, ignorees.sorted())
@@ -80,51 +85,46 @@ class PlanResetService(
      * à jour juste avant l'écriture ; une enveloppe qui a changé depuis l'aperçu n'est jamais vidée au-delà.
      * Retourne les enveloppes traitées ; s'arrête à la première erreur en indiquant celles déjà faites.
      */
-    suspend fun appliquer(mois: Date, enveloppeIds: Set<String>): Result<List<String>> {
+    suspend fun appliquer(mois: Date, enveloppeIds: Set<String>): Result<List<String>> = runCatching {
+        val premierJour = premierJourDuMois(mois)
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().associateBy { it.id }
+        val allocations = enveloppeRepository.recupererAllocationsPourMois(premierJour).getOrThrow()
+            .filter { it.enveloppeId in enveloppeIds }
         val faites = mutableListOf<String>()
-        return runCatching {
-            val premierJour = premierJourDuMois(mois)
-            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().associateBy { it.id }
 
-            enveloppeIds.forEach { enveloppeId ->
-                val enveloppe = enveloppes[enveloppeId] ?: return@forEach
-                val avant = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJour)
+        // A8 : réécriture de chaque allocation de la période et de chaque compte
+        // au sein d'une seule transaction Room. Le journal fait partie du commit.
+        operationAtomique.executer {
+            allocations.forEach { avant ->
+                val enveloppe = enveloppes[avant.enveloppeId]
+                    ?: throw IllegalStateException("Enveloppe de l'allocation introuvable")
                 val montant = montantRetournable(avant.alloue, avant.depense, avant.solde)
                 if (montant < 0.01) return@forEach
-
-                val compte = avant.compteSourceId?.let { compteRepository.recupererCompteParIdToutesCollections(it).getOrNull() }
-                    as? CompteCheque
-                    ?: throw IllegalStateException("${enveloppe.nom} : compte d'origine introuvable")
-
+                val compteId = avant.compteSourceId
+                    ?: throw IllegalStateException("${enveloppe.nom} : provenance bancaire absente")
+                val compte = compteRepository.recupererCompteParIdToutesCollections(compteId).getOrThrow()
+                    as? CompteCheque ?: throw IllegalStateException("${enveloppe.nom} : compte d'origine invalide")
                 val apres = avant.copy(
                     solde = MoneyFormatter.roundAmount(avant.solde - montant),
                     alloue = MoneyFormatter.roundAmount(avant.alloue - montant)
                 )
                 allocationMensuelleRepository.mettreAJourAllocation(apres)
                 compteRepository.mettreAJourPretAPlacerSeulement(compte.id, montant).getOrThrow()
-
-                try {
-                    historiqueAllocationService.enregistrerModificationAllocation(
-                        allocationAvant = avant,
-                        allocationApres = apres,
-                        compte = compte,
-                        enveloppe = enveloppe,
-                        montantModification = -montant,
-                        soldeAvant = compte.solde,
-                        soldeApres = compte.solde, // Le solde bancaire ne change pas
-                        pretAPlacerAvant = compte.pretAPlacer,
-                        pretAPlacerApres = compte.pretAPlacer + montant
-                    )
-                } catch (_: Exception) {
-                    // L'historique ne doit pas annuler un retour déjà enregistré
-                }
+                historiqueAllocationService.enregistrerModificationAllocation(
+                    allocationAvant = avant,
+                    allocationApres = apres,
+                    compte = compte,
+                    enveloppe = enveloppe,
+                    montantModification = -montant,
+                    soldeAvant = compte.solde,
+                    soldeApres = compte.solde,
+                    pretAPlacerAvant = compte.pretAPlacer,
+                    pretAPlacerApres = MoneyFormatter.roundAmount(compte.pretAPlacer + montant)
+                )
                 faites.add(enveloppe.nom)
             }
-            BudgetEvents.onAllocationUpdated()
-            faites.toList()
-        }.recoverCatching { e ->
-            if (faites.isNotEmpty()) BudgetEvents.onAllocationUpdated()
-            throw if (faites.isEmpty()) e else Exception("Déjà remises : ${faites.joinToString()}. Arrêt : ${e.message}")
         }
+        BudgetEvents.onAllocationUpdated()
+        faites.distinct()
     }
 }
