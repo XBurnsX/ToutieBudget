@@ -268,7 +268,8 @@ import android.content.Context
              transactionRepository = transactionRepository,
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
-             historiqueAllocationService = historiqueAllocationService
+             historiqueAllocationService = historiqueAllocationService,
+             operationAtomique = operationAtomique
          )
      }
 
