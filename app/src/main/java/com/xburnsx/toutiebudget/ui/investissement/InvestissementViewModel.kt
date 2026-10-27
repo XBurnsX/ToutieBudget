@@ -30,7 +30,8 @@ data class InvestissementUiState(
     val isLoading: Boolean = false,
     val enCours: Boolean = false,
     val erreurChargement: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val succesEcriture: Long = 0L
 )
 
 /**
@@ -149,7 +150,8 @@ class InvestissementViewModel(
                 }
                 realtimeSyncService.declencherMiseAJourComptes()
                 _uiState.update { courant ->
-                    if (compteId == id) courant.copy(enCours = false, compte = modifie, message = null)
+                    if (compteId == id) courant.copy(enCours = false, compte = modifie,
+                            message = null, succesEcriture = courant.succesEcriture + 1)
                     else courant.copy(enCours = false)
                 }
             } catch (e: Exception) {
