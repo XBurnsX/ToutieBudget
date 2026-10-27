@@ -85,12 +85,16 @@ fun PrevisionsDialog(
     val formatJour = remember { SimpleDateFormat("d MMM", Locale.CANADA_FRENCH) }
 
     val horizon = limite ?: fin
-    val lignes = categories.flatMap { it.enveloppes }
-        .filter { !it.estArchive && kotlin.math.round(it.versementRecommande * 100).toLong() > 0L }
+    val enveloppesActives = categories.flatMap { it.enveloppes }.filterNot { it.estArchive }
+    val suggestionsInvalides = enveloppesActives.any { !it.versementRecommande.isFinite() }
+    val lignes = enveloppesActives
+        .filter { it.versementRecommande.isFinite() &&
+            kotlin.math.round(it.versementRecommande * 100).toLong() > 0L }
         .map { LignePrevision(it, echeanceDansLeMois(it, moisSelectionne)) }
         .filter { !it.echeance.after(horizon) }
         .sortedBy { it.echeance }
     val total = lignes.sumOf { it.enveloppe.versementRecommande }
+    val totalInvalide = !total.isFinite() || suggestionsInvalides
 
     AlertDialog(
         onDismissRequest = onFermer,
@@ -113,7 +117,10 @@ fun PrevisionsDialog(
                 erreurDate?.let { message ->
                     Text(message, color = MaterialTheme.colorScheme.error)
                 }
-                if (lignes.isEmpty()) {
+                if (totalInvalide) {
+                    Text("Prévisions indisponibles : au moins un montant d'objectif est invalide.",
+                        color = MaterialTheme.colorScheme.error)
+                } else if (lignes.isEmpty()) {
                     Text("Rien à prévoir d'ici là.", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
