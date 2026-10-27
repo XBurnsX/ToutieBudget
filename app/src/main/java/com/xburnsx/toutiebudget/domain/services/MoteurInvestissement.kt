@@ -58,16 +58,24 @@ object MoteurInvestissement {
 
     // ===== Réalisé / non réalisé (IA3, IA5, IA6, IA10) =====
 
-    fun gainRealise(compte: CompteInvestissement): Double = arrondi(
-        compte.details.mouvements.sumOf { m ->
+    fun gainRealise(compte: CompteInvestissement): Double? {
+        // IA6 : une vente sans coût documenté NE vaut PAS un gain de 0 $.
+        val mouvements = compte.details.mouvements
+        if (mouvements.any { m ->
+                (m.type == TypeMouvementPlacement.VENTE && m.gainRealise == null) ||
+                !m.montant.isFinite() || (m.gainRealise != null && !m.gainRealise.isFinite())
+            }) return null
+        val total = mouvements.sumOf { m ->
             when (m.type) {
-                TypeMouvementPlacement.VENTE -> m.gainRealise ?: 0.0
-                TypeMouvementPlacement.DIVIDENDE, TypeMouvementPlacement.DISTRIBUTION, TypeMouvementPlacement.INTERETS -> m.montant
+                TypeMouvementPlacement.VENTE -> m.gainRealise!!
+                TypeMouvementPlacement.DIVIDENDE, TypeMouvementPlacement.DISTRIBUTION,
+                TypeMouvementPlacement.INTERETS -> m.montant
                 TypeMouvementPlacement.FRAIS -> -abs(m.montant)
                 else -> 0.0
             }
         }
-    )
+        return total.takeIf { it.isFinite() }?.let(::arrondi)
+    }
 
     /** Plus-value latente des positions dont le cours est connu ; null si aucun cours. */
     fun gainNonRealise(compte: CompteInvestissement): Double? {
