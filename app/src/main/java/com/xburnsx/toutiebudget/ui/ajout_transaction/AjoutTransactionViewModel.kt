@@ -76,6 +76,8 @@ class AjoutTransactionViewModel(
     /** AA5 : identifiants de la file avant la sauvegarde, puis écrits pendant CETTE opération. */
     private var idsJobsAvantEcriture: Set<String> = emptySet()
     private var idsJobsOperation: Set<String>? = null
+    /** AA5 : fiches de l'operation, y compris celles dont le SyncJob a ete compacte. */
+    private var idsFichesOperation: Set<String> = emptySet()
 
     init {
         chargerDonneesInitiales()
@@ -570,9 +572,12 @@ class AjoutTransactionViewModel(
      * ne reste pas vrai : l'écran ne relance donc pas la navigation une 2e fois.
      */
     private fun terminerAvecSucces(message: String, detteSoldee: Boolean = false) {
+        val avant = _uiState.value
+        idsFichesOperation = listOfNotNull(
+            idOperationBrouillon, avant.compteSelectionne?.id, avant.comptePaiementSelectionne?.id
+        ).toSet()
         // Une nouvelle saisie = nouvelle opération; un échec gardera l'ancien ID.
         idOperationBrouillon = IdGenerator.generateId()
-        val avant = _uiState.value
         _uiState.update {
             AjoutTransactionUiState(
                 isLoading = false,
@@ -591,8 +596,9 @@ class AjoutTransactionViewModel(
                 val jobs = syncJobDao.getAllSyncJobs().first()
                 // Seules les tâches ajoutées durant l'opération sont suivies,
                 // même si le worker met à jour ensuite leurs statuts.
-                idsJobsOperation = jobs.filter { it.id !in idsJobsAvantEcriture }
-                    .map { it.id }.toSet()
+                idsJobsOperation = jobs.filter {
+                    it.id !in idsJobsAvantEcriture || it.recordId in idsFichesOperation
+                }.map { it.id }.toSet()
                 appliquerStatutSynchronisation(jobs, depuis)
             }
         }
