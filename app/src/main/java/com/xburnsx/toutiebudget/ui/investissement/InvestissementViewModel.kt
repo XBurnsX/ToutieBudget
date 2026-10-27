@@ -182,6 +182,22 @@ class InvestissementViewModel(
                     if (!resultat.solde.isFinite() || resultat.solde < 0) {
                         throw IllegalStateException("Valeur de placement invalide.")
                     }
+                    val details = resultat.details
+                    if (listOfNotNull(details.valeurDepart, details.encaisse, details.retirableConnu)
+                            .any { !it.isFinite() || it < 0.0 } ||
+                        details.positions.any { position ->
+                            !position.quantite.isFinite() || position.quantite < 0.0 ||
+                                !position.coutTotal.isFinite() || position.coutTotal < 0.0 ||
+                                (position.cours != null &&
+                                    (!position.cours.isFinite() || position.cours < 0.0))
+                        } || details.mouvements.any { mouvement ->
+                            !mouvement.montant.isFinite() ||
+                                (mouvement.quantite != null && !mouvement.quantite.isFinite()) ||
+                                (mouvement.gainRealise != null && !mouvement.gainRealise.isFinite())
+                        }
+                    ) {
+                        throw IllegalArgumentException("Montant, prix, quantité ou liquidité du placement invalide.")
+                    }
                     compteRepository.mettreAJourCompte(resultat).getOrThrow()
                     apres(aJour, resultat)
                     resultat
