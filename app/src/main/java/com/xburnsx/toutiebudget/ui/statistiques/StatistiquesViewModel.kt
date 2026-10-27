@@ -33,6 +33,8 @@ class StatistiquesViewModel(
 
     // Map pour résoudre allocation -> enveloppe
     private var allocationIdToEnveloppeId: Map<String, String> = emptyMap()
+    /** ST9 : lignes exactement prises en compte dans le Top tiers (montant des fractions admissibles). */
+    private var transactionsTopTiers: Map<String, List<Transaction>> = emptyMap()
     private val ID_SANS_ENVELOPPE = "__SANS_ENV__"
     
     // Pagination pour les listes de transactions
@@ -286,19 +288,36 @@ class StatistiquesViewModel(
             val tiersToNom = tiers.associateBy({ it.id }, { it.nom })
             // Calculer les dépenses par tiers en excluant les enveloppes de catégories "Dettes"/"Cartes de crédit"
             val depenseParTiersMutable = mutableMapOf<String, Double>()
+            val detailParTiers = mutableMapOf<String, MutableList<Transaction>>()
             depenses.forEach { tx ->
                 val tiersKey = tx.tiersUtiliser ?: return@forEach
                 if (!tx.estFractionnee) {
                     val envId = tx.allocationMensuelleId?.let { allocationIdToEnveloppeId[it] }
                     if (envId == null || envId !in enveloppeIdsExclus) {
                         depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + tx.montant
+                        detailParTiers.getOrPut(tiersKey) { mutableListOf() }.add(tx)
                     }
                 } else if (tx.estFractionnee) {
-                    ReglesStatistiques.lireFractions(tx).forEach { fraction ->
-                        if (fraction.enveloppeId !in enveloppeIdsExclus) {
-                            depenseParTiersMutable[tiersKey] =
-                                (depenseParTiersMutable[tiersKey] ?: 0.0) + fraction.montant
+                    val portions = ReglesStatistiques.lireFractions(tx)
+                        .filter { it.enveloppeId !in enveloppeIdsExclus }
+                    if (portions.isNotEmpty()) {
+                        val montantEligible = ReglesStatistiques.totalAuCent(
+                            portions.map { fraction ->
+                                tx.copy(montant = fraction.montant)
+                            }
+                        ) { true }
+                        depenseParTiersMutable[tiersKey] =
+                            (depenseParTiersMutable[tiersKey] ?: 0.0) + montantEligible
+                        val detail = portions.joinToString("; ") {
+                            "${enveloppeIdParNom[it.enveloppeId] ?: it.enveloppeId} : " +
+                                com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(it.montant)
                         }
+                        val noteDetail = listOfNotNull(
+                            tx.note?.takeIf { it.isNotBlank() },
+                            "Fractions admissibles : $detail"
+                        ).joinToString(" · ")
+                        detailParTiers.getOrPut(tiersKey) { mutableListOf() }
+                            .add(tx.copy(montant = montantEligible, note = noteDetail))
                     }
                 }
             }
@@ -354,6 +373,7 @@ class StatistiquesViewModel(
 
 
             if (generation != generationChargement) return@launch
+            transactionsTopTiers = detailParTiers.mapValues { it.value.toList() }
             _uiState.value = StatistiquesUiState(
                 isLoading = false,
                 erreur = null,
@@ -446,6 +466,11 @@ class StatistiquesViewModel(
             } else false
         }
         ouvrirModalTransactions("Transactions - ${_uiState.value.top5Enveloppes.firstOrNull { it.id == enveloppeId }?.label ?: "Enveloppe"}", selection)
+    }
+
+    /** ST9 : le total du clic est composé des MÊMES lignes que son Top tiers. */
+    fun ouvrirModalTransactionsPourTiers(tiersId: String, label: String) {
+        ouvrirModalTransactions("Transactions - $label", transactionsTopTiers[tiersId].orEmpty())
     }
 
     fun fermerModalTransactions() {
