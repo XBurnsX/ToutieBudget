@@ -24,6 +24,7 @@ import com.xburnsx.toutiebudget.data.modeles.CompteCredit
 import com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -39,6 +40,7 @@ fun NaturesMouvementsCarteCard(
     onClasser: (String, NatureMouvementCarte?) -> Unit
 ) {
     var developpe by remember(carte.id) { mutableStateOf(false) }
+    var limite by remember(carte.id) { androidx.compose.runtime.mutableIntStateOf(50) }
     val classables = transactions.filter {
         it.type == TypeTransaction.Depense ||
             it.type == TypeTransaction.TransfertSortant ||
@@ -68,7 +70,7 @@ fun NaturesMouvementsCarteCard(
                     Text("Aucun mouvement à classer.", style = MaterialTheme.typography.bodySmall)
                 }
                 val dateForm = remember { SimpleDateFormat("d MMM yyyy", Locale.CANADA_FRENCH) }
-                classables.take(50).forEach { tx ->
+                classables.take(limite).forEach { tx ->
                     var menuOuvert by remember(carte.id, tx.id) { mutableStateOf(false) }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -79,8 +81,14 @@ fun NaturesMouvementsCarteCard(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         Column {
+                            val nature = carte.details.naturesMouvements[tx.id]
                             TextButton(onClick = { menuOuvert = true }) {
-                                Text(carte.details.naturesMouvements[tx.id]?.libelle ?: "À classer")
+                                Text(nature?.libelle ?: "À classer")
+                            }
+                            if (nature != null) {
+                                val taux = MoteurCarteCredit.tauxPourNature(carte, nature, tx.date)
+                                Text(taux?.let { "%.2f %%".format(Locale.CANADA_FRENCH, it) }
+                                    ?: "Taux inconnu", style = MaterialTheme.typography.bodySmall)
                             }
                             DropdownMenu(expanded = menuOuvert, onDismissRequest = { menuOuvert = false }) {
                                 DropdownMenuItem(text = { Text("Indéterminé") }, onClick = {
@@ -97,9 +105,10 @@ fun NaturesMouvementsCarteCard(
                         }
                     }
                 }
-                if (classables.size > 50) {
-                    Text("50 mouvements récents affichés sur ${classables.size}.",
-                        style = MaterialTheme.typography.bodySmall)
+                if (classables.size > limite) {
+                    TextButton(onClick = { limite += 50 }) {
+                        Text("Afficher 50 autres mouvements (${classables.size - limite} restants)")
+                    }
                 }
             }
         }
