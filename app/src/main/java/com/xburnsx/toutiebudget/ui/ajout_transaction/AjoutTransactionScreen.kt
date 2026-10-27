@@ -245,6 +245,26 @@ fun AjoutTransactionScreen(
                                 onCompteChange = viewModel::onComptePaiementChanged,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                            (uiState.comptePaiementSelectionne as? com.xburnsx.toutiebudget.data.modeles.CompteDette)
+                                ?.let { dette ->
+                                    val centsDus = kotlin.math.round(
+                                        kotlin.math.max(0.0, -dette.soldeDette) * 100.0
+                                    ).toLong()
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "Maximum dû : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(centsDus / 100.0)}",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        TextButton(
+                                            onClick = { viewModel.onMontantChanged(centsDus.toString()) },
+                                            enabled = centsDus > 0 && !uiState.estEnTrainDeSauvegarder
+                                        ) { Text("Payer le solde") }
+                                    }
+                                }
                         }
                         else -> {
                             // Pour les autres modes, utiliser le sélecteur de tiers normal
