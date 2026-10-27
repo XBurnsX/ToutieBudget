@@ -370,6 +370,15 @@ class StatistiquesViewModel(
 
             // Calculer les moyennes sur 7 jours
             val moyennes7Jours = ReglesStatistiques.moyenneDepenses7Jours(transactions6Mois, fin, dateDebutPeriode = debut)
+            val moyenneQuotidiennePeriode = ReglesStatistiques.moyenneDepensesQuotidienne(
+                transactions, debut, fin, Int.MAX_VALUE
+            )
+            val moyenneQuotidienne7Jours = ReglesStatistiques.moyenneDepensesQuotidienne(
+                transactions6Mois, debut, fin, 7
+            )
+            val moyenneQuotidienne30Jours = ReglesStatistiques.moyenneDepensesQuotidienne(
+                transactions6Mois, debut, fin, 30
+            )
 
 
             if (generation != generationChargement) return@launch
@@ -393,6 +402,9 @@ class StatistiquesViewModel(
                 revenus6DerniersMois = revenus6DerniersMois,
                 tiersToNom = tiersToNom,
                 moyennes7Jours = moyennes7Jours,
+                moyenneQuotidiennePeriode = moyenneQuotidiennePeriode,
+                moyenneQuotidienne7Jours = moyenneQuotidienne7Jours,
+                moyenneQuotidienne30Jours = moyenneQuotidienne30Jours,
                 totalDette = totauxFinanciers.first,
                 totalValeur = totauxFinanciers.second,
                 valeurNette = totauxFinanciers.third
