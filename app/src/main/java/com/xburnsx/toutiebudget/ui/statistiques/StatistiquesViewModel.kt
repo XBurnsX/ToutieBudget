@@ -233,19 +233,13 @@ class StatistiquesViewModel(
 
             // 2) Agréger les sous-items des transactions fractionnées par enveloppeId
             val depenseParEnveloppeFractions: MutableMap<String, Double> = mutableMapOf()
-            depenses.filter { it.estFractionnee && !it.sousItems.isNullOrBlank() }.forEach { tx ->
-                try {
-                    val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
-                    arr.forEach { elem ->
-                        val obj = elem.asJsonObject
-                        val envId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
-                        val montant = obj.get("montant")?.asDouble ?: 0.0
-                        // Ne traiter que si on a un enveloppeId valide et qu'il n'est pas exclu
-                        if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
-                            depenseParEnveloppeFractions[envId] = (depenseParEnveloppeFractions[envId] ?: 0.0) + montant
-                        }
+            depenses.filter { it.estFractionnee }.forEach { tx ->
+                ReglesStatistiques.lireFractions(tx).forEach { fraction ->
+                    if (fraction.enveloppeId !in enveloppeIdsExclus) {
+                        depenseParEnveloppeFractions[fraction.enveloppeId] =
+                            (depenseParEnveloppeFractions[fraction.enveloppeId] ?: 0.0) + fraction.montant
                     }
-                } catch (_: Exception) { /* ignorer */ }
+                }
             }
 
             // 3) Fusionner les deux sources
@@ -299,18 +293,13 @@ class StatistiquesViewModel(
                     if (envId == null || envId !in enveloppeIdsExclus) {
                         depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + tx.montant
                     }
-                } else if (!tx.sousItems.isNullOrBlank()) {
-                    try {
-                        val arr = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
-                        arr.forEach { elem ->
-                            val obj = elem.asJsonObject
-                            val envId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
-                            val montant = obj.get("montant")?.asDouble ?: 0.0
-                            if (!envId.isNullOrBlank() && envId !in enveloppeIdsExclus) {
-                                depenseParTiersMutable[tiersKey] = (depenseParTiersMutable[tiersKey] ?: 0.0) + montant
-                            }
+                } else if (tx.estFractionnee) {
+                    ReglesStatistiques.lireFractions(tx).forEach { fraction ->
+                        if (fraction.enveloppeId !in enveloppeIdsExclus) {
+                            depenseParTiersMutable[tiersKey] =
+                                (depenseParTiersMutable[tiersKey] ?: 0.0) + fraction.montant
                         }
-                    } catch (_: Exception) { /* ignorer */ }
+                    }
                 }
             }
             val depenseParTiers = depenseParTiersMutable
