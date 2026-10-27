@@ -81,7 +81,8 @@ class PretPersonnelViewModel(
             it.copy(isLoadingHistorique = true, historique = emptyList(), detailPret = null, erreurAction = null)
         }
         viewModelScope.launch {
-            val txs = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
+            try {
+            val txs = transactionRepository.recupererToutesLesTransactions().getOrThrow()
                 .filter { t ->
                     (t.type == TypeTransaction.Pret || t.type == TypeTransaction.RemboursementRecu ||
                      t.type == TypeTransaction.Emprunt || t.type == TypeTransaction.RemboursementDonne) &&
@@ -103,7 +104,7 @@ class PretPersonnelViewModel(
                     montant = t.montant
                 )
             }
-            val recordActif = pretPersonnelRepository.lister().getOrElse { emptyList() }
+            val recordActif = pretPersonnelRepository.lister().getOrThrow()
                 .firstOrNull { it.id == pretId }
 
             // Un autre dossier a été ouvert entre-temps : ne pas afficher ces données
@@ -122,6 +123,16 @@ class PretPersonnelViewModel(
                     montantRembourse = rembourse
                 )
             }
+            } catch (e: Exception) {
+                if (dossierDemande == pretId) {
+                    _uiState.update { it.copy(
+                        isLoadingHistorique = false,
+                        historique = emptyList(),
+                        detailPret = null,
+                        erreurAction = "Historique indisponible : ${e.message}"
+                    ) }
+                }
+            }
         }
     }
 
@@ -135,7 +146,11 @@ class PretPersonnelViewModel(
     /** PP2 / PP3 : archiver ou réactiver un dossier, sans toucher au solde ni à l'historique. */
     fun changerArchivage(pretId: String, archiver: Boolean) {
         viewModelScope.lancerUneFois(verrouPret) {
-            val dossier = pretPersonnelRepository.lister().getOrElse { emptyList() }.firstOrNull { it.id == pretId }
+            val dossiers = pretPersonnelRepository.lister().getOrElse { e ->
+                _uiState.update { it.copy(erreurAction = "Impossible de charger les dossiers : ${e.message}") }
+                return@lancerUneFois
+            }
+            val dossier = dossiers.firstOrNull { it.id == pretId }
             if (dossier == null) {
                 _uiState.update { it.copy(erreurAction = "Dossier introuvable") }
                 return@lancerUneFois
