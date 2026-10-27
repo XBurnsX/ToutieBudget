@@ -15,6 +15,9 @@ import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
+import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +42,8 @@ class InvestissementViewModel(
     private val compteRepository: CompteRepository,
     private val transactionRepository: TransactionRepository,
     private val historiqueAllocationService: HistoriqueAllocationService,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -48,8 +52,10 @@ class InvestissementViewModel(
     private val _uiState = MutableStateFlow(InvestissementUiState())
     val uiState: StateFlow<InvestissementUiState> = _uiState.asStateFlow()
     private var compteId: String? = null
+    private var generationChargement = 0L
 
     fun charger(id: String) {
+        val generation = ++generationChargement
         compteId = id
         _uiState.value = InvestissementUiState(isLoading = true)
         viewModelScope.launch {
@@ -57,10 +63,12 @@ class InvestissementViewModel(
                 val compte = compteRepository.getCompteById(id, "comptes_investissement") as? CompteInvestissement
                     ?: throw Exception("Compte de placement introuvable")
                 val transactions = transactionRepository.recupererTransactionsPourCompte(id, "comptes_investissement")
-                    .getOrElse { emptyList() }
+                    .getOrThrow()
+                if (generation != generationChargement || compteId != id) return@launch
                 _uiState.update { it.copy(isLoading = false, compte = compte, transactions = transactions) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, erreurChargement = e.message) }
+                if (generation == generationChargement && compteId == id)
+                    _uiState.update { it.copy(isLoading = false, erreurChargement = e.message ?: "Lecture du placement impossible") }
             }
         }
     }
@@ -77,6 +85,12 @@ class InvestissementViewModel(
      * Jamais un dépôt, un revenu, une dépense ni du Prêt à placer.
      */
     fun nouvelleValeur(date: String, valeur: Double, type: TypeValorisation, note: String?) {
+        if (MoteurCarteCredit.lireDate(date.trim()) == null || !valeur.isFinite() || valeur < 0.0 ||
+            !kotlin.math.abs(valeur).isFinite()
+        ) {
+            _uiState.update { it.copy(message = "Date de valorisation ou valeur invalide.") }
+            return
+        }
         enregistrer(apres = { avant, apres ->
             historiqueAllocationService.enregistrerAjustementCompte(
                 compte = apres,
@@ -119,15 +133,25 @@ class InvestissementViewModel(
         viewModelScope.lancerUneFois(verrouPlacement) {
             _uiState.update { it.copy(enCours = true) }
             try {
-                val aJour = compteRepository.getCompteById(id, "comptes_investissement") as? CompteInvestissement
-                    ?: throw Exception("Compte de placement introuvable")
-                val modifie = transformation(aJour)
-                compteRepository.mettreAJourCompte(modifie).getOrThrow()
-                try { apres(aJour, modifie) } catch (e: Exception) {
-                    android.util.Log.e("ToutieBudget", "Trace de placement non enregistrée: ${e.message}")
+                // IF2/IF7 : valeur et historique sont validés dans le même
+                // commit Room. L'échec de trace annule également la valeur.
+                val modifie = operationAtomique.executer {
+                    val aJour = compteRepository.getCompteById(id, "comptes_investissement") as? CompteInvestissement
+                        ?: throw IllegalStateException("Compte de placement introuvable")
+                    if (aJour.estArchive) throw IllegalStateException("Compte archivé : réactive-le d'abord.")
+                    val resultat = transformation(aJour)
+                    if (!resultat.solde.isFinite() || resultat.solde < 0) {
+                        throw IllegalStateException("Valeur de placement invalide.")
+                    }
+                    compteRepository.mettreAJourCompte(resultat).getOrThrow()
+                    apres(aJour, resultat)
+                    resultat
                 }
                 realtimeSyncService.declencherMiseAJourComptes()
-                _uiState.update { it.copy(enCours = false, compte = modifie) }
+                _uiState.update { courant ->
+                    if (compteId == id) courant.copy(enCours = false, compte = modifie, message = null)
+                    else courant.copy(enCours = false)
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(enCours = false, message = "Échec : ${e.message}") }
             }
