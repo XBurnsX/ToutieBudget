@@ -5,6 +5,22 @@ Ce suivi concerne le **CODAGE**, non les tests Android E2E (reportés par décis
 **Règle : terminer les exigences retenues de la section courante avant d'attaquer la suivante.**
 Le statut **codé** ne signifie pas **compilé** ou **validé sur Android**.
 
+## Reprise actuelle : SECTION 3 EXCLUSIVEMENT
+
+**Périmètre des exigences retenues : A2, A3, A4, A5, A7.**
+Revue des parcours Kotlin et correctifs de codage poussés, **sans compilation ni validation Android**.
+Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas considérée comme livrable.
+
+| ID | Fonctions et fichiers confrontés | Modifications / points vérifiés | Statut |
+|---|---|---|---|
+| A2 | `BudgetScreen`, `RepartitionMultipleDialog`, `BudgetViewModel`, `ValidationProvenanceService`, `AllocationMensuelleRepositoryRoomImpl`, `OperationAtomiqueRoom` | Sélection source, aperçu, plusieurs enveloppes; total en centimes; compte et enveloppe relus sous transaction Room; journal dans transaction; erreur = rollback; interdiction de fusion destructrice ou de mélange de provenances; montant et champs financiers finis | **Codage revu, compilation non confirmée** |
+| A3 | `BudgetScreen.FiltreEnveloppes` | Négatives, sans fonds, avec objectif, à financer, solde disponible, favorites; seuil au cent; filtres visibles seulement à la demande, catégorie d'origine conservée | **Codage revu, compilation non confirmée** |
+| A4 | `BudgetScreen`, `BudgetViewModel.basculerFavori`, `PreferenceRepositoryImpl`, synchronisation des préférences | Favoris en tête sans réordonner les catégories; écritures locales, envoi PocketBase différé; sérialisation et protection contre réponse serveur périmée | **Codage revu, compilation non confirmée** |
+| A5 | `BudgetScreen` | Recherche insensible à la casse par nom d'enveloppe, contrôle discret ouvrable et fermeture avec remise à zéro | **Codage revu, compilation non confirmée** |
+| A7 | `BudgetScreen`, `PrevisionsDialog` | À la demande seulement; échéance mensuelle/fin de mois/date choisie; dates strictes, filtre des échéances et somme des versements recommandés | **Codage revu, compilation non confirmée** |
+
+**Limite explicite :** cette revue et les commits ne démontrent pas un build Gradle réussi ni le comportement Room/PocketBase sur appareil. Ne pas afficher « 100 % vérifié » sans ces preuves.
+
 ## Sections 3 à 7 — reprise séquentielle
 
 | Section | IDs retenus | État du codage | Vérifications restantes |
