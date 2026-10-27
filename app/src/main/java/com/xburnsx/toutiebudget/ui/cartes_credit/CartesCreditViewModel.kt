@@ -350,9 +350,15 @@ class CartesCreditViewModel(
             montant == null || montant < 0 -> { _uiState.update { it.copy(messageErreur = "Montant de frais invalide") }; return }
             date != null && MoteurCarteCredit.lireDate(date) == null -> { _uiState.update { it.copy(messageErreur = "Date AAAA-MM-JJ") }; return }
         }
-        // Déduplication : même nom + même type remplace l'ancien au lieu de l'ajouter en double
-        val frais = carte.fraisMensuels.filterNot { it.nom.equals(f.nomFrais.trim(), true) && it.type == f.typeFrais } +
-            FraisMensuel(nom = f.nomFrais.trim(), montant = montant!!, type = f.typeFrais, dateApplication = date)
+        // CC10 : seul le même frais À LA MÊME DATE est un doublon.
+        // Ne pas supprimer l'historique d'un frais au même nom, mais d'une autre période.
+        val existant = carte.fraisMensuels.firstOrNull {
+            it.nom.equals(f.nomFrais.trim(), true) && it.type == f.typeFrais && it.dateApplication == date
+        }
+        val frais = carte.fraisMensuels.filterNot { it.id == existant?.id } + FraisMensuel(
+            id = existant?.id ?: com.xburnsx.toutiebudget.utils.IdGenerator.generateId(),
+            nom = f.nomFrais.trim(), montant = montant!!, type = f.typeFrais, dateApplication = date
+        )
         enregistrerFrais(carte, frais) { it.copy(afficherDialogModificationFrais = false) }
     }
 
