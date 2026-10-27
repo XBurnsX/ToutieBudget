@@ -370,7 +370,7 @@ class AllocationMensuelleRepositoryRoomImpl(
     override suspend fun recupererAllocationsEnveloppe(enveloppeId: String): List<AllocationMensuelle> = withContext(Dispatchers.IO) {
         try {
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext emptyList()
+                ?: throw IllegalStateException("Utilisateur non identifié : allocations indisponibles.")
 
             // Récupérer depuis Room (PRIMARY)
             val allocationsEntities = allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
@@ -382,7 +382,7 @@ class AllocationMensuelleRepositoryRoomImpl(
             
             allocations
         } catch (e: Exception) {
-            emptyList()
+            throw IllegalStateException("Lecture des allocations d'enveloppe impossible.", e)
         }
     }
 
