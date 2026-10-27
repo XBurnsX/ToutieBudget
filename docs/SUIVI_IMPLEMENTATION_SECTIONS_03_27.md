@@ -19,6 +19,17 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 | A5 | `BudgetScreen` | Recherche insensible à la casse par nom d'enveloppe, contrôle discret ouvrable et fermeture avec remise à zéro | **Codage revu, compilation non confirmée** |
 | A7 | `BudgetScreen`, `PrevisionsDialog` | À la demande seulement; échéance mensuelle/fin de mois/date choisie; dates strictes, filtre des échéances et somme des versements recommandés | **Codage revu, compilation non confirmée** |
 
+### Dernière révision exclusive de la section 3 (27 octobre)
+
+- **A2** : propagation des erreurs Room, vérification de la provenance de toutes les allocations positives (pas seulement du compte dominant), transaction Room pour toutes les écritures et le journal, blocage des chiffres non finis et des centimes supplémentaires, prévention des dépassements et des clics concurrents. Les lignes historiques épuisées **ne sont plus fusionnées ou supprimées** et une nouvelle provenance financière crée une allocation distincte sans réaffecter l'ancienne. Les totaux impossibles affichent « — », pas un faux 0 $.
+- **A3** : filtres et bannière des enveloppes négatives cohérents à la précision du cent; libellé Favoris en français.
+- **A4** : la synchronisation des favoris est sérialisée, avec garde contre les réponses PocketBase tardives et compteurs partagés entre coroutines.
+- **A5** : la recherche par nom est insensible à la casse et aux accents.
+- **A7** : les prévisions restent à la demande; interdiction d'afficher des chiffres en cas de suggestions invalides; dates limitées au mois sélectionné et conversion correcte du jour civil pour le DatePicker Android.
+- **Chargements communs** : le mois demandé est actif dès la demande, l'état de chargement est immédiat et les résultats d'anciennes requêtes ne remplacent plus les données du nouveau mois.
+
+**Validation encore non fournie** : compilation complète Gradle/Android et comportement transactionnel réel sur Room/PocketBase. Aucun « PASS » E2E n'a été annoncé.
+
 **Limite explicite :** cette revue et les commits ne démontrent pas un build Gradle réussi ni le comportement Room/PocketBase sur appareil. Ne pas afficher « 100 % vérifié » sans ces preuves.
 
 ## Sections 3 à 7 — reprise séquentielle
