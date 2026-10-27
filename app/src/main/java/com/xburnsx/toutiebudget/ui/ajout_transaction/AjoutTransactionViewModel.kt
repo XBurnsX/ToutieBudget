@@ -4,7 +4,6 @@
 package com.xburnsx.toutiebudget.ui.ajout_transaction
 
 import com.xburnsx.toutiebudget.utils.lancerUneFois
-import com.xburnsx.toutiebudget.utils.toutOuRien
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.ui.virement.VirementErrorMessages
@@ -988,9 +987,8 @@ class AjoutTransactionViewModel(
                             estArchive = false
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
-                        operationAtomique.executer { toutOuRien {
+                        operationAtomique.executer {
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
-                            siEchec { pretPersonnelRepository.supprimer(created.id) }
                             // Débiter le compte et le prêt à placer
                             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
                                 compteId = compte.id,
@@ -998,7 +996,6 @@ class AjoutTransactionViewModel(
                                 variationSolde = -montantDollars,
                                 mettreAJourPretAPlacer = true
                             ).getOrThrow()
-                            siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, montantDollars, true) }
                             // persister la transaction pour historique
                             transactionRepository.creerTransaction(
                                 Transaction(
@@ -1030,7 +1027,7 @@ class AjoutTransactionViewModel(
                                     note = "Prêt à ${nomTiers}"
                                 )
                             }
-                        } }
+                        }
                         
                         // Le journal fait partie de l'écriture Room; aucune exception n'est ignorée.
                         terminerAvecSucces("Prêt enregistré")
@@ -1066,9 +1063,8 @@ class AjoutTransactionViewModel(
                             estArchive = false
                         )
                         // AT4 : dossier, compte et transaction ensemble ou pas du tout
-                        operationAtomique.executer { toutOuRien {
+                        operationAtomique.executer {
                             val created = pretPersonnelRepository.creer(record).getOrThrow()
-                            siEchec { pretPersonnelRepository.supprimer(created.id) }
                             // Créditer le compte et le prêt à placer
                             compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
                                 compteId = compte.id,
@@ -1076,7 +1072,6 @@ class AjoutTransactionViewModel(
                                 variationSolde = montantDollars,
                                 mettreAJourPretAPlacer = true
                             ).getOrThrow()
-                            siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, -montantDollars, true) }
                             transactionRepository.creerTransaction(
                                 Transaction(
                                     id = IdGenerator.generateId(),
@@ -1107,7 +1102,7 @@ class AjoutTransactionViewModel(
                                     note = "Emprunt de ${nomTiers}"
                                 )
                             }
-                        } }
+                        }
                         // P5 : le compte est crédité une seule fois (un second crédit doublait le montant)
 
                         // Le journal fait partie de l'écriture Room; aucune exception n'est ignorée.
@@ -1148,7 +1143,7 @@ class AjoutTransactionViewModel(
 
                     // AT4 / AT8 / AT15 : transaction principale et toutes ses fractions, ensemble ou pas du tout
                     val transactionPrincipale = runCatching {
-                        operationAtomique.executer { toutOuRien {
+                        operationAtomique.executer {
                             // AT4 : création d'allocation, JSON des fractions et
                             // écritures de comptes dans la MÊME transaction Room.
                         val enveloppesConfirmees = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
@@ -1221,14 +1216,6 @@ class AjoutTransactionViewModel(
                                 sousItems = sousItemsJson,
                                 id = idTransaction
                             ).getOrThrow()
-                            siEchec {
-                                transactionRepository.supprimerTransaction(idTransaction)
-                                val (variation, avecPretAPlacer) = when (typeTransaction) {
-                                    TypeTransaction.Revenu -> -montantDollars to true
-                                    else -> montantDollars to false
-                                }
-                                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionPrincipale, variation, avecPretAPlacer)
-                            }
 
                             // Chaque fraction touche son allocation ; une allocation introuvable arrête tout
                             for (sousItem in sousItems) {
@@ -1248,9 +1235,8 @@ class AjoutTransactionViewModel(
                                     )
                                 }
                                 allocationMensuelleRepository.mettreAJourAllocation(apres)
-                                siEchec { allocationMensuelleRepository.mettreAJourAllocation(avant) }
                             }
-                        } }
+                        }
                     }
 
                     if (transactionPrincipale.isSuccess) {
@@ -1544,7 +1530,7 @@ class AjoutTransactionViewModel(
         // AT4 / P6 : relire les dossiers dans la transaction Room. Si un autre
         // changement a modifié un solde depuis la préparation, tout échoue AVANT
         // le débit bancaire, sans remboursement excédentaire.
-        operationAtomique.executer { toutOuRien {
+        operationAtomique.executer {
         val soldesActuels = pretPersonnelRepository.lister().getOrThrow().associateBy { it.id }
         portions.forEach { (dossier, _) ->
             val actuel = soldesActuels[dossier.id]
@@ -1561,7 +1547,6 @@ class AjoutTransactionViewModel(
             variationSolde = variationCompte,
             mettreAJourPretAPlacer = true
         ).getOrThrow()
-        siEchec { compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compte.id, collectionCompte, -variationCompte, true) }
 
         // 2) Chaque dossier et sa transaction
         portions.forEach { (dossier, aPayer) ->
@@ -1570,7 +1555,6 @@ class AjoutTransactionViewModel(
             pretPersonnelRepository.mettreAJour(
                 dossier.copy(solde = nouveauSolde, estArchive = reste < 0.005)
             ).getOrThrow()
-            siEchec { pretPersonnelRepository.mettreAJour(dossier) }
             val idTransaction = IdGenerator.generateId()
             transactionRepository.creerTransaction(
                 Transaction(
@@ -1586,7 +1570,6 @@ class AjoutTransactionViewModel(
                     sousItems = "{\"pret_personnel_id\":\"${dossier.id}\"}"
                 )
             ).getOrThrow()
-            siEchec { transactionRepository.supprimerTransaction(idTransaction) }
         }
         // P5 : la trace du compte fait partie du même commit Room
         // que la transaction et la mise à jour des dossiers. Un échec
@@ -1606,7 +1589,7 @@ class AjoutTransactionViewModel(
                 note = if (recu) "Remboursement reçu de $nomTiers" else "Remboursement donné à $nomTiers"
             )
         }
-        } }
+        }
     }
 
     /**
