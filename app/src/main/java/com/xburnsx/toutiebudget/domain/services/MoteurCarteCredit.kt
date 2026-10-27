@@ -473,7 +473,15 @@ object MoteurCarteCredit {
             val dateMois = cal.time
             val jours = max(1, joursCivilsEntre(dateMoisPrecedent, dateMois))
             val interets = if (soldesVentiles == null) {
-                arrondi(interetsEstimes(solde, tauxEffectif(carte, dateMois), jours))
+                // Même calcul quotidien que le moteur de cycle : une promotion
+                // qui expire au milieu du mois ne couvre pas tout le mois.
+                var totalMois = 0.0
+                val calJour = Calendar.getInstance().apply { time = dateMoisPrecedent }
+                repeat(jours) {
+                    totalMois += interetsEstimes(solde, tauxEffectif(carte, calJour.time), 1)
+                    calJour.add(Calendar.DAY_OF_MONTH, 1)
+                }
+                arrondi(totalMois)
             } else {
                 var totalMois = 0.0
                 val calJour = Calendar.getInstance().apply { time = dateMoisPrecedent }
