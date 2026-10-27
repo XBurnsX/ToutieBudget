@@ -42,10 +42,12 @@ fun RelevesCarteCard(
     carte: CompteCredit,
     onAjouter: () -> Unit,
     onModifier: (ReleveCarte) -> Unit,
-    onComptabiliserInterets: (String) -> Unit
+    onComptabiliserInterets: (String) -> Unit,
+    onComptabiliserFrais: (String) -> Unit
 ) {
     val releves = carte.details.relevesTries
-    var confirmerInterets by remember { mutableStateOf<ReleveCarte?>(null) }
+    var confirmerInterets by remember(carte.id) { mutableStateOf<ReleveCarte?>(null) }
+    var confirmerFrais by remember(carte.id) { mutableStateOf<ReleveCarte?>(null) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -110,6 +112,13 @@ fun RelevesCarteCard(
                     } else if (releve.interetsComptabilises) {
                         Text("Intérêts déjà ajoutés au solde.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     }
+                    if (releve.fraisFactures > 0.005 && !releve.fraisComptabilises) {
+                        TextButton(onClick = { confirmerFrais = releve }) {
+                            Text("Ajouter ces frais officiels au solde")
+                        }
+                    } else if (releve.fraisComptabilises) {
+                        Text("Frais déjà ajoutés au solde.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 if (index < releves.lastIndex) HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
             }
@@ -148,6 +157,26 @@ fun RelevesCarteCard(
                 }) { Text("Ajouter") }
             },
             dismissButton = { TextButton(onClick = { confirmerInterets = null }) { Text("Annuler") } }
+        )
+    }
+    confirmerFrais?.let { releve ->
+        AlertDialog(
+            onDismissRequest = { confirmerFrais = null },
+            title = { Text("Ajouter les frais officiellement facturés ?") },
+            text = {
+                Text(
+                    "La dette de la carte augmentera de ${MoneyFormatter.formatAmount(releve.fraisFactures)}, une seule fois.\n\n" +
+                        "N'ajoute rien si le solde saisi comprend déjà ces frais. " +
+                        "Les frais seulement configurés (et non facturés) ne sont jamais ajoutés."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onComptabiliserFrais(releve.id)
+                    confirmerFrais = null
+                }) { Text("Ajouter") }
+            },
+            dismissButton = { TextButton(onClick = { confirmerFrais = null }) { Text("Annuler") } }
         )
     }
 }
