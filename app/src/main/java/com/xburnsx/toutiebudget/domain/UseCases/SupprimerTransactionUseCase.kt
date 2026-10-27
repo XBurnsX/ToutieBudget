@@ -39,7 +39,10 @@ class SupprimerTransactionUseCase(
     suspend fun executer(transactionId: String): Result<Unit> = runCatching { operationAtomique.executer {
         // 1. Récupérer la transaction existante
         val transaction = transactionRepository.recupererTransactionParId(transactionId)
-            .getOrNull() ?: throw Exception("Transaction non trouvée")
+            .getOrThrow()
+        require(transaction.montant.isFinite() && transaction.montant > 0.0) {
+            "Transaction invalide : montant nul ou non fini."
+        }
 
         // 2. Un paiement lié s'annule avec son autre moitié
         val aAnnuler = if (estMoitieDePaiement(transaction)) {
@@ -137,7 +140,7 @@ class SupprimerTransactionUseCase(
 
     /** Même identifiant d'opération ; pour les anciens paiements, même montant, même tiers et même moment. */
     private suspend fun trouverMoitieLiee(tx: Transaction): Transaction? {
-        val toutes = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
+        val toutes = transactionRepository.recupererToutesLesTransactions().getOrThrow()
             .filter { it.id != tx.id }
         val idOperation = idOperation(tx.sousItems)
         if (idOperation != null) {
@@ -150,16 +153,16 @@ class SupprimerTransactionUseCase(
             TypeTransaction.TransfertEntrant -> setOf(TypeTransaction.TransfertSortant)
             else -> setOf(TypeTransaction.PaiementEffectue)
         }
-        return toutes
-            .filter {
-                it.type in typesContrepartie &&
-                    it.compteId != tx.compteId &&
-                    abs(it.montant - tx.montant) < 0.005 &&
-                    abs(it.date.time - tx.date.time) <= 2 * 60 * 1000 &&
-                    (estTransfert || (it.tiersUtiliser ?: "") == (tx.tiersUtiliser ?: "")) &&
-                    idOperation(it.sousItems) == null
-            }
-            .minByOrNull { abs(it.date.time - tx.date.time) }
+        // Anciennes écritures sans ID de paire : ne jamais choisir une
+        // contrepartie approximative s'il existe deux candidats plausibles.
+        val candidates = toutes.filter {
+            it.type in typesContrepartie && it.compteId != tx.compteId &&
+                abs(it.montant - tx.montant) < 0.005 &&
+                abs(it.date.time - tx.date.time) <= 2 * 60 * 1000 &&
+                (estTransfert || (it.tiersUtiliser ?: "") == (tx.tiersUtiliser ?: "")) &&
+                idOperation(it.sousItems) == null
+        }
+        return candidates.singleOrNull()
     }
 
     private fun idOperation(sousItems: String?): String? {
@@ -185,9 +188,9 @@ class SupprimerTransactionUseCase(
         ).getOrThrow()
         if (redevientActive) {
             detteApres.details.enveloppeId?.let { id ->
-                enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+                enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                     .firstOrNull { it.id == id && it.estArchive }
-                    ?.let { enveloppeRepository.mettreAJourEnveloppe(it.copy(estArchive = false)) }
+                    ?.let { enveloppeRepository.mettreAJourEnveloppe(it.copy(estArchive = false)).getOrThrow() }
             }
         }
     }
@@ -202,9 +205,15 @@ class SupprimerTransactionUseCase(
         val sousItems = gson.fromJson<List<Map<String, Any>>>(sousItemsJson, type)
 
         for (sousItem in sousItems) {
-            val allocationId = sousItem["allocation_mensuelle_id"] as? String ?: continue
-            val montantEnDollars = (sousItem["montant"] as? Double) ?: 0.0
-            val allocation = allocationMensuelleRepository.getAllocationById(allocationId) ?: continue
+            val allocationId = sousItem["allocation_mensuelle_id"] as? String
+                ?: throw IllegalStateException("Fraction sans identifiant d'allocation.")
+            val montantEnDollars = (sousItem["montant"] as? Double)
+                ?: throw IllegalStateException("Montant de fraction manquant.")
+            require(montantEnDollars.isFinite() && montantEnDollars > 0.0) {
+                "Montant de fraction invalide."
+            }
+            val allocation = allocationMensuelleRepository.getAllocationById(allocationId)
+                ?: throw IllegalStateException("Allocation de fraction introuvable : annulation refusée.")
             // Rembourser (montant déjà en dollars dans le JSON)
             allocationMensuelleRepository.mettreAJourAllocation(
                 if (surCarte) {
