@@ -79,6 +79,34 @@ object ReglesStatistiques {
     fun pourcentage(montant: Double, totalAdmissible: Double): Double =
         if (totalAdmissible <= 0.0) 0.0 else (montant / totalAdmissible).coerceIn(0.0, 1.0)
 
+    /**
+     * SA5 : moyenne quotidienne de consommation sur les N jours civils precedant
+     * (et incluant) la fin retenue. Aucun jour futur n'entre dans le calcul.
+     * Null veut dire « periode future ou invalide », non zero de depense.
+     */
+    fun moyenneDepensesQuotidienne(
+        transactions: List<Transaction>,
+        dateDebut: Date,
+        dateFin: Date,
+        jours: Int,
+        maintenant: Date = Date()
+    ): Double? {
+        require(jours > 0) { "La fenêtre doit comporter au moins un jour." }
+        if (dateFin.before(dateDebut) || dateDebut.after(maintenant)) return null
+        val finEffective = minOf(dateFin, maintenant)
+        val zone = java.time.ZoneId.systemDefault()
+        val premierJourPeriode = dateDebut.toInstant().atZone(zone).toLocalDate()
+        val dernierJour = finEffective.toInstant().atZone(zone).toLocalDate()
+        val debutFenetre = maxOf(premierJourPeriode, dernierJour.minusDays((jours - 1).toLong()))
+        val nbJours = java.time.temporal.ChronoUnit.DAYS.between(debutFenetre, dernierJour) + 1
+        if (nbJours <= 0L) return null
+        val dateDebutFenetre = Date.from(debutFenetre.atStartOfDay(zone).toInstant())
+        val montant = totalAuCent(transactions.filter {
+            it.date >= dateDebutFenetre && it.date <= finEffective
+        }, ::estDepenseBudget)
+        return MoneyFormatter.roundAmount(montant / nbJours.toDouble())
+    }
+
     /** 7 jours civils complets, borne de fin exclusive et jamais au-delà d'aujourd'hui. */
     fun moyenneDepenses7Jours(
         transactions: List<Transaction>,
