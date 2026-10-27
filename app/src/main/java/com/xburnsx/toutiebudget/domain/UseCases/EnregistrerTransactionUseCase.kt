@@ -182,6 +182,9 @@ class EnregistrerTransactionUseCase(
                                 android.util.Log.d("ToutieBudget", "✅ ENREGISTRER_TRANSACTION_USE_CASE : Enregistrement historique des fractions réussi")
                             } catch (e: Exception) {
                                 android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement de l'historique des fractions: ${e.message}")
+                                // AT4/AT15 : l'historique fait partie de l'écriture atomique.
+                                // L'échec doit remonter pour annuler compte, allocations et SyncJobs.
+                                throw e
                             }
                         }
                     } else {
@@ -189,6 +192,8 @@ class EnregistrerTransactionUseCase(
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
+                    // AT15 : aucun succès si l'historique obligatoire échoue.
+                    throw e
                 }
 
                 // 3. Mettre à jour les soldes, l'un après l'autre pour pouvoir défaire le premier si le second échoue
