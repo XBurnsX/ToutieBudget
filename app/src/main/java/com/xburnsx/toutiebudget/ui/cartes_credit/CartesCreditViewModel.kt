@@ -403,8 +403,11 @@ class CartesCreditViewModel(
                     carteCreditRepository.mettreAJourCarteCredit(maj).getOrThrow()
                     maj
                 }
-                _uiState.update { apresSucces(it.copy(carteSelectionnee = carteMaj, messageErreur = null)) }
-                chargerTransactions(carteMaj)
+                _uiState.update { courant ->
+                    if (courant.carteSelectionnee?.id != carteMaj.id) courant
+                    else apresSucces(courant.copy(carteSelectionnee = carteMaj, messageErreur = null))
+                }
+                if (_uiState.value.carteSelectionnee?.id == carteMaj.id) chargerTransactions(carteMaj)
                 realtimeSyncService.declencherMiseAJourComptes()
             } catch (e: Exception) {
                 _uiState.update { it.copy(messageErreur = "Erreur : ${e.message}") }
@@ -479,7 +482,10 @@ class CartesCreditViewModel(
             val carteMaj = carte.copy(fraisMensuelsJson = json)
             carteCreditRepository.mettreAJourCarteCredit(carteMaj)
                 .onSuccess {
-                    _uiState.update { apresSucces(it.copy(carteSelectionnee = carteMaj)) }
+                    _uiState.update { courant ->
+                        if (courant.carteSelectionnee?.id != carteMaj.id) courant
+                        else apresSucces(courant.copy(carteSelectionnee = carteMaj, messageErreur = null))
+                    }
                     chargerCartesCredit()
                     realtimeSyncService.declencherMiseAJourComptes()
                 }
