@@ -58,12 +58,24 @@ class TiersRepositoryRoomImpl(
 
     override suspend fun creerTiers(tiers: Tiers): Result<Tiers> = withContext(Dispatchers.IO) {
         try {
+            // AT18 : dedoublonnage au niveau du repository et pas uniquement
+            // du dropdown Compose (qui peut avoir un cache perime).
+            val utilisateurId = tiers.utilisateur_id.ifBlank {
+                client.obtenirUtilisateurConnecte()?.id
+                    ?: throw IllegalStateException("Utilisateur non connecte.")
+            }
+            val nomNormalise = tiers.nom.trim().replace(Regex("\\s+"), " ").lowercase()
+            if (nomNormalise.isBlank()) throw IllegalArgumentException("Le nom du tiers est requis.")
+            val existant = tiersDao.getTiersByUtilisateur(utilisateurId).first()
+                .firstOrNull { entite ->
+                    entite.nom.trim().replace(Regex("\\s+"), " ").lowercase() == nomNormalise
+                }
+            if (existant != null) return@withContext Result.success(existant.toTiersModel())
+
             // 1. Convertir le modèle en entité Room
             val tiersEntity = TiersEntity(
                 id = tiers.id.ifBlank { IdGenerator.generateId() },
-                utilisateurId = tiers.utilisateur_id.ifBlank { 
-                    client.obtenirUtilisateurConnecte()?.id ?: "" 
-                },
+                utilisateurId = utilisateurId,
                 nom = tiers.nom,
                 created = tiers.created,
                 updated = tiers.updated,
