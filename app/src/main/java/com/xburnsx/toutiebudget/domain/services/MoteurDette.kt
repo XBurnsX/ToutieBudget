@@ -205,8 +205,10 @@ object MoteurDette {
         var solde = restant(dette)
         if (solde <= 0.005) return Echeancier(emptyList(), 0, 0.0, aujourdHui)
 
-        val cal = Calendar.getInstance().apply { time = prochaineEcheance(dette, aujourdHui) ?: aujourdHui }
-        if (prochaineEcheance(dette, aujourdHui) == null) cal.add(Calendar.MONTH, 1)
+        val premiere = prochaineEcheance(dette, aujourdHui)
+            ?: return Echeancier(emptyList(), null, 0.0, null, "Jour de versement inconnu pour le contrat.")
+        val cal = Calendar.getInstance().apply { time = premiere }
+        val jourContrat = dette.details.jourVersement ?: cal.get(Calendar.DAY_OF_MONTH)
         val periodes = mutableListOf<Periode>()
         var totalInterets = 0.0
 
