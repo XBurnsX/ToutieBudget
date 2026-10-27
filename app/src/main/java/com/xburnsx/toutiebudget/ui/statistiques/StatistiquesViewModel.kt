@@ -355,7 +355,7 @@ class StatistiquesViewModel(
             }
 
             // Calculer les moyennes sur 7 jours
-            val moyennes7Jours = ReglesStatistiques.moyenneDepenses7Jours(transactions6Mois, fin)
+            val moyennes7Jours = ReglesStatistiques.moyenneDepenses7Jours(transactions6Mois, fin, dateDebutPeriode = debut)
 
 
             if (generation != generationChargement) return@launch
