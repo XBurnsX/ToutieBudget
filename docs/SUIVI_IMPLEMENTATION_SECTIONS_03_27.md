@@ -5,11 +5,11 @@ Ce suivi concerne le **CODAGE**, non les tests Android E2E (reportés par décis
 **Règle : terminer les exigences retenues de la section courante avant d'attaquer la suivante.**
 Le statut **codé** ne signifie pas **compilé** ou **validé sur Android**.
 
-## Reprise actuelle : SECTION 3 EXCLUSIVEMENT
+## Historique : SECTION 3 (A2, A3, A4, A5, A7)
 
-**Périmètre des exigences retenues : A2, A3, A4, A5, A7.**
-Revue des parcours Kotlin et correctifs de codage poussés, **sans compilation ni validation Android**.
-Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas considérée comme livrable.
+Revue des parcours Kotlin et correctifs de codage précédemment poussés, **sans compilation ni validation Android**.
+**Reprise actuelle : SECTION 13, Ajouter transaction (AT1–AT21, AA1–AA7), EN COURS.**
+Les sections suivantes ne seront pas abordées avant la clôture de la section 13.
 
 | ID | Fonctions et fichiers confrontés | Modifications / points vérifiés | Statut |
 |---|---|---|---|
@@ -189,12 +189,30 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 **État : codage local repris; BANQ-06/IA8 restent conditionnés à l'accès d'un fournisseur bancaire.** Compilation Android, tests Room, multi-appareil et E2E reportés sur décision de l'utilisateur. Ce suivi ne prétend pas que la synchronisation Wealthsimple existe déjà.
 
+## Section 13 — Ajouter transaction (EN COURS, 27 octobre 2026)
+
+Référence : les **28 exigences** AT1–AT21 et AA1–AA7 du TXT maître.
+Plusieurs corrections existaient déjà sur `main` avant cette reprise (dernier commit précédent : `6fb30b5`).
+**Ne pas déclarer la section terminée** : il reste à vérifier chaque exigence contre le code, notamment l'idempotence multi-appareils et l'association du statut de synchro à l'opération précise. Aucun E2E ni compilation n'est revendiqué.
+
+| IDs / chemin | Ce qui a été codé pendant cette reprise | Commit |
+|---|---|---|
+| AT4 / AT15, `EnregistrerTransactionUseCase` | Erreurs du journal principal ou fractionné propagées à la transaction Room; ne pas afficher le succès d'une écriture d'historique échouée | `26402c7` |
+| AA5, `AjoutTransactionViewModel` | Pas de « Synchronisée » si aucun SyncJob nouveau ni preuve `COMPLETED`; conservation d'une confirmation de synchro déjà observée après purge | `afc8ede` |
+| AT4 / AT12 / AT15, `AllocationMensuelleRepositoryRoomImpl` | Erreur de mise à jour/provenance non avalée; absence d'allocation = erreur plutôt que réussite silencieuse | `7a23280` |
+| AT19 / AT20, `AjoutTransactionViewModel` | Relecture des comptes choisis; sélection supprimée si archivée/disparue; enveloppe retirée si non disponible | `479b0c2` |
+| AT11 / AT12 / AT19, `EnregistrerTransactionUseCase` | Revalidation sous transaction Room du compte, enveloppe et financement de la dépense simple (alignement sur fractionnement) | `d0a53da` |
+| Tests de régression ajoutés (non exécutés) | Statut AA5, échec de journal AT15, provenance et archivage AT11/AT12/AT19 | `cf3d9e8`, `ef3e696`, `b5af8a3`, `80745a8` |
+
+**À contrôler avant de clôturer :** suivi AA5 attaché à des identifiants de tâches d'une opération plutôt qu'à la seule heure; anti-doublons de transactions lors des reprises/synchronisations; validation finale de tous les modes; compilation et E2E reportés selon la consigne.
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
-| 13 à 27 | Code antérieur présent pour plusieurs IDs, mais **audit exhaustif section par section non achevé**. Aucun ID n'est considéré comme vérifié par ce tableau. |
+| 13 | **EN COURS**, voir tableau de la section 13. |
+| 14 à 27 | Reprise exhaustive par ID non achevée; ne pas avancer tant que 13 n'est pas clôturée. |
 
 ## Règles de suivi
 
