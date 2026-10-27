@@ -92,6 +92,58 @@ object MoteurCarteCredit {
     fun interetsMensuelsEstimes(carte: CompteCredit): Double =
         arrondi(interetsEstimes(dette(carte), tauxEffectif(carte), 30))
 
+    /**
+     * CC5 : projection future à soldes CONSTANTS au jour de référence déclaré.
+     * Pour les soldes à taux multiples, pas de mélange artificiel au taux achats.
+     * Sans ventilation complète et actuelle ou sans taux connu, retourne null
+     * plutôt que de donner un faux 0 $.
+     */
+    data class EstimationVentilee(
+        val achats: Double,
+        val avances: Double,
+        val transferts: Double,
+        val total: Double,
+        val dateReference: Date,
+        val jours: Int
+    )
+
+    fun interetsFutursVentiles(
+        carte: CompteCredit, aujourdHui: Date = Date(), jours: Int = 30
+    ): EstimationVentilee? {
+        if (jours !in 1..366) return null
+        val ventilation = carte.details.ventilationCourante ?: return null
+        if (ventilation.dateReference != ecrireDate(aujourdHui)) return null
+        val soldes = listOf(ventilation.achats, ventilation.avances, ventilation.transferts)
+        if (soldes.any { !it.isFinite() || it < 0.0 }) return null
+        if (kotlin.math.abs(soldes.sum() - dette(carte)) > 0.005) return null
+
+        val categories = listOf(
+            NatureMouvementCarte.ACHAT,
+            NatureMouvementCarte.AVANCE_FONDS,
+            NatureMouvementCarte.TRANSFERT_SOLDE
+        )
+        val totaux = DoubleArray(3)
+        val calendrier = Calendar.getInstance().apply { time = debutJour(aujourdHui) }
+        repeat(jours) {
+            val jour = calendrier.time
+            for (i in categories.indices) {
+                if (soldes[i] > 0.0) {
+                    val taux = tauxPourNature(carte, categories[i], jour) ?: return null
+                    totaux[i] += interetsEstimes(soldes[i], taux, 1)
+                }
+            }
+            calendrier.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        return EstimationVentilee(
+            achats = arrondi(totaux[0]),
+            avances = arrondi(totaux[1]),
+            transferts = arrondi(totaux[2]),
+            total = arrondi(totaux.sum()),
+            dateReference = debutJour(aujourdHui),
+            jours = jours
+        )
+    }
+
     // ===== Relevés et cycle (CC4, CC6) =====
 
     fun dernierReleve(carte: CompteCredit): ReleveCarte? = carte.details.relevesTries.firstOrNull()
