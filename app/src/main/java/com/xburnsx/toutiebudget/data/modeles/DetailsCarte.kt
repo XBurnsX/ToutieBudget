@@ -25,6 +25,9 @@ data class DetailsCarte(
     // CC7 : règles du minimum ; null = valeur du profil d'émetteur
     val pourcentageMinimum: Double? = null,
     val plancherMinimum: Double? = null,
+    // CC5 : catégorisation explicite des mouvements de carte par ID de transaction.
+    // Persistée dans details_carte_json : aucune migration Room requise.
+    val naturesMouvements: Map<String, NatureMouvementCarte> = emptyMap(),
     // CC6 : relevés officiels saisis par l'utilisateur
     val releves: List<ReleveCarte> = emptyList()
 ) {
@@ -82,3 +85,13 @@ data class ReleveCarte(
     /** Vrai quand les intérêts facturés ont été ajoutés au solde de la carte dans l'app (une seule fois). */
     val interetsComptabilises: Boolean = false
 )
+
+/**
+ * Nature servant à choisir les règles d'intérêts, sans modifier la transaction bancaire.
+ * Les valeurs non catégorisées ne sont JAMAIS déduites d'un nom de tiers.
+ */
+enum class NatureMouvementCarte(val libelle: String) {
+    ACHAT("Achat"),
+    AVANCE_FONDS("Avance de fonds"),
+    TRANSFERT_SOLDE("Transfert de solde")
+}
