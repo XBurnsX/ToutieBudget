@@ -71,6 +71,8 @@ object MoteurInvestissement {
     /** Plus-value latente des positions dont le cours est connu ; null si aucun cours. */
     fun gainNonRealise(compte: CompteInvestissement): Double? {
         val positions = compte.details.positions
+        // Aucune conversion de change inventée pour le coût ou le cours.
+        if (positions.any { !it.devise.equals("CAD", ignoreCase = true) }) return null
         if (positions.isEmpty() || positions.any {
                 it.valeur == null || it.valeur?.isFinite() != true || !it.coutTotal.isFinite()
             }) return null
@@ -150,6 +152,7 @@ object MoteurInvestissement {
     /** Par catégorie d'actif, encaisse comprise ; seulement les positions dont la valeur est connue. */
     fun repartitionParCategorie(compte: CompteInvestissement): List<Part> {
         val d = compte.details
+        if (d.positions.any { !it.devise.equals("CAD", ignoreCase = true) }) return emptyList()
         val valeurs = d.positions.filter { it.valeur != null }.groupBy { it.categorie.libelle }
             .mapValues { (_, p) -> p.sumOf { it.valeur!! } }.toMutableMap()
         d.encaisse?.takeIf { it > 0 }?.let { valeurs["Encaisse"] = it }
@@ -158,6 +161,7 @@ object MoteurInvestissement {
 
     fun repartitionParTitre(compte: CompteInvestissement): List<Part> {
         val d = compte.details
+        if (d.positions.any { !it.devise.equals("CAD", ignoreCase = true) }) return emptyList()
         val valeurs = d.positions.filter { it.valeur != null && it.valeur!!.isFinite() }
             .groupBy { it.symbole }.mapValues { (_, positions) -> positions.sumOf { it.valeur!! } }
             .toMutableMap()
