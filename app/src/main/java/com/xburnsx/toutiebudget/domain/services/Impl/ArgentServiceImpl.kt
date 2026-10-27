@@ -679,16 +679,24 @@ class ArgentServiceImpl @Inject constructor(
         note: String?,
         date: Date
     ): Result<Unit> = runCatching { operationAtomique.executer {
-        if (montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif.")
+        if (!montant.isFinite() || montant <= 0) throw IllegalArgumentException("Le montant du paiement doit être positif et fini.")
         val montantArrondi = MoneyFormatter.roundAmount(montant)
+        if (montantArrondi <= 0.0) throw IllegalArgumentException("Montant inférieur à un cent.")
 
         // 1. Comptes (relus juste avant l'écriture : un paiement fait sur un autre appareil est pris en compte)
         val compteQuiPaie = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie)
             ?: throw IllegalArgumentException("Compte qui paie non trouvé: $compteQuiPaieId")
         val carteOuDette = compteRepository.getCompteById(carteOuDetteId, collectionCarteOuDette)
             ?: throw IllegalArgumentException("Carte/Dette non trouvée: $carteOuDetteId")
-        val estDette = collectionCarteOuDette == "comptes_dettes"
+        if (compteQuiPaie.estArchive || carteOuDette.estArchive) {
+            throw IllegalStateException("Impossible de payer depuis ou vers un compte archivé.")
+        }
+        val estDette = carteOuDette is CompteDette
+        if (!estDette && carteOuDette !is CompteCredit) {
+            throw IllegalArgumentException("Le destinataire doit être une carte de crédit ou une dette.")
+        }
         val collectionCible = if (estDette) "comptes_dettes" else "comptes_credits"
+        if (compteQuiPaie.id == carteOuDette.id) throw IllegalArgumentException("Un compte ne peut pas se payer lui-même.")
 
         if (compteQuiPaie.solde < montantArrondi) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
@@ -712,15 +720,15 @@ class ArgentServiceImpl @Inject constructor(
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.time
         val nomCategorie = if (estDette) "Dettes" else "Cartes de crédit"
-        val categorie = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
+        val categorie = categorieRepository.recupererToutesLesCategories().getOrThrow()
             .firstOrNull { it.nom.equals(nomCategorie, ignoreCase = true) }
-        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrElse { emptyList() }
+        val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
         val idLie = (carteOuDette as? CompteDette)?.details?.enveloppeId
-        val enveloppeCible = idLie?.let { id -> toutesEnveloppes.firstOrNull { it.id == id } }
+        val enveloppeCible = idLie?.let { id -> toutesEnveloppes.firstOrNull { it.id == id && !it.estArchive } }
             ?: toutesEnveloppes
                 .filter { it.nom.equals(carteOuDette.nom, ignoreCase = true) && !it.estArchive }
                 .let { candidates ->
-                    if (categorie != null) candidates.singleOrNull { it.categorieId == categorie.id } else candidates.singleOrNull()
+                    if (categorie != null) candidates.singleOrNull { it.categorieId == categorie.id } else null
                 }
         val allocationAvant = enveloppeCible?.let { allocationMensuelleRepository.recupererOuCreerAllocation(it.id, mois) }
         if (allocationAvant != null && allocationAvant.solde > 0.01 &&
@@ -748,17 +756,9 @@ class ArgentServiceImpl @Inject constructor(
 
         // 4. Carte/dette : le paiement rapproche le solde de zéro
         val nouveauSoldeCible = MoneyFormatter.roundAmount(carteOuDette.solde + montantArrondi)
-        try {
-            compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
-        } catch (e: Exception) {
-            // Remettre le compte payeur comme avant
-            if (compteQuiPaie is CompteCheque) {
-                compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(compteQuiPaieId, collectionCompteQuiPaie, montantArrondi, false)
-            } else {
-                compteRepository.mettreAJourSolde(compteQuiPaieId, collectionCompteQuiPaie, compteQuiPaie.solde)
-            }
-            throw e
-        }
+        // CC2 : l'annulation est faite par la transaction Room globale, et non
+        // par un second débit/crédit qui créerait des SyncJobs contradictoires.
+        compteRepository.mettreAJourSolde(carteOuDetteId, collectionCible, nouveauSoldeCible)
 
         // 5. Enveloppe : l'argent réservé pour ce paiement est utilisé
         val allocationApres = allocationAvant?.copy(
@@ -804,23 +804,19 @@ class ArgentServiceImpl @Inject constructor(
         ).getOrThrow()
 
         // 7. Historique du compte payeur
-        try {
-            val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque
-            if (compteApres != null) {
-                historiqueAllocationService.enregistrerTransactionDirecte(
-                    compte = compteApres,
-                    enveloppe = enveloppeCible,
-                    typeTransaction = "PAIEMENT_EFFECTUE",
-                    montant = -montantArrondi,
-                    soldeAvant = compteApres.solde + montantArrondi,
-                    soldeApres = compteApres.solde,
-                    pretAPlacerAvant = compteApres.pretAPlacer,
-                    pretAPlacerApres = compteApres.pretAPlacer,
-                    note = "Paiement vers ${note ?: carteOuDette.nom}"
-                )
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "Historique du paiement non enregistré: ${e.message}")
+        val compteApres = compteRepository.getCompteById(compteQuiPaieId, collectionCompteQuiPaie) as? CompteCheque
+        if (compteApres != null) {
+            historiqueAllocationService.enregistrerTransactionDirecte(
+                compte = compteApres,
+                enveloppe = enveloppeCible,
+                typeTransaction = "PAIEMENT_EFFECTUE",
+                montant = -montantArrondi,
+                soldeAvant = compteApres.solde + montantArrondi,
+                soldeApres = compteApres.solde,
+                pretAPlacerAvant = compteApres.pretAPlacer,
+                pretAPlacerApres = compteApres.pretAPlacer,
+                note = "Paiement vers ${note ?: carteOuDette.nom}"
+            )
         }
 
         // 8. Dette soldée : compteur de paiements, archivage ; son enveloppe est archivée si elle est vide
@@ -839,11 +835,11 @@ class ArgentServiceImpl @Inject constructor(
                         estArchive = detteActuelle.estArchive || estSoldee,
                         detailsDetteJson = details
                     )
-                )
+                ).getOrThrow()
                 if (estSoldee && enveloppeCible != null && allocationApres != null &&
                     kotlin.math.abs(allocationApres.solde) < 0.01
                 ) {
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeCible.copy(estArchive = true))
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeCible.copy(estArchive = true)).getOrThrow()
                 }
             }
         }
