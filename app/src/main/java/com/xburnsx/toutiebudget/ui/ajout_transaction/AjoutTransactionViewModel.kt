@@ -237,15 +237,24 @@ class AjoutTransactionViewModel(
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 
                 // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
-                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(_uiState.value.dateTransaction))
-                
+                val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(dateDemandee))
+                if (generation != generationEnveloppes || _uiState.value.dateTransaction != dateDemandee) return@launch
+
                 if (resultEnveloppes.isFailure) resultEnveloppes.getOrThrow()
                 if (resultCategories.isFailure) resultCategories.getOrThrow()
                 if (resultEnveloppes.isSuccess && resultCategories.isSuccess) {
                     allEnveloppes = resultEnveloppes.getOrThrow()
                     allCategories = resultCategories.getOrThrow()
-                    allAllocations = resultAllocations.getOrNull() ?: emptyList()
-                    allocationsIndisponibles = resultAllocations.isFailure
+                    if (resultAllocations.isFailure) {
+                        allocationsIndisponibles = true
+                        _uiState.update { state -> state.copy(
+                            allocationsIndisponibles = true,
+                            messageErreur = "Allocations de ce mois indisponibles : ${resultAllocations.exceptionOrNull()?.message}"
+                        ).calculerValidite() }
+                        return@launch
+                    }
+                    allAllocations = resultAllocations.getOrThrow()
+                    allocationsIndisponibles = false
                     
                     // Construire les enveloppes UI
                     val enveloppesUi = construireEnveloppesUi()
