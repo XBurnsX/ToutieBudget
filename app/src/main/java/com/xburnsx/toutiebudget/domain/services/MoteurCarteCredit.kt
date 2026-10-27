@@ -178,16 +178,17 @@ object MoteurCarteCredit {
         if (payeEnEntier) return EstimationCycle(0.0, debut, jours, true)
 
         // Solde de chaque jour en remontant à partir du solde actuel
-        val taux = tauxEffectif(carte, aujourdHui)
         val apresDebut = transactionsCarte.filter { !it.date.before(debut) }
         var total = 0.0
         val cal = Calendar.getInstance().apply { time = fin }
         var detteDuJour = dette(carte)
         for (i in 0 until jours) {
-            total += interetsEstimes(detteDuJour, taux, 1)
             val jourCourant = cal.time
             cal.add(Calendar.DAY_OF_MONTH, -1)
             val veille = cal.time
+            // CC5 : respecter le taux promotionnel ou régulier POUR chaque jour,
+            // y compris le jour où une promotion expire dans un même cycle.
+            total += interetsEstimes(detteDuJour, tauxEffectif(carte, veille), 1)
             // Annuler l'effet des transactions de ce jour pour obtenir le solde de la veille
             val effetJour = apresDebut.filter { !it.date.before(veille) && it.date.before(jourCourant) }.sumOf { effetSurDette(it) }
             detteDuJour = max(0.0, detteDuJour - effetJour)
