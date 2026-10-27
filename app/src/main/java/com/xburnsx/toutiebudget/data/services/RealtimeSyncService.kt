@@ -289,12 +289,41 @@ class RealtimeSyncService @Inject constructor() {
             return
         }
 
-        // create / update : les DAO insèrent en REPLACE, donc c'est un upsert
+        // create / update : les DAO insèrent en REPLACE, donc c'est un upsert.
+        // Un montant ABSENT de la fiche serveur (champ inexistant dans la collection, ou non renvoyé) n'est pas un 0 :
+        // on garde la valeur du téléphone au lieu d'écraser un solde connu (ex. CELI créé à 500 $ ramené à 0 $).
         when (val entite = PocketBaseMapper.versEntite(collection, item)) {
-            is com.xburnsx.toutiebudget.data.room.entities.CompteCheque -> db.compteChequeDao().insertCompte(entite)
-            is com.xburnsx.toutiebudget.data.room.entities.CompteCredit -> db.compteCreditDao().insertCompte(entite)
-            is com.xburnsx.toutiebudget.data.room.entities.CompteDette -> db.compteDetteDao().insertCompte(entite)
-            is com.xburnsx.toutiebudget.data.room.entities.CompteInvestissement -> db.compteInvestissementDao().insertCompte(entite)
+            is com.xburnsx.toutiebudget.data.room.entities.CompteCheque -> {
+                val local = db.compteChequeDao().getCompteById(entite.id)
+                db.compteChequeDao().insertCompte(
+                    if (local == null) entite else entite.copy(
+                        solde = if (item.solde == null) local.solde else entite.solde,
+                        pretAPlacerRaw = if (item.pret_a_placer == null) local.pretAPlacerRaw else entite.pretAPlacerRaw
+                    )
+                )
+            }
+            is com.xburnsx.toutiebudget.data.room.entities.CompteCredit -> {
+                val local = db.compteCreditDao().getCompteById(entite.id)
+                db.compteCreditDao().insertCompte(
+                    if (local == null || item.solde_utilise != null) entite else entite.copy(soldeUtilise = local.soldeUtilise)
+                )
+            }
+            is com.xburnsx.toutiebudget.data.room.entities.CompteDette -> {
+                val local = db.compteDetteDao().getCompteById(entite.id)
+                db.compteDetteDao().insertCompte(
+                    if (local == null || item.solde_dette != null) entite else entite.copy(soldeDette = local.soldeDette)
+                )
+            }
+            is com.xburnsx.toutiebudget.data.room.entities.CompteInvestissement -> {
+                val local = db.compteInvestissementDao().getCompteById(entite.id)
+                db.compteInvestissementDao().insertCompte(
+                    if (local == null) entite else entite.copy(
+                        solde = if (item.solde == null) local.solde else entite.solde,
+                        detailsInvestissementJson = if (item.details_investissement_json == null) local.detailsInvestissementJson
+                            else entite.detailsInvestissementJson
+                    )
+                )
+            }
             is com.xburnsx.toutiebudget.data.room.entities.Categorie -> db.categorieDao().insertCategorie(entite)
             is com.xburnsx.toutiebudget.data.room.entities.Enveloppe -> db.enveloppeDao().insertEnveloppe(entite)
             is com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle -> db.allocationMensuelleDao().insertAllocation(entite)

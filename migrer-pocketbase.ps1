@@ -5,8 +5,10 @@
 #   comptes_dettes.details_dette_json      : mode, contrat, lien d'enveloppe, taux et ajustements des dettes (section 11)
 #   comptes_investissement.details_investissement_json : suivi des placements (section 12)
 #   user_preferences.enveloppes_favorites : enveloppes favorites de la page Budget (A4)
+#   comptes_investissement.solde          : valeur du placement (nombre). S'il manque, le serveur renvoie
+#                                           le placement sans solde et l'app affichait 0 $.
 #
-# Le script ne fait qu'AJOUTER des champs JSON manquants ; il ne modifie ni ne supprime rien d'autre.
+# Le script ne fait qu'AJOUTER des champs manquants ; il ne modifie ni ne supprime rien d'autre.
 # On peut le relancer sans risque.
 # Utilisation : powershell -ExecutionPolicy Bypass -File .\migrer-pocketbase.ps1
 
@@ -17,7 +19,8 @@ $champsAAjouter = @(
     @{ collection = 'comptes_credits'; champ = 'details_carte_json' },
     @{ collection = 'comptes_dettes'; champ = 'details_dette_json' },
     @{ collection = 'comptes_investissement'; champ = 'details_investissement_json' },
-    @{ collection = 'user_preferences'; champ = 'enveloppes_favorites' }
+    @{ collection = 'user_preferences'; champ = 'enveloppes_favorites' },
+    @{ collection = 'comptes_investissement'; champ = 'solde'; type = 'number' }
 )
 
 # Connexion admin (le mot de passe reste dans cette fenêtre)
@@ -38,7 +41,11 @@ foreach ($cible in $champsAAjouter) {
         continue
     }
     # PocketBase remplace la liste complète : on renvoie les champs existants (avec leurs id) + le nouveau
-    $champs += [pscustomobject]@{ name = $cible.champ; type = 'json'; required = $false; maxSize = 2000000 }
+    if ($cible.type -eq 'number') {
+        $champs += [pscustomobject]@{ name = $cible.champ; type = 'number'; required = $false }
+    } else {
+        $champs += [pscustomobject]@{ name = $cible.champ; type = 'json'; required = $false; maxSize = 2000000 }
+    }
     Invoke-RestMethod -Method Patch -Uri "$urlPocketBase/api/collections/$($cible.collection)" -Headers $entetes `
         -ContentType 'application/json; charset=utf-8' `
         -Body ([Text.Encoding]::UTF8.GetBytes((@{ fields = $champs } | ConvertTo-Json -Depth 10))) | Out-Null
