@@ -334,6 +334,10 @@ class VirerArgentViewModel(
 
     // ===== EXÉCUTION DU VIREMENT =====
 
+    fun onDateOperationChange(date: String) {
+        _uiState.update { it.copy(dateOperation = date, erreur = null) }
+    }
+
     fun onVirementExecute() {
         val state = _uiState.value
         val source = state.sourceSelectionnee
@@ -349,6 +353,16 @@ class VirerArgentViewModel(
                 _uiState.update { it.copy(erreur = VirementErrorMessages.General.SOURCE_DESTINATION_IDENTIQUES) }
                 return
             }
+        }
+        // IF8 : la date affichée est celle des deux écritures du virement.
+        // Refuser une date invalide AVANT de verrouiller ou débiter les comptes.
+        val dateCompte = if (state.mode == VirementMode.COMPTES) runCatching {
+            val jour = java.time.LocalDate.parse(state.dateOperation.trim())
+            Date.from(jour.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant())
+        }.getOrNull() else null
+        if (state.mode == VirementMode.COMPTES && dateCompte == null) {
+            _uiState.update { it.copy(erreur = "Date de virement invalide (AAAA-MM-JJ).") }
+            return
         }
         // AT14 : verrou pris AU MOMENT de l'appui (un deuxième appui 100 ms plus tard est ignoré).
         // Libéré sur échec, ou quand l'écran a traité la réussite (sélections vidées).
@@ -370,7 +384,8 @@ class VirerArgentViewModel(
                         compteDestId = destination.compte.id,
                         montant = montantEnDollars,
                         nomCompteSource = source.compte.nom,
-                        nomCompteDest = destination.compte.nom
+                        nomCompteDest = destination.compte.nom,
+                        date = dateCompte ?: throw IllegalStateException("Date de virement manquante.")
                     )
 
                 sourcePretAPlacer != null && destPretAPlacer != null ->
