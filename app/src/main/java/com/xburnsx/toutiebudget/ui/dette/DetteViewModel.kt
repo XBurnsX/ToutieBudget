@@ -271,7 +271,8 @@ class DetteViewModel(
                 com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated()
                 _uiState.update { it.copy(
                     isSaving = false, dette = aSauver,
-                    messageInfo = "Solde de la dette et historique mis à jour."
+                    messageInfo = "Solde de la dette et historique mis à jour.",
+                    ajustementReussiCompteur = it.ajustementReussiCompteur + 1
                 ) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(
@@ -307,7 +308,8 @@ data class DetteUiState(
     val isSaved: Boolean = false,
     val erreurChargement: String? = null,
     val messageErreur: String? = null,
-    val messageInfo: String? = null
+    val messageInfo: String? = null,
+    val ajustementReussiCompteur: Int = 0
 ) {
     /** DF1 : changements non enregistrés (pour prévenir avant de quitter). */
     val aDesModifications: Boolean get() = formulaire.copy(erreurs = emptyMap()) != formulaireInitial.copy(erreurs = emptyMap())
