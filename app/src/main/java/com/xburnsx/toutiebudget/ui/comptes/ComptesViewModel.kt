@@ -510,12 +510,21 @@ class ComptesViewModel(
                 "Carte de crédit" -> CompteCredit(
                     nom = formState.nom,
                     // CC3 : solde SIGNÉ tel que saisi (dette négative), sans inversion
-                    soldeUtilise = formState.soldeCarte.replace(',', '.').replace(" ", "").toDoubleOrNull() ?: 0.0,
+                    soldeUtilise = runCatching {
+                        java.math.BigDecimal(formState.soldeCarte.trim().replace(',', '.').replace(" ", ""))
+                            .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+                    }.getOrNull()?.takeIf { it.isFinite() } ?: throw IllegalArgumentException(
+                        "Solde de carte invalide."
+                    ),
                     couleur = formState.couleur,
                     estArchive = false,
                     ordre = 0,
                     limiteCredit = soldeInitial, // Le montant saisi devient la limite de crédit
-                    tauxInteret = formState.tauxCarte.replace(',', '.').toDoubleOrNull(),
+                    tauxInteret = formState.tauxCarte.takeIf { it.isNotBlank() }?.let {
+                        it.replace(',', '.').toDoubleOrNull()
+                            ?.takeIf { taux -> taux.isFinite() && taux in 0.0..100.0 }
+                            ?: throw IllegalArgumentException("Taux de carte invalide (0 à 100 %).")
+                    },
                     detailsCarteJson = com.xburnsx.toutiebudget.data.modeles.DetailsCarte(emetteur = formState.emetteurCarte).versJson()
                 )
                 "Investissement" -> CompteInvestissement(
