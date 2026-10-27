@@ -257,7 +257,11 @@ class VirerArgentViewModel(
     // ===== GESTION DES SÉLECTEURS =====
 
     fun ouvrirSelecteur(type: SelecteurOuvert) {
-        _uiState.update { it.copy(selecteurOuvert = type) }
+        // V5 : toucher au sélecteur déjà ouvert doit le refermer, pas le rouvrir.
+        _uiState.update { courant ->
+            courant.copy(selecteurOuvert = if (courant.selecteurOuvert == type)
+                SelecteurOuvert.AUCUN else type)
+        }
     }
 
     /** V5 : fermer explicitement (clic extérieur ou sur le sélecteur déjà ouvert). */
