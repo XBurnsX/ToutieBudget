@@ -844,9 +844,15 @@ class ArgentServiceImpl @Inject constructor(
                 val details = if (detteActuelle.details.enveloppeId == null && enveloppeCible != null) {
                     detteActuelle.details.copy(enveloppeId = enveloppeCible.id).versJson()
                 } else detteActuelle.detailsDetteJson
+                val transactionsDuCompte = transactionRepository
+                    .recupererTransactionsPourCompte(carteOuDetteId, collectionCible).getOrThrow()
+                // DF3 : le compteur suit les échéances couvertes par des versements
+                // réellement saisis, pas le nombre de clics « Payer ».
+                val mensualitesAcquittees = com.xburnsx.toutiebudget.domain.services.MoteurDette
+                    .echeancesCouvertes(detteActuelle, transactionsDuCompte)
                 compteRepository.mettreAJourCompte(
                     detteActuelle.copy(
-                        paiementEffectue = detteActuelle.paiementEffectue + 1,
+                        paiementEffectue = mensualitesAcquittees ?: detteActuelle.paiementEffectue,
                         estArchive = detteActuelle.estArchive || estSoldee,
                         detailsDetteJson = details
                     )
