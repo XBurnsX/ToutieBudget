@@ -75,12 +75,27 @@ class EnregistrerTransactionUseCase(
                 if (verifierIdempotence) {
                     val operationId = id?.takeIf { it.isNotBlank() }
                         ?: throw IllegalArgumentException("Identifiant d'opération manquant.")
-                    val existante = transactionRepository.recupererTransactionParId(operationId).getOrNull()
+                    val recherche = transactionRepository.recupererTransactionParId(operationId)
+                    // Une indisponibilite Room ne signifie PAS « transaction absente ».
+                    if (recherche.isFailure && recherche.exceptionOrNull()?.message != "Transaction non trouvée") {
+                        throw recherche.exceptionOrNull() ?: IllegalStateException("Verification du doublon impossible.")
+                    }
+                    val existante = recherche.getOrNull()
                     if (existante != null) {
+                        val jourIdentique = existante.date.toInstant()
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate() ==
+                            date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        val enveloppeIdentique = if (typeTransaction == TypeTransaction.Depense && !estFractionnee) {
+                            existante.allocationMensuelleId?.let { allocationMensuelleRepository.getAllocationById(it) }
+                                ?.enveloppeId == enveloppeId
+                        } else true
                         if (existante.type != typeTransaction ||
                             existante.compteId != compteId ||
                             existante.collectionCompte != collectionCompte ||
                             existante.estFractionnee != estFractionnee ||
+                            !jourIdentique || !enveloppeIdentique ||
+                            existante.tiersUtiliser != tiersUtiliser ||
+                            existante.note != note ||
                             kotlin.math.abs(existante.montant - montant) > 0.000001
                         ) throw IllegalStateException("Identifiant d'opération déjà utilisé pour une transaction différente.")
                         // Un retry déjà enregistré n'ajoute aucune écriture ni SyncJob.
