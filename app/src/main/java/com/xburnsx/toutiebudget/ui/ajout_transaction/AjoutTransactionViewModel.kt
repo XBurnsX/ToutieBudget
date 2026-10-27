@@ -109,6 +109,8 @@ class AjoutTransactionViewModel(
      * Charge toutes les données nécessaires au démarrage de l'écran.
      */
     private fun chargerDonneesInitiales() {
+        val generation = ++generationEnveloppes
+        val dateDemandee = _uiState.value.dateTransaction
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageErreur = null) }
             
@@ -135,12 +137,12 @@ class AjoutTransactionViewModel(
                 }
                 
                 // Stocker les données dans le cache
-                allComptes = resultComptes.getOrNull() ?: emptyList()
-                allEnveloppes = resultEnveloppes.getOrNull() ?: emptyList()
-                allCategories = resultCategories.getOrNull() ?: emptyList()
-                allAllocations = resultAllocations.getOrNull() ?: emptyList()
-                allocationsIndisponibles = resultAllocations.isFailure
-                allTiers = resultTiers.getOrNull() ?: emptyList()
+                allComptes = resultComptes.getOrThrow()
+                allEnveloppes = resultEnveloppes.getOrThrow()
+                allCategories = resultCategories.getOrThrow()
+                allAllocations = resultAllocations.getOrThrow()
+                allocationsIndisponibles = false
+                allTiers = resultTiers.getOrThrow()
 
                 // Construire les enveloppes UI
                 val enveloppesUi = construireEnveloppesUi()
@@ -171,6 +173,8 @@ class AjoutTransactionViewModel(
                 }
                 
             } catch (e: Exception) {
+                if (generation != generationEnveloppes) return@launch
+                allocationsIndisponibles = true
                 val messageErreur = when {
                     e.message?.contains("failed to connect", ignoreCase = true) == true -> 
                         "Impossible de se connecter au serveur. Vérifiez votre connexion réseau et que PocketBase est démarré."
@@ -186,8 +190,9 @@ class AjoutTransactionViewModel(
                 _uiState.update { 
                     it.copy(
                         isLoading = false, 
-                        messageErreur = messageErreur
-                    )
+                        messageErreur = messageErreur,
+                        allocationsIndisponibles = true
+                    ).calculerValidite()
                 }
                 
                 // Invalider le cache URL en cas d'erreur réseau
