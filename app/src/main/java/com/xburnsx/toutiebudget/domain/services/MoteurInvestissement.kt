@@ -40,7 +40,17 @@ object MoteurInvestissement {
     fun capitalNetVerse(compte: CompteInvestissement, transactions: List<Transaction>): Double? {
         val depart = compte.details.valeurDepart ?: return null
         val dateDepart = MoteurCarteCredit.lireDate(compte.details.dateDepart) ?: return null
-        val fluxApresDepart = flux(transactions).filter { !it.date.before(dateDepart) }
+        if (!depart.isFinite() || depart < 0.0 || !compte.solde.isFinite()) return null
+        // IA2 : un flux enregistré le jour exact de la valeur initiale ne
+        // révèle pas s'il est déjà compris dans l'instantané. Rien à déduire.
+        val zone = java.time.ZoneId.systemDefault()
+        val jourDepart = dateDepart.toInstant().atZone(zone).toLocalDate()
+        val fluxTous = flux(transactions)
+        if (fluxTous.any {
+                it.date.toInstant().atZone(zone).toLocalDate() == jourDepart ||
+                    it.date.after(Date())
+            }) return null
+        val fluxApresDepart = fluxTous.filter { it.date.after(dateDepart) }
         val capital = depart + fluxApresDepart.sumOf { it.montant }
         return capital.takeIf { it.isFinite() }?.let(::arrondi)
     }
@@ -143,7 +153,12 @@ object MoteurInvestissement {
         val valeurDepart = d.valeurDepart ?: return null
         if ((aujourdHui.time - depart.time) / JOUR_MS < 30) return null
         val mouvements = mutableListOf(depart to -valeurDepart)
-        flux(transactions).filter { !it.date.before(depart) }.forEach {
+        val fluxConnus = flux(transactions)
+        if (fluxConnus.any { it.date.after(aujourdHui) }) return null
+        val zone = java.time.ZoneId.systemDefault()
+        val jourDepart = depart.toInstant().atZone(zone).toLocalDate()
+        if (fluxConnus.any { it.date.toInstant().atZone(zone).toLocalDate() == jourDepart }) return null
+        fluxConnus.filter { it.date.after(depart) }.forEach {
             mouvements += it.date to -it.montant
         }
         mouvements += aujourdHui to compte.solde
