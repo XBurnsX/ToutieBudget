@@ -55,7 +55,8 @@ class EnregistrerTransactionUseCase(
         date: Date = Date(),
         estFractionnee: Boolean = false,
         sousItems: String? = null,
-        id: String? = null // MT1 : réutiliser l'ID d'une transaction modifiée
+        id: String? = null, // MT1 : réutiliser l'ID d'une transaction modifiée
+        verifierIdempotence: Boolean = false // AT4/AT14 : rejouer une création sans débiter deux fois
     ): Result<Unit> {
         
         if (montant <= 0) {
@@ -66,6 +67,25 @@ class EnregistrerTransactionUseCase(
             // AT4 : la notification ne part QU'APRÈS le commit Room.
             val resultat = operationAtomique.executer {
               toutOuRien {
+
+                // AT4 / AT14 : l'ID du brouillon est une clé de création unique.
+                // La vérification se fait DANS la transaction Room, avant toute
+                // variation de solde. MT1 (édition) laisse ce contrôle désactivé.
+                if (verifierIdempotence) {
+                    val operationId = id?.takeIf { it.isNotBlank() }
+                        ?: throw IllegalArgumentException("Identifiant d'opération manquant.")
+                    val existante = transactionRepository.recupererTransactionParId(operationId).getOrNull()
+                    if (existante != null) {
+                        if (existante.type != typeTransaction ||
+                            existante.compteId != compteId ||
+                            existante.collectionCompte != collectionCompte ||
+                            existante.estFractionnee != estFractionnee ||
+                            kotlin.math.abs(existante.montant - montant) > 0.000001
+                        ) throw IllegalStateException("Identifiant d'opération déjà utilisé pour une transaction différente.")
+                        // Un retry déjà enregistré n'ajoute aucune écriture ni SyncJob.
+                        return@toutOuRien Result.success(Unit)
+                    }
+                }
 
                 // AT11/AT12/AT19 : le compte et l'enveloppe sont relus dans la
                 // transaction Room. Un formulaire ouvert depuis longtemps ne
