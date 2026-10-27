@@ -228,12 +228,13 @@ fun RepartitionMultipleDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text("Total", modifier = Modifier.weight(1f))
-                    Text(MoneyFormatter.formatAmountFromCents(totalCentimes), fontWeight = FontWeight.Bold)
+                    Text(totalCentimesOuErreur?.let(MoneyFormatter::formatAmountFromCents) ?: "—",
+                        fontWeight = FontWeight.Bold)
                 }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text("Reste prêt à placer", modifier = Modifier.weight(1f))
                     Text(
-                        MoneyFormatter.formatAmountFromCents(resteCentimes),
+                        resteCentimesOuErreur?.let(MoneyFormatter::formatAmountFromCents) ?: "—",
                         fontWeight = FontWeight.Bold,
                         color = if (resteCentimes < 0) MaterialTheme.colorScheme.error else Color.Unspecified
                     )
