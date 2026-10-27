@@ -701,6 +701,8 @@ class BudgetViewModel(
         montantDollars: Double,
         mois: Date
     ): CompteCheque {
+        // Préserver le compte en cas d'échec d'une étape ultérieure.
+        // Une écriture Room unique restera nécessaire pour une vraie atomicité.
         // 1. Mettre à jour le compte source (retirer de "prêt à placer")
         val nouveauPretAPlacer = MoneyFormatter.roundAmount(compteSource.pretAPlacer - montantDollars)
         val compteModifie = compteSource.copy(
@@ -714,16 +716,25 @@ class BudgetViewModel(
             throw Exception("Erreur lors de la mise à jour du compte: ${resultCompte.exceptionOrNull()?.message}")
         }
 
-        // 2. Mettre à jour l'allocation existante du mois (fusionnée) au lieu de créer un doublon
-        val allocationFusionnee = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
+        // 2. Mettre à jour l'allocation. Si elle échoue, restaurer le compte.
+        val allocationFusionnee = try {
+            allocationMensuelleRepository.recupererOuCreerAllocation(enveloppe.id, mois)
+        } catch (e: Exception) {
+            compteRepository.mettreAJourCompte(compteSource).getOrThrow()
+            throw e
+        }
         val allocationFinale = allocationFusionnee.copy(
-            solde = allocationFusionnee.solde + montantDollars,
-            alloue = allocationFusionnee.alloue + montantDollars,
-            // ✅ PROVENANCE : Changer seulement si solde était à 0
+            solde = MoneyFormatter.roundAmount(allocationFusionnee.solde + montantDollars),
+            alloue = MoneyFormatter.roundAmount(allocationFusionnee.alloue + montantDollars),
             compteSourceId = if (allocationFusionnee.solde <= 0.01) compteSource.id else allocationFusionnee.compteSourceId,
             collectionCompteSource = if (allocationFusionnee.solde <= 0.01) compteSource.collection else allocationFusionnee.collectionCompteSource
         )
-        allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
+        try {
+            allocationMensuelleRepository.mettreAJourAllocation(allocationFinale)
+        } catch (e: Exception) {
+            compteRepository.mettreAJourCompte(compteSource).getOrThrow()
+            throw e
+        }
 
         // 📝 ENREGISTRER DANS L'HISTORIQUE
         try {
