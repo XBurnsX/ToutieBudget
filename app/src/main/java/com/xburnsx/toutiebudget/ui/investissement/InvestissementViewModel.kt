@@ -79,7 +79,19 @@ class InvestissementViewModel(
 
     /** Modifie seulement les détails, sur la version relue (le solde n'est pas touché). */
     fun modifierDetails(changement: DetailsInvestissement.() -> DetailsInvestissement) {
-        enregistrer { compte -> compte.copy(detailsInvestissementJson = compte.details.changement().versJson()) }
+        // IF14 : protéger un formulaire qui part d'une ancienne version.
+        // Un clic d'un autre appareil ne doit pas être écrasé par une copie
+        // périmée du JSON d'encaisse, positions ou mouvements.
+        val attendu = _uiState.value.compte?.details ?: run {
+            _uiState.update { it.copy(message = "Placement non chargé; actualise avant de modifier.") }
+            return
+        }
+        enregistrer { compte ->
+            if (compte.details != attendu) throw IllegalStateException(
+                "Les détails du placement ont changé sur un autre appareil. Actualise avant de sauvegarder."
+            )
+            compte.copy(detailsInvestissementJson = compte.details.changement().versJson())
+        }
     }
 
     /**
