@@ -165,7 +165,7 @@ class PlanResetService(
             }
         }
         BudgetEvents.onAllocationUpdated()
-        faites.distinct()
+        faites.toList()
     }
 
     /** Compatibilité avec les appels métier existants sélectionnant des enveloppes. */
