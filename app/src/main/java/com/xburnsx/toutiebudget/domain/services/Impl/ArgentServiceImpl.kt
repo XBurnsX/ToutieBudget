@@ -698,7 +698,10 @@ class ArgentServiceImpl @Inject constructor(
         val collectionCible = if (estDette) "comptes_dettes" else "comptes_credits"
         if (compteQuiPaie.id == carteOuDette.id) throw IllegalArgumentException("Un compte ne peut pas se payer lui-même.")
 
-        if (compteQuiPaie.solde < montantArrondi) {
+        if (!compteQuiPaie.solde.isFinite() || !carteOuDette.solde.isFinite()) {
+            throw IllegalStateException("Solde bancaire ou solde de la dette invalide.")
+        }
+        if (compteQuiPaie.solde + 0.000001 < montantArrondi) {
             throw IllegalStateException("Solde insuffisant sur le compte qui paie.")
         }
         // DF8 : pas de trop-payé involontaire sur une dette
@@ -723,13 +726,25 @@ class ArgentServiceImpl @Inject constructor(
         val categorie = categorieRepository.recupererToutesLesCategories().getOrThrow()
             .firstOrNull { it.nom.equals(nomCategorie, ignoreCase = true) }
         val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+        // DF11 : lien par ID prioritaire et strict. Un ID supprimé ou archivé
+        // ne doit JAMAIS autoriser un rapprochement par nom avec une autre dette.
         val idLie = (carteOuDette as? CompteDette)?.details?.enveloppeId
-        val enveloppeCible = idLie?.let { id -> toutesEnveloppes.firstOrNull { it.id == id && !it.estArchive } }
-            ?: toutesEnveloppes
-                .filter { it.nom.equals(carteOuDette.nom, ignoreCase = true) && !it.estArchive }
-                .let { candidates ->
-                    if (categorie != null) candidates.singleOrNull { it.categorieId == categorie.id } else null
-                }
+        val enveloppeCible = if (idLie != null) {
+            toutesEnveloppes.singleOrNull {
+                it.id == idLie && it.utilisateurId == carteOuDette.utilisateurId &&
+                    it.categorieId == categorie?.id && !it.estArchive
+            } ?: throw IllegalStateException(
+                "L'enveloppe liée à cette dette est introuvable, archivée ou incohérente. Corrige le lien avant de payer."
+            )
+        } else {
+            // Anciens comptes sans ID : association uniquement si UNIQUE dans
+            // la bonne catégorie ET appartenant au même utilisateur.
+            if (categorie == null) null else toutesEnveloppes.singleOrNull {
+                it.nom.equals(carteOuDette.nom, ignoreCase = true) &&
+                    it.categorieId == categorie.id &&
+                    it.utilisateurId == carteOuDette.utilisateurId && !it.estArchive
+            }
+        }
         val allocationAvant = enveloppeCible?.let { allocationMensuelleRepository.recupererOuCreerAllocation(it.id, mois) }
         if (allocationAvant != null && allocationAvant.solde > 0.01 &&
             allocationAvant.compteSourceId != null && allocationAvant.compteSourceId != compteQuiPaieId
