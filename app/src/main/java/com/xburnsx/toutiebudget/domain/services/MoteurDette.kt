@@ -90,17 +90,26 @@ object MoteurDette {
 
     /** Prochaine date de versement d'après le jour du contrat (null si non configuré ou contrat terminé). */
     fun prochaineEcheance(dette: CompteDette, aujourdHui: Date = Date()): Date? {
-        val jour = dette.details.jourVersement ?: return null
-        val debutJour = debutJour(aujourdHui)
-        val cal = Calendar.getInstance().apply { time = debutJour }
+        val jour = dette.details.jourVersement?.takeIf { it in 1..31 } ?: return null
+        val dateContrat = dette.details.dateDebut?.let(MoteurCarteCredit::lireDate)
+        val dateFin = dette.details.dateFin?.let(MoteurCarteCredit::lireDate)
+        // DA3 : aucune échéance avant le début réel du contrat. Pour les
+        // contrats démarrant le 29-31, utiliser le dernier jour du mois.
+        val aPartir = listOfNotNull(debutJour(aujourdHui), dateContrat).maxOrNull() ?: return null
+        if (dateFin != null && dateFin.before(aPartir)) return null
+        val cal = Calendar.getInstance().apply {
+            time = aPartir
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
         var resultat: Date? = null
         repeat(2) {
-            val c = (cal.clone() as Calendar).apply { set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH))) }
-            if (resultat == null && !c.time.before(debutJour)) resultat = c.time
-            cal.add(Calendar.MONTH, 1); cal.set(Calendar.DAY_OF_MONTH, 1)
+            val c = (cal.clone() as Calendar).apply {
+                set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
+            }
+            if (resultat == null && !c.time.before(aPartir)) resultat = c.time
+            cal.add(Calendar.MONTH, 1)
         }
-        val fin = MoteurCarteCredit.lireDate(dette.details.dateFin)
-        return resultat?.takeIf { fin == null || !it.after(fin) }
+        return resultat?.takeIf { dateFin == null || !it.after(dateFin) }
     }
 
     enum class StatutEcheance(val libelle: String) { PAYEE("payée"), PARTIELLE("partiellement payée"), NON_PAYEE("non payée") }
