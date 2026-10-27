@@ -424,9 +424,11 @@ fun SettingsScreen(
                                     return@RowParam
                                 }
                             }
-                            val req = OneTimeWorkRequestBuilder<com.xburnsx.toutiebudget.utils.notifications.RappelsWorker>().build()
+                            val req = OneTimeWorkRequestBuilder<com.xburnsx.toutiebudget.utils.notifications.RappelsWorker>()
+                                .setInputData(androidx.work.workDataOf("notification_test" to true))
+                                .build()
                             WorkManager.getInstance(context).enqueue(req)
-                            scope.launch { snack.showSnackbar("Notification de test envoyée") }
+                            scope.launch { snack.showSnackbar("Test de notification demandé") }
                         },
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
                     )
