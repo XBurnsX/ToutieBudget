@@ -31,12 +31,16 @@ object MoteurDette {
             .mapNotNull { c -> MoteurCarteCredit.lireDate(c.date)?.let { it to c.taux } }
             .filter { !it.first.after(date) }
             .maxByOrNull { it.first }
-        return changement?.second ?: dette.tauxInteret
+        return (changement?.second ?: dette.tauxInteret)
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
     }
 
     /** Mensualité d'amortissement d'un prêt financé ; null si une donnée manque (pas de valeur inventée). */
     fun mensualiteContractuelle(principal: Double, tauxAnnuel: Double?, dureeMois: Int?): Double? {
-        if (principal <= 0 || tauxAnnuel == null || dureeMois == null || dureeMois <= 0 || tauxAnnuel < 0) return null
+        if (!principal.isFinite() || principal <= 0 || tauxAnnuel == null ||
+            !tauxAnnuel.isFinite() || tauxAnnuel !in 0.0..100.0 ||
+            dureeMois == null || dureeMois !in 1..MAX_PERIODES
+        ) return null
         if (tauxAnnuel == 0.0) return arrondi(principal / dureeMois)
         val r = tauxAnnuel / 100.0 / 12.0
         val facteur = (1 + r).pow(dureeMois)
@@ -46,7 +50,7 @@ object MoteurDette {
 
     /** Versement prévu : celui saisi, sinon la mensualité du contrat (prêt financé seulement). */
     fun versementPrevu(dette: CompteDette): Double? =
-        dette.paiementMinimum?.takeIf { it > 0 }
+        dette.paiementMinimum?.takeIf { it.isFinite() && it > 0 }
             ?: if (dette.details.mode == ModeDette.FINANCE) mensualiteContractuelle(dette.montantInitial, dette.tauxInteret, dette.dureeMoisPret) else null
 
     // ===== Versements réels (DF3) =====
@@ -145,7 +149,13 @@ object MoteurDette {
      */
     fun echeancier(dette: CompteDette, versementSupplementaire: Double = 0.0, aujourdHui: Date = Date()): Echeancier? {
         val versementBase = versementPrevu(dette) ?: return null
-        val versement = arrondi(versementBase + max(0.0, versementSupplementaire))
+        if (!versementSupplementaire.isFinite() || versementSupplementaire < 0.0) {
+            return Echeancier(emptyList(), null, 0.0, null, "Versement supplémentaire invalide.")
+        }
+        val versement = arrondi(versementBase + versementSupplementaire)
+        if (!versement.isFinite() || versement <= 0.0) {
+            return Echeancier(emptyList(), null, 0.0, null, "Versement mensuel invalide.")
+        }
         var solde = restant(dette)
         if (solde <= 0.005) return Echeancier(emptyList(), 0, 0.0, aujourdHui)
 
@@ -156,7 +166,10 @@ object MoteurDette {
 
         for (numero in 1..MAX_PERIODES) {
             val date = cal.time
-            val taux = tauxA(dette, date) ?: 0.0
+            val taux = tauxA(dette, date) ?: return Echeancier(
+                periodes, null, arrondi(totalInterets), null,
+                "Taux du contrat inconnu pour cette période : impossible de calculer les intérêts."
+            )
             val interets = arrondi(solde * taux / 100.0 / 12.0)
             val du = arrondi(solde + interets)
             val paiement = min(versement, du)
