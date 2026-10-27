@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.math.abs
 
 /**
@@ -37,6 +39,8 @@ class CartesCreditViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouCarte = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    // Une classification rapide de plusieurs mouvements ne doit pas perdre le second clic.
+    private val mutexClassification = Mutex()
     @Volatile private var generationCartes = 0L
     @Volatile private var generationHistorique = 0L
 
@@ -506,9 +510,36 @@ class CartesCreditViewModel(
             _uiState.update { it.copy(messageErreur = "Transaction introuvable : recharge l'historique.") }
             return
         }
-        val natures = carte.details.naturesMouvements.toMutableMap()
-        if (nature == null) natures.remove(transactionId) else natures[transactionId] = nature
-        enregistrerDetails(carte, carte.details.copy(naturesMouvements = natures))
+        val carteId = carte.id
+        viewModelScope.launch {
+            mutexClassification.withLock {
+                try {
+                    val miseAJour = operationAtomique.executer {
+                        val actuelle = carteCreditRepository.recupererCartesCredit().getOrThrow()
+                            .firstOrNull { it.id == carteId }
+                            ?: throw IllegalStateException("Carte introuvable.")
+                        // Relire à chaque clic pour conserver aussi le classement précédent.
+                        val natures = actuelle.details.naturesMouvements.toMutableMap()
+                        if (nature == null) natures.remove(transactionId)
+                        else natures[transactionId] = nature
+                        val maj = actuelle.copy(
+                            detailsCarteJson = actuelle.details.copy(naturesMouvements = natures).versJson()
+                        )
+                        carteCreditRepository.mettreAJourCarteCredit(maj).getOrThrow()
+                        maj
+                    }
+                    _uiState.update { courant ->
+                        if (courant.carteSelectionnee?.id == carteId)
+                            courant.copy(carteSelectionnee = miseAJour, messageErreur = null)
+                        else courant
+                    }
+                    realtimeSyncService.declencherMiseAJourComptes()
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(messageErreur =
+                        "Impossible de classer le mouvement : ${e.message}") }
+                }
+            }
+        }
     }
 
     // ===== Frais (CC10) =====
