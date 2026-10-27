@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,7 +30,19 @@ class SyncJobViewModel(
     private val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
     
     init {
-        loadSyncJobs()
+        // SJ16 : l'interface suit les changements de Room, sans polling.
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                syncJobDao.getAllSyncJobs().collectLatest { jobs ->
+                    _syncJobs.value = jobs
+                    _isLoading.value = false
+                }
+            } catch (e: Exception) {
+                _error.value = "Impossible d'observer la synchronisation : ${e.message}"
+                _isLoading.value = false
+            }
+        }
     }
     
     fun loadSyncJobs() {
@@ -66,6 +79,12 @@ class SyncJobViewModel(
             try {
                 // Supprimer toutes les tâches une par une
                 val allJobs = syncJobDao.getAllSyncJobs().first()
+                // SJ8 : supprimer les tâches non terminées perdrait des
+                // écritures hors ligne et pourrait ressusciter des données.
+                if (allJobs.any { it.status != "COMPLETED" }) {
+                    _error.value = "Effacement refusé : des opérations ne sont pas encore synchronisées."
+                    return@launch
+                }
                 allJobs.forEach { job ->
                     syncJobDao.deleteSyncJob(job)
                 }
@@ -83,7 +102,7 @@ class SyncJobViewModel(
     fun retryFailedJobs() {
         viewModelScope.launch {
             try {
-                val failedJobs = syncJobs.value.filter { it.status == "FAILED" }
+                val failedJobs = syncJobDao.getAllSyncJobs().first().filter { it.status == "FAILED" }
                 failedJobs.forEach { job ->
                     syncJobDao.reactiver(job.id)
                 }
