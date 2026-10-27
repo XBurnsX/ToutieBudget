@@ -90,14 +90,12 @@ object MoteurDette {
             set(Calendar.DAY_OF_MONTH, 1)
         }
         var echeancesExigibles = 0
-        repeat(MAX_PERIODES) {
+        for (i in 0 until MAX_PERIODES) {
             val echeance = (mois.clone() as Calendar).apply {
                 set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
             }.time
-            if (!echeance.before(debutContrat) && !echeance.after(limite)) {
-                echeancesExigibles++
-            }
-            if (echeance.after(limite)) return@repeat
+            if (echeance.after(limite)) break
+            if (!echeance.before(debutContrat)) echeancesExigibles++
             mois.add(Calendar.MONTH, 1)
         }
         val total = arrondi(paiementsReels(transactionsDette, aujourdHui).sumOf { it.montant })
