@@ -99,9 +99,9 @@ class InvestissementViewModel(
      * Jamais un dépôt, un revenu, une dépense ni du Prêt à placer.
      */
     fun nouvelleValeur(date: String, valeur: Double, type: TypeValorisation, note: String?) {
-        if (MoteurCarteCredit.lireDate(date.trim()) == null || !valeur.isFinite() || valeur < 0.0 ||
-            !kotlin.math.abs(valeur).isFinite()
-        ) {
+        // IF11 : valeur signée possible pour un portefeuille sur marge.
+        // Ce n'est pas automatiquement un gain ni un crédit retirable.
+        if (MoteurCarteCredit.lireDate(date.trim()) == null || !valeur.isFinite()) {
             _uiState.update { it.copy(message = "Date de valorisation ou valeur invalide.") }
             return
         }
@@ -199,7 +199,7 @@ class InvestissementViewModel(
                         (details.encaisse != null && details.retirableConnu != null &&
                          details.retirableConnu > details.encaisse + 0.000001)
                     ) throw IllegalStateException("Encaisse ou montant retirable invalide.")
-                    if (!resultat.solde.isFinite() || resultat.solde < 0) {
+                    if (!resultat.solde.isFinite()) {
                         throw IllegalStateException("Valeur de placement invalide.")
                     }
                     val details = resultat.details
