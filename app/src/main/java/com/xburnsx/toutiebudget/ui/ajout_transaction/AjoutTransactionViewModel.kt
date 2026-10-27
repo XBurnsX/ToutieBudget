@@ -1599,6 +1599,29 @@ class AjoutTransactionViewModel(
     ) {
         val typePret = if (recu) com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.PRET
         else com.xburnsx.toutiebudget.data.modeles.TypePretPersonnel.DETTE
+        // AT14 : toutes les portions d'un meme remboursement portent la meme cle.
+        val groupeRemboursement = idOperationBrouillon
+        suspend fun remboursementDejaEnregistre(): Boolean {
+            val existantes = transactionRepository.recupererToutesLesTransactions().getOrThrow()
+                .filter { tx ->
+                    if (tx.utilisateurId != compte.utilisateurId || tx.sousItems.isNullOrBlank()) false
+                    else runCatching {
+                        com.google.gson.JsonParser.parseString(tx.sousItems).asJsonObject
+                            .get("operation_id")?.asString == groupeRemboursement
+                    }.getOrDefault(false)
+                }
+            if (existantes.isEmpty()) return false
+            val typeAttendu = if (recu) TypeTransaction.RemboursementRecu else TypeTransaction.RemboursementDonne
+            val totalCents = existantes.sumOf { kotlin.math.round(it.montant * 100.0).toLong() }
+            if (existantes.any { it.type != typeAttendu || it.compteId != compte.id ||
+                    it.collectionCompte != collectionCompte ||
+                    !it.tiersUtiliser.equals(nomTiers, ignoreCase = true) } ||
+                totalCents != kotlin.math.round(montantDollars * 100.0).toLong()
+            ) throw IllegalStateException("Identifiant de remboursement utilise pour une autre operation.")
+            return true
+        }
+        // Une reprise reste idempotente meme si le premier paiement a archive les dossiers.
+        if (remboursementDejaEnregistre()) return
         val dossiers = pretPersonnelRepository.lister().getOrThrow()
             .filter {
                 it.nomTiers.equals(nomTiers, true) && it.type == typePret && !it.estArchive &&
@@ -1635,6 +1658,7 @@ class AjoutTransactionViewModel(
         // changement a modifié un solde depuis la préparation, tout échoue AVANT
         // le débit bancaire, sans remboursement excédentaire.
         operationAtomique.executer {
+        if (remboursementDejaEnregistre()) return@executer
         val soldesActuels = pretPersonnelRepository.lister().getOrThrow().associateBy { it.id }
         portions.forEach { (dossier, _) ->
             val actuel = soldesActuels[dossier.id]
@@ -1671,7 +1695,10 @@ class AjoutTransactionViewModel(
                     collectionCompte = collectionCompte,
                     note = note,
                     tiersUtiliser = nomTiers,
-                    sousItems = "{\"pret_personnel_id\":\"${dossier.id}\"}"
+                    sousItems = com.google.gson.JsonObject().apply {
+                        addProperty("pret_personnel_id", dossier.id)
+                        addProperty("operation_id", groupeRemboursement)
+                    }.toString()
                 )
             ).getOrThrow()
         }
