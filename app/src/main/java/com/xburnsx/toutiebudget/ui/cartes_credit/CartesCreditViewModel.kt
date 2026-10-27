@@ -141,7 +141,8 @@ class CartesCreditViewModel(
         _formulaire.value = f.copy(erreurs = valider(f))
     }
 
-    private fun nombre(texte: String): Double? = texte.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+    private fun nombre(texte: String): Double? = texte.trim().replace(" ", "").replace(',', '.')
+        .toDoubleOrNull()?.takeIf { it.isFinite() }
 
     private fun valider(f: FormulaireCarteCredit): Map<String, String> {
         val erreurs = mutableMapOf<String, String>()
