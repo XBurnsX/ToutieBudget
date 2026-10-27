@@ -594,7 +594,7 @@ class BudgetViewModel(
                     .firstOrNull { it.id == compteSourceId } as? CompteCheque
                     ?: throw Exception(VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable("Compte source"))
                 if (compteSource.estArchive) throw IllegalStateException("Le compte source est archivé.")
-                if (compteSource.pretAPlacer + 0.00001 < montantDollars) {
+                if (Math.round(compteSource.pretAPlacer * 100.0) < montantCentimes) {
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
                 val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
@@ -653,7 +653,7 @@ class BudgetViewModel(
                     Math.addExact(total, montant)
                 }
                 val totalDollars = totalCentimes / 100.0
-                if (compteSource.pretAPlacer + 0.001 < totalDollars) {
+                if (Math.round(compteSource.pretAPlacer * 100.0) < totalCentimes) {
                     throw Exception(VirementErrorMessages.ClavierBudget.fondsInsuffisants(compteSource.pretAPlacer))
                 }
 
