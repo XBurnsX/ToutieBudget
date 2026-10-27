@@ -229,6 +229,12 @@ object MoteurCarteCredit {
         val fin = debutJour(aujourdHui)
         val jours = TimeUnit.MILLISECONDS.toDays(fin.time - debutJour(debut).time).toInt()
         if (jours <= 0) return EstimationCycle(0.0, debut, 0, false)
+        // Des journées antérieures au cycle actuel ou une saisie future ne
+        // permettent pas de reconstituer un historique bancaire fiable.
+        if (releve != null && releve.soldeOfficiel < 0.0) {
+            return EstimationCycle(0.0, debut, jours, false, estimationDisponible = false,
+                avertissement = "Le solde du relevé est invalide; vérifie le montant officiel.")
+        }
         if (tauxPourNature(carte, NatureMouvementCarte.ACHAT) == null) return EstimationCycle(
             0.0, debut, jours, false, estimationDisponible = false,
             avertissement = "Le taux annuel des achats n'est pas configuré."
@@ -264,7 +270,11 @@ object MoteurCarteCredit {
 
         val echeance = lireDate(releve?.dateEcheance)
         val payeEnEntier = releve != null && echeance != null &&
-            transactionsCarte.filter { it.type == TypeTransaction.Paiement && !it.date.before(debut) && !it.date.after(echeance) }
+            transactionsCarte.filter {
+                it.type == TypeTransaction.Paiement &&
+                    !debutJour(it.date).before(debutJour(debut)) &&
+                    !debutJour(it.date).after(debutJour(echeance))
+            }
                 .sumOf { it.montant } + 0.005 >= releve.soldeOfficiel
         if (payeEnEntier) return EstimationCycle(0.0, debut, jours, true)
 
