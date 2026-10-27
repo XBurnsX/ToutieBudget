@@ -28,6 +28,7 @@ class PlanResetService(
 ) {
 
     data class LigneRetour(
+        val allocationId: String,
         val enveloppeId: String,
         val nomEnveloppe: String,
         val compteId: String,
@@ -74,7 +75,7 @@ class PlanResetService(
             if (compte == null) {
                 ignorees.add(nom)
             } else {
-                lignes.add(LigneRetour(allocation.enveloppeId, nom, compte.id, compte.nom, montant))
+                lignes.add(LigneRetour(allocation.id, allocation.enveloppeId, nom, compte.id, compte.nom, montant))
             }
         }
         Apercu(mois, lignes.sortedBy { it.nomEnveloppe.lowercase() }, ignorees.sorted())
