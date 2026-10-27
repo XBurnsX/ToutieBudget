@@ -86,7 +86,18 @@ Les sections 4 et suivantes ne sont pas reprises tant que la section 3 n'est pas
 
 | IDs | État du codage | Modifications de la reprise |
 |---|---|---|
-| CO1–CO9, CA3–CA5 | Fonctionnalités présentes dans les écrans/moteurs; audit de cohérence toujours ouvert | CO5 : réconciliation sur solde relu, écritures Room et journal dans la même transaction; CO1/CO6 : archivage dette/enveloppe atomique et erreurs des repositories remontées |
+| CO1–CO9, CA3–CA5 | **Codage traité** : archivage non destructeur et confirmation, comptes archivés séparés, collection investissement harmonisée, réconciliation solde + prêt à placer sous transaction Room, champs manuels indépendants et journalisés atomiquement, rafraîchissements anti-réponses périmées, groupes/masquage zéro/aperçu | Build Gradle et vérification Android non réalisés |
+
+### Revue de codage section 8 clôturée
+
+- **CO1/CO2/CO7** : archivage confirmé, sans effacer compte ou historique; enveloppe d'une dette terminée archivée seulement quand elle ne contient plus de fonds; modifications ciblées.
+- **CO3/CO8** : les listes des comptes actifs et archivés restent distinctes; requêtes périmées ignorées; rafraîchissements pilotés par événements, sans polling fixe de deux secondes.
+- **CO4** : collection Room `comptes_investissement` vérifiée et aucune référence `comptes_investissements` détectée dans les fichiers indexés.
+- **CO5** : relecture du compte et calcul de l'écart dans la même transaction Room que la correction et son journal (un seul ajustement).
+- **CO6/CO9** : modifications manuelles du solde et du prêt à placer indépendantes; sauvegarde et journal atomiques; valeurs invalides refusées; formulaire conservé en échec.
+- **CA3/CA4/CA5** : groupes repliables enregistrés, réglage Masquer les comptes à zéro relu depuis Paramètres, aperçu du solde réel et de l'écart avant confirmation.
+
+**État : exigences codées et reprises. Pas de build ni de validation Android.**
 
 ## Sections restantes
 
