@@ -27,10 +27,13 @@ object MoteurDette {
 
     /** Taux en vigueur à une date : dernier changement daté, sinon le taux du contrat (DA7). */
     fun tauxA(dette: CompteDette, date: Date): Double? {
-        val changement = dette.details.changementsTaux
+        // DA7 : l'historique des anciens taux est conservé dans le JSON,
+        // mais désactiver « taux variable » ne doit pas continuer à appliquer
+        // ces anciennes révisions dans les projections futures.
+        val changement = if (dette.details.tauxVariable) dette.details.changementsTaux
             .mapNotNull { c -> MoteurCarteCredit.lireDate(c.date)?.let { it to c.taux } }
             .filter { !it.first.after(date) }
-            .maxByOrNull { it.first }
+            .maxByOrNull { it.first } else null
         return (changement?.second ?: dette.tauxInteret)
             ?.takeIf { it.isFinite() && it in 0.0..100.0 }
     }
