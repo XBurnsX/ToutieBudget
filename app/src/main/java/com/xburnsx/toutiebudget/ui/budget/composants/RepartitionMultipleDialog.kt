@@ -60,7 +60,7 @@ private fun texteVersCentimes(texte: String): Long? {
     val propre = texte.trim().replace(" ", "").replace(',', '.')
     if (propre.isEmpty()) return 0L
     return try {
-        BigDecimal(propre).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact()
+        BigDecimal(propre).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()
             .takeIf { it >= 0 }
     } catch (_: Exception) {
         null
@@ -94,7 +94,10 @@ fun RepartitionMultipleDialog(
     }.getOrNull()
     val totalCentimes = totalCentimesOuErreur ?: 0L
     val disponibleCentimes = compte?.let { Math.round(it.pretAPlacer * 100.0) } ?: 0L
-    val resteCentimes = disponibleCentimes - totalCentimes
+    val resteCentimesOuErreur = runCatching {
+        Math.subtractExact(disponibleCentimes, totalCentimes)
+    }.getOrNull()
+    val resteCentimes = resteCentimesOuErreur ?: Long.MIN_VALUE
 
     Dialog(
         onDismissRequest = { if (!enCours) onFermer() },
@@ -235,8 +238,12 @@ fun RepartitionMultipleDialog(
                     )
                 }
 
-                if (totalCentimesOuErreur == null) {
-                    Text("Total trop élevé pour une répartition valide.", color = MaterialTheme.colorScheme.error)
+                if (totalCentimesOuErreur == null || resteCentimesOuErreur == null) {
+                    Text("Montants trop élevés pour une répartition valide.", color = MaterialTheme.colorScheme.error)
+                }
+                if (saisieInvalide) {
+                    Text("Entre des montants positifs avec au maximum deux décimales.",
+                        color = MaterialTheme.colorScheme.error)
                 }
                 erreur?.let {
                     Text(
@@ -251,7 +258,7 @@ fun RepartitionMultipleDialog(
                 if (!apercu) {
                     Button(
                         onClick = { apercu = true },
-                        enabled = compte != null && totalCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide && !enCours,
+                        enabled = compte != null && totalCentimesOuErreur != null && resteCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide && !enCours,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Aperçu") }
                 } else {
@@ -263,7 +270,7 @@ fun RepartitionMultipleDialog(
                         ) { Text("Modifier") }
                         Button(
                             onClick = { compteId?.let { onConfirmer(it, montantsValides) } },
-                            enabled = !enCours && compte != null && totalCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide,
+                            enabled = !enCours && compte != null && totalCentimesOuErreur != null && resteCentimesOuErreur != null && totalCentimes > 0 && resteCentimes >= 0 && !saisieInvalide,
                             modifier = Modifier.weight(1f)
                         ) {
                             if (enCours) {
