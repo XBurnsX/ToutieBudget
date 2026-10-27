@@ -355,16 +355,26 @@ fun AppNavigation() {
                 val budgetViewModel = AppModule.provideBudgetViewModel()
                 val viewModel = AppModule.provideAjoutTransactionViewModel()
                 
-                // Récupérer la carte de crédit pour la présélection
-                val cartesCreditViewModel = AppModule.provideCartesCreditViewModel()
-                val carteCredit = cartesCreditViewModel.uiState.value.cartesCredit.find { it.id == carteCreditId }
-                
-                AjoutTransactionScreen(
-                    viewModel = viewModel,
-                    onTransactionSuccess = { budgetViewModel.rafraichirDonnees() },
-                    modePreselectionne = "Paiement",
-                    carteCreditPreselectionnee = carteCredit
-                )
+                // NV3 : charger la carte PAR ID, pas depuis un cache potentiellement vide.
+                val cartesCreditViewModel = remember { AppModule.provideCartesCreditViewModel() }
+                val etatCartes by cartesCreditViewModel.uiState.collectAsState()
+                LaunchedEffect(carteCreditId) {
+                    cartesCreditViewModel.chargerCarteSpecifique(carteCreditId)
+                }
+                val carteCredit = etatCartes.cartesCredit.find { it.id == carteCreditId }
+                when {
+                    carteCredit != null -> AjoutTransactionScreen(
+                        viewModel = viewModel,
+                        onTransactionSuccess = { budgetViewModel.rafraichirDonnees() },
+                        modePreselectionne = "Paiement",
+                        carteCreditPreselectionnee = carteCredit
+                    )
+                    etatCartes.messageErreur != null ->
+                        Text("Paiement indisponible : ${etatCartes.messageErreur}")
+                    else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.CircularProgressIndicator()
+                    }
+                }
             }
         }
 
