@@ -458,6 +458,37 @@ class CartesCreditViewModel(
         }
     }
 
+    // ===== Ventilation du solde courant pour les intérêts différenciés (CC5) =====
+
+    fun enregistrerVentilationCourante(achatsTexte: String, avancesTexte: String, transfertsTexte: String) {
+        val carte = _uiState.value.carteSelectionnee ?: return
+        val montants = listOf(achatsTexte, avancesTexte, transfertsTexte)
+            .map { nombre(it) }
+        if (montants.any { it == null || it < 0.0 }) {
+            _uiState.update { it.copy(messageErreur =
+                "Les trois montants doivent être des nombres positifs ou zéro.") }
+            return
+        }
+        val valeurs = montants.map { MoneyFormatter.roundAmount(it!!) }
+        if (kotlin.math.abs(valeurs.sum() - MoteurCarteCredit.dette(carte)) > 0.005) {
+            _uiState.update { it.copy(messageErreur =
+                "Les montants ventilés doivent totaliser exactement " +
+                    MoneyFormatter.formatAmount(MoteurCarteCredit.dette(carte)) +
+                    ", soit le montant dû actuellement.") }
+            return
+        }
+        val ventilation = com.xburnsx.toutiebudget.data.modeles.VentilationSoldeCarte(
+            dateReference = MoteurCarteCredit.ecrireDate(java.util.Date()),
+            achats = valeurs[0], avances = valeurs[1], transferts = valeurs[2]
+        )
+        enregistrerDetails(carte, carte.details.copy(ventilationCourante = ventilation))
+    }
+
+    fun effacerVentilationCourante() {
+        val carte = _uiState.value.carteSelectionnee ?: return
+        enregistrerDetails(carte, carte.details.copy(ventilationCourante = null))
+    }
+
     // ===== Qualification des mouvements pour la simulation (CC5) =====
 
     /**
