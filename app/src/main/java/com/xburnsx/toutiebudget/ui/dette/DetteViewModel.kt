@@ -115,6 +115,8 @@ class DetteViewModel(
         viewModelScope.lancerUneFois(verrouDette) {
             _uiState.update { it.copy(isSaving = true, messageErreur = null) }
             try {
+                // DF15 : lecture, détection de concurrence et écriture indivisibles en Room.
+                val (aJour, aSauver) = operationAtomique.executer {
                 val aJour = compteRepository.getCompteById(id, "comptes_dettes") as? CompteDette
                     ?: throw Exception("Dette introuvable")
                 val avant = etat.dette ?: throw IllegalStateException("Dossier initial introuvable")
@@ -157,12 +159,15 @@ class DetteViewModel(
                     // soldeDette, paiementEffectue et estArchive restent ceux de la version à jour
                 )
                 compteRepository.mettreAJourCompte(aSauver).getOrThrow()
+                aJour to aSauver
+                }
                 com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated() // la page Comptes se recharge sur cet événement
 
                 val avertissement = if (etat.dette != null && abs(aJour.soldeDette - etat.dette.soldeDette) > 0.005) {
                     "Le solde a changé entre-temps (paiement ailleurs) : le solde réel a été conservé."
                 } else null
-                val formulaire = FormulaireDette.depuis(aSauver, details.enveloppeId)
+                val formulaire = FormulaireDette.depuis(aSauver, aSauver.details.enveloppeId)
+                if (detteIdCourante != id) return@lancerUneFois
                 _uiState.update {
                     it.copy(
                         isSaving = false,
@@ -174,6 +179,7 @@ class DetteViewModel(
                     )
                 }
             } catch (e: Exception) {
+                if (detteIdCourante != id) return@lancerUneFois
                 // DF13 : on reste sur la page avec les saisies
                 _uiState.update { it.copy(isSaving = false, messageErreur = "Échec de l'enregistrement : ${e.message}") }
             }
