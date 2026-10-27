@@ -59,7 +59,7 @@ class BudgetViewModel(
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouAssignation = com.xburnsx.toutiebudget.utils.VerrouOperation()
     private val mutexPreferencesBudget = Mutex()
-    private var generationPreferencesBudget = 0L
+    @Volatile private var generationPreferencesBudget = 0L
 
     // Service de reset automatique des objectifs bihebdomadaires
     private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
