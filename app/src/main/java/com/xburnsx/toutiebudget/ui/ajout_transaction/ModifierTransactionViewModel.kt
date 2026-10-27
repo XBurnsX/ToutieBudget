@@ -286,6 +286,9 @@ class ModifierTransactionViewModel(
                 }
                 
                 val original = transactionAModifier!!
+                // DF9/MT4 : interdire aussi la modification « note seulement »
+                // d'une moitié d'un paiement lié; les deux écritures doivent rester ensemble.
+                verifierModifiable(original)
                 // MT18 : préserver l'heure d'origine, même quand seul le jour change.
                 val originalZoned = original.date.toInstant().atZone(ZoneId.systemDefault())
                 val dateTransaction = if (state.dateTransaction == originalZoned.toLocalDate()) original.date
@@ -314,7 +317,6 @@ class ModifierTransactionViewModel(
                 // Plus besoin de rembourser manuellement les allocations
 
                 // ÉTAPE 2: Supprimer l'ancienne transaction avec remboursement correct
-                verifierModifiable(original)
                 if (state.fractionnementEffectue) {
                     val fractions = state.fractionsSauvegardees
                     if (fractions.isEmpty() || fractions.any { it.enveloppeId.isBlank() || it.montant <= 0.0 }) {
