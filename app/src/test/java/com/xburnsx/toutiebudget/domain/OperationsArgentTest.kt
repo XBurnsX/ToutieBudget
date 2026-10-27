@@ -87,6 +87,44 @@ class OperationsArgentTest {
     // ===== Paiement de carte / dette =====
 
     @Test
+    fun `paiement idempotent - meme operation deux fois ne debite qu'une fois`() = runTest {
+        b.cheque("bleu", 1000.0, 0.0)
+        b.carte("visa", -400.0, nom = "Visa")
+        b.categorie("cc", "Cartes de crédit")
+        b.enveloppe("envVisa", "Visa", "cc")
+        b.allocation("envVisa", maintenant, solde = 400.0, provenance = "bleu")
+        repeat(2) {
+            val retour = argent.effectuerPaiementCarteOuDette(
+                "bleu", "comptes_cheques", "visa", "comptes_credits",
+                150.0, "Visa", maintenant, operationId = "groupe-paiement"
+            )
+            assertTrue(retour.isSuccess, retour.exceptionOrNull()?.message)
+        }
+        assertEquals(850.0, b.soldeDe("bleu"))
+        assertEquals(-250.0, b.soldeDe("visa"))
+        assertEquals(250.0, b.allocationDe("envVisa", maintenant).single().solde)
+        assertEquals(2, b.transactions.size)
+    }
+
+    @Test
+    fun `reutilisation de cle paiement avec montant different est refusee`() = runTest {
+        b.cheque("bleu", 1000.0, 0.0)
+        b.carte("visa", -400.0, nom = "Visa")
+        assertTrue(argent.effectuerPaiementCarteOuDette(
+            "bleu", "comptes_cheques", "visa", "comptes_credits",
+            100.0, "Visa", maintenant, operationId = "cle-unique"
+        ).isSuccess)
+        assertTrue(argent.effectuerPaiementCarteOuDette(
+            "bleu", "comptes_cheques", "visa", "comptes_credits",
+            200.0, "Visa", maintenant, operationId = "cle-unique"
+        ).isFailure)
+        assertEquals(900.0, b.soldeDe("bleu"))
+        assertEquals(-300.0, b.soldeDe("visa"))
+        assertEquals(2, b.transactions.size)
+    }
+
+
+    @Test
     fun `paiement de carte - une sortie, une entree Paiement, enveloppe utilisee, PAP intact`() = runTest {
         b.cheque("bleu", 1000.0, 0.0)
         b.carte("visa", -400.0, nom = "Visa")
