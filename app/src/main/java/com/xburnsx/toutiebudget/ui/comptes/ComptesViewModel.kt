@@ -153,68 +153,89 @@ class ComptesViewModel(
      */
     fun onReconcilierCompte(
         nouveauSolde: Double,
-        // IF2 / IF7 : pour un placement, nouvelle valeur de marché ou correction d'erreur (jamais un revenu ni une dépense)
-        typeValorisation: com.xburnsx.toutiebudget.data.modeles.TypeValorisation = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE
+        typeValorisation: com.xburnsx.toutiebudget.data.modeles.TypeValorisation =
+            com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE
     ) {
-        val compteSelectionne = _uiState.value.compteSelectionne ?: return
+        val selection = _uiState.value.compteSelectionne ?: return
         viewModelScope.lancerUneFois(verrouCompte) {
             try {
                 if (!nouveauSolde.isFinite()) throw IllegalArgumentException("Solde réel invalide")
                 val soldeReel = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(nouveauSolde)
-                // CO5 : ne pas calculer l'écart sur un solde d'écran périmé.
-                val compte = compteRepository.recupererCompteParIdToutesCollections(compteSelectionne.id).getOrThrow()
-                val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(soldeReel - compte.solde)
-                if (kotlin.math.abs(ecart) < 0.005) {
-                    _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
-                    return@lancerUneFois
-                }
 
-                val (compteReconcilie, pretAvant, pretApres) = when (compte) {
-                    is CompteCheque -> {
-                        val nouveauPret = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(compte.pretAPlacer + ecart)
-                        Triple(compte.copy(solde = soldeReel, pretAPlacerRaw = nouveauPret), compte.pretAPlacer, nouveauPret)
-                    }
-                    is CompteInvestissement -> {
-                        val valorisation = com.xburnsx.toutiebudget.data.modeles.Valorisation(
-                            date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
-                            valeur = soldeReel,
-                            ancienneValeur = compte.solde,
-                            type = typeValorisation
+                // CO5 : la relecture, le calcul de l'écart, l'ajustement et sa
+                // trace sont dans UNE transaction Room. Aucune fenêtre de
+                // concurrence entre contrôle des fonds et écriture.
+                val modifie = operationAtomique.executer {
+                    val compte = compteRepository.recupererCompteParIdToutesCollections(selection.id)
+                        .getOrThrow()
+                    if (compte.estArchive) throw IllegalStateException("Ce compte est archivé.")
+                    val ecart = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(soldeReel - compte.solde)
+                    if (!ecart.isFinite()) throw IllegalStateException("Écart de réconciliation invalide")
+                    if (kotlin.math.abs(ecart) < 0.005) {
+                        false
+                    } else {
+                        val (compteReconcilie, pretAvant, pretApres) = when (compte) {
+                            is CompteCheque -> {
+                                val nouveauPret = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(
+                                    compte.pretAPlacer + ecart
+                                )
+                                if (!nouveauPret.isFinite()) throw IllegalStateException("Prêt à placer invalide")
+                                Triple(
+                                    compte.copy(solde = soldeReel, pretAPlacerRaw = nouveauPret),
+                                    compte.pretAPlacer, nouveauPret
+                                )
+                            }
+                            is CompteInvestissement -> {
+                                val valorisation = com.xburnsx.toutiebudget.data.modeles.Valorisation(
+                                    date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
+                                    valeur = soldeReel,
+                                    ancienneValeur = compte.solde,
+                                    type = typeValorisation
+                                )
+                                val details = compte.details.copy(
+                                    valorisations = compte.details.valorisations + valorisation
+                                )
+                                Triple(
+                                    compte.copy(solde = soldeReel, detailsInvestissementJson = details.versJson()),
+                                    0.0, 0.0
+                                )
+                            }
+                            else -> throw IllegalArgumentException(
+                                "La réconciliation n'est pas offerte pour ce type de compte."
+                            )
+                        }
+                        compteRepository.mettreAJourCompte(compteReconcilie).getOrThrow()
+                        historiqueAllocationService.enregistrerAjustementCompte(
+                            compte = compteReconcilie,
+                            typeAction = when {
+                                compte !is CompteInvestissement -> "RECONCILIATION"
+                                typeValorisation == com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE ->
+                                    "VALORISATION_MARCHE"
+                                else -> "CORRECTION_SOLDE"
+                            },
+                            description = "Réconciliation ${compte.nom} : " +
+                                "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compte.solde)} → " +
+                                "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeReel)} " +
+                                "(écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
+                            montant = ecart,
+                            soldeAvant = compte.solde,
+                            soldeApres = soldeReel,
+                            pretAPlacerAvant = pretAvant,
+                            pretAPlacerApres = pretApres
                         )
-                        val details = compte.details.copy(valorisations = compte.details.valorisations + valorisation)
-                        Triple(compte.copy(solde = soldeReel, detailsInvestissementJson = details.versJson()), 0.0, 0.0)
-                    }
-                    else -> {
-                        _uiState.update { it.copy(erreur = "La réconciliation n'est pas offerte pour ce type de compte.") }
-                        return@lancerUneFois
+                        true
                     }
                 }
-
-                operationAtomique.executer {
-                    compteRepository.mettreAJourCompte(compteReconcilie).getOrThrow()
-                    historiqueAllocationService.enregistrerAjustementCompte(
-                        compte = compteReconcilie,
-                        typeAction = when {
-                            compte !is CompteInvestissement -> "RECONCILIATION"
-                            typeValorisation == com.xburnsx.toutiebudget.data.modeles.TypeValorisation.MARCHE -> "VALORISATION_MARCHE"
-                            else -> "CORRECTION_SOLDE"
-                        },
-                        description = "Réconciliation ${compte.nom} : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(compte.solde)} → " +
-                            "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeReel)} (écart ${if (ecart > 0) "+" else ""}${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(ecart)})",
-                        montant = ecart,
-                        soldeAvant = compte.solde,
-                        soldeApres = soldeReel,
-                        pretAPlacerAvant = pretAvant,
-                        pretAPlacerApres = pretApres
-                    )
+                if (_uiState.value.compteSelectionne?.id == selection.id) {
+                    _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
                 }
-
-                _uiState.update { it.copy(isReconciliationDialogVisible = false, compteSelectionne = null) }
-                chargerComptes()
-                realtimeSyncService.declencherMiseAJourBudget()
-                onCompteChange?.invoke()
+                if (modifie) {
+                    chargerComptes()
+                    realtimeSyncService.declencherMiseAJourBudget()
+                    onCompteChange?.invoke()
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur réconciliation: ${e.message}") }
+                _uiState.update { it.copy(erreur = "Erreur réconciliation : ${e.message}") }
             }
         }
     }
