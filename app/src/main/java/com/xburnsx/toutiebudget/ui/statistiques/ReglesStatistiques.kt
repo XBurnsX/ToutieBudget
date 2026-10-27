@@ -50,7 +50,15 @@ object ReglesStatistiques {
         if (totalAdmissible <= 0.0) 0.0 else (montant / totalAdmissible).coerceIn(0.0, 1.0)
 
     /** 7 jours civils complets, borne de fin exclusive et jamais au-delà d'aujourd'hui. */
-    fun moyenneDepenses7Jours(transactions: List<Transaction>, dateFin: Date, maintenant: Date = Date()): List<Pair<String, Double>> {
+    fun moyenneDepenses7Jours(
+        transactions: List<Transaction>,
+        dateFin: Date,
+        maintenant: Date = Date(),
+        dateDebutPeriode: Date? = null
+    ): List<Pair<String, Double>> {
+        // ST11 : un mois intégralement futur ne doit jamais récupérer
+        // artificiellement la moyenne des 30 jours du mois courant.
+        if (dateDebutPeriode != null && dateDebutPeriode.after(maintenant)) return emptyList()
         val finDemandeeExclusive = Calendar.getInstance().apply {
             time = dateFin
             add(Calendar.MILLISECOND, 1)
