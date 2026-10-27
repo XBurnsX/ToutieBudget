@@ -41,6 +41,9 @@ fun PretPersonnelScreen(
     onBack: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // Le dialogue ne doit pas disparaître quand un dossier archivé quitte l'onglet actif.
+    var openDialogPretId by remember { mutableStateOf<String?>(null) }
+    var openDialogNomTiers by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.charger()
@@ -95,24 +98,6 @@ fun PretPersonnelScreen(
                     }
                     Text(message, color = Color.White)
                 } else {
-                    var openDialogPretId by remember { mutableStateOf<String?>(null) }
-                    var openDialogNomTiers by remember { mutableStateOf<String?>(null) }
-                    if (openDialogPretId != null && openDialogNomTiers != null) {
-                        HistoriqueDetteEmpruntItem(
-                            visible = true,
-                            nomTiers = openDialogNomTiers!!,
-                            uiState = uiState,
-                            onChangerArchivage = { archiver ->
-                                openDialogPretId?.let { viewModel.changerArchivage(it, archiver) }
-                            },
-                            onDismiss = {
-                                openDialogPretId = null
-                                openDialogNomTiers = null
-                                viewModel.clearHistorique()
-                            }
-                        )
-                    }
-
                     LazyColumn {
                         items(items, key = { it.key }) { item ->
                             androidx.compose.material3.Card(
@@ -187,6 +172,21 @@ fun PretPersonnelScreen(
                 }
             }
         }
+    }
+    if (openDialogPretId != null && openDialogNomTiers != null) {
+        HistoriqueDetteEmpruntItem(
+            visible = true,
+            nomTiers = openDialogNomTiers!!,
+            uiState = uiState,
+            onChangerArchivage = { archiver ->
+                openDialogPretId?.let { viewModel.changerArchivage(it, archiver) }
+            },
+            onDismiss = {
+                openDialogPretId = null
+                openDialogNomTiers = null
+                viewModel.clearHistorique()
+            }
+        )
     }
 }
 
