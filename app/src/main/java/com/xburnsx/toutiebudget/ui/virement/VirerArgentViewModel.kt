@@ -339,7 +339,8 @@ class VirerArgentViewModel(
         _uiState.update { it.copy(isLoading = true, erreur = null) }
 
         viewModelScope.launch {
-            val mois = _uiState.value.moisSelectionne
+            try {
+            val mois = state.moisSelectionne
             val sourcePretAPlacer = compteIdPretAPlacer(source!!)
             val destPretAPlacer = compteIdPretAPlacer(destination!!)
 
@@ -384,6 +385,11 @@ class VirerArgentViewModel(
                     }
                     verrouVirement.liberer()
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, virementReussi = false,
+                    erreur = e.message ?: "Erreur inattendue pendant le virement") }
+                verrouVirement.liberer()
+            }
         }
     }
 
