@@ -10,6 +10,36 @@ import java.math.RoundingMode
 
 /** Définitions uniques utilisées par tous les indicateurs et graphiques (ST1-ST3). */
 object ReglesStatistiques {
+    data class FractionDepense(val enveloppeId: String, val montant: Double)
+
+    /**
+     * ST1/ST5/AT9 : toutes les stats utilisent les mêmes fractions que la
+     * transaction réelle. Données manquantes = calcul incomplet, jamais 0 $.
+     */
+    fun lireFractions(tx: Transaction): List<FractionDepense> {
+        require(tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
+            "Transaction fractionnée sans fractions."
+        }
+        val elements = com.google.gson.JsonParser.parseString(tx.sousItems).asJsonArray
+        require(elements.size() > 0) { "Transaction fractionnée sans sous-items." }
+        val fractions = elements.map { element ->
+            val objet = element.asJsonObject
+            val enveloppe = (objet.get("enveloppe_id") ?: objet.get("enveloppeId"))
+                ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+            require(enveloppe.isNotBlank()) { "Fraction sans enveloppe." }
+            val montant = objet.get("montant")?.takeIf { !it.isJsonNull }?.asDouble
+                ?: throw IllegalArgumentException("Fraction sans montant.")
+            require(montant.isFinite() && montant > 0.0) { "Montant de fraction invalide." }
+            FractionDepense(enveloppe, montant)
+        }
+        val totalEnCents = fractions.sumOf { fraction ->
+            BigDecimal.valueOf(fraction.montant).movePointRight(2).longValueExact()
+        }
+        val attendu = BigDecimal.valueOf(tx.montant).movePointRight(2).longValueExact()
+        require(totalEnCents == attendu) { "Total des fractions différent de la transaction." }
+        return fractions
+    }
+
     fun estCorrectionTechnique(tx: Transaction): Boolean =
         tx.tiersUtiliser?.startsWith("Mise à jour : ") == true
 
