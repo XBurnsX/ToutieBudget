@@ -31,14 +31,14 @@ fun ReleveDialog(
     onDismiss: () -> Unit
 ) {
     fun t(v: Double?) = v?.takeIf { it != 0.0 }?.let { "%.2f".format(java.util.Locale.US, it) } ?: ""
-    var emission by remember { mutableStateOf(releve.dateEmission) }
-    var echeance by remember { mutableStateOf(releve.dateEcheance ?: "") }
-    var solde by remember { mutableStateOf(t(releve.soldeOfficiel)) }
-    var minimum by remember { mutableStateOf(t(releve.minimumOfficiel)) }
-    var interets by remember { mutableStateOf(t(releve.interetsFactures)) }
-    var frais by remember { mutableStateOf(t(releve.fraisFactures)) }
-    var paiements by remember { mutableStateOf(t(releve.paiementsRecus)) }
-    var confirmerSuppression by remember { mutableStateOf(false) }
+    var emission by remember(releve.id) { mutableStateOf(releve.dateEmission) }
+    var echeance by remember(releve.id) { mutableStateOf(releve.dateEcheance ?: "") }
+    var solde by remember(releve.id) { mutableStateOf(t(releve.soldeOfficiel)) }
+    var minimum by remember(releve.id) { mutableStateOf(t(releve.minimumOfficiel)) }
+    var interets by remember(releve.id) { mutableStateOf(t(releve.interetsFactures)) }
+    var frais by remember(releve.id) { mutableStateOf(t(releve.fraisFactures)) }
+    var paiements by remember(releve.id) { mutableStateOf(t(releve.paiementsRecus)) }
+    var confirmerSuppression by remember(releve.id) { mutableStateOf(false) }
 
     fun n(s: String) = s.trim().replace(" ", "").replace(',', '.')
         .takeIf { it.isNotEmpty() }?.toDoubleOrNull()?.takeIf { it.isFinite() }
