@@ -40,7 +40,7 @@ fun CarteCreditDetailCard(
     val dette = MoteurCarteCredit.dette(carte)
     val disponible = MoteurCarteCredit.creditDisponible(carte)
     val utilisation = MoteurCarteCredit.tauxUtilisation(carte)
-    val minimum = MoteurCarteCredit.minimumAPayer(carte)
+    val minimum = MoteurCarteCredit.minimumRestantSelonTransactions(carte, transactionsCarte)
     val releve = MoteurCarteCredit.dernierReleve(carte)
     val cycle = MoteurCarteCredit.interetsCycleCourant(carte, transactionsCarte)
     val d = carte.details
@@ -97,8 +97,11 @@ fun CarteCreditDetailCard(
                 Ligne("Solde du relevé (${releve.dateEmission})", MoneyFormatter.formatAmount(releve.soldeOfficiel) + " · officiel")
             }
             if (minimum != null) {
+                MoteurCarteCredit.dernierReleve(carte)?.minimumOfficiel?.let { officiel ->
+                    Ligne("Minimum officiel du relevé", MoneyFormatter.formatAmount(officiel))
+                }
                 Ligne(
-                    "Minimum à payer",
+                    "Minimum restant (selon l'app)",
                     MoneyFormatter.formatAmount(minimum.montant) + if (minimum.officiel) " · officiel" else " · estimé",
                     gras = true
                 )
@@ -113,20 +116,37 @@ fun CarteCreditDetailCard(
             Ligne("Taux achats", taux(MoteurCarteCredit.tauxAchats(carte)))
             d.tauxAvances?.let { Ligne("Taux avances de fonds", taux(it)) }
             d.tauxTransferts?.let { Ligne("Taux transferts de solde", taux(it)) }
-            d.tauxPromo?.let { Ligne("Taux promotionnel", taux(it) + (d.finPromo?.let { f -> " jusqu'au $f" } ?: "")) }
+            d.tauxPromo?.let { promotion ->
+                Ligne("Taux promotionnel", taux(promotion) +
+                    (d.debutPromo?.let { " dès le ${it}" } ?: "") +
+                    (d.finPromo?.let { " jusqu'au ${it}" } ?: ""))
+            }
             d.tauxRetard?.let { Ligne("Taux de retard", taux(it)) }
 
             // Intérêts : estimation seulement (CC5)
             if (dette > 0.005) {
-                Ligne("Intérêts estimés (30 prochains jours)", MoneyFormatter.formatAmount(MoteurCarteCredit.interetsMensuelsEstimes(carte)))
-                cycle?.let {
+                if (d.naturesMouvements.values.any {
+                    it != com.xburnsx.toutiebudget.data.modeles.NatureMouvementCarte.ACHAT
+                }) {
+                    Ligne("Intérêts estimés (30 jours)", "Non calculables sans ventilation des soldes")
+                } else {
+                    Ligne("Intérêts estimés (30 jours, taux achats)",
+                        MoneyFormatter.formatAmount(MoteurCarteCredit.interetsMensuelsEstimes(carte)))
+                }
+                cycle?.let { estimation ->
                     Ligne(
-                        "Intérêts estimés du cycle (${it.jours} j)",
-                        if (it.graceProbable) "0,00 $ · délai de grâce" else MoneyFormatter.formatAmount(it.montant)
+                        "Intérêts du cycle (${estimation.jours} j)",
+                        if (!estimation.estimationDisponible) "Calcul indisponible" else
+                            if (estimation.graceProbable) "0,00 $ · grâce présumée" else
+                                MoneyFormatter.formatAmount(estimation.montant)
                     )
+                    estimation.avertissement?.let { message ->
+                        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 Text(
-                    "Estimations à partir d'aujourd'hui : elles ne sont jamais ajoutées au solde.",
+                    "Les projections ne sont pas des intérêts facturés. Elles ne modifient jamais le solde.",
                     color = Color.Gray,
                     style = MaterialTheme.typography.bodySmall
                 )
