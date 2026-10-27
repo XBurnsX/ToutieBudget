@@ -53,8 +53,13 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
 
         // 2) Objectifs à X jours
         val joursAvant = PreferencesManager.getNotifObjJoursAvant(ctx)
-        val calToday = Calendar.getInstance()
-        val calLimit = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, joursAvant) }
+        val calToday = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val calLimit = (calToday.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, joursAvant.coerceAtLeast(0))
+        }
         state.categoriesEnveloppes.flatMap { it.enveloppes }.forEach { env ->
             val dateStr = env.dateObjectif ?: return@forEach
             try {
@@ -64,21 +69,25 @@ class RappelsWorker(appContext: Context, params: WorkerParameters) : CoroutineWo
                 val target = when {
                     // Cas objectifs mensuels: on a parfois uniquement le jour (ex: "10")
                     dateStr.matches(Regex("\\d{1,2}")) -> {
-                        val day = dateStr.toInt().coerceAtLeast(1)
-                        Calendar.getInstance().apply {
-                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                            val maxDay = getActualMaximum(Calendar.DAY_OF_MONTH)
-                            set(Calendar.DAY_OF_MONTH, day.coerceAtMost(maxDay))
+                        val day = dateStr.toInt()
+                        if (day !in 1..31) throw IllegalArgumentException("Jour d'objectif invalide")
+                        (calToday.clone() as Calendar).apply {
+                            set(Calendar.DAY_OF_MONTH, day.coerceAtMost(getActualMaximum(Calendar.DAY_OF_MONTH)))
+                            if (before(calToday)) {
+                                add(Calendar.MONTH, 1)
+                                set(Calendar.DAY_OF_MONTH, day.coerceAtMost(getActualMaximum(Calendar.DAY_OF_MONTH)))
+                            }
                         }
                     }
                     // Cas yyyy-MM-dd
                     dateStr.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) -> {
-                        val parts = dateStr.split("-")
-                        Calendar.getInstance().apply {
-                            set(Calendar.YEAR, parts[0].toInt())
-                            set(Calendar.MONTH, parts[1].toInt() - 1)
-                            set(Calendar.DAY_OF_MONTH, parts[2].toInt())
-                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { isLenient = false }
+                        fmt.parse(dateStr)?.let { date ->
+                            Calendar.getInstance().apply {
+                                time = date
+                                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            }
                         }
                     }
                     else -> null
