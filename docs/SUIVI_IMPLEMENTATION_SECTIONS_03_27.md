@@ -281,7 +281,7 @@ prend jamais l'argent de l'enveloppe ; le refus « financée par un autre compte
 | MT11, MT12, MT15, MT21 | FAIT | Route unique ; soldes du mois choisi ; simple ↔ fractionnée ; destination archivée refusée |
 | MA1, MA2, MA3 | FAIT | Résumé des changements ; note/tiers sans mouvement d'argent ; origine + liens + état de synchro |
 | MT4 | PARTIEL | Le vrai mode est reconnu et expliqué, mais pas de formulaire propre à ce mode |
-| MT5, MT6, MT7 | À FAIRE | Paiements, prêts et virements ne se modifient pas encore (bloqués, voir MT8) |
+| MT5, MT6, MT7 | FAIT (`9a85153`) | Paiement / virement : deux côtés défaits puis refaits par le même service, mêmes écritures et même ID d'opération ; prêt : écart appliqué au compte, Prêt à placer et dossier, refus des montants impossibles. Le compte ne change pas ici |
 | MT10 | PARTIEL | Plus de DELETE + CREATE ; conflits entre appareils non traités |
 | MT22 | PARTIEL | Double appui, brouillon gardé, succès après validation ; pas de contrôle de révision concurrente |
 | MA5 | PARTIEL | Statut de synchro affiché à l'ouverture ; pas après l'enregistrement (l'écran se ferme) |
@@ -293,7 +293,7 @@ prend jamais l'argent de l'enveloppe ; le refus « financée par un autre compte
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
 | 12 | IF10, IA8 bloqués par BANQ (reporté). |
 | 14 | ST2, ST3, ST20 partiels. |
-| 15 | MT4–MT7, MT10, MT22, MA5 restants (voir ci-dessus). |
+| 15 | MT4, MT10, MT22, MA5 partiels (voir ci-dessus). |
 | 16 | **PROCHAINE SECTION** — Historique d'un compte (HC1–HC20, HA1–HA6). |
 | 17 à 25, 27 | Reprise exhaustive par ID non achevée. |
 
