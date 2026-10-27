@@ -172,21 +172,19 @@ class BudgetViewModel(
                 // 1. Charger les comptes
                 _uiState.update { it.copy(messageChargement = "Chargement des comptes...") }
                 val resultComptes = compteRepository.recupererTousLesComptes()
-                val comptes = resultComptes.getOrElse { emptyList() }.filter { showArchived || !it.estArchive }
+                val comptes = resultComptes.getOrThrow().filter { showArchived || !it.estArchive }
                 cacheComptes = comptes
 
                 // 2. Charger les enveloppes
                 _uiState.update { it.copy(messageChargement = "Chargement des enveloppes...") }
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
-                val enveloppes = resultEnveloppes.getOrElse { emptyList() }.filter { showArchived || !it.estArchive }
+                val enveloppes = resultEnveloppes.getOrThrow().filter { showArchived || !it.estArchive }
                 cacheEnveloppes = enveloppes
 
                 // 3. Charger les catégories
                 _uiState.update { it.copy(messageChargement = "Chargement des catégories...") }
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
-                val categories = resultCategories.getOrElse {
-                    emptyList() 
-                }
+                val categories = resultCategories.getOrThrow()
                 cacheCategories = categories
 
                 // 4. Charger les allocations EXACTES pour le mois spécifique UNIQUEMENT
@@ -196,15 +194,13 @@ class BudgetViewModel(
                 // 🔍 DEBUG : Vérifier si on regarde un mois différent du mois actuel
 
                 val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(premierJourDuMois)
-                val allocations = resultAllocations.getOrElse {
-                    emptyList() 
-                }
+                val allocations = resultAllocations.getOrThrow()
 
                 // 4b. Charger TOUTES les allocations passées pour les objectifs intelligents
                 _uiState.update { it.copy(messageChargement = "Chargement de l'historique des allocations...") }
                 val toutesAllocationsPassees = mutableListOf<AllocationMensuelle>()
                 enveloppes.forEach { enveloppe ->
-                    val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrElse { emptyList() }
+                    val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
                     toutesAllocationsPassees.addAll(allocationsEnveloppe)
                 }
                 
