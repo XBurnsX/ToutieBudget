@@ -106,13 +106,20 @@ object MoteurInvestissement {
         val points = serieValeurs(compte)
         if (points.size < 2) return null
         val flux = flux(transactions)
+        // IA10 : un vrai TWR exige les valeurs juste avant/après chaque flux.
+        // Soustraire sommairement un dépôt situé entre deux relevés inventerait
+        // un rendement, surtout lorsque le marché a varié entretemps.
+        if (flux.any { mouvement ->
+                mouvement.date.after(points.first().date) &&
+                    !mouvement.date.after(points.last().date)
+            }) return null
         var produit = 1.0
         for (i in 1 until points.size) {
             val debut = points[i - 1]
             val fin = points[i]
-            if (debut.valeur <= 0) return null
-            val fluxPeriode = flux.filter { it.date.after(debut.date) && !it.date.after(fin.date) }.sumOf { it.montant }
-            produit *= (fin.valeur - fluxPeriode) / debut.valeur
+            if (!debut.valeur.isFinite() || !fin.valeur.isFinite() ||
+                debut.valeur <= 0.0) return null
+            produit *= fin.valeur / debut.valeur
         }
         val r = (produit - 1) * 100
         return if (r.isFinite()) r else null
