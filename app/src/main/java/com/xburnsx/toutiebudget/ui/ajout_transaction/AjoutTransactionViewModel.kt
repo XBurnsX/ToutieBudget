@@ -592,7 +592,13 @@ class AjoutTransactionViewModel(
                 else -> null
             }
             val dossiers = if (typeDossier != null && cle.isNotBlank()) {
-                pretPersonnelRepository.lister().getOrElse { emptyList() }
+                val resultatDossiers = pretPersonnelRepository.lister()
+                if (resultatDossiers.isFailure) {
+                    _uiState.update { it.copy(messageErreur =
+                        "Impossible de charger les prêts de ce tiers : ${resultatDossiers.exceptionOrNull()?.message}") }
+                    return@launch
+                }
+                resultatDossiers.getOrThrow()
                     .filter { cleTiers(it.nomTiers ?: "") == cle && it.type == typeDossier && !it.estArchive && kotlin.math.abs(it.solde) > 0.005 }
                     .sortedBy { it.created ?: "" }
             } else emptyList()
@@ -613,7 +619,10 @@ class AjoutTransactionViewModel(
 
     /** Les 3 enveloppes les plus récemment utilisées avec ce tiers (achats simples et fractions). */
     private suspend fun enveloppesUtiliseesAvec(cle: String): List<String> {
-        val recentes = transactionRepository.recupererToutesLesTransactions().getOrElse { emptyList() }
+        val recentes = transactionRepository.recupererToutesLesTransactions().getOrElse { erreur ->
+            _uiState.update { it.copy(messageErreur = "Suggestions de tiers indisponibles : ${erreur.message}") }
+            return emptyList()
+        }
             .filter { it.type == TypeTransaction.Depense && cleTiers(it.tiersUtiliser ?: "") == cle }
             .sortedByDescending { it.date }
             .take(20)
