@@ -53,6 +53,24 @@ class ReglesStatistiquesTest {
         assertTrue(runCatching { ReglesStatistiques.lireFractions(fauxTotal) }.isFailure)
     }
 
+    @Test fun `SA5 moyenne quotidiennes ne comptent que les depenses et jamais les virements`() {
+        val a = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 1, 0, 0, 0); set(Calendar.MILLISECOND, 0)
+        }.time
+        val b = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 7, 23, 59, 59); set(Calendar.MILLISECOND, 999)
+        }.time
+        val transactions = listOf(
+            tx(TypeTransaction.Depense, 70.0).copy(date = a),
+            tx(TypeTransaction.TransfertSortant, 700.0).copy(date = a),
+            tx(TypeTransaction.PaiementEffectue, 70.0).copy(date = a),
+            tx(TypeTransaction.Revenu, 1000.0).copy(date = a)
+        )
+        assertEquals(10.0, ReglesStatistiques.moyenneDepensesQuotidienne(
+            transactions, a, b, 7, maintenant = b
+        ) ?: -1.0, 0.0001)
+    }
+
     @Test fun `aucune moyenne actuelle pour une periode entierement future`() {
         val maintenant = Calendar.getInstance().apply {
             set(2026, Calendar.OCTOBER, 10, 12, 0, 0); set(Calendar.MILLISECOND, 0)
