@@ -582,19 +582,31 @@ class CartesCreditViewModel(
         apresSucces: (CartesCreditUiState) -> CartesCreditUiState = { it }
     ) {
         viewModelScope.lancerUneFois(verrouCarte) {
-            val gson = com.google.gson.Gson()
-            val json = if (frais.isEmpty()) null else gson.toJsonTree(frais.toTypedArray())
-            val carteMaj = carte.copy(fraisMensuelsJson = json)
-            carteCreditRepository.mettreAJourCarteCredit(carteMaj)
-                .onSuccess {
-                    _uiState.update { courant ->
-                        if (courant.carteSelectionnee?.id != carteMaj.id) courant
-                        else apresSucces(courant.copy(carteSelectionnee = carteMaj, messageErreur = null))
+            try {
+                val carteMaj = operationAtomique.executer {
+                    val actuelle = carteCreditRepository.recupererCartesCredit().getOrThrow()
+                        .firstOrNull { it.id == carte.id }
+                        ?: throw IllegalStateException("Carte introuvable.")
+                    if (actuelle != carte) {
+                        throw IllegalStateException(
+                            "Les frais ou la carte ont changé depuis l'ouverture; recharge avant de modifier."
+                        )
                     }
-                    chargerCartesCredit()
-                    realtimeSyncService.declencherMiseAJourComptes()
+                    val gson = com.google.gson.Gson()
+                    val json = if (frais.isEmpty()) null else gson.toJsonTree(frais.toTypedArray())
+                    val maj = actuelle.copy(fraisMensuelsJson = json)
+                    carteCreditRepository.mettreAJourCarteCredit(maj).getOrThrow()
+                    maj
                 }
-                .onFailure { e -> _uiState.update { it.copy(messageErreur = "Erreur lors de la modification des frais: ${e.message}") } }
+                _uiState.update { courant ->
+                    if (courant.carteSelectionnee?.id != carteMaj.id) courant
+                    else apresSucces(courant.copy(carteSelectionnee = carteMaj, messageErreur = null))
+                }
+                chargerCartesCredit()
+                realtimeSyncService.declencherMiseAJourComptes()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(messageErreur = "Erreur de modification des frais : ${e.message}") }
+            }
         }
     }
 
