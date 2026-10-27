@@ -43,11 +43,11 @@ class VirementBudgetService(
     }.time
 
     private suspend fun compteCheque(compteId: String): CompteCheque =
-        compteRepository.recupererCompteParIdToutesCollections(compteId).getOrNull() as? CompteCheque
+        compteRepository.recupererCompteParIdToutesCollections(compteId).getOrThrow() as? CompteCheque
             ?: throw IllegalArgumentException(VirementErrorMessages.EnveloppeVersPretAPlacer.COMPTE_DESTINATION_INTROUVABLE)
 
     private suspend fun enveloppe(enveloppeId: String, messageSiAbsente: String): Enveloppe =
-        enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().find { it.id == enveloppeId }
+        enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().find { it.id == enveloppeId && !it.estArchive }
             ?: throw IllegalArgumentException(messageSiAbsente)
 
     private suspend fun nomCompte(compteId: String?): String =
@@ -64,7 +64,7 @@ class VirementBudgetService(
     // ===== PRÊT À PLACER → ENVELOPPE =====
 
     suspend fun pretAPlacerVersEnveloppe(compteId: String, enveloppeId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
-        require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
+        require(montant.isFinite() && montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
         val env = enveloppe(enveloppeId, VirementErrorMessages.PretAPlacerVersEnveloppe.enveloppeIntrouvable(""))
@@ -90,13 +90,7 @@ class VirementBudgetService(
             compteSourceId = if (avant.solde <= 0.01) compte.id else avant.compteSourceId,
             collectionCompteSource = if (avant.solde <= 0.01) compte.collection else avant.collectionCompteSource
         )
-        try {
-            ecrire(apres)
-        } catch (e: Exception) {
-            // V4 : rendre le « Prêt à placer » retiré
-            compteRepository.mettreAJourCompte(compte)
-            throw e
-        }
+        ecrire(apres)
 
         historique(avant, apres, compte, env, montant, compte.pretAPlacer, nouveauPretAPlacer)
     }
@@ -105,7 +99,7 @@ class VirementBudgetService(
     // ===== ENVELOPPE → PRÊT À PLACER =====
 
     suspend fun enveloppeVersPretAPlacer(enveloppeId: String, compteId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
-        require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
+        require(montant.isFinite() && montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         val premierJour = premierJourDuMois(mois)
         val compte = compteCheque(compteId)
         val env = enveloppe(enveloppeId, VirementErrorMessages.EnveloppeVersPretAPlacer.enveloppeSourceIntrouvable(""))
@@ -128,11 +122,7 @@ class VirementBudgetService(
         ecrire(apres)
 
         val nouveauPretAPlacer = MoneyFormatter.roundAmount(compte.pretAPlacer + montant)
-        val resultat = compteRepository.mettreAJourCompte(compte.copy(pretAPlacerRaw = nouveauPretAPlacer))
-        if (resultat.isFailure) {
-            ecrire(avant) // V4 : remettre l'enveloppe comme avant
-            throw resultat.exceptionOrNull() ?: IllegalStateException("Mise à jour du prêt à placer impossible")
-        }
+        compteRepository.mettreAJourCompte(compte.copy(pretAPlacerRaw = nouveauPretAPlacer)).getOrThrow()
 
         historique(avant, apres, compte, env, -montant, compte.pretAPlacer, nouveauPretAPlacer)
     }
@@ -141,7 +131,7 @@ class VirementBudgetService(
     // ===== ENVELOPPE → ENVELOPPE =====
 
     suspend fun enveloppeVersEnveloppe(sourceId: String, destinationId: String, montant: Double, mois: Date): Result<Unit> = runCatching { operationAtomique.executer {
-        require(montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
+        require(montant.isFinite() && montant > 0) { VirementErrorMessages.General.MONTANT_INVALIDE }
         require(sourceId != destinationId) { VirementErrorMessages.General.SOURCE_DESTINATION_IDENTIQUES }
         val premierJour = premierJourDuMois(mois)
         val envSource = enveloppe(sourceId, VirementErrorMessages.EnveloppeVersEnveloppe.ENVELOPPE_SOURCE_INTROUVABLE)
@@ -176,19 +166,13 @@ class VirementBudgetService(
         )
 
         ecrire(sourceApres)
-        try {
-            ecrire(destApres)
-        } catch (e: Exception) {
-            ecrire(sourceAvant) // V4
-            throw e
-        }
+        ecrire(destApres)
 
-        provenance?.let { id ->
-            (compteRepository.recupererCompteParIdToutesCollections(id).getOrNull() as? CompteCheque)?.let { compte ->
-                historique(sourceAvant, sourceApres, compte, envSource, -montant, compte.pretAPlacer, compte.pretAPlacer)
-                historique(destAvant, destApres, compte, envDest, montant, compte.pretAPlacer, compte.pretAPlacer)
-            }
-        }
+        // V7 : un mouvement de fonds connus doit garder une provenance valide.
+        val compte = provenance?.let { compteCheque(it) }
+            ?: throw IllegalStateException("Source sans provenance bancaire valide")
+        historique(sourceAvant, sourceApres, compte, envSource, -montant, compte.pretAPlacer, compte.pretAPlacer)
+        historique(destAvant, destApres, compte, envDest, montant, compte.pretAPlacer, compte.pretAPlacer)
     }
     }
 
@@ -201,8 +185,7 @@ class VirementBudgetService(
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     ) {
-        try {
-            historiqueAllocationService.enregistrerModificationAllocation(
+        historiqueAllocationService.enregistrerModificationAllocation(
                 allocationAvant = avant,
                 allocationApres = apres,
                 compte = compte,
@@ -213,8 +196,5 @@ class VirementBudgetService(
                 pretAPlacerAvant = pretAPlacerAvant,
                 pretAPlacerApres = pretAPlacerApres
             )
-        } catch (_: Exception) {
-            // L'historique ne doit pas faire échouer un virement déjà enregistré
-        }
     }
 }
