@@ -53,8 +53,12 @@ class PlanResetService(
     }.time
 
     /** Montant assigné ce mois-ci et pas encore dépensé (les dépenses consomment d'abord l'assignation du mois). */
-    private fun montantRetournable(alloue: Double, depense: Double, solde: Double): Double =
-        MoneyFormatter.roundAmount(minOf(maxOf(alloue - depense, 0.0), maxOf(solde, 0.0)))
+    private fun montantRetournable(alloue: Double, depense: Double, solde: Double): Double {
+        if (!alloue.isFinite() || !depense.isFinite() || !solde.isFinite()) {
+            throw IllegalStateException("Allocation invalide : les montants ne sont pas finis.")
+        }
+        return MoneyFormatter.roundAmount(minOf(maxOf(alloue - depense, 0.0), maxOf(solde, 0.0)))
+    }
 
     suspend fun preparerApercu(moisCible: Date): Result<Apercu> = runCatching {
         val mois = premierJourDuMois(moisCible)
@@ -81,30 +85,52 @@ class PlanResetService(
         Apercu(mois, lignes.sortedBy { it.nomEnveloppe.lowercase() }, ignorees.sorted())
     }
 
-    /**
-     * Rend au « Prêt à placer » les enveloppes choisies. Chaque montant est recalculé sur les données
-     * à jour juste avant l'écriture ; une enveloppe qui a changé depuis l'aperçu n'est jamais vidée au-delà.
-     * Retourne les enveloppes traitées ; s'arrête à la première erreur en indiquant celles déjà faites.
-     */
-    suspend fun appliquer(mois: Date, enveloppeIds: Set<String>): Result<List<String>> = runCatching {
-        val premierJour = premierJourDuMois(mois)
-        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow().associateBy { it.id }
-        val allocations = enveloppeRepository.recupererAllocationsPourMois(premierJour).getOrThrow()
-            .filter { it.enveloppeId in enveloppeIds }
-        val faites = mutableListOf<String>()
 
-        // A8 : réécriture de chaque allocation de la période et de chaque compte
-        // au sein d'une seule transaction Room. Le journal fait partie du commit.
+    /**
+     * BUD-01 : ne valider QUE les allocations explicitement prévisualisées et choisies.
+     * Les IDs sont propres à chaque provenance, même si plusieurs allocations portent
+     * le même nom d'enveloppe. Le compte et le montant de l'aperçu doivent être identiques
+     * au moment de l'écriture; autrement la confirmation est périmée et tout est annulé.
+     */
+    suspend fun appliquer(apercu: Apercu, allocationIds: Set<String>): Result<List<String>> = runCatching {
+        require(allocationIds.isNotEmpty()) { "Aucune allocation sélectionnée." }
+        val lignesParId = apercu.lignes.associateBy { it.allocationId }
+        require(allocationIds.all { it in lignesParId }) {
+            "Sélection invalide : recharge l'aperçu avant de confirmer."
+        }
+        val faites = mutableListOf<String>()
         operationAtomique.executer {
-            allocations.forEach { avant ->
+            // TOUTES les validations et écritures sont sous la même transaction Room.
+            val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
+                .getOrThrow().associateBy { it.id }
+            val allocations = enveloppeRepository.recupererAllocationsPourMois(apercu.mois)
+                .getOrThrow().associateBy { it.id }
+            for (allocationId in allocationIds) {
+                val ligne = lignesParId.getValue(allocationId)
+                val avant = allocations[allocationId]
+                    ?: throw IllegalStateException("L'allocation a disparu : recharge l'aperçu.")
                 val enveloppe = enveloppes[avant.enveloppeId]
-                    ?: throw IllegalStateException("Enveloppe de l'allocation introuvable")
+                    ?: throw IllegalStateException("Enveloppe introuvable : recharge l'aperçu.")
                 val montant = montantRetournable(avant.alloue, avant.depense, avant.solde)
-                if (montant < 0.01) return@forEach
-                val compteId = avant.compteSourceId
-                    ?: throw IllegalStateException("${enveloppe.nom} : provenance bancaire absente")
-                val compte = compteRepository.recupererCompteParIdToutesCollections(compteId).getOrThrow()
-                    as? CompteCheque ?: throw IllegalStateException("${enveloppe.nom} : compte d'origine invalide")
+                if (avant.enveloppeId != ligne.enveloppeId ||
+                    avant.compteSourceId != ligne.compteId ||
+                    MoneyFormatter.roundAmount(montant) != MoneyFormatter.roundAmount(ligne.montant)
+                ) throw IllegalStateException(
+                    "La répartition a changé depuis l'aperçu pour « ${enveloppe.nom} ». Recharge avant de confirmer."
+                )
+                if (montant <= 0.0) throw IllegalStateException("Montant à remettre devenu nul.")
+                val compte = compteRepository.recupererCompteParIdToutesCollections(ligne.compteId)
+                    .getOrThrow() as? CompteCheque
+                    ?: throw IllegalStateException("Compte source invalide : recharge l'aperçu.")
+                if (compte.estArchive) throw IllegalStateException(
+                    "Le compte « ${compte.nom} » est archivé; réactivation requise."
+                )
+                if (!compte.pretAPlacer.isFinite()) throw IllegalStateException("Solde du compte invalide.")
+                val nouveauPretAPlacer = MoneyFormatter.roundAmount(compte.pretAPlacer + montant)
+                if (!nouveauPretAPlacer.isFinite()) throw IllegalStateException("Montant du compte trop élevé.")
+
+                // L'alloué du mois est le seul montant diminué : pas de suppression
+                // de transactions, de dépenses, des autres mois ou du rollover.
                 val apres = avant.copy(
                     solde = MoneyFormatter.roundAmount(avant.solde - montant),
                     alloue = MoneyFormatter.roundAmount(avant.alloue - montant)
@@ -120,7 +146,7 @@ class PlanResetService(
                     soldeAvant = compte.solde,
                     soldeApres = compte.solde,
                     pretAPlacerAvant = compte.pretAPlacer,
-                    pretAPlacerApres = MoneyFormatter.roundAmount(compte.pretAPlacer + montant)
+                    pretAPlacerApres = nouveauPretAPlacer
                 )
                 faites.add(enveloppe.nom)
             }
@@ -128,4 +154,18 @@ class PlanResetService(
         BudgetEvents.onAllocationUpdated()
         faites.distinct()
     }
+
+    /** Compatibilité avec les appels métier existants sélectionnant des enveloppes. */
+    suspend fun appliquer(mois: Date, enveloppeIds: Set<String>): Result<List<String>> {
+        return preparerApercu(mois).fold(
+            onSuccess = { apercu ->
+                val ids = apercu.lignes
+                    .filter { it.enveloppeId in enveloppeIds }
+                    .map { it.allocationId }.toSet()
+                if (ids.isEmpty()) Result.success(emptyList()) else appliquer(apercu, ids)
+            },
+            onFailure = { Result.failure(it) }
+        )
+    }
+
 }
