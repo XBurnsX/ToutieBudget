@@ -173,9 +173,10 @@ class BudgetViewModel(
         val generation = ++generationChargementBudget
         // Le mois demandé doit aussi être celui des assignations pendant le chargement.
         moisSelectionne = moisCible
+        // Bloquer immédiatement les assignations et aperçus sur les données du
+        // mois précédent, avant même que la coroutine de lecture ne démarre.
+        _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
-            
             try {
                 // ⚠️ PLUS DE ROLLOVER AUTOMATIQUE ICI
                 // Le rollover se fait seulement le 1er du mois dans init()
