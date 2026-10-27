@@ -114,6 +114,9 @@ fun ModifierCarteCreditDialog(
                     Champ("Avances de fonds", formulaire.tauxAvances, formulaire.erreurs["tauxAvances"]) { v -> onChange { copy(tauxAvances = v) } }
                     Champ("Transferts de solde", formulaire.tauxTransferts, formulaire.erreurs["tauxTransferts"]) { v -> onChange { copy(tauxTransferts = v) } }
                     Champ("Taux promotionnel", formulaire.tauxPromo, formulaire.erreurs["tauxPromo"]) { v -> onChange { copy(tauxPromo = v) } }
+                    Champ("Début de la promotion (AAAA-MM-JJ)", formulaire.debutPromo, formulaire.erreurs["debutPromo"], texte = true) { v ->
+                        onChange { copy(debutPromo = v) }
+                    }
                     Champ("Fin de la promotion (AAAA-MM-JJ)", formulaire.finPromo, formulaire.erreurs["finPromo"], texte = true) { v ->
                         onChange { copy(finPromo = v) }
                     }
