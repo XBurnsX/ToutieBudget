@@ -393,7 +393,12 @@ class AjoutTransactionViewModel(
      */
     fun onMontantDirectChange(nouveauMontant: String) {
         _uiState.update { state ->
-            state.copy(montant = nouveauMontant).calculerValidite()
+            state.copy(montant = nouveauMontant,
+                // AT7 : ne pas laisser une ancienne confirmation de fractionnement
+                // valable lorsque la somme a changé.
+                fractionnementEffectue = state.fractionnementEffectue &&
+                    state.fractionsSauvegardees.sumOf { it.montant } == nouveauMontant.toLongOrNull()?.toDouble()
+            ).calculerValidite()
         }
     }
 
@@ -402,7 +407,13 @@ class AjoutTransactionViewModel(
      */
     fun onCompteSelected(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
+            val aChange = state.compteSelectionne?.id != nouveauCompte?.id
+            state.copy(compteSelectionne = nouveauCompte,
+                fractionnementEffectue = state.fractionnementEffectue && !aChange,
+                // AT7 : une ancienne fraction ne doit pas être réutilisée en silence
+                // avec un autre compte. La sélection doit être reconfirmée.
+                fractionsSauvegardees = if (aChange) emptyList() else state.fractionsSauvegardees
+            ).calculerValidite()
         }
         _uiState.update { it.avecAvertissementProvenance() }
     }
@@ -446,7 +457,12 @@ class AjoutTransactionViewModel(
      */
     fun onMontantChanged(nouveauMontant: String) {
         _uiState.update { state ->
-            state.copy(montant = nouveauMontant).calculerValidite()
+            state.copy(montant = nouveauMontant,
+                // AT7 : ne pas laisser une ancienne confirmation de fractionnement
+                // valable lorsque la somme a changé.
+                fractionnementEffectue = state.fractionnementEffectue &&
+                    state.fractionsSauvegardees.sumOf { it.montant } == nouveauMontant.toLongOrNull()?.toDouble()
+            ).calculerValidite()
         }
     }
 
@@ -455,7 +471,11 @@ class AjoutTransactionViewModel(
      */
     fun onCompteChanged(nouveauCompte: Compte?) {
         _uiState.update { state ->
-            state.copy(compteSelectionne = nouveauCompte, fractionnementEffectue = state.fractionnementEffectue && state.compteSelectionne?.id == nouveauCompte?.id).calculerValidite()
+            val aChange = state.compteSelectionne?.id != nouveauCompte?.id
+            state.copy(compteSelectionne = nouveauCompte,
+                fractionnementEffectue = state.fractionnementEffectue && !aChange,
+                fractionsSauvegardees = if (aChange) emptyList() else state.fractionsSauvegardees
+            ).calculerValidite()
         }
         _uiState.update { it.avecAvertissementProvenance() }
     }
