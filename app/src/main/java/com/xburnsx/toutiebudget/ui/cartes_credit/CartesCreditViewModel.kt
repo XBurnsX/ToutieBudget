@@ -12,6 +12,8 @@ import com.xburnsx.toutiebudget.data.services.GenerateurAlertesCarte
 import com.xburnsx.toutiebudget.data.services.RealtimeSyncService
 import com.xburnsx.toutiebudget.domain.services.HistoriqueAllocationService
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
+import com.xburnsx.toutiebudget.utils.OperationAtomique
+import com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +31,8 @@ import kotlin.math.abs
 class CartesCreditViewModel(
     private val carteCreditRepository: CarteCreditRepository,
     private val realtimeSyncService: RealtimeSyncService,
-    private val historiqueAllocationService: HistoriqueAllocationService
+    private val historiqueAllocationService: HistoriqueAllocationService,
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -88,7 +91,11 @@ class CartesCreditViewModel(
     }
 
     private suspend fun chargerTransactions(carte: CompteCredit) {
-        val transactions = carteCreditRepository.recupererHistoriqueTransactions(carte.id).getOrElse { emptyList() }
+        val transactions = carteCreditRepository.recupererHistoriqueTransactions(carte.id).getOrElse { erreur ->
+            _uiState.update { it.copy(messageErreur = "Historique de carte indisponible : ${erreur.message}",
+                transactionsCarte = emptyList(), alertes = emptyList()) }
+            return
+        }
         _uiState.update {
             it.copy(
                 transactionsCarte = transactions,
