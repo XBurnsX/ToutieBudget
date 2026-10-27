@@ -244,8 +244,10 @@ private fun SectionCapital(compte: CompteInvestissement, ui: InvestissementUiSta
         }
         MoteurInvestissement.pourcentageSimple(compte, ui.transactions)?.let { Ligne("Variation depuis le départ", pct(it), couleur = couleur(it)) }
         if (d.mode == ModeSuiviPlacement.DETAILLE) {
-            Ligne("Réalisé (ventes, dividendes, intérêts − frais)", signe(MoteurInvestissement.gainRealise(compte)))
-            Ligne("Non réalisé (positions avec cours)", MoteurInvestissement.gainNonRealise(compte)?.let { signe(it) } ?: "indisponible")
+            Ligne("Réalisé (ventes, dividendes, intérêts − frais)",
+                MoteurInvestissement.gainRealise(compte)?.let(::signe) ?: "indisponible")
+            Ligne("Non réalisé (toutes positions avec cours CAD connus)",
+                MoteurInvestissement.gainNonRealise(compte)?.let(::signe) ?: "indisponible")
         }
         Note("Un gain n'entre jamais dans les enveloppes ni dans le Prêt à placer.")
     }
