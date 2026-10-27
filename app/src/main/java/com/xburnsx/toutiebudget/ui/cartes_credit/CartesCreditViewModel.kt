@@ -73,7 +73,12 @@ class CartesCreditViewModel(
             carteCreditRepository.recupererCartesCredit()
                 .onSuccess { cartes ->
                     val carte = cartes.find { it.id == carteCreditId }
-                    _uiState.update { it.copy(cartesCredit = cartes, carteSelectionnee = carte, estEnChargement = false) }
+                    _uiState.update { it.copy(
+                        cartesCredit = cartes,
+                        carteSelectionnee = carte,
+                        estEnChargement = false,
+                        messageErreur = if (carte == null) "Carte introuvable ou archivée" else null
+                    ) }
                     carte?.let { chargerTransactions(it) }
                 }
                 .onFailure { erreur ->
