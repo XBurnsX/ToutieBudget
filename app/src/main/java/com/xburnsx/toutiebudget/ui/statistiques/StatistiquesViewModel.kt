@@ -321,16 +321,22 @@ class StatistiquesViewModel(
             val sixMoisLabels = mutableListOf<String>()
             val sixMoisDates = mutableListOf<Pair<Date, Date>>()
             run {
-                val calStart = Calendar.getInstance().apply { time = debut }
-                // remonter 5 mois pour avoir 6 mois glissants finissant au mois courant
-                calStart.add(Calendar.MONTH, -5)
+                val calStart = Calendar.getInstance().apply {
+                    time = debut
+                    // ST16 : six mois CIVILS entiers, pas du 15 au 14
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                    add(Calendar.MONTH, -5)
+                }
                 for (i in 0 until 6) {
                     val mStart = calStart.time
-                    val mEnd = Calendar.getInstance().apply { time = mStart; add(Calendar.MONTH, 1); add(Calendar.MILLISECOND, -1) }.time
+                    val mEnd = Calendar.getInstance().apply {
+                        time = mStart; add(Calendar.MONTH, 1); add(Calendar.MILLISECOND, -1)
+                    }.time
                     sixMoisDates += mStart to mEnd
-                    sixMoisLabels += java.text.SimpleDateFormat("MMM", java.util.Locale.FRENCH)
-                        .format(mStart)
-                        .replaceFirstChar { it.uppercase() }
+                    sixMoisLabels += java.text.SimpleDateFormat("MMM yy", java.util.Locale.FRENCH)
+                        .format(mStart).replaceFirstChar { it.uppercase() }
                     calStart.add(Calendar.MONTH, 1)
                 }
             }
