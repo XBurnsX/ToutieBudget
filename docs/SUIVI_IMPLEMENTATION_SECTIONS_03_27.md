@@ -269,15 +269,33 @@ prend jamais l'argent de l'enveloppe ; le refus « financée par un autre compte
 | SA7 | FAIT | Prévu (assigné moins achats carte) vs réel par enveloppe |
 | SA8 | FAIT | Export CSV « ; », virgule décimale, BOM UTF-8 |
 
+## Section 15 — Modifier transaction (27 octobre 2026) — `54985ae`
+
+**Compilation release + 159 tests JVM verts.**
+
+| ID | État | Notes |
+|---|---|---|
+| MT1, MT2 | FAIT | Effets défaits en gardant l'écriture, puis réécriture sur place (même ID, même création, un seul UPDATE), le tout dans la transaction Room |
+| MT3, MT9, MT13, MT14, MT16–MT20 | FAIT | Prêt à placer, prévalidation sous Room, changement de mois, fractions au cent, cartes, notes, heure d'origine, centimes, collection canonique |
+| MT8 | FAIT | Paiement / virement / prêt reconnu à l'ouverture, raison affichée, bouton désactivé |
+| MT11, MT12, MT15, MT21 | FAIT | Route unique ; soldes du mois choisi ; simple ↔ fractionnée ; destination archivée refusée |
+| MA1, MA2, MA3 | FAIT | Résumé des changements ; note/tiers sans mouvement d'argent ; origine + liens + état de synchro |
+| MT4 | PARTIEL | Le vrai mode est reconnu et expliqué, mais pas de formulaire propre à ce mode |
+| MT5, MT6, MT7 | À FAIRE | Paiements, prêts et virements ne se modifient pas encore (bloqués, voir MT8) |
+| MT10 | PARTIEL | Plus de DELETE + CREATE ; conflits entre appareils non traités |
+| MT22 | PARTIEL | Double appui, brouillon gardé, succès après validation ; pas de contrôle de révision concurrente |
+| MA5 | PARTIEL | Statut de synchro affiché à l'ouverture ; pas après l'enregistrement (l'écran se ferme) |
+
 ## Sections restantes
 
 | Sections | État |
 |---|---|
 | 9 | BUD-02 **À DISCUTER** — ne pas coder sans approbation. |
 | 12 | IF10, IA8 bloqués par BANQ (reporté). |
-| 14 | ST2, ST3, ST20 partiels (voir ci-dessus). |
-| 15 | **PROCHAINE SECTION** — Modifier transaction (MT1–MT22, MA1–MA5). |
-| 16 à 25, 27 | Reprise exhaustive par ID non achevée. |
+| 14 | ST2, ST3, ST20 partiels. |
+| 15 | MT4–MT7, MT10, MT22, MA5 restants (voir ci-dessus). |
+| 16 | **PROCHAINE SECTION** — Historique d'un compte (HC1–HC20, HA1–HA6). |
+| 17 à 25, 27 | Reprise exhaustive par ID non achevée. |
 
 ## Règles de suivi
 
