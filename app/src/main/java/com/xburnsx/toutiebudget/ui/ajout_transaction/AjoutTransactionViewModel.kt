@@ -167,7 +167,18 @@ class AjoutTransactionViewModel(
                         enveloppesDisponibles = enveloppesUi,
                         enveloppesFiltrees = enveloppesFiltrees,
                         tiersDisponibles = allTiers,
-                        allocationsIndisponibles = allocationsIndisponibles
+                        allocationsIndisponibles = allocationsIndisponibles,
+                        // AT19/AT20 : relier le brouillon aux comptes réels relus et
+                        // annuler une sélection si le compte a été archivé/supprimé.
+                        compteSelectionne = state.compteSelectionne?.let { selection ->
+                            allComptes.find { !it.estArchive && it.id == selection.id && it.collection == selection.collection }
+                        },
+                        comptePaiementSelectionne = state.comptePaiementSelectionne?.let { selection ->
+                            allComptes.find { !it.estArchive && it.id == selection.id && it.collection == selection.collection }
+                        },
+                        enveloppeSelectionnee = state.enveloppeSelectionnee?.let { selection ->
+                            enveloppesUi.find { it.id == selection.id }
+                        }
                     ).calculerValidite()
                 }
                 
@@ -214,8 +225,14 @@ class AjoutTransactionViewModel(
                     allComptes = resultComptes.getOrNull() ?: emptyList()
                     _uiState.update { state ->
                         state.copy(
-                            comptesDisponibles = allComptes.filter { !it.estArchive }
-                        )
+                            comptesDisponibles = allComptes.filter { !it.estArchive },
+                            compteSelectionne = state.compteSelectionne?.let { selection ->
+                                allComptes.find { !it.estArchive && it.id == selection.id && it.collection == selection.collection }
+                            },
+                            comptePaiementSelectionne = state.comptePaiementSelectionne?.let { selection ->
+                                allComptes.find { !it.estArchive && it.id == selection.id && it.collection == selection.collection }
+                            }
+                        ).calculerValidite()
                     }
                 }
             } catch (e: Exception) {
@@ -277,7 +294,7 @@ class AjoutTransactionViewModel(
                             enveloppesFiltrees = enveloppesFiltrees,
                             allocationsIndisponibles = allocationsIndisponibles,
                             // L'enveloppe choisie garde sa sélection mais montre le solde du bon mois
-                            enveloppeSelectionnee = state.enveloppeSelectionnee?.let { choisie -> enveloppesUi.find { it.id == choisie.id } ?: choisie }
+                            enveloppeSelectionnee = state.enveloppeSelectionnee?.let { choisie -> enveloppesUi.find { it.id == choisie.id } }
                         ).calculerValidite()
                     }
                 }
