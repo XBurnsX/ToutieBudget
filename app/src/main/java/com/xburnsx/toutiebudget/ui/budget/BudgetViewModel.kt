@@ -68,6 +68,7 @@ class BudgetViewModel(
     private var cacheEnveloppes: List<Enveloppe> = emptyList()
     private var cacheAllocations: List<AllocationMensuelle> = emptyList()
     private var cacheCategories: List<Categorie> = emptyList()
+    private var generationChargementBudget = 0L
     
     // Garder en mémoire le mois sélectionné pour les rafraîchissements automatiques
     private var moisSelectionne: Date = Date()
@@ -168,6 +169,9 @@ class BudgetViewModel(
      * Affiche les données EXACTES du mois sans rollover automatique.
      */
     fun chargerDonneesBudget(moisCible: Date = Date()) {
+        val generation = ++generationChargementBudget
+        // Le mois demandé doit aussi être celui des assignations pendant le chargement.
+        moisSelectionne = moisCible
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
             
@@ -179,18 +183,21 @@ class BudgetViewModel(
                 _uiState.update { it.copy(messageChargement = "Chargement des comptes...") }
                 val resultComptes = compteRepository.recupererTousLesComptes()
                 val comptes = resultComptes.getOrThrow().filter { showArchived || !it.estArchive }
+                if (generation != generationChargementBudget) return@launch
                 cacheComptes = comptes
 
                 // 2. Charger les enveloppes
                 _uiState.update { it.copy(messageChargement = "Chargement des enveloppes...") }
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val enveloppes = resultEnveloppes.getOrThrow().filter { showArchived || !it.estArchive }
+                if (generation != generationChargementBudget) return@launch
                 cacheEnveloppes = enveloppes
 
                 // 3. Charger les catégories
                 _uiState.update { it.copy(messageChargement = "Chargement des catégories...") }
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 val categories = resultCategories.getOrThrow()
+                if (generation != generationChargementBudget) return@launch
                 cacheCategories = categories
 
                 // 4. Charger les allocations EXACTES pour le mois spécifique UNIQUEMENT
@@ -201,12 +208,14 @@ class BudgetViewModel(
 
                 val resultAllocations = enveloppeRepository.recupererAllocationsPourMois(premierJourDuMois)
                 val allocations = resultAllocations.getOrThrow()
+                if (generation != generationChargementBudget) return@launch
 
                 // 4b. Charger TOUTES les allocations passées pour les objectifs intelligents
                 _uiState.update { it.copy(messageChargement = "Chargement de l'historique des allocations...") }
                 val toutesAllocationsPassees = mutableListOf<AllocationMensuelle>()
                 enveloppes.forEach { enveloppe ->
                     val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
+                    if (generation != generationChargementBudget) return@launch
                     toutesAllocationsPassees.addAll(allocationsEnveloppe)
                 }
                 
@@ -246,6 +255,8 @@ class BudgetViewModel(
                 val categoriesOuvertes = preferenceRepository.recupererCategoriesOuvertes()
                 val enveloppesFavorites = preferenceRepository.recupererEnveloppesFavorites()
 
+                if (generation != generationChargementBudget) return@launch
+
                 // 10. Mettre à jour l'état final
                 _uiState.update {
                     it.copy(
@@ -259,12 +270,11 @@ class BudgetViewModel(
                     )
                 }
 
-                moisSelectionne = moisCible
-
                 // 11. Échanger avec PocketBase sans bloquer l'affichage
                 synchroniserPreferencesBudget()
 
             } catch (e: Exception) {
+                if (generation != generationChargementBudget) return@launch
                 e.printStackTrace()
                 _uiState.update { 
                     it.copy(
