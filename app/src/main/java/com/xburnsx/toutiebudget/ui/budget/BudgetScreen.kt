@@ -88,11 +88,11 @@ enum class FiltreEnveloppes(val libelle: String) {
 
     fun accepte(enveloppe: EnveloppeUi, favorites: Set<String>): Boolean = when (this) {
         FAVORITES -> enveloppe.id in favorites
-        NEGATIVES -> enveloppe.solde < -0.001
-        SANS_FONDS -> enveloppe.solde in -0.001..0.001
-        A_FINANCER -> enveloppe.versementRecommande > 0.009
+        NEGATIVES -> kotlin.math.round(enveloppe.solde * 100).toLong() < 0L
+        SANS_FONDS -> kotlin.math.round(enveloppe.solde * 100).toLong() == 0L
+        A_FINANCER -> kotlin.math.round(enveloppe.versementRecommande * 100).toLong() > 0L
         AVEC_OBJECTIF -> enveloppe.objectif > 0 && enveloppe.typeObjectif != TypeObjectif.Aucun
-        AVEC_SOLDE -> enveloppe.solde > 0.001
+        AVEC_SOLDE -> kotlin.math.round(enveloppe.solde * 100).toLong() > 0L
     }
 }
 
