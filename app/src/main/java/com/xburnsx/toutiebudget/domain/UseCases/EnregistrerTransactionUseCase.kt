@@ -67,6 +67,22 @@ class EnregistrerTransactionUseCase(
             operationAtomique.executer {
               toutOuRien {
 
+                // AT11/AT12/AT19 : le compte et l'enveloppe sont relus dans la
+                // transaction Room. Un formulaire ouvert depuis longtemps ne
+                // doit pas débiter un compte archivé ou une enveloppe supprimée.
+                val compteCourant = compteRepository.getCompteById(compteId, collectionCompte)
+                    ?: throw IllegalStateException("Compte introuvable : transaction refusée.")
+                if (compteCourant.estArchive || compteCourant.collection != collectionCompte) {
+                    throw IllegalStateException("Le compte sélectionné est archivé ou a changé de type.")
+                }
+                if (typeTransaction == TypeTransaction.Depense && !estFractionnee) {
+                    val idEnveloppe = enveloppeId?.takeIf { it.isNotBlank() }
+                        ?: throw IllegalArgumentException("Une enveloppe est requise pour cette dépense.")
+                    val enveloppeCourante = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                        .find { it.id == idEnveloppe && it.utilisateurId == compteCourant.utilisateurId && !it.estArchive }
+                        ?: throw IllegalStateException("L'enveloppe choisie n'est plus disponible.")
+                }
+
                 // 1. Obtenir ou créer l'allocation mensuelle si c'est une dépense
                 var allocationMensuelleId: String? = null
                 if (typeTransaction == TypeTransaction.Depense && !enveloppeId.isNullOrBlank()) {
@@ -226,7 +242,23 @@ class EnregistrerTransactionUseCase(
             val allocationExistante = allocationMensuelleRepository.recupererOuCreerAllocation(enveloppeId, premierJourMois)
 
             if (allocationExistante.id.isNotBlank()) {
-                // 🎯 Mettre à jour le compte source si pas déjà défini
+                // AT12 : même politique de provenance pour une dépense simple
+                // et fractionnée. Une allocation positive financée par un
+                // autre compte ne peut pas être utilisée sans virement explicite.
+                if (!allocationExistante.solde.isFinite() ||
+                    !allocationExistante.alloue.isFinite() ||
+                    !allocationExistante.depense.isFinite()
+                ) throw IllegalStateException("Les montants de l'allocation sont invalides.")
+                if (allocationExistante.solde > 0.005 &&
+                    allocationExistante.compteSourceId != null &&
+                    (allocationExistante.compteSourceId != compteId ||
+                        (allocationExistante.collectionCompteSource != null &&
+                            allocationExistante.collectionCompteSource != collectionCompte))
+                ) throw IllegalStateException("Cette enveloppe est financée par un autre compte.")
+                if (allocationExistante.compteSourceId == null &&
+                    (kotlin.math.abs(allocationExistante.alloue) > 0.005 ||
+                        kotlin.math.abs(allocationExistante.depense) > 0.005)
+                ) throw IllegalStateException("Allocation historique sans provenance : correction requise.")
                 if (allocationExistante.compteSourceId == null) {
                     allocationMensuelleRepository.mettreAJourCompteSource(
                         allocationExistante.id,
