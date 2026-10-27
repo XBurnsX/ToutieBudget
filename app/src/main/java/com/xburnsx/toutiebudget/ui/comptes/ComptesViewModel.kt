@@ -44,6 +44,8 @@ class ComptesViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouCompte = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    private var generationComptes = 0L
+    private var generationArchives = 0L
 
     // Callback pour notifier les autres ViewModels des changements
     var onCompteChange: (() -> Unit)? = null
@@ -73,9 +75,12 @@ class ComptesViewModel(
     }
 
     fun chargerComptes() {
+        val generation = ++generationComptes
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
-            compteRepository.recupererTousLesComptes().onSuccess { comptes ->
+            val resultat = compteRepository.recupererTousLesComptes()
+            if (generation != generationComptes) return@launch
+            resultat.onSuccess { comptes ->
                 val comptesGroupes = comptes.groupBy {
                     when (it) {
                         is CompteCheque -> "Comptes chèques"
@@ -90,7 +95,7 @@ class ComptesViewModel(
                     typeDeCompte != "Dettes" || comptesType.isNotEmpty()
                 }
                 _uiState.update {
-                    it.copy(isLoading = false, comptesGroupes = comptesGroupes)
+                    it.copy(isLoading = false, comptesGroupes = comptesGroupes, erreur = null)
                 }
             }.onFailure { erreur ->
                 _uiState.update {
@@ -102,8 +107,11 @@ class ComptesViewModel(
 
     /** CO3 : liste séparée, qu'un rafraîchissement des comptes actifs ne peut pas écraser. */
     fun chargerComptesArchives() {
+        val generation = ++generationArchives
         viewModelScope.launch(Dispatchers.IO) {
-            compteRepository.recupererTousLesComptes().onSuccess { comptes ->
+            val resultat = compteRepository.recupererTousLesComptes()
+            if (generation != generationArchives) return@launch
+            resultat.onSuccess { comptes ->
                 _uiState.update { it.copy(comptesArchives = comptes.filter { c -> c.estArchive }.sortedBy { c -> c.nom.lowercase() }) }
             }.onFailure { erreur ->
                 _uiState.update { it.copy(erreur = "Impossible de charger les comptes archivés: ${erreur.message}") }
