@@ -1480,8 +1480,18 @@ class AjoutTransactionViewModel(
             dossier to aPayer
         }
 
-        // AT4 : compte, dossiers et transactions ensemble ou pas du tout
+        // AT4 / P6 : relire les dossiers dans la transaction Room. Si un autre
+        // changement a modifié un solde depuis la préparation, tout échoue AVANT
+        // le débit bancaire, sans remboursement excédentaire.
         operationAtomique.executer { toutOuRien {
+        val soldesActuels = pretPersonnelRepository.lister().getOrThrow().associateBy { it.id }
+        portions.forEach { (dossier, _) ->
+            val actuel = soldesActuels[dossier.id]
+                ?: throw IllegalStateException("Prêt introuvable : actualiser le formulaire.")
+            if (actuel.estArchive || actuel.solde != dossier.solde || actuel.type != dossier.type) {
+                throw IllegalStateException("Le solde du dossier a changé : recommence le remboursement.")
+            }
+        }
         // 1) Le compte bouge une seule fois pour le total
         val variationCompte = if (recu) montantDollars else -montantDollars
         compteRepository.mettreAJourSoldeAvecVariationEtPretAPlacer(
