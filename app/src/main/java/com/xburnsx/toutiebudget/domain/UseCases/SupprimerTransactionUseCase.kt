@@ -51,10 +51,22 @@ class SupprimerTransactionUseCase(
         // L'argument optionnel ne change pas les parcours de modification existants.
         val transaction = transactionRepository.recupererTransactionParId(transactionId)
             .getOrThrow()
-        if (transactionAttendue != null && transaction != transactionAttendue) {
-            throw IllegalStateException(
-                "Transaction modifiée depuis la confirmation : suppression annulée."
-            )
+        if (transactionAttendue != null) {
+            // HC5 : même à l'intérieur du UseCase, la relecture par ID seule
+            // n'accorde aucun droit. Exiger l'appartenance au profil courant,
+            // même si la session a basculé APRÈS la fenêtre de confirmation.
+            val transactionDuProfil = transactionRepository
+                .recupererTransactionDeLaSession(transactionId).getOrThrow()
+            if (transactionDuProfil != transaction) {
+                throw SecurityException(
+                    "La session a changé : suppression de cette transaction refusée."
+                )
+            }
+            if (transaction != transactionAttendue) {
+                throw IllegalStateException(
+                    "Transaction modifiée depuis la confirmation : suppression annulée."
+                )
+            }
         }
         require(transaction.montant.isFinite() && transaction.montant > 0.0) {
             "Transaction invalide : montant nul ou non fini."
