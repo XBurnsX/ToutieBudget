@@ -31,6 +31,25 @@ interface CategorieRepository {
      */
     suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie>
 
+    /** CA1/CE13 : modifier sans écraser un changement reçu depuis
+     * l'ouverture du formulaire; Room revalide dans sa transaction. */
+    suspend fun modifierCategorieSiInchangee(
+        attendue: Categorie, nouvelle: Categorie
+    ): Result<Categorie> = runCatching {
+        require(attendue.id.isNotBlank() && attendue.id == nouvelle.id &&
+            attendue.utilisateurId == nouvelle.utilisateurId) {
+            "Identité de catégorie invalide."
+        }
+        val actuelle = recupererToutesLesCategories().getOrThrow()
+            .firstOrNull { it.id == attendue.id }
+            ?: throw NoSuchElementException("Catégorie supprimée.")
+        require(actuelle == attendue) {
+            "Catégorie modifiée ailleurs; actualise avant de recommencer."
+        }
+        if (actuelle == nouvelle) actuelle
+        else mettreAJourCategorie(nouvelle).getOrThrow()
+    }
+
     /** CE11/CE13/CA6 : vérifie l'instantané avant, n'écrit que les ordres changés.
      * Room surcharge pour exécuter ces changements ET les SyncJobs atomiquement. */
     suspend fun reorganiserCategories(avant: List<Categorie>, apres: List<Categorie>): Result<Unit> =
