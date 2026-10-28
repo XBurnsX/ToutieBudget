@@ -28,9 +28,10 @@ import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
         PretPersonnel::class,
         AllocationMensuelle::class,
         HistoriqueAllocation::class,
-        AliasBancaire::class
+        AliasBancaire::class,
+        OperationBancaireEnAttente::class
     ],
-    version = 8, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements
+    version = 9, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements
     exportSchema = false
 )
 @TypeConverters(DateStringConverter::class)
@@ -49,6 +50,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
     abstract fun enveloppeDao(): EnveloppeDao
     abstract fun tiersDao(): TiersDao
     abstract fun aliasBancaireDao(): AliasBancaireDao
+    abstract fun operationBancaireEnAttenteDao(): OperationBancaireEnAttenteDao
     abstract fun pretPersonnelDao(): PretPersonnelDao
     abstract fun allocationMensuelleDao(): AllocationMensuelleDao
     abstract fun historiqueAllocationDao(): HistoriqueAllocationDao
@@ -64,7 +66,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
                     ToutieBudgetDatabase::class.java,
                     "toutiebudget_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8) // 🆕 AJOUT : Migrations
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9) // 🆕 AJOUT : Migrations
                 // .fallbackToDestructiveMigration() // DÉSACTIVÉ : Utiliser les migrations pour préserver les données
                 .build()
                 INSTANCE = instance
@@ -72,6 +74,39 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
             }
         }
         
+        // BANQ-03 : file d'import bancaire purement informative, sans effet financier.
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS operations_bancaires_attente (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        utilisateur_id TEXT NOT NULL,
+                        compte_id TEXT NOT NULL,
+                        collection_compte TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        id_externe TEXT NOT NULL,
+                        date_operation TEXT NOT NULL,
+                        montant_centimes INTEGER NOT NULL,
+                        libelle_brut TEXT NOT NULL,
+                        statut_bancaire TEXT NOT NULL,
+                        decision TEXT NOT NULL,
+                        tiers_id TEXT,
+                        verification_requise INTEGER NOT NULL,
+                        montant_final_centimes INTEGER
+                    )
+                """.trimIndent())
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "index_operations_bancaires_attente_utilisateur_id_compte_id_source_id_externe " +
+                    "ON operations_bancaires_attente (utilisateur_id, compte_id, source, id_externe)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_operations_bancaires_attente_utilisateur_id_decision " +
+                    "ON operations_bancaires_attente (utilisateur_id, decision)"
+                )
+            }
+        }
+
         // BANQ-02 : migration additive, sans modifier les comptes ni les écritures existantes.
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(database: SupportSQLiteDatabase) {
