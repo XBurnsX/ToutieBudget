@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -253,6 +254,46 @@ fun HistoriqueCompteScreen(
                         scope.launch { listState.scrollToItem(0) }
                     }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Période suivante")
+                    }
+                }
+            }
+
+            // HA3 : uniquement les mouvements visibles après recherche, période
+            // et type. Le total d'un achat fractionné compte une seule fois.
+            if (!uiState.isLoading || uiState.transactionsGroupees.isNotEmpty()) {
+                val resume = remember(uiState.transactionsGroupees) {
+                    runCatching {
+                        ResumeFluxHistoriqueCompte.calculer(
+                            uiState.transactionsGroupees.values.flatten()
+                        )
+                    }.getOrNull()
+                }
+                if (resume == null) {
+                    Text(
+                        "Totaux indisponibles : certains montants dépassent les limites du calcul.",
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Text(
+                            "Mouvements affichés : " + resume.mouvements +
+                                " · Entrées : " + MoneyFormatter.formatAmountFromCents(resume.entreesCentimes) +
+                                " · Sorties : " + MoneyFormatter.formatAmountFromCents(resume.sortiesCentimes),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "Flux net affiché : " +
+                                MoneyFormatter.formatAmountFromCents(resume.netCentimes) +
+                                if (resume.montantsExclus > 0 || resume.typesNonClasses > 0)
+                                    " · Résumé partiel : " + resume.montantsExclus +
+                                        " montant(s) invalide(s), " + resume.typesNonClasses +
+                                        " type(s) non classé(s)"
+                                else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
