@@ -62,14 +62,15 @@ class AliasBancaireRepository(
             require(ancienne == null || ancienne.utilisateurId == userId) {
                 "Modification d'une règle d'un autre utilisateur interdite."
             }
-            val identique = regles.firstOrNull {
+            val memesLibelles = regles.filter {
                 it.id != regle.id && it.compteId == regle.compteId &&
                     ReconnaissanceTiersBancaire.normaliser(it.libelleBrut) ==
                     ReconnaissanceTiersBancaire.normaliser(regle.libelleBrut)
             }
-            require(identique == null || identique.tiersId == regle.tiersId) {
+            require(memesLibelles.all { it.tiersId == regle.tiersId }) {
                 "Deux tiers différents pour le même libellé : corriger la règle existante."
             }
+            val identique = memesLibelles.firstOrNull()
             val id = ancienne?.id ?: identique?.id ?: regle.id.ifBlank { IdGenerator.generateId() }
             val courante = aliasDao.trouverParId(id)
             require(courante == null || courante.utilisateurId == userId) { "ID de règle déjà utilisé." }
