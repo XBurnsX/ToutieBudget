@@ -36,6 +36,9 @@ fun CategorieCard(
     onSupprimerEnveloppe: (Enveloppe) -> Unit = {},
     onSupprimerObjectifEnveloppe: (Enveloppe) -> Unit = {}, // NOUVEAU : pour supprimer seulement l'objectif
     onSupprimerCategorie: (String) -> Unit = {},
+    onRenommerCategorie: () -> Unit = {},
+    onRenommerEnveloppe: (Enveloppe) -> Unit = {},
+    onDeplacerEnveloppeCategorie: (Enveloppe) -> Unit = {},
     onStartDragEnveloppe: (String) -> Unit = {},
     draggedEnveloppeId: String? = null,
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
@@ -102,6 +105,13 @@ fun CategorieCard(
                                 expanded = showCategorieMenu,
                                 onDismissRequest = { showCategorieMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("Renommer la catégorie") },
+                                    onClick = {
+                                        showCategorieMenu = false
+                                        onRenommerCategorie()
+                                    }
+                                )
                                 if (enveloppes.isEmpty()) {
                                     DropdownMenuItem(
                                         text = { Text("Supprimer la catégorie") },
@@ -192,6 +202,12 @@ fun CategorieCard(
                                     { onSupprimerObjectifEnveloppe(enveloppe) }
                                 } else {
                                     { /* Ne rien faire en mode drag */ }
+                                },
+                                onRenommerEnveloppe = {
+                                    onRenommerEnveloppe(enveloppe)
+                                },
+                                onDeplacerCategorie = {
+                                    onDeplacerEnveloppeCategorie(enveloppe)
                                 },
                                 onSupprimerEnveloppe = if (!isModeEdition && !isDragMode) {
                                     // En mode normal (menu 3 points) : supprimer l'enveloppe entière
