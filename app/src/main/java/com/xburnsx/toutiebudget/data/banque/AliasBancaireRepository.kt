@@ -79,7 +79,14 @@ class AliasBancaireRepository(
             syncJobDao.insertSyncJob(SyncJob(
                 id = IdGenerator.generateId(), type = "ALIAS_BANCAIRE",
                 action = if (courante == null) "CREATE" else "UPDATE",
-                dataJson = gson.toJson(entite), recordId = id,
+                dataJson = gson.toJson(mapOf(
+                    "id" to entite.id,
+                    "utilisateur_id" to entite.utilisateurId,
+                    "compte_id" to (entite.compteId ?: ""),
+                    "libelle_brut" to entite.libelleBrut,
+                    "tiers_id" to entite.tiersId,
+                    "active" to entite.active
+                )), recordId = id,
                 utilisateurId = userId, createdAt = System.currentTimeMillis(), status = "PENDING"
             ))
             entite.versRegle()
