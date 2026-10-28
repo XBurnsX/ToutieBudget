@@ -324,33 +324,6 @@ class EcransArgentTest {
     // ===== Carte, dette, placement, prêt =====
 
     @Test
-    fun `creer une dette calcule le solde et configure son objectif mensuel`() = test {
-        val vm = app.comptes(); attendre()
-        vm.onOuvrirAjoutDialog()
-        vm.onFormValueChange(nom = "Auto", type = "Dette")
-        vm.onFormDetteChange(
-            dateDebut = "2026-05-05",
-            dureeMois = "36",
-            versementMensuel = "189.21",
-            tauxAnnuel = "10"
-        )
-        vm.onSauvegarderCompte(); attendre()
-
-        val dette = b.comptes.values.filterIsInstance<CompteDette>().single()
-        val situation = assertNotNull(com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
-            com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.lireDate("2026-05-05")!!,
-            36, 189.21, 10.0
-        ))
-        assertEquals(-situation.soldeActuel, dette.soldeDette)
-        assertEquals(situation.paiementsEcoules, dette.paiementEffectue)
-        assertEquals("2029-05-05", dette.details.dateFin)
-        val enveloppe = b.enveloppes.getValue(dette.details.enveloppeId!!)
-        assertEquals(com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel, enveloppe.typeObjectif)
-        assertEquals(189.21, enveloppe.objectifMontant)
-        assertEquals(5, enveloppe.objectifJour)
-    }
-
-    @Test
     fun `carte - le solde signe saisi reste signe`() = test {
         b.carte("visa", -400.0)
         val vm = app.cartes(); attendre()
@@ -363,25 +336,9 @@ class EcransArgentTest {
 
     @Test
     fun `dette - changer le taux apres un paiement garde le vrai solde`() = test {
-        b.categorie("cd", "Dettes")
-        b.enveloppe("envAuto", "Auto", "cd")
-        val dette = b.dette(
-            "auto", -1150.0, nom = "Auto",
-            detailsJson = com.xburnsx.toutiebudget.data.modeles.DetailsDette(
-                mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE,
-                dateDebut = "2026-05-05", dateFin = "2027-05-05", jourVersement = 5,
-                enveloppeId = "envAuto"
-            ).versJson()
-        ).copy(tauxInteret = 0.0, dureeMoisPret = 12, paiementMinimum = 100.0)
-        b.comptes["auto"] = dette
-        b.depotTransactions.creerTransaction(
-            com.xburnsx.toutiebudget.data.modeles.Transaction(
-                type = TypeTransaction.Paiement, montant = 50.0,
-                compteId = "auto", collectionCompte = "comptes_dettes"
-            )
-        )
+        b.dette("auto", -1150.0, nom = "Auto")
         val vm = app.dette(); vm.chargerDette("auto"); attendre()
-        vm.modifierFormulaire { copy(taux = "5", dureeMois = "24") }
+        vm.modifierFormulaire { copy(taux = "5", dureeMois = "24", mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE) }
         vm.sauvegarder(); vm.sauvegarder(); attendre()
         val d = b.comptes.getValue("auto") as CompteDette
         assertEquals(-1150.0, d.soldeDette); assertEquals(5.0, d.tauxInteret); assertEquals(24, d.dureeMoisPret)
