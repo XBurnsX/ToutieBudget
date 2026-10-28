@@ -384,7 +384,8 @@ import android.content.Context
              enveloppeRepository = enveloppeRepository,
              tiersRepository = tiersRepository,
              supprimerTransactionUseCase = supprimerTransactionUseCase,
-             savedStateHandle = savedStateHandle
+             savedStateHandle = savedStateHandle,
+             syncJobDao = database.syncJobDao()
          )
      }
      fun provideServerStatusViewModel(context: android.content.Context): com.xburnsx.toutiebudget.ui.server.ServerStatusViewModel {
