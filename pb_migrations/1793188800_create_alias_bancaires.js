@@ -17,7 +17,7 @@ migrate((app) => {
         listRule: proprietaire,
         viewRule: proprietaire,
         createRule: '@request.auth.id != "" && @request.body.utilisateur_id = @request.auth.id',
-        updateRule: proprietaire + ' && @request.body.utilisateur_id:changed = false',
+        updateRule: proprietaire + ' && (@request.body.utilisateur_id:isset = false || @request.body.utilisateur_id = utilisateur_id)',
         deleteRule: proprietaire,
         fields: [
             { type: "text", name: "utilisateur_id", required: true, max: 64 },
