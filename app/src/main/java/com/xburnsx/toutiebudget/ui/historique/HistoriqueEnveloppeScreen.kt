@@ -3,6 +3,7 @@ package com.xburnsx.toutiebudget.ui.historique
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -95,21 +98,22 @@ fun HistoriqueEnveloppeScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
-        ) {
-            if (uiState.isLoading) {
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // HC10/HC12 : une erreur n'efface pas les transactions précédentes.
+            uiState.erreur?.let { erreur ->
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(erreur, color = MaterialTheme.colorScheme.error)
+                    TextButton(enabled = !uiState.isLoading,
+                        onClick = viewModel::rechargerTransactions) { Text("Réessayer") }
+                }
+            }
+            if (uiState.isLoading && uiState.transactionsGroupees.isNotEmpty()) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (uiState.isLoading && uiState.transactionsGroupees.isEmpty()) {
                 CircularProgressIndicator()
-            } else if (uiState.erreur != null) {
-                Text(
-                    uiState.erreur!!,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
-                )
-            } else if (uiState.transactionsGroupees.isEmpty()) {
+            } else if (uiState.transactionsGroupees.isEmpty() && uiState.erreur == null) {
                 Text(
                     "Aucune transaction pour cette enveloppe.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -163,6 +167,7 @@ fun HistoriqueEnveloppeScreen(
                         }
                     }
                 }
+            }
             }
         }
     }
