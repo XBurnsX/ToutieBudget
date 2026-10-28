@@ -100,25 +100,33 @@ class HistoriqueCompteViewModel(
      * Supprime une transaction.
      */
     fun supprimerTransaction(transactionId: String) {
+        supprimerSiNonModifiee(transactionId, null)
+    }
+
+    fun supprimerTransactionConfirmee(affichee: TransactionUi) {
+        supprimerSiNonModifiee(affichee.id, affichee)
+    }
+
+    private fun supprimerSiNonModifiee(transactionId: String, affichee: TransactionUi?) {
         viewModelScope.lancerUneFois(verrouSuppression) {
             try {
-                val result = supprimerTransactionUseCase.executer(transactionId)
-                if (result.isSuccess) {
-                    // Recharger les transactions après suppression
-                    val compteId: String? = savedStateHandle["compteId"]
-                    val collectionCompte: String? = savedStateHandle["collectionCompte"]
-                    if (compteId != null && collectionCompte != null) {
-                        chargerTransactions(compteId, collectionCompte)
-                    }
-                } else {
-                    _uiState.update { 
-                        it.copy(erreur = "Erreur lors de la suppression: ${result.exceptionOrNull()?.message}")
+                if (affichee != null) {
+                    val actuelle = transactionRepository.recupererTransactionParId(transactionId)
+                        .getOrThrow()
+                    if (!VerificationSuppressionHistorique.estEncoreLaMeme(affichee, actuelle)) {
+                        _uiState.update { it.copy(
+                            erreur = "La transaction a changé depuis la confirmation. " +
+                                "Aucune suppression effectuée. Réessaie après actualisation."
+                        ) }
+                        return@lancerUneFois
                     }
                 }
+                supprimerTransactionUseCase.executer(transactionId).getOrThrow()
+                rechargerTransactions()
             } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(erreur = "Erreur lors de la suppression: ${e.message}")
-                }
+                _uiState.update { it.copy(
+                    erreur = "Suppression refusée : " + (e.message ?: e.javaClass.simpleName)
+                ) }
             }
         }
     }
