@@ -217,12 +217,14 @@ class HistoriqueCompteViewModel(
                     avertissements += "Certaines informations d'enveloppes n'ont pas pu être chargées."
                     emptyList()
                 }
-                val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    val resultat = enveloppeRepository.recupererAllocationParId(id)
-                    if (resultat.isFailure) {
+                val idsAllocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct()
+                val allocations = enveloppeRepository.recupererAllocationsParIds(idsAllocations)
+                    .getOrElse {
                         avertissements += "Certaines allocations historiques sont indisponibles."
+                        emptyList()
                     }
-                    resultat.getOrNull()
+                if (allocations.map { it.id }.toSet().size < idsAllocations.size) {
+                    avertissements += "Certaines allocations historiques sont introuvables."
                 }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
