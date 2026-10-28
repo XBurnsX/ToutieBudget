@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -140,20 +142,28 @@ fun HistoriqueCompteScreen(
                 )
             )
 
+            // HC10/HC12 : une erreur ne supprime pas les mouvements déjà consultables.
+            uiState.erreur?.let { erreur ->
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(erreur, color = MaterialTheme.colorScheme.error)
+                    TextButton(
+                        enabled = !uiState.isLoading,
+                        onClick = viewModel::rechargerTransactions
+                    ) { Text("Réessayer") }
+                }
+            }
+            if (uiState.isLoading && uiState.transactionsGroupees.isNotEmpty()) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
             // Contenu principal
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.isLoading) {
+                if (uiState.isLoading && uiState.transactionsGroupees.isEmpty()) {
                     CircularProgressIndicator()
-                } else if (uiState.erreur != null) {
-                    Text(
-                        uiState.erreur!!,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-                } else if (uiState.transactionsGroupees.isEmpty()) {
+                } else if (uiState.transactionsGroupees.isEmpty() && uiState.erreur == null) {
                     Text(
                         if (uiState.searchQuery.isNotEmpty()) {
                             "Aucune transaction trouvée pour \"${uiState.searchQuery}\""
