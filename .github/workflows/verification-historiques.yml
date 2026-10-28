@@ -1,0 +1,49 @@
+name: Validation historiques 16-17
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/xburnsx/toutiebudget/ui/historique/**'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/ui/comptes/composants/HistoriqueItem.kt'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/data/repositories/impl/TransactionRepositoryRoomImpl.kt'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/data/room/daos/TransactionDao.kt'
+      - 'app/src/test/java/com/xburnsx/toutiebudget/ui/historique/**'
+      - '.github/workflows/verification-historiques.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilation-et-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Installer Android SDK 36
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compiler APK debug et toutes les sources
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Tester les ViewModels, montants, dates et historiques
+        run: |
+          ./gradlew :app:testDebugUnitTest \
+            --tests 'com.xburnsx.toutiebudget.ui.historique.*' \
+            --no-daemon --stacktrace
+      - name: Conserver rapports de test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-tests-historique
+          path: |
+            app/build/test-results/testDebugUnitTest/**
+            app/build/reports/tests/testDebugUnitTest/**
+          if-no-files-found: ignore
