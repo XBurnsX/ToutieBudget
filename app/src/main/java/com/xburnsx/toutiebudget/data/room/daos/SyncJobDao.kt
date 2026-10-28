@@ -70,9 +70,12 @@ interface SyncJobDao {
 
     @Query(
         "SELECT * FROM sync_jobs WHERE type = :type AND recordId = :recordId " +
+            "AND utilisateurId = :utilisateurId " +
             "AND status IN ('PENDING', 'FAILED') AND bloque = 0 ORDER BY createdAt ASC, id ASC"
     )
-    suspend fun getModificationsCompactables(type: String, recordId: String): List<SyncJob>
+    suspend fun getModificationsCompactables(
+        type: String, recordId: String, utilisateurId: String
+    ): List<SyncJob>
 
     @Query("DELETE FROM sync_jobs WHERE id IN (:ids)")
     suspend fun supprimerParIds(ids: List<String>)
@@ -85,7 +88,11 @@ interface SyncJobDao {
     @Transaction
     suspend fun insertSyncJob(syncJob: SyncJob): Long {
         if (syncJob.recordId.isBlank()) return insertSyncJobBrut(syncJob)
-        val precedents = getModificationsCompactables(syncJob.type, syncJob.recordId)
+        // CE4 : ne jamais compacter des tâches provenant de deux profils.
+        // Une ancienne tâche sans utilisateur reste séparée par prudence.
+        val precedents = getModificationsCompactables(
+            syncJob.type, syncJob.recordId, syncJob.utilisateurId
+        )
         val creation = precedents.firstOrNull { it.action == "CREATE" }
         return when {
             creation != null && syncJob.action == "DELETE" -> {
