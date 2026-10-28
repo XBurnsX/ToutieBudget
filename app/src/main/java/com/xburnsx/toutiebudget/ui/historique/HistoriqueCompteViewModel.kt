@@ -291,7 +291,10 @@ class HistoriqueCompteViewModel(
                         note = transaction.note, // Garder la note complète
                         estFractionnee = transaction.estFractionnee,
                         sousItems = transaction.sousItems,
-                        nomsEnveloppesFractions = nomsEnveloppesFractions
+                        nomsEnveloppesFractions = nomsEnveloppesFractions,
+                        compteId = transaction.compteId,
+                        nomCompte = _uiState.value.nomCompte,
+                        collectionCompte = transaction.collectionCompte
                     )
                 }.sortedByDescending { it.date }
 
