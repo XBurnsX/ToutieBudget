@@ -434,8 +434,15 @@ class BudgetViewModel(
             // Chaîne de date objectif pour affichage
             val dateObjectifStr: String? = when {
                 enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel && enveloppe.objectifJour != null -> {
-                    // Afficher simplement le jour du mois (ex: "25") si aucun calcul de date précis
-                    enveloppe.objectifJour.toString()
+                    // CE15 : date réelle dans le mois CONSULTÉ, pas seulement
+                    // "31" (qui n'existe pas en février). Ne modifie pas les
+                    // dates stockées ni les allocations financières.
+                    val moisAffiche = java.time.YearMonth.from(
+                        moisCible.toInstant().atZone(java.time.ZoneId.systemDefault())
+                    )
+                    com.xburnsx.toutiebudget.ui.categories.ReglesObjectifEnveloppe
+                        .dateMensuelle(moisAffiche, enveloppe.objectifJour)
+                        .toString()
                 }
                 else -> {
                     enveloppe.dateObjectif?.let { d ->
