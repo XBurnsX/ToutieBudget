@@ -27,7 +27,9 @@ import kotlinx.coroutines.withContext
  */
 class CategorieRepositoryRoomImpl(
     private val categorieDao: CategorieDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique =
+        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : CategorieRepository {
     
     private val client = PocketBaseClient
@@ -125,6 +127,27 @@ class CategorieRepositoryRoomImpl(
             
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun reorganiserCategories(
+        avant: List<Categorie>, apres: List<Categorie>
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            operationAtomique.executer {
+                val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                    ?: error("Session requise pour réorganiser.")
+                require(avant.map { it.id }.toSet() == apres.map { it.id }.toSet())
+                require(avant.all { it.utilisateurId == utilisateur } &&
+                    apres.all { it.utilisateurId == utilisateur })
+                // Comparaison et écritures dans LA MÊME transaction Room.
+                val actuelles = recupererToutesLesCategories().getOrThrow().associateBy { it.id }
+                require(avant.all { actuelles[it.id] == it }) {
+                    "Classement modifié ailleurs. Recharge les catégories."
+                }
+                apres.filter { avant.first { a -> a.id == it.id }.ordre != it.ordre }
+                    .forEach { mettreAJourCategorie(it).getOrThrow() }
+            }
         }
     }
 
