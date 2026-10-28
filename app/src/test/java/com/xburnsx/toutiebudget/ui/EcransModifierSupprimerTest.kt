@@ -846,7 +846,7 @@ class EcransModifierSupprimerTest {
         attendre()
         assertEquals(1, b.enveloppes.size)
         assertNotNull(vm.uiState.value.erreur)
-        assertEquals(false, vm.uiState.value.isAjoutEnveloppeDialogVisible == false)
+        assertTrue(vm.uiState.value.isAjoutEnveloppeDialogVisible)
     }
 
 }
