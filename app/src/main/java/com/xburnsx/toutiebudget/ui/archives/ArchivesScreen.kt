@@ -1,6 +1,7 @@
 package com.xburnsx.toutiebudget.ui.archives
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,8 @@ fun ArchivesScreen(
     var recherche by remember { mutableStateOf("") }
     var filtreCompte by remember { mutableStateOf("") }
     var compteARestaurer by remember { mutableStateOf<Compte?>(null) }
+    var compteAConsulter by remember { mutableStateOf<Compte?>(null) }
+    var enveloppeAConsulter by remember { mutableStateOf<Enveloppe?>(null) }
     var enveloppeARestaurer by remember { mutableStateOf<Enveloppe?>(null) }
     var destinationRestauration by remember { mutableStateOf<String?>(null) }
     var restaurationDemandee by remember { mutableStateOf(false) }
@@ -104,7 +107,9 @@ fun ArchivesScreen(
             if (tabIndex == 0) {
                 // ARA2 : filtres exclusifs à Archives, jamais au budget actif.
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val choix = listOf(
@@ -133,6 +138,10 @@ fun ArchivesScreen(
                             },
                             onLongClick = { compteARestaurer = compte }
                         )
+                        TextButton(
+                            modifier = Modifier.padding(start = 12.dp),
+                            onClick = { compteAConsulter = compte }
+                        ) { Text("Détails et état archivé") }
                     }
                 }
             } else {
@@ -166,20 +175,84 @@ fun ArchivesScreen(
                                 Text("$nomCategorie · Objectif : ${env.objectifMontant}")
                             },
                             trailingContent = {
-                                TextButton(onClick = {
-                                    enveloppeARestaurer = env
-                                    destinationRestauration =
-                                        env.categorieId.takeIf {
-                                            categoriesState.categoriesParId.containsKey(it)
-                                        }
-                                    restaurationDemandee = false
-                                }) { Text("Restaurer") }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    TextButton(onClick = { enveloppeAConsulter = env }) {
+                                        Text("Détails")
+                                    }
+                                    TextButton(onClick = {
+                                        enveloppeARestaurer = env
+                                        destinationRestauration =
+                                            env.categorieId.takeIf {
+                                                categoriesState.categoriesParId.containsKey(it)
+                                            }
+                                        restaurationDemandee = false
+                                    }) { Text("Restaurer") }
+                                }
                             }
                         )
                     }
                 }
             }
         }
+    }
+
+    // ARA3 : les paramètres sont consultables sans restauration.
+    // Aucun solde, objectif ou transaction n'est modifié par ces dialogues.
+    compteAConsulter?.let { compte ->
+        AlertDialog(
+            onDismissRequest = { compteAConsulter = null },
+            title = { Text("Compte archivé — ${compte.nom}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Identifiant : ${compte.id}")
+                    Text("Collection : ${compte.collection}")
+                    Text("Statut : archivé")
+                    Text("Solde enregistré : " +
+                        com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique
+                            .formater(compte.solde))
+                    Text("Le solde n'est pas recalculé ici : consulte l'historique pour les mouvements.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    compteAConsulter = null
+                    onVoirHistoriqueCompte(compte.id, compte.collection, compte.nom)
+                }) { Text("Voir l'historique") }
+            },
+            dismissButton = {
+                TextButton(onClick = { compteAConsulter = null }) { Text("Fermer") }
+            }
+        )
+    }
+
+    enveloppeAConsulter?.let { env ->
+        AlertDialog(
+            onDismissRequest = { enveloppeAConsulter = null },
+            title = { Text("Enveloppe archivée — ${env.nom}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Identifiant : ${env.id}")
+                    Text("Catégorie : " +
+                        (categoriesState.categoriesParId[env.categorieId]?.nom
+                            ?: "Supprimée (ID : ${env.categorieId})"))
+                    Text("Statut : archivée")
+                    Text("Type d'objectif : ${env.typeObjectif}")
+                    Text("Montant d'objectif : " +
+                        com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique
+                            .formater(env.objectifMontant))
+                    Text("Les allocations et les montants historiques restent accessibles dans l'historique.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    enveloppeAConsulter = null
+                    onVoirHistoriqueEnveloppe(env.id, env.nom)
+                }) { Text("Voir l'historique") }
+            },
+            dismissButton = {
+                TextButton(onClick = { enveloppeAConsulter = null }) { Text("Fermer") }
+            }
+        )
     }
 
     compteARestaurer?.let { compte ->
