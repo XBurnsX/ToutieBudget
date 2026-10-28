@@ -17,5 +17,8 @@ data class TransactionUi(
     /** Lecture seule : informations de compte pour le détail d'une transaction. */
     val compteId: String? = null,
     val nomCompte: String? = null,
-    val collectionCompte: String? = null
+    val collectionCompte: String? = null,
+    /** Montant bancaire total en cas d'historique d'une enveloppe fractionnée.
+     * [montant] reste la portion affichée dans cet historique. */
+    val montantTotalTransaction: Double? = null
 ) 
