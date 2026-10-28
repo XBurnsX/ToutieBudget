@@ -22,14 +22,16 @@ data class PeriodeHistorique(
         require(mois in 1..12) { "Mois invalide" }
     }
 
-    fun deplacer(pas: Int): PeriodeHistorique = when (vue) {
-        VuePeriodeHistorique.TOUTES -> this
-        VuePeriodeHistorique.MOIS -> {
-            val prochain = YearMonth.of(annee, mois).plusMonths(pas.toLong())
-            copy(annee = prochain.year, mois = prochain.monthValue)
+    fun deplacer(pas: Int): PeriodeHistorique = runCatching {
+        when (vue) {
+            VuePeriodeHistorique.TOUTES -> this
+            VuePeriodeHistorique.MOIS -> {
+                val prochain = YearMonth.of(annee, mois).plusMonths(pas.toLong())
+                copy(annee = prochain.year, mois = prochain.monthValue)
+            }
+            VuePeriodeHistorique.ANNEE -> copy(annee = Math.addExact(annee, pas))
         }
-        VuePeriodeHistorique.ANNEE -> copy(annee = Math.addExact(annee, pas))
-    }
+    }.getOrElse { this } // Bornes calendaires 1..9999, sans crash au clic.
 
     fun contient(date: Date, fuseau: ZoneId = ZoneId.systemDefault()): Boolean {
         if (vue == VuePeriodeHistorique.TOUTES) return true
