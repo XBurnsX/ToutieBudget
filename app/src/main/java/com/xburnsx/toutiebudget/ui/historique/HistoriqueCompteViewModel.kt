@@ -329,7 +329,17 @@ class HistoriqueCompteViewModel(
                 throw annulation // ancien chargement annulé, le nouveau conserve la main
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, erreur = "Chargement impossible : ${e.message ?: e.javaClass.simpleName}")
+                    // HC5 : à la déconnexion, ne JAMAIS laisser visibles les
+                    // mouvements financiers du profil précédent. Les autres
+                    // erreurs conservent les données déjà consultables.
+                    val sessionPerdue = e is SecurityException
+                    it.copy(
+                        isLoading = false,
+                        erreur = "Chargement impossible : ${e.message ?: e.javaClass.simpleName}",
+                        transactions = if (sessionPerdue) emptyList() else it.transactions,
+                        transactionsGroupees = if (sessionPerdue) emptyMap() else it.transactionsGroupees,
+                        avertissement = if (sessionPerdue) null else it.avertissement
+                    )
                 }
             }
         }
