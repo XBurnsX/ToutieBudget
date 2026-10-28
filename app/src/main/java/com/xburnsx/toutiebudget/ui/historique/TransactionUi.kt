@@ -20,5 +20,9 @@ data class TransactionUi(
     val collectionCompte: String? = null,
     /** Montant bancaire total en cas d'historique d'une enveloppe fractionnée.
      * [montant] reste la portion affichée dans cet historique. */
-    val montantTotalTransaction: Double? = null
+    val montantTotalTransaction: Double? = null,
+    /** Valeurs d'origine pour confirmer qu'une suppression vise bien la version consultée. */
+    val tiersBrut: String? = null,
+    val allocationMensuelleId: String? = null,
+    val revisionTransaction: Date? = null
 ) 
