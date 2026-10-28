@@ -287,7 +287,10 @@ class HistoriqueCompteViewModel(
                         nomsEnveloppesFractions = nomsEnveloppesFractions,
                         compteId = transaction.compteId,
                         nomCompte = _uiState.value.nomCompte,
-                        collectionCompte = transaction.collectionCompte
+                        collectionCompte = transaction.collectionCompte,
+                        tiersBrut = transaction.tiersUtiliser,
+                        allocationMensuelleId = transaction.allocationMensuelleId,
+                        revisionTransaction = transaction.updated
                     )
                 }.sortedByDescending { it.date }
 
