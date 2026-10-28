@@ -433,7 +433,8 @@ class BudgetViewModel(
             
             // Chaîne de date objectif pour affichage
             val dateObjectifStr: String? = when {
-                enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel && enveloppe.objectifJour != null -> {
+                enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel &&
+                    enveloppe.objectifJour?.let { it in 1..31 } == true -> {
                     // CE15 : date réelle dans le mois CONSULTÉ, pas seulement
                     // "31" (qui n'existe pas en février). Ne modifie pas les
                     // dates stockées ni les allocations financières.
