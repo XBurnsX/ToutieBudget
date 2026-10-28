@@ -50,6 +50,23 @@ interface TransactionRepository {
      * @return Result contenant la liste des transactions, ou une erreur
      */
     suspend fun recupererTransactionsPourCompte(compteId: String, collectionCompte: String): Result<List<Transaction>>
+
+    /**
+     * HE14 : candidats paginés pour l'historique d'une enveloppe.
+     * Le dépôt Room utilise une requête indexable pour les allocations et
+     * inclut toutes les transactions fractionnées; le ViewModel vérifie
+     * ensuite le contenu des fractions (y compris JSON ancien).
+     * Fallback pour simulateurs et dépôts non-Room.
+     */
+    suspend fun recupererCandidatsHistoriqueEnveloppe(
+        enveloppeId: String, limit: Int, offset: Int
+    ): Result<List<Transaction>> = runCatching {
+        require(enveloppeId.isNotBlank())
+        require(limit in 1..500 && offset >= 0)
+        recupererToutesLesTransactions().getOrThrow()
+            .sortedWith(compareByDescending<Transaction> { it.date.time }.thenByDescending { it.id })
+            .drop(offset).take(limit)
+    }
     
     /**
      * Récupère les transactions liées à une allocation mensuelle spécifique.
