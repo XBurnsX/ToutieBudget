@@ -477,6 +477,19 @@ fun SettingsScreen(
                 }
             }
 
+            // BANQ-02 : gestion des règles d'alias ; aucun doublon de Tiers.
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Sync,
+                        titre = "Alias bancaires",
+                        description = "Corriger les noms reconnus, les règles et les comptes associés",
+                        onClick = onNavigateToAliasBancaires,
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                    )
+                }
+            }
+
             // Section Base de données
             item { SectionHeader(titre = "Base de données", icone = Icons.Default.Info) }
             item {
