@@ -464,4 +464,50 @@ class HistoriqueConsultationViewModelTest {
         }
     }
 
+    @Test fun filtreCompteMoisTypeRechercheSurvitAuRechargement() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        fun date(jour: String) = Date.from(
+            java.time.LocalDate.parse(jour)
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+        )
+        b.transactions["oct"] = Transaction(
+            id = "oct", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 20.00, date = date("2026-10-28"),
+            compteId = "chq", collectionCompte = "comptes_cheques", tiersUtiliser = "Irving #0421"
+        )
+        b.transactions["nov"] = Transaction(
+            id = "nov", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 50.00, date = date("2026-11-12"),
+            compteId = "chq", collectionCompte = "comptes_cheques", tiersUtiliser = "Irving #0421"
+        )
+        b.transactions["revenu"] = Transaction(
+            id = "revenu", utilisateurId = "u", type = TypeTransaction.Revenu,
+            montant = 300.00, date = date("2026-10-28"),
+            compteId = "chq", collectionCompte = "comptes_cheques", tiersUtiliser = "Salaire"
+        )
+        val vm = app.historiqueCompte("chq")
+        attendre()
+        assertEquals(3, vm.uiState.value.transactions.size)
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.MOIS)
+        val p = vm.uiState.value.periode
+        vm.deplacerPeriode((2026 - p.annee) * 12 + (10 - p.mois))
+        vm.selectionnerTypeFiltre(TypeTransaction.Depense)
+        vm.mettreAJourRecherche("IRV 0421")
+        assertEquals(listOf("oct"), vm.uiState.value.transactionsGroupees.values.flatten().map { it.id })
+        val montant = ResumeFluxHistoriqueCompte.calculer(
+            vm.uiState.value.transactionsGroupees.values.flatten()
+        )
+        assertEquals(2000L, montant.sortiesCentimes)
+        vm.rechargerTransactions()
+        attendre()
+        assertEquals(VuePeriodeHistorique.MOIS, vm.uiState.value.periode.vue)
+        assertEquals(TypeTransaction.Depense, vm.uiState.value.typeFiltre)
+        assertEquals("IRV 0421", vm.uiState.value.searchQuery)
+        assertEquals(listOf("oct"), vm.uiState.value.transactionsGroupees.values.flatten().map { it.id })
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.TOUTES)
+        vm.selectionnerTypeFiltre(null)
+        vm.mettreAJourRecherche("")
+        assertEquals(3, vm.uiState.value.transactionsGroupees.values.flatten().size)
+    }
+
 }
