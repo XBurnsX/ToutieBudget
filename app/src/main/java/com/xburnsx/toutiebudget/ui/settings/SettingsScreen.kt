@@ -478,6 +478,19 @@ fun SettingsScreen(
                 }
             }
 
+            // BANQ-03 : boîte d'import séparée du budget, aucune écriture comptable.
+            item {
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Sync,
+                        titre = "Transactions à confirmer",
+                        description = "Importer un CSV, consulter et traiter les opérations en attente",
+                        onClick = onNavigateToOperationsBancaires,
+                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                    )
+                }
+            }
+
             // BANQ-02 : gestion des règles d'alias ; aucun doublon de Tiers.
             item {
                 SettingsCard {
