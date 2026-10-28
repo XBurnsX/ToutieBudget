@@ -37,7 +37,9 @@ import java.util.TimeZone
 class EnveloppeRepositoryRoomImpl(
     private val enveloppeDao: EnveloppeDao,
     private val allocationMensuelleDao: AllocationMensuelleDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique =
+        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : EnveloppeRepository {
     private val client = PocketBaseClient
     
@@ -241,6 +243,26 @@ class EnveloppeRepositoryRoomImpl(
             
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun reorganiserEnveloppes(
+        avant: List<Enveloppe>, apres: List<Enveloppe>
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            operationAtomique.executer {
+                val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                    ?: error("Session requise pour réorganiser.")
+                require(avant.map { it.id }.toSet() == apres.map { it.id }.toSet())
+                require(avant.all { it.utilisateurId == utilisateur } &&
+                    apres.all { it.utilisateurId == utilisateur })
+                val actuelles = recupererToutesLesEnveloppes().getOrThrow().associateBy { it.id }
+                require(avant.all { actuelles[it.id] == it }) {
+                    "Classement modifié ailleurs. Recharge les enveloppes."
+                }
+                apres.filter { avant.first { a -> a.id == it.id }.ordre != it.ordre }
+                    .forEach { mettreAJourEnveloppe(it).getOrThrow() }
+            }
         }
     }
 
