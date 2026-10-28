@@ -146,6 +146,32 @@ class HistoriqueEnveloppeViewModel(
     /**
      * Met à jour la requête de recherche et filtre les transactions.
      */
+    fun selectionnerVuePeriode(vue: VuePeriodeHistorique) {
+        _uiState.update { actuel ->
+            val periode = actuel.periode.copy(vue = vue)
+            actuel.copy(
+                periode = periode,
+                scrollPosition = 0, scrollOffset = 0,
+                transactionsGroupees = grouperTransactionsParDate(
+                    periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, actuel.searchQuery))
+                )
+            )
+        }
+    }
+
+    fun deplacerPeriode(pas: Int) {
+        _uiState.update { actuel ->
+            val periode = actuel.periode.deplacer(pas)
+            actuel.copy(
+                periode = periode,
+                scrollPosition = 0, scrollOffset = 0,
+                transactionsGroupees = grouperTransactionsParDate(
+                    periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, actuel.searchQuery))
+                )
+            )
+        }
+    }
+
     fun mettreAJourRecherche(query: String) {
         // Une seule émission d'état : éviter d'afficher brièvement la nouvelle
         // recherche avec la vieille liste (et les sauts de scroll associés).
@@ -153,7 +179,7 @@ class HistoriqueEnveloppeViewModel(
             actuel.copy(
                 searchQuery = query,
                 transactionsGroupees = grouperTransactionsParDate(
-                    RechercheHistorique.filtrer(actuel.transactions, query)
+                    actuel.periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, query))
                 )
             )
         }
@@ -324,7 +350,7 @@ class HistoriqueEnveloppeViewModel(
                         isLoading = false,
                         transactions = transactionsUi,
                         transactionsGroupees = grouperTransactionsParDate(
-                            RechercheHistorique.filtrer(transactionsUi, it.searchQuery)
+                            it.periode.filtrer(RechercheHistorique.filtrer(transactionsUi, it.searchQuery))
                         ),
                         erreur = null,
                         avertissement = buildList {
