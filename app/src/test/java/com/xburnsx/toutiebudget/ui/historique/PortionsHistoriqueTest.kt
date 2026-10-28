@@ -1,6 +1,8 @@
 package com.xburnsx.toutiebudget.ui.historique
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class PortionsHistoriqueTest {
@@ -39,4 +41,29 @@ class PortionsHistoriqueTest {
     fun refuseUnObjetNonFractionne() {
         PortionsHistorique.lire("""{"pret_personnel_id":"xyz"}""")
     }
+    @Test fun repartitionExacteSoixanteDollarsReconnue() {
+        val fractions = PortionsHistorique.lire(
+            """[{"enveloppeId":"auto","montant":20.00},{"enveloppe_id":"course","montant":40.00}]"""
+        )
+        assertTrue(PortionsHistorique.verifierTotal(fractions, 60.0))
+    }
+
+    @Test fun totalDifferentDeUnCentimeEstSignaleSansChangerLesFractions() {
+        val fractions = PortionsHistorique.lire(
+            """[{"enveloppeId":"auto","montant":19.99},{"enveloppeId":"course","montant":40.00}]"""
+        )
+        assertFalse(PortionsHistorique.verifierTotal(fractions, 60.0))
+        assertEquals(1999L, fractions.first().montantCentimes)
+    }
+
+    @Test fun montantsImpossiblesEtNombresNonFinisNeBalancentJamais() {
+        val fractions = PortionsHistorique.lire(
+            """[{"enveloppeId":"auto","montant":5.00}]"""
+        )
+        assertFalse(PortionsHistorique.verifierTotal(fractions, Double.NaN))
+        assertFalse(PortionsHistorique.verifierTotal(fractions, Double.POSITIVE_INFINITY))
+        assertFalse(PortionsHistorique.verifierTotal(fractions, 5.001))
+        assertFalse(PortionsHistorique.verifierTotal(emptyList(), 0.0))
+    }
+
 }
