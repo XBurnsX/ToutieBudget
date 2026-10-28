@@ -76,7 +76,8 @@ class AppliEnMemoire {
     fun comptes() = ComptesViewModel(b.depotComptes, realtime, b.depotCategories, b.depotEnveloppes, b.depotTransactions, b.historiqueService, operationAtomique = tx).suivi()
     fun cartes() = CartesCreditViewModel(CarteCreditRepositoryImpl(b.depotComptes, b.depotTransactions), realtime, b.historiqueService, operationAtomique = tx).suivi()
     fun dette() = DetteViewModel(b.depotComptes, b.depotTransactions, b.depotEnveloppes, b.depotCategories, b.historiqueService, operationAtomique = tx).suivi()
-    fun placement() = InvestissementViewModel(b.depotComptes, b.depotTransactions, b.historiqueService, realtime, operationAtomique = tx).suivi()
+    fun placement(cours: com.xburnsx.toutiebudget.data.services.CoursEnLigne? = null) =
+        InvestissementViewModel(b.depotComptes, b.depotTransactions, b.historiqueService, realtime, operationAtomique = tx, coursEnLigne = cours).suivi()
     fun prets() = PretPersonnelViewModel(autres.depotPrets, b.depotTransactions, b.depotComptes).suivi()
     fun statistiques(historique: com.xburnsx.toutiebudget.data.services.HistoriquePatrimoine? = null) =
         com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel(

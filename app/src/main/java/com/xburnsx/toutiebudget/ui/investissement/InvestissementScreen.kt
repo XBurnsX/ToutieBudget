@@ -72,6 +72,9 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
     var dialogueValeur by remember { mutableStateOf(false) }
     var positionEditee by remember { mutableStateOf<PositionTitre?>(null) }
     var mouvementEdite by remember { mutableStateOf<MouvementPlacement?>(null) }
+    var dialogueAchat by remember { mutableStateOf(false) }
+    var titreOuvert by remember { mutableStateOf<String?>(null) }
+    var detailsAvances by remember { mutableStateOf(false) }
 
     LaunchedEffect(compteId) { viewModel.charger(compteId) }
     // IF5 : fermer l'éditeur seulement lorsque Room confirme l'écriture.
@@ -80,6 +83,8 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
             dialogueValeur = false
             positionEditee = null
             mouvementEdite = null
+            dialogueAchat = false
+            titreOuvert = null
         }
     }
 
@@ -108,12 +113,25 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Mes titres d'abord : valeur, gain en $ et en %, achats, prix du jour
+                    SectionTitres(
+                        compte = compte,
+                        actualisationEnCours = uiState.actualisationEnCours,
+                        onAcheter = { dialogueAchat = true },
+                        onActualiser = viewModel::actualiserCours,
+                        onTitre = { titreOuvert = it }
+                    )
+                    SectionGraphique(compte)
+                    TextButton(onClick = { detailsAvances = !detailsAvances }) {
+                        Text(if (detailsAvances) "Masquer les détails avancés" else "Détails avancés (type de compte, capital, historique)")
+                    }
+                    if (detailsAvances) {
                     SectionCompte(compte, viewModel)
                     SectionCapital(compte, uiState, viewModel)
                     SectionPerformance(compte, uiState)
-                    SectionGraphique(compte)
                     SectionValorisations(compte, onNouvelleValeur = { dialogueValeur = true })
-                    if (compte.details.mode == ModeSuiviPlacement.DETAILLE) {
+                    }
+                    if (detailsAvances && compte.details.mode == ModeSuiviPlacement.DETAILLE) {
                         SectionPositions(compte, onEditer = { positionEditee = it }, onAjouter = {
                             positionEditee = PositionTitre(symbole = "", quantite = 0.0, coutTotal = 0.0)
                         })
@@ -127,6 +145,25 @@ fun InvestissementScreen(compteId: String, viewModel: InvestissementViewModel, o
         }
     }
 
+    if (dialogueAchat) {
+        val compte = uiState.compte
+        DialogueAchat(
+            argentNonPlace = compte?.let { com.xburnsx.toutiebudget.domain.services.Portefeuille.argentNonPlace(it.details, it.solde) } ?: 0.0,
+            onAcheter = { s, q, p, f, d, dev, paye -> viewModel.acheter(s, q, p, f, d, dev, paye) },
+            onAnnuler = { dialogueAchat = false }
+        )
+    }
+    titreOuvert?.let { symbole ->
+        uiState.compte?.let { compte ->
+            DialogueTitre(
+                compte = compte,
+                symbole = symbole,
+                onPrixManuel = { viewModel.mettreCoursManuel(symbole, it) },
+                onVendre = { q, p, f, d -> viewModel.vendre(symbole, q, p, f, d) },
+                onAnnuler = { titreOuvert = null }
+            )
+        }
+    }
     if (dialogueValeur) {
         DialogueValeur(
             valeurActuelle = uiState.compte?.solde ?: 0.0,

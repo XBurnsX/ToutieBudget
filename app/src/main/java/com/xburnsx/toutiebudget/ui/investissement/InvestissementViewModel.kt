@@ -32,7 +32,8 @@ data class InvestissementUiState(
     val enCours: Boolean = false,
     val erreurChargement: String? = null,
     val message: String? = null,
-    val succesEcriture: Long = 0L
+    val succesEcriture: Long = 0L,
+    val actualisationEnCours: Boolean = false
 )
 
 /**
@@ -45,7 +46,9 @@ class InvestissementViewModel(
     private val transactionRepository: TransactionRepository,
     private val historiqueAllocationService: HistoriqueAllocationService,
     private val realtimeSyncService: RealtimeSyncService,
-    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte
+    private val operationAtomique: OperationAtomique = OperationAtomiqueDirecte,
+    /** Prix en ligne pour « Actualiser » (null = seulement la saisie à la main, ex. tests). */
+    private val coursEnLigne: com.xburnsx.toutiebudget.data.services.CoursEnLigne? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -229,6 +232,93 @@ class InvestissementViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(enCours = false, message = "Échec : ${e.message}") }
+            }
+        }
+    }
+
+    // ===== Suivi par titre (achats, ventes, cours) =====
+
+    private fun aujourdhui() = MoteurCarteCredit.ecrireDate(java.util.Date())
+
+    /**
+     * Les titres décident de la valeur du compte : le solde devient la valeur du portefeuille (titres + argent
+     * non placé) dès qu'elle est connue. Un changement de cours est noté comme valeur de marché datée (IF7).
+     */
+    private fun avecValeurDuPortefeuille(
+        compte: CompteInvestissement,
+        details: DetailsInvestissement,
+        noterValeurDeMarche: Boolean
+    ): CompteInvestissement {
+        val valeur = com.xburnsx.toutiebudget.domain.services.Portefeuille.valeurCompte(details, compte.solde)
+        val avecTrace = if (noterValeurDeMarche && valeur != null && kotlin.math.abs(valeur - compte.solde) > 0.005) {
+            details.copy(valorisations = details.valorisations + Valorisation(
+                date = aujourdhui(), valeur = valeur, ancienneValeur = compte.solde,
+                type = TypeValorisation.MARCHE, note = "Cours des titres à jour"
+            ))
+        } else details
+        return compte.copy(solde = valeur ?: compte.solde, detailsInvestissementJson = avecTrace.versJson())
+    }
+
+    fun acheter(symbole: String, quantite: Double, prix: Double, frais: Double, date: String, devise: String, payeAvecArgentNonPlace: Boolean) =
+        enregistrer { compte ->
+            val d = com.xburnsx.toutiebudget.domain.services.Portefeuille.acheter(
+                compte.details, compte.solde, symbole, quantite, prix, frais, date.trim(), devise, payeAvecArgentNonPlace
+            )
+            avecValeurDuPortefeuille(compte, d, noterValeurDeMarche = false)
+        }
+
+    fun vendre(symbole: String, quantite: Double, prix: Double, frais: Double, date: String) =
+        enregistrer { compte ->
+            val d = com.xburnsx.toutiebudget.domain.services.Portefeuille.vendre(
+                compte.details, compte.solde, symbole, quantite, prix, frais, date.trim()
+            )
+            avecValeurDuPortefeuille(compte, d, noterValeurDeMarche = false)
+        }
+
+    /** Saisie à la main (si le cours en ligne est introuvable, ou pour corriger). */
+    fun mettreCoursManuel(symbole: String, prix: Double) =
+        enregistrer { compte ->
+            val d = com.xburnsx.toutiebudget.domain.services.Portefeuille.mettreCours(compte.details, symbole, prix, aujourdhui())
+            avecValeurDuPortefeuille(compte, d, noterValeurDeMarche = true)
+        }
+
+    /** « Actualiser » : dernier prix de chaque titre et taux des devises ; ce qui échoue garde son ancien prix. */
+    fun actualiserCours() {
+        val service = coursEnLigne ?: run {
+            _uiState.update { it.copy(message = "Cours en ligne indisponible : entre le prix à la main.") }
+            return
+        }
+        val positions = _uiState.value.compte?.details?.positions.orEmpty()
+        if (positions.isEmpty() || _uiState.value.actualisationEnCours) return
+        _uiState.update { it.copy(actualisationEnCours = true) }
+        viewModelScope.launch {
+            val cotations = mutableMapOf<String, com.xburnsx.toutiebudget.data.services.Cotation>()
+            val echecs = mutableListOf<String>()
+            positions.forEach { p ->
+                service.cotation(p.symbole, p.symboleCotation)
+                    .onSuccess { cotations[p.symbole] = it }
+                    .onFailure { echecs += p.symbole }
+            }
+            val taux = mutableMapOf<String, Double>()
+            (cotations.values.map { it.devise } + positions.map { it.devise }).toSet().filter { it != "CAD" }.forEach { devise ->
+                service.tauxVersCad(devise).onSuccess { taux[devise] = it }.onFailure { echecs += "taux $devise" }
+            }
+            _uiState.update { it.copy(actualisationEnCours = false) }
+            if (cotations.isEmpty() && taux.isEmpty()) {
+                _uiState.update { it.copy(message = "Aucun cours trouvé en ligne (${echecs.joinToString()}). Entre le prix à la main.") }
+                return@launch
+            }
+            enregistrer { compte ->
+                var d = compte.details.copy(tauxVersCad = compte.details.tauxVersCad.orEmpty() + taux)
+                cotations.forEach { (symbole, c) ->
+                    if (d.positions.any { it.symbole == symbole }) {
+                        d = com.xburnsx.toutiebudget.domain.services.Portefeuille.mettreCours(d, symbole, c.prix, aujourdhui(), c.devise, c.symboleCotation)
+                    }
+                }
+                avecValeurDuPortefeuille(compte, d, noterValeurDeMarche = true)
+            }
+            if (echecs.isNotEmpty()) {
+                _uiState.update { it.copy(message = "Pas de cours en ligne pour : ${echecs.joinToString()}. Mets le prix à la main (touche le titre).") }
             }
         }
     }

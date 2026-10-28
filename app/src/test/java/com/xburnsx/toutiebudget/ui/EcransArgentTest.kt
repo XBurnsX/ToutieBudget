@@ -324,6 +324,33 @@ class EcransArgentTest {
     // ===== Carte, dette, placement, prêt =====
 
     @Test
+    fun `creer une dette calcule le solde et configure son objectif mensuel`() = test {
+        val vm = app.comptes(); attendre()
+        vm.onOuvrirAjoutDialog()
+        vm.onFormValueChange(nom = "Auto", type = "Dette")
+        vm.onFormDetteChange(
+            dateDebut = "2026-05-05",
+            dureeMois = "36",
+            versementMensuel = "189.21",
+            tauxAnnuel = "10"
+        )
+        vm.onSauvegarderCompte(); attendre()
+
+        val dette = b.comptes.values.filterIsInstance<CompteDette>().single()
+        val situation = assertNotNull(com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
+            com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.lireDate("2026-05-05")!!,
+            36, 189.21, 10.0
+        ))
+        assertEquals(-situation.soldeActuel, dette.soldeDette)
+        assertEquals(situation.paiementsEcoules, dette.paiementEffectue)
+        assertEquals("2029-05-05", dette.details.dateFin)
+        val enveloppe = b.enveloppes.getValue(dette.details.enveloppeId!!)
+        assertEquals(com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel, enveloppe.typeObjectif)
+        assertEquals(189.21, enveloppe.objectifMontant)
+        assertEquals(5, enveloppe.objectifJour)
+    }
+
+    @Test
     fun `carte - le solde signe saisi reste signe`() = test {
         b.carte("visa", -400.0)
         val vm = app.cartes(); attendre()
@@ -336,9 +363,25 @@ class EcransArgentTest {
 
     @Test
     fun `dette - changer le taux apres un paiement garde le vrai solde`() = test {
-        b.dette("auto", -1150.0, nom = "Auto")
+        b.categorie("cd", "Dettes")
+        b.enveloppe("envAuto", "Auto", "cd")
+        val dette = b.dette(
+            "auto", -1150.0, nom = "Auto",
+            detailsJson = com.xburnsx.toutiebudget.data.modeles.DetailsDette(
+                mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE,
+                dateDebut = "2026-05-05", dateFin = "2027-05-05", jourVersement = 5,
+                enveloppeId = "envAuto"
+            ).versJson()
+        ).copy(tauxInteret = 0.0, dureeMoisPret = 12, paiementMinimum = 100.0)
+        b.comptes["auto"] = dette
+        b.depotTransactions.creerTransaction(
+            com.xburnsx.toutiebudget.data.modeles.Transaction(
+                type = TypeTransaction.Paiement, montant = 50.0,
+                compteId = "auto", collectionCompte = "comptes_dettes"
+            )
+        )
         val vm = app.dette(); vm.chargerDette("auto"); attendre()
-        vm.modifierFormulaire { copy(taux = "5", dureeMois = "24", mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE) }
+        vm.modifierFormulaire { copy(taux = "5", dureeMois = "24") }
         vm.sauvegarder(); vm.sauvegarder(); attendre()
         val d = b.comptes.getValue("auto") as CompteDette
         assertEquals(-1150.0, d.soldeDette); assertEquals(5.0, d.tauxInteret); assertEquals(24, d.dureeMoisPret)
@@ -354,6 +397,38 @@ class EcransArgentTest {
         val c = b.comptes.getValue("ws") as CompteInvestissement
         assertEquals(550.0, c.solde); assertEquals(1, c.details.valorisations.size)
         assertTrue(b.transactions.isEmpty())
+    }
+
+    @Test
+    fun `CELI - achats XEQT, actualiser les prix, gain en dollars et en pourcentage`() = test {
+        b.placement("celi", 500.0)
+        var appels = 0
+        val cours = object : com.xburnsx.toutiebudget.data.services.CoursEnLigne {
+            override suspend fun cotation(symbole: String, symboleConnu: String?): Result<com.xburnsx.toutiebudget.data.services.Cotation> {
+                appels++
+                return if (symbole == "XEQT") Result.success(com.xburnsx.toutiebudget.data.services.Cotation("XEQT.TO", 35.0, "CAD"))
+                else Result.failure(IllegalStateException("introuvable"))
+            }
+            override suspend fun tauxVersCad(devise: String) = Result.success(1.0)
+        }
+        val vm = app.placement(cours); vm.charger("celi"); attendre()
+
+        vm.acheter("XEQT", 10.0, 30.0, 0.0, "2026-10-10", "CAD", payeAvecArgentNonPlace = true); attendre()
+        vm.acheter("XEQT", 2.0, 33.0, 0.0, "2026-10-14", "CAD", payeAvecArgentNonPlace = true); attendre()
+        var c = b.comptes.getValue("celi") as CompteInvestissement
+        assertEquals(530.0, c.solde, "12 parts au prix le plus récent (33 $) + 134 $ non placés")
+
+        vm.actualiserCours(); attendre()
+        c = b.comptes.getValue("celi") as CompteInvestissement
+        assertEquals(1, appels)
+        assertEquals(554.0, c.solde) // 12 x 35 + 134
+        val ligne = com.xburnsx.toutiebudget.domain.services.Portefeuille.resume(c.details, c.solde).lignes.single()
+        assertEquals(54.0, ligne.gain); assertEquals("XEQT.TO", ligne.position.symboleCotation)
+        assertEquals(TypeValorisation.MARCHE, c.details.valorisations.last().type)
+        assertTrue(b.transactions.isEmpty(), "un achat ou un prix n'est ni une dépense ni un revenu")
+
+        vm.mettreCoursManuel("XEQT", 36.0); attendre()
+        assertEquals(566.0, (b.comptes.getValue("celi") as CompteInvestissement).solde)
     }
 
     @Test

@@ -340,7 +340,8 @@ import android.content.Context
      private val investissementViewModel by lazy {
          com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel(
              compteRepository, transactionRepository, historiqueAllocationService, realtimeSyncService,
-             operationAtomique = operationAtomique
+             operationAtomique = operationAtomique,
+             coursEnLigne = com.xburnsx.toutiebudget.data.services.CoursYahoo()
          )
      }
      fun provideInvestissementViewModel(): com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel = investissementViewModel

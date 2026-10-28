@@ -24,7 +24,9 @@ data class DetailsInvestissement(
     val retirableConnu: Double? = null,
     // IA5 / IA6
     val positions: List<PositionTitre> = emptyList(),
-    val mouvements: List<MouvementPlacement> = emptyList()
+    val mouvements: List<MouvementPlacement> = emptyList(),
+    /** Derniers taux connus pour convertir une devise en CAD (ex. « USD » -> 1.37), mis à jour par « Actualiser ». */
+    val tauxVersCad: Map<String, Double>? = null
 ) {
     fun versJson(): String = gson.toJson(this)
 
@@ -87,6 +89,8 @@ data class PositionTitre(
     val coutTotal: Double,
     val cours: Double? = null,
     val dateCours: String? = null,
+    /** Symbole utilisé pour le cours en ligne (ex. « XEQT.TO »), trouvé par « Actualiser ». */
+    val symboleCotation: String? = null,
     val devise: String = "CAD"
 ) {
     val valeur: Double? get() = cours?.let { it * quantite }
