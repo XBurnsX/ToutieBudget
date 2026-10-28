@@ -1,6 +1,10 @@
 package com.xburnsx.toutiebudget.data.banque
 
 import androidx.room.withTransaction
+import com.google.gson.Gson
+import com.xburnsx.toutiebudget.data.room.entities.SyncJob
+import com.xburnsx.toutiebudget.data.services.SyncJobAutoTriggerService
+import com.xburnsx.toutiebudget.utils.IdGenerator
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.daos.OperationBancaireEnAttenteDao
 import com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente
@@ -53,7 +57,7 @@ class BoiteOperationsBancairesRepository(
         require(ligne.statutBancaire in setOf("EN_ATTENTE", "FINALISEE")) {
             "Statut bancaire invalide."
         }
-        return database.withTransaction {
+        val resultat = database.withTransaction {
             val appartient = if (ligne.collectionCompte == "comptes_cheques")
                 database.compteChequeDao().getCompteById(ligne.compteId)?.utilisateurId == uid
             else database.compteCreditDao().getCompteById(ligne.compteId)?.utilisateurId == uid
@@ -71,6 +75,7 @@ class BoiteOperationsBancairesRepository(
                     libelleBrut = ligne.libelleBrut, statutBancaire = ligne.statutBancaire
                 )
                 dao.ajouter(operation)
+                mettreEnFile(operation, "CREATE")
                 operation
             } else if (ancienne.statutBancaire == ligne.statutBancaire &&
                 ancienne.dateOperation == ligne.dateOperation &&
@@ -90,9 +95,13 @@ class BoiteOperationsBancairesRepository(
                     verificationRequise = ancienne.verificationRequise || conflit,
                     montantFinalCentimes = if (conflit) ligne.montantCentimes else ancienne.montantFinalCentimes
                 )
-                dao.parId(ancienne.id, uid) ?: error("Import mis à jour introuvable.")
+                val actualisee = dao.parId(ancienne.id, uid) ?: error("Import mis à jour introuvable.")
+                mettreEnFile(actualisee, "UPDATE")
+                actualisee
             }
         }
+        SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+        return resultat
     }
 
 
@@ -118,14 +127,56 @@ class BoiteOperationsBancairesRepository(
         }
     }
 
-    /** Ignorer est réversible ; on ne détruit jamais l'original bancaire. */
-    suspend fun ignorer(id: String): Boolean =
-        dao.changerDecision(id, userId(), "IGNOREE") > 0
+    /** Ignorer est réversible et synchronisé ; l'original bancaire reste conservé. */
+    suspend fun ignorer(id: String): Boolean = changerDecision(id, "IGNOREE")
 
-    suspend fun restaurer(id: String): Boolean =
-        dao.changerDecision(id, userId(), "A_CONFIRMER") > 0
+    suspend fun restaurer(id: String): Boolean = changerDecision(id, "A_CONFIRMER")
+
+    private suspend fun changerDecision(id: String, decision: String): Boolean {
+        val uid = userId()
+        val modifie = database.withTransaction {
+            val change = dao.changerDecision(id, uid, decision) > 0
+            if (change) {
+                val operation = dao.parId(id, uid) ?: error("Opération absente.")
+                mettreEnFile(operation, "UPDATE")
+            }
+            change
+        }
+        if (modifie) SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+        return modifie
+    }
 
     suspend fun lire(id: String): OperationBancaireEnAttente? = dao.parId(id, userId())
+
+    /** JSON utilisé par la collection PocketBase. Centimes conservés en texte entier. */
+    private suspend fun mettreEnFile(op: OperationBancaireEnAttente, action: String) {
+        val payload = mapOf(
+            "id" to op.id,
+            "utilisateur_id" to op.utilisateurId,
+            "compte_id" to op.compteId,
+            "collection_compte" to op.collectionCompte,
+            "source" to op.source,
+            "id_externe" to op.idExterne,
+            "date_operation" to op.dateOperation,
+            "montant_centimes" to op.montantCentimes.toString(),
+            "libelle_brut" to op.libelleBrut,
+            "statut_bancaire" to op.statutBancaire,
+            "decision" to op.decision,
+            "tiers_id" to (op.tiersId ?: ""),
+            "verification_requise" to op.verificationRequise,
+            "montant_final_centimes" to (op.montantFinalCentimes?.toString() ?: "")
+        )
+        database.syncJobDao().insertSyncJob(SyncJob(
+            id = IdGenerator.generateId(),
+            type = "OPERATION_BANCAIRE",
+            action = action,
+            dataJson = Gson().toJson(payload),
+            recordId = op.id,
+            utilisateurId = op.utilisateurId,
+            createdAt = System.currentTimeMillis(),
+            status = "PENDING"
+        ))
+    }
 
     private fun idStable(uid: String, compteId: String, source: String, idExterne: String): String {
         val cle = listOf(uid, compteId, source, idExterne).joinToString("\u001f")
