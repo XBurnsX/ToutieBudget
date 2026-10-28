@@ -438,6 +438,21 @@ class EnveloppeRepositoryRoomImpl(
         }
     }
 
+    override suspend fun recupererAllocationsParIds(ids: List<String>): Result<List<AllocationMensuelle>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                    ?: throw IllegalStateException("Utilisateur connecté requis.")
+                // SQLite limite le nombre de paramètres; 400 permet également
+                // de traiter des historiques de plusieurs milliers de lignes.
+                ids.filter { it.isNotBlank() }.distinct().chunked(400)
+                    .flatMap { lot ->
+                        allocationMensuelleDao.getAllocationsParIds(utilisateurId, lot)
+                    }
+                    .map { it.toAllocationMensuelleModel() }
+            }
+        }
+
     override suspend fun recupererAllocationParId(id: String): Result<AllocationMensuelle> = withContext(Dispatchers.IO) {
         try {
             // Récupérer depuis Room (PRIMARY)
