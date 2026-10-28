@@ -269,6 +269,6 @@ fun HistoriqueCompteScreen(
     ConfirmationSuppressionTransaction(
         transaction = transactionASupprimer,
         onAnnuler = { transactionASupprimer = null },
-        onConfirmer = { transactionASupprimer = null; viewModel.supprimerTransaction(it.id) }
+        onConfirmer = { transactionASupprimer = null; viewModel.supprimerTransactionConfirmee(it) }
     )
 }
