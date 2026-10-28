@@ -130,24 +130,15 @@ class HistoriqueEnveloppeViewModel(
      * Met à jour la requête de recherche et filtre les transactions.
      */
     fun mettreAJourRecherche(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
-        filtrerTransactions()
-    }
-
-    /**
-     * Filtre les transactions selon la requête de recherche.
-     */
-    private fun filtrerTransactions() {
-        // La liste source reste intacte; on réutilise le même filtre après un rechargement.
-        val source = _uiState.value
-        val filtrees = RechercheHistorique.filtrer(source.transactions, source.searchQuery)
-        val groupes = grouperTransactionsParDate(filtrees)
-        _uiState.update { etat ->
-            // Une recherche saisie pendant un chargement reste prioritaire.
-            if (etat.searchQuery == source.searchQuery && etat.transactions === source.transactions)
-                etat.copy(transactionsGroupees = groupes)
-            else etat.copy(transactionsGroupees =
-                grouperTransactionsParDate(RechercheHistorique.filtrer(etat.transactions, etat.searchQuery)))
+        // Une seule émission d'état : éviter d'afficher brièvement la nouvelle
+        // recherche avec la vieille liste (et les sauts de scroll associés).
+        _uiState.update { actuel ->
+            actuel.copy(
+                searchQuery = query,
+                transactionsGroupees = grouperTransactionsParDate(
+                    RechercheHistorique.filtrer(actuel.transactions, query)
+                )
+            )
         }
     }
 
@@ -305,13 +296,14 @@ class HistoriqueEnveloppeViewModel(
                 }
 
                 // Utiliser la nouvelle méthode de groupement
-                val transactionsGroupees = grouperTransactionsParDate(transactionsUi)
 
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
                         transactions = transactionsUi,
-                        transactionsGroupees = transactionsGroupees,
+                        transactionsGroupees = grouperTransactionsParDate(
+                            RechercheHistorique.filtrer(transactionsUi, it.searchQuery)
+                        ),
                         erreur = null,
                         avertissement = buildList {
                             if (enveloppesIndisponibles)
@@ -328,10 +320,6 @@ class HistoriqueEnveloppeViewModel(
                     )
                 }
                 
-                // Appliquer le filtrage si une recherche est active
-                if (_uiState.value.searchQuery.isNotEmpty()) {
-                    filtrerTransactions()
-                }
 
             } catch (annulation: CancellationException) {
                 throw annulation // ancien chargement : surtout ne pas écraser le plus récent
