@@ -188,7 +188,7 @@ class TransactionRepositoryRoomImpl(
             // HC5 : ne JAMAIS lire l'historique d'un autre utilisateur
             // dans une base Room partagée entre deux sessions.
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(IllegalStateException("Connexion requise pour cet historique."))
+                ?: return@withContext Result.failure(SecurityException("Connexion requise pour cet historique."))
             require(compteId.isNotBlank() && collectionCompte.isNotBlank()) {
                 "Identifiant de compte invalide."
             }
