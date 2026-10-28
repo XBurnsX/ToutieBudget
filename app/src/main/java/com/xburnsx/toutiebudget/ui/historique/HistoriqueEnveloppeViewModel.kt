@@ -312,9 +312,7 @@ class HistoriqueEnveloppeViewModel(
                 // Filtrer les transactions pour cette enveloppe spécifique
                 // Un JSON de fractions illisible doit être signalé, pas devenir
                 // silencieusement une transaction "absente".
-                val montantsInvalides = transactions.count { !it.montant.isFinite() }
                 var fractionsIllisibles = 0
-                var fractionsNonReconciliables = 0
                 val portionsValides = mutableMapOf<String, List<PortionsHistorique.Portion>>()
                 val transactionsEnveloppe = transactions.filter { transaction ->
                     // Valider toutes les portions AVANT de montrer la transaction.
@@ -323,9 +321,7 @@ class HistoriqueEnveloppeViewModel(
                         try {
                             PortionsHistorique.lire(transaction.sousItems).also { fractions ->
                                 portionsValides[transaction.id] = fractions
-                                if (!PortionsHistorique.verifierTotal(fractions, transaction.montant)) {
-                                    fractionsNonReconciliables++
-                                }
+
                             }
                         } catch (_: Exception) {
                             fractionsIllisibles++
@@ -341,6 +337,15 @@ class HistoriqueEnveloppeViewModel(
                         val allocation = transaction.allocationMensuelleId
                         allocation != null && allocationIdToEnveloppeId[allocation] == enveloppeId
                     }
+                }
+
+                // Compter seulement les achats réellement attribués à cette enveloppe :
+                // une fraction d'une AUTRE enveloppe ne doit pas polluer ses totaux.
+                val montantsInvalides = transactionsEnveloppe.count { !it.montant.isFinite() }
+                val fractionsNonReconciliables = transactionsEnveloppe.count { transaction ->
+                    transaction.estFractionnee && !PortionsHistorique.verifierTotal(
+                        portionsValides[transaction.id].orEmpty(), transaction.montant
+                    )
                 }
 
                 // Convertir en TransactionUi
@@ -436,7 +441,7 @@ class HistoriqueEnveloppeViewModel(
                             if (montantsInvalides > 0)
                                 add("$montantsInvalides transaction(s) avec un montant total invalide.")
                             if (fractionsIllisibles > 0)
-                                add("$fractionsIllisibles transaction(s) fractionnée(s) illisible(s).")
+                                add("$fractionsIllisibles fraction(s) illisible(s) parmi les transactions candidates : rattachement à cette enveloppe inconnu.")
                             if (fractionsNonReconciliables > 0)
                                 add("$fractionsNonReconciliables achat(s) avec répartition différente du total.")
                             if (doublons > 0)
