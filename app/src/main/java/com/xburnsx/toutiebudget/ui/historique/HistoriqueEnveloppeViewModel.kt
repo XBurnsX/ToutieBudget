@@ -299,7 +299,8 @@ class HistoriqueEnveloppeViewModel(
                                     ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
                             } ?: emptyList(),
                         compteId = transaction.compteId,
-                        collectionCompte = transaction.collectionCompte
+                        collectionCompte = transaction.collectionCompte,
+                        montantTotalTransaction = if (transaction.estFractionnee) transaction.montant else null
                     )
                 }
 
