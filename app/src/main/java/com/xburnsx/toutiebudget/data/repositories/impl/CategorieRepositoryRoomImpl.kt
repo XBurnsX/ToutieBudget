@@ -29,7 +29,8 @@ class CategorieRepositoryRoomImpl(
     private val categorieDao: CategorieDao,
     private val syncJobDao: SyncJobDao,
     private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique =
-        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
+        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte,
+    private val enveloppeDao: com.xburnsx.toutiebudget.data.room.daos.EnveloppeDao? = null
 ) : CategorieRepository {
     
     private val client = PocketBaseClient
@@ -159,6 +160,20 @@ class CategorieRepositoryRoomImpl(
     override suspend fun supprimerCategorie(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
+            // CE3 : y compris les enveloppes archivées. Le test et le
+            // DELETE appartiennent à la même transaction Room.
+            val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                ?: error("Connexion requise pour supprimer une catégorie.")
+            val categorie = categorieDao.getCategorieById(id)
+                ?: error("Catégorie introuvable.")
+            require(categorie.utilisateurId == utilisateur) { "Catégorie hors session." }
+            val enveloppes = enveloppeDao
+                ?: error("Vérification des enveloppes indisponible.")
+            val liees = enveloppes.getEnveloppesByUtilisateur(utilisateur).first()
+                .count { it.categorieId == id }
+            require(liees == 0) {
+                "Impossible de supprimer cette catégorie : $liees enveloppe(s) active(s) ou archivée(s) y sont encore liées."
+            }
             // 1. Supprimer de Room (PRIMARY)
             categorieDao.deleteCategorieById(id)
             
