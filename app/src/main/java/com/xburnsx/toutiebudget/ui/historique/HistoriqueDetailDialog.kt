@@ -37,7 +37,15 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
             ) {
                 Text("Type : " + transaction.type.libelle)
                 Text("Tiers : " + transaction.tiersUtiliser)
-                Text("Montant : " + MoneyFormatter.formatAmount(transaction.montant))
+                if (transaction.montantTotalTransaction != null) {
+                    Text("Montant total de l'achat : " +
+                        MoneyFormatter.formatAmount(transaction.montantTotalTransaction))
+                    Text("Portion de cette enveloppe : " +
+                        MoneyFormatter.formatAmount(transaction.montant))
+                } else {
+                    Text("Montant de la transaction : " +
+                        MoneyFormatter.formatAmount(transaction.montant))
+                }
                 Text("Date et heure : " + dateTexte)
                 Text(
                     "Compte : " + (transaction.nomCompte?.takeIf { it.isNotBlank() }
