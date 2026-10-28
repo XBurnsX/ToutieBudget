@@ -12,7 +12,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.gson.JsonParser
 
 import java.text.DateFormat
 import java.util.Locale
@@ -76,17 +75,14 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
-                        val objets = runCatching {
-                            JsonParser.parseString(transaction.sousItems).asJsonArray
-                        }.getOrNull()
+                        val metadonnees = MetadonneesFractionsHistorique.lire(
+                            transaction.sousItems, fractions.size
+                        )
                         fractions.forEachIndexed { index, portion ->
                             val nom = transaction.nomsEnveloppesFractions.getOrNull(index)
-                                ?: portion.enveloppeId
-                            val objet = objets?.get(index)?.takeIf { it.isJsonObject }?.asJsonObject
-                            val description = objet?.get("description")
-                                ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
-                            val note = objet?.get("note")
-                                ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+                                ?: "Enveloppe historique (ID : ${portion.enveloppeId})"
+                            val description = metadonnees[index].description
+                            val note = metadonnees[index].note
                             Text(nom + " : " +
                                 AffichageMontantHistorique.formater(portion.montantCentimes / 100.0))
                             if (description.isNotBlank()) Text("Description : " + description)
