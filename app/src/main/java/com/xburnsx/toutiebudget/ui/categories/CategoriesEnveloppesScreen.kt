@@ -117,7 +117,8 @@ fun CategoriesEnveloppesScreen(
     
     // Dialogue de confirmation de suppression de catégorie
     if (uiState.isConfirmationSuppressionCategorieVisible) {
-        val nomCategorie = uiState.categoriePourSuppression
+        val categorieId = uiState.categoriePourSuppression
+        val nomCategorie = categorieId?.let { uiState.categoriesParId[it]?.nom ?: it }
         if (nomCategorie != null) {
             ConfirmationSuppressionDialog(
                 titre = "Supprimer la catégorie",
@@ -244,8 +245,12 @@ fun CategoriesEnveloppesScreen(
 
                     itemsIndexed(
                         items = categoriesOrdonnees,
-                        key = { _, (nomCategorie, _) -> nomCategorie }
-                    ) { index, (nomCategorie, enveloppes) ->
+                        key = { _, (categorieId, _) -> categorieId }
+                    ) { index, (categorieId, enveloppes) ->
+                        // CE9 : clé métier stable = ID, même après renommage
+                        // ou en présence de deux catégories au même nom.
+                        val nomCategorie = uiState.categoriesParId[categorieId]?.nom
+                            ?: "Sans catégorie"
                         if (uiState.isModeReorganisation) {
                             // Mode réorganisation : utiliser le composant spécialisé
                             CategorieReorganisable(
@@ -254,9 +259,9 @@ fun CategoriesEnveloppesScreen(
                                 position = index,
                                 totalCategories = categoriesOrdonnees.size,
                                 isModeReorganisation = true,
-                                isEnDeplacement = uiState.categorieEnDeplacement == nomCategorie,
-                                onDeplacerCategorie = viewModel::onDeplacerCategorie,
-                                onDebuterDeplacement = viewModel::onDebuterDeplacementCategorie,
+                                isEnDeplacement = uiState.categorieEnDeplacement == categorieId,
+                                onDeplacerCategorie = { _, position -> viewModel.onDeplacerCategorie(categorieId, position) },
+                                onDebuterDeplacement = { _ -> viewModel.onDebuterDeplacementCategorie(categorieId) },
                                 onTerminerDeplacement = viewModel::onTerminerDeplacementCategorie,
                                 // 🆕 NOUVEAUX PARAMÈTRES POUR LES ENVELOPPES
                                 onDeplacerEnveloppe = viewModel::onDeplacerEnveloppe,
@@ -268,13 +273,13 @@ fun CategoriesEnveloppesScreen(
                                 nomCategorie = nomCategorie,
                                 enveloppes = enveloppes,
                                 onAjouterEnveloppeClick = {
-                                    viewModel.onOuvrirAjoutEnveloppeDialog(nomCategorie)
+                                    viewModel.onOuvrirAjoutEnveloppeDialog(categorieId)
                                 },
                                 onObjectifClick = viewModel::onOuvrirObjectifDialog,
                                 onSupprimerEnveloppe = viewModel::onOuvrirConfirmationSuppressionEnveloppe,
                                 onSupprimerObjectifEnveloppe = viewModel::onSupprimerObjectifEnveloppe,
                                 onSupprimerCategorie = { nom ->
-                                    viewModel.onOuvrirConfirmationSuppressionCategorie(nom)
+                                    viewModel.onOuvrirConfirmationSuppressionCategorie(categorieId)
                                 },
                                 modifier = Modifier
                             )
