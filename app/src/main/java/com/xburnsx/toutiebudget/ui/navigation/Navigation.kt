@@ -229,7 +229,12 @@ fun AppNavigation() {
                 val retourEdition by backStackEntry.savedStateHandle
                     .getStateFlow("historique_retour_edition", 0L).collectAsState()
                 LaunchedEffect(retourEdition) {
-                    if (retourEdition > 0L) viewModel.rechargerTransactions()
+                    if (retourEdition > 0L) {
+                        // HC13 : consommer le signal, sinon une recréation de
+                        // l'écran relancerait le même rechargement inutilement.
+                        backStackEntry.savedStateHandle["historique_retour_edition"] = 0L
+                        viewModel.rechargerTransactions()
+                    }
                 }
 
                 HistoriqueCompteScreen(
@@ -277,7 +282,12 @@ fun AppNavigation() {
                 val retourEdition by backStackEntry.savedStateHandle
                     .getStateFlow("historique_retour_edition", 0L).collectAsState()
                 LaunchedEffect(retourEdition) {
-                    if (retourEdition > 0L) viewModel.rechargerTransactions()
+                    if (retourEdition > 0L) {
+                        // HC13 : consommer le signal, sinon une recréation de
+                        // l'écran relancerait le même rechargement inutilement.
+                        backStackEntry.savedStateHandle["historique_retour_edition"] = 0L
+                        viewModel.rechargerTransactions()
+                    }
                 }
 
                 HistoriqueEnveloppeScreen(
@@ -305,7 +315,14 @@ fun AppNavigation() {
                 )
             ) { backStackEntry ->
                 val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
-                val viewModel = AppModule.provideModifierTransactionViewModel()
+                // HC13 : ne jamais recréer le formulaire à chaque recomposition.
+                // Le ViewModel de modification appartient à sa destination.
+                val viewModel = composeViewModel<com.xburnsx.toutiebudget.ui.ajout_transaction.ModifierTransactionViewModel>(
+                    viewModelStoreOwner = backStackEntry,
+                    factory = remember(backStackEntry.id) {
+                        historiqueFactory { AppModule.provideModifierTransactionViewModel() }
+                    }
+                )
                 ModifierTransactionScreen(
                     transactionId = transactionId,
                     viewModel = viewModel,
