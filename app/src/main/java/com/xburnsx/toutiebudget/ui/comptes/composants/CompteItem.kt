@@ -231,7 +231,28 @@ private fun InfoSecondaireCompte(compte: Compte) {
                 )
             }
         }
-        is CompteInvestissement -> Text("Compte d'investissement", fontSize = 13.sp, color = Color.Gray)
+        is CompteInvestissement -> {
+            // Gain sur les titres d'après le dernier prix connu (actualisé à l'ouverture de l'app)
+            val resume = androidx.compose.runtime.remember(compte.detailsInvestissementJson, compte.solde) {
+                compte.details.takeIf { it.positions.isNotEmpty() }?.let {
+                    com.xburnsx.toutiebudget.domain.services.Portefeuille.resume(it, compte.solde)
+                }
+            }
+            val gain = resume?.gain
+            if (gain == null) {
+                Text("Compte d'investissement", fontSize = 13.sp, color = Color.Gray)
+            } else {
+                val signe = if (gain < 0) "−" else "+"
+                val pourcentage = resume.pourcentage?.let {
+                    " (" + signe + String.format(java.util.Locale.CANADA_FRENCH, "%.2f", abs(it)) + " %)"
+                }.orEmpty()
+                Text(
+                    text = signe + MoneyFormatter.formatAmount(abs(gain)) + pourcentage,
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (gain < 0) Color(0xFFEF5350) else Color(0xFF4CAF50)
+                )
+            }
+        }
         else -> { /* Ne rien faire pour les autres types de comptes */ }
     }
 }

@@ -371,6 +371,13 @@ import android.content.Context
          )
      }
      fun provideInvestissementViewModel(): com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel = investissementViewModel
+     private val actualisationCours by lazy {
+         com.xburnsx.toutiebudget.data.services.ActualisationCours(
+             compteRepository, operationAtomique, realtimeSyncService,
+             com.xburnsx.toutiebudget.data.services.CoursYahoo()
+         )
+     }
+     fun provideActualisationCours(): com.xburnsx.toutiebudget.data.services.ActualisationCours = actualisationCours
              fun provideStatistiquesViewModel(): StatistiquesViewModel = createStatistiquesViewModel()
       fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
       fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel
