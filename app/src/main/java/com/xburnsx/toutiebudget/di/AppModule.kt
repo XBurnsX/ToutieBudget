@@ -82,13 +82,15 @@ import android.content.Context
          EnveloppeRepositoryRoomImpl(
              database.enveloppeDao(),
              database.allocationMensuelleDao(),
-             database.syncJobDao()
+             database.syncJobDao(),
+             operationAtomique
          )
      }
      private val categorieRepository: CategorieRepository by lazy { 
          CategorieRepositoryRoomImpl(
              database.categorieDao(),
-             database.syncJobDao()
+             database.syncJobDao(),
+             operationAtomique
          )
      }
            private val transactionRepository: TransactionRepository by lazy { 
