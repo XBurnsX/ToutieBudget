@@ -6,6 +6,7 @@ package com.xburnsx.toutiebudget.ui.historique
 data class HistoriqueEnveloppeUiState(
     val isLoading: Boolean = true,
     val erreur: String? = null,
+    val avertissement: String? = null,
     val nomEnveloppe: String = "",
     val transactions: List<TransactionUi> = emptyList(),
     val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
