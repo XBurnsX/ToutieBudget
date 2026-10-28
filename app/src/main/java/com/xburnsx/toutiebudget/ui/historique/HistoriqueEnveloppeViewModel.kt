@@ -391,7 +391,8 @@ class HistoriqueEnveloppeViewModel(
                         montantTotalTransaction = if (transaction.estFractionnee) transaction.montant else null,
                         tiersBrut = transaction.tiersUtiliser,
                         allocationMensuelleId = transaction.allocationMensuelleId,
-                        revisionTransaction = transaction.updated
+                        revisionTransaction = transaction.updated,
+                        dateCreationEnregistrement = transaction.created
                     )
                 }
                 val doublons = RegroupementHistorique.nombreDoublons(transactionsUi)
