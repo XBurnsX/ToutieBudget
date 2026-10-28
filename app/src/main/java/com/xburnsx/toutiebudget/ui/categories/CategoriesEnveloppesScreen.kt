@@ -226,8 +226,23 @@ fun CategoriesEnveloppesScreen(
         if (enveloppe != null) {
             ConfirmationSuppressionDialog(
                 titre = "Supprimer l'enveloppe",
-                message = "Êtes-vous sûr de vouloir retirer l'enveloppe '${enveloppe.nom}' ?\n\n" +
-                    "Elle doit être vide. Si elle a déjà servi, elle sera archivée et son historique gardé.",
+                message = "Retirer l'enveloppe « ${enveloppe.nom} » ?\n\n" +
+                    "Aucun historique ni aucune allocation ne sera supprimé.\n" +
+                    when {
+                        uiState.previsualisationRetraitEnCours ->
+                            "Analyse des allocations en cours…"
+                        uiState.apercuRetrait == null ->
+                            "Prévisualisation indisponible. Le retrait exige une nouvelle vérification."
+                        else -> uiState.apercuRetrait!!.let { a ->
+                            "Allocations historiques : ${a.nombreAllocations}\n" +
+                            "Périodes avec solde : ${a.periodesAvecSolde}\n" +
+                            "Allocations futures : ${a.allocationsFutures}\n" +
+                            "Solde cumulé des allocations : " +
+                                com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique.formater(a.soldeRestant) +
+                                "\nTransactions liées : " + (a.transactionsLiees?.toString() ?: "Non vérifiées") +
+                                "\nPaiements techniques : " + (a.paiementsTechniquesLies?.toString() ?: "Non vérifiés")
+                        }
+                    },
                 onConfirm = viewModel::onConfirmerSuppressionEnveloppe,
                 onDismiss = viewModel::onFermerConfirmationSuppressionEnveloppe
             )
