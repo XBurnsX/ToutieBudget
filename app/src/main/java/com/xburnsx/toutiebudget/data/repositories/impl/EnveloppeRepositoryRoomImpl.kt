@@ -291,6 +291,67 @@ class EnveloppeRepositoryRoomImpl(
         }
     }
 
+    /**
+     * CE2/CE5 : chaque contrôle et l'archivage ont lieu dans la transaction
+     * SQLite. Une allocation arrivée entre la confirmation et le commit
+     * interdit le retrait; les paiements techniques restent accessibles.
+     */
+    override suspend fun archiverEnveloppeApresVerification(id: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                operationAtomique.executer {
+                    val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                        ?: throw SecurityException("Connexion requise.")
+                    val env = enveloppeDao.getEnveloppeById(id)
+                        ?: error("Enveloppe introuvable.")
+                    require(env.utilisateurId == utilisateur) {
+                        "Enveloppe hors session."
+                    }
+                    val allocations = allocationMensuelleDao
+                        .getAllocationsByUtilisateur(utilisateur).first()
+                        .filter { it.enveloppeId == id }
+                    com.xburnsx.toutiebudget.ui.categories.VerificationArchivageEnveloppe
+                        .verifierSoldes(allocations.map { it.solde })
+
+                    val historique = (transactionDao
+                        ?: error("Vérification des paiements indisponible."))
+                        .getTransactionsByUtilisateur(utilisateur).first()
+                    val idsAllocations = allocations.map { it.id }.toSet()
+                    val paiementLie = historique.any { tx ->
+                        if (tx.type != "Paiement" && tx.type != "PaiementEffectue") {
+                            false
+                        } else {
+                            tx.allocationMensuelleId in idsAllocations ||
+                                (tx.estFractionnee && runCatching {
+                                    com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+                                        .lire(tx.sousItems).any { it.enveloppeId == id }
+                                }.getOrElse { tx.sousItems?.contains(id) == true })
+                        }
+                    }
+                    require(!paiementLie) {
+                        "Paiement de carte ou de dette lié : archivage interdit."
+                    }
+                    if (!env.estArchive) {
+                        val archivee = env.copy(estArchive = true)
+                        enveloppeDao.updateEnveloppe(archivee)
+                        syncJobDao.insertSyncJob(
+                            SyncJob(
+                                id = IdGenerator.generateId(),
+                                type = "ENVELOPPE",
+                                action = "UPDATE",
+                                dataJson = genererJsonEnveloppeManuel(archivee),
+                                recordId = id,
+                                createdAt = System.currentTimeMillis(),
+                                status = "PENDING",
+                                utilisateurId = utilisateur
+                            )
+                        )
+                    }
+                }
+                Unit
+            }
+        }
+
     override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
@@ -319,6 +380,10 @@ class EnveloppeRepositoryRoomImpl(
                             tx.sousItems?.contains(id) == true
                         })
                 }
+                // Même l'ancien point d'entrée DELETE ne peut plus retirer
+                // une enveloppe contenant un solde réel.
+                com.xburnsx.toutiebudget.ui.categories.VerificationArchivageEnveloppe
+                    .verifierSoldes(allocations.map { it.solde })
                 val utilisee = allocations.isNotEmpty() || liees.isNotEmpty()
                 if (utilisee) {
                     require(liees.none {
