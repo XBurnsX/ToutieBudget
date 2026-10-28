@@ -84,7 +84,8 @@ import android.content.Context
              database.allocationMensuelleDao(),
              database.syncJobDao(),
              operationAtomique,
-             database.transactionDao()
+             database.transactionDao(),
+             database.categorieDao()
          )
      }
      private val categorieRepository: CategorieRepository by lazy { 
