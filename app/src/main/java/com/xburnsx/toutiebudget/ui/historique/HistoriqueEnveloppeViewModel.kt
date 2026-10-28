@@ -83,8 +83,11 @@ class HistoriqueEnveloppeViewModel(
     /**
      * Sauvegarde la position de scroll actuelle.
      */
-    fun sauvegarderPositionScroll(position: Int) {
-        _uiState.update { it.copy(scrollPosition = position) }
+    fun sauvegarderPositionScroll(position: Int, offset: Int = 0) {
+        _uiState.update { etat ->
+            if (etat.scrollPosition == position && etat.scrollOffset == offset) etat
+            else etat.copy(scrollPosition = position, scrollOffset = offset)
+        }
     }
 
     /**
