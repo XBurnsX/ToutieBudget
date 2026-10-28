@@ -204,14 +204,17 @@ fun AppNavigation() {
                 val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
                 val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
 
-                // Créer le SavedStateHandle avec les arguments
-                val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
-                    set("compteId", compteId)
-                    set("collectionCompte", collectionCompte)
-                    set("nomCompte", nomCompte)
+                // HC14/HC20 : une même destination conserve SON ViewModel pendant
+                // les recompositions et le retour de Modifier. Sinon chaque changement
+                // d'état recréait un ViewModel et relançait un chargement.
+                val viewModel = remember(backStackEntry.id) {
+                    val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
+                        set("compteId", compteId)
+                        set("collectionCompte", collectionCompte)
+                        set("nomCompte", nomCompte)
+                    }
+                    AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
                 }
-
-                val viewModel = AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
 
                 HistoriqueCompteScreen(
                     viewModel = viewModel,
@@ -238,13 +241,14 @@ fun AppNavigation() {
                 val enveloppeId = backStackEntry.arguments?.getString("enveloppeId") ?: ""
                 val nomEnveloppe = backStackEntry.arguments?.getString("nomEnveloppe") ?: ""
 
-                // Créer le SavedStateHandle avec les arguments
-                val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
-                    set("enveloppeId", enveloppeId)
-                    set("nomEnveloppe", nomEnveloppe)
+                // Même entrée de navigation = même historique en mémoire.
+                val viewModel = remember(backStackEntry.id) {
+                    val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
+                        set("enveloppeId", enveloppeId)
+                        set("nomEnveloppe", nomEnveloppe)
+                    }
+                    AppModule.provideHistoriqueEnveloppeViewModel(savedStateHandle)
                 }
-
-                val viewModel = AppModule.provideHistoriqueEnveloppeViewModel(savedStateHandle)
 
                 HistoriqueEnveloppeScreen(
                     viewModel = viewModel,
