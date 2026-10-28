@@ -151,6 +151,7 @@ class EnveloppeRepositoryRoomImpl(
 
     override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Enveloppe> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Convertir le modèle en entité Room
             val enveloppeEntity = EnveloppeEntity(
                 id = enveloppe.id.ifBlank { IdGenerator.generateId() },
@@ -195,6 +196,7 @@ class EnveloppeRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(enveloppe.copy(id = enveloppeEntity.id))
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -202,6 +204,7 @@ class EnveloppeRepositoryRoomImpl(
 
     override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Convertir le modèle en entité Room
             val enveloppeEntity = EnveloppeEntity(
                 id = enveloppe.id,
@@ -241,6 +244,7 @@ class EnveloppeRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -268,6 +272,7 @@ class EnveloppeRepositoryRoomImpl(
 
     override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Supprimer de Room (PRIMARY)
             enveloppeDao.deleteEnveloppeById(id)
             
@@ -286,6 +291,7 @@ class EnveloppeRepositoryRoomImpl(
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
