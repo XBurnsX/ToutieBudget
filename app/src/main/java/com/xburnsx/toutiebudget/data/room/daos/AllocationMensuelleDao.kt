@@ -12,6 +12,11 @@ interface AllocationMensuelleDao {
     
     @Query("SELECT * FROM allocation_mensuelle WHERE id = :id")
     suspend fun getAllocationById(id: String): AllocationMensuelle?
+
+    // HC15/HE14 : une lecture groupée, isolée par utilisateur.
+    // Appelée par tranches de 400 ID au maximum (limite des paramètres SQLite).
+    @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId AND id IN (:ids)")
+    suspend fun getAllocationsParIds(utilisateurId: String, ids: List<String>): List<AllocationMensuelle>
     
     @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId ORDER BY mois DESC")
     fun getAllocationsActivesByUtilisateur(utilisateurId: String): Flow<List<AllocationMensuelle>>
