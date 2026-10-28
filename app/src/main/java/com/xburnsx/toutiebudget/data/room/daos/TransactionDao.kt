@@ -17,6 +17,12 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE compte_id = :compteId AND collection_compte = :collectionCompte ORDER BY date DESC")
     fun getTransactionsByCompte(compteId: String, collectionCompte: String): Flow<List<Transaction>>
+
+    /** HC5 : historique bancaire isolé par utilisateur, compte ET collection. */
+    @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND compte_id = :compteId AND collection_compte = :collectionCompte ORDER BY date DESC, id DESC")
+    fun getTransactionsDuCompteUtilisateur(
+        utilisateurId: String, compteId: String, collectionCompte: String
+    ): Flow<List<Transaction>>
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND date BETWEEN :dateDebut AND :dateFin ORDER BY date DESC")
     fun getTransactionsByUtilisateurAndPeriod(utilisateurId: String, dateDebut: String, dateFin: String): Flow<List<Transaction>>
