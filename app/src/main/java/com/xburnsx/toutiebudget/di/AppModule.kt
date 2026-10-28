@@ -125,6 +125,7 @@ import android.content.Context
      // BANQ-02 : règles d'alias rattachées aux tiers existants (pas de marchand parallèle).
      private val aliasBancaireRepository: AliasBancaireRepository by lazy {
          AliasBancaireRepository(database, database.aliasBancaireDao(),
+             database.compteChequeDao(), database.compteCreditDao(),
              database.tiersDao(), database.syncJobDao())
      }
      fun provideAliasBancaireRepository(): AliasBancaireRepository = aliasBancaireRepository
