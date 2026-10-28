@@ -73,6 +73,23 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(2, vm.uiState.value.transactionsGroupees.values.flatten().size)
     }
 
+    @Test fun compteNeCachePasUnAchatSiSesFractionsSontIncompletes() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 7.45, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Garage",
+            estFractionnee = true,
+            sousItems = """[{"enveloppeId":"essence"}]"""
+        )
+        val vm = app.historiqueCompte("chq")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(listOf("achat"), vm.uiState.value.transactions.map { it.id })
+        assertEquals(7.45, vm.uiState.value.transactions.single().montant, 0.0000001)
+        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("fractions"))
+    }
+
     @Test fun rechercheResteApresActualisationEtLeScrollEstMemorise() = test {
         b.cheque("chq", 1000.0, 0.0)
         val vm = app.historiqueCompte("chq")
