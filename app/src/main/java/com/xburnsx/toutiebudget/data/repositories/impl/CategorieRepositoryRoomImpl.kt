@@ -61,11 +61,22 @@ class CategorieRepositoryRoomImpl(
     override suspend fun creerCategorie(categorie: Categorie): Result<Categorie> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
+            // CE4/CE13 : verrou de session et ID vérifiés avant REPLACE.
+            val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                ?: throw SecurityException("Connexion requise.")
+            require(categorie.utilisateurId.isBlank() || categorie.utilisateurId == utilisateur) {
+                "Impossible de créer un élément appartenant à un autre profil."
+            }
+            if (categorie.id.isNotBlank()) {
+                require(categorieDao.getCategorieById(categorie.id) == null) {
+                    "Identifiant déjà existant : création refusée."
+                }
+            }
             // 1. Convertir le modèle en entité Room
             val categorieEntity = CategorieEntity(
                 id = categorie.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = categorie.utilisateurId.ifBlank { 
-                    client.obtenirUtilisateurConnecte()?.id ?: "" 
+                    utilisateur 
                 },
                 nom = categorie.nom,
                 ordre = categorie.ordre
@@ -101,6 +112,15 @@ class CategorieRepositoryRoomImpl(
     override suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
+            // CE13 : empêcher qu'une ancienne session écrase une ligne d'un autre utilisateur.
+            val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                ?: throw SecurityException("Connexion requise.")
+            val courante = categorieDao.getCategorieById(categorie.id)
+                ?: throw NoSuchElementException("Élément introuvable : modification refusée.")
+            require(courante.utilisateurId == utilisateur &&
+                categorie.utilisateurId == utilisateur) {
+                "Élément hors session : écriture refusée."
+            }
             // 1. Convertir le modèle en entité Room
             val categorieEntity = CategorieEntity(
                 id = categorie.id,
