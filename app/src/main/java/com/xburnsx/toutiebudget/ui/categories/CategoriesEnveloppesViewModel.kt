@@ -81,6 +81,7 @@ class CategoriesEnveloppesViewModel(
                     currentState.copy(
                         isLoading = false,
                         enveloppesGroupees = enveloppesGroupees,
+                        categoriesParId = categoriesMap,
                         erreur = null
                     )
                 }
@@ -117,7 +118,7 @@ class CategoriesEnveloppesViewModel(
             val enveloppesDeCategorie = enveloppes
                 .filter { it.categorieId == categorie.id && !it.estArchive }
                 .sortedBy { it.ordre }
-            groupes[categorie.nom] = enveloppesDeCategorie
+            groupes[categorie.id] = enveloppesDeCategorie
         }
 
         // Ajouter les enveloppes sans catégorie à la fin (si il y en a)
@@ -128,7 +129,7 @@ class CategoriesEnveloppesViewModel(
             .sortedBy { it.ordre }
 
         if (enveloppesSansCategorie.isNotEmpty()) {
-            groupes["Sans catégorie"] = enveloppesSansCategorie
+            groupes["__sans_categorie__"] = enveloppesSansCategorie
         }
 
 
@@ -285,8 +286,9 @@ class CategoriesEnveloppesViewModel(
                     ?: throw Exception("Utilisateur non connecté")
 
                 // Trouver la catégorie correspondante
-                val categorie = categoriesMap.values.find { it.nom == categorieNom }
-                    ?: throw Exception("Catégorie '$categorieNom' introuvable")
+                val categorie = categoriesMap[categorieNom]
+                    ?: categoriesMap.values.singleOrNull { it.nom == categorieNom }
+                    ?: throw Exception("Catégorie '$categorieNom' introuvable ou ambiguë")
 
                 // CE8 : pas deux enveloppes au même nom dans une catégorie ; CE10 : ordre stable dès la création
                 val voisines = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
@@ -588,8 +590,9 @@ class CategoriesEnveloppesViewModel(
 
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
-                val categorieObj = categoriesMap.values.find { it.nom == nomCategorie }
-                    ?: throw Exception("Catégorie '$nomCategorie' introuvable")
+                val categorieObj = categoriesMap[nomCategorie]
+                    ?: categoriesMap.values.singleOrNull { it.nom == nomCategorie }
+                    ?: throw Exception("Catégorie '$nomCategorie' introuvable ou ambiguë")
 
                 // CE3 : vide pour de vrai, y compris les enveloppes archivées (elles gardent leur historique)
                 val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
@@ -667,7 +670,8 @@ class CategoriesEnveloppesViewModel(
                 val avant = categoriesMap.values.sortedWith(
                     compareBy<Categorie> { it.ordre }.thenBy { it.id }
                 )
-                val selection = avant.singleOrNull { it.nom == nomCategorie }
+                val selection = avant.firstOrNull { it.id == nomCategorie }
+                    ?: avant.singleOrNull { it.nom == nomCategorie }
                     ?: error("Catégorie ambiguë ou introuvable : $nomCategorie")
                 val apres = calculerNouveauxOrdres(avant, selection, nouvellePosition)
                 if (avant == apres) return@lancerUneFois
@@ -677,6 +681,7 @@ class CategoriesEnveloppesViewModel(
                 _uiState.update { etat ->
                     etat.copy(
                         enveloppesGroupees = organiserDonneesPourAffichage(apres, enveloppesList),
+                        categoriesParId = categoriesMap,
                         categorieEnDeplacement = null,
                         versionUI = etat.versionUI + 1,
                         erreur = null
