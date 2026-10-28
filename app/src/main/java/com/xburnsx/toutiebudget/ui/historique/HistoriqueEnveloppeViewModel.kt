@@ -12,6 +12,7 @@ import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -316,6 +317,8 @@ class HistoriqueEnveloppeViewModel(
 
                 // Utiliser la nouvelle méthode de groupement
 
+                // Ne pas écraser la lecture récente par un chargement annulé.
+                coroutineContext.ensureActive()
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
