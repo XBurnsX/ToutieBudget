@@ -17,6 +17,7 @@ import com.xburnsx.toutiebudget.di.PocketBaseClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -49,6 +50,15 @@ class CategoriesEnveloppesViewModel(
         // Initialiser avec un état vide mais fonctionnel
         _uiState.update { it.copy(isLoading = false, enveloppesGroupees = mapOf()) }
         chargerDonnees()
+        // CE13 : après application dans Room des créations, suppressions
+        // et déplacements provenant d'un autre appareil, relire les IDs et
+        // ordres réels. Les formulaires en cours restent ouverts; seules les
+        // données affichées sont remplacées par la nouvelle génération.
+        viewModelScope.launch {
+            realtimeSyncService.organisationUpdated.collectLatest {
+                chargerDonnees()
+            }
+        }
     }
 
     /**
