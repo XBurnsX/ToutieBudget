@@ -91,6 +91,9 @@ object ReglesObjectifEnveloppe {
                 require(!echeance!!.isBefore(debut!!)) {
                     "La date d'échéance doit être égale ou postérieure au début."
                 }
+                require(!formulaire.resetApresEcheance || echeance.isAfter(debut)) {
+                    "Un renouvellement automatique exige une échéance après la date de début."
+                }
             }
         }
         return existante.copy(
