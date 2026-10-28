@@ -111,4 +111,16 @@ interface EnveloppeRepository {
      * @return Result contenant l'allocation
      */
     suspend fun recupererAllocationParId(id: String): Result<AllocationMensuelle>
+
+    /**
+     * Résolution groupée en lecture seule pour les historiques. Implémentation
+     * par défaut compatible avec les simulateurs; Room utilise une requête IN.
+     * Une allocation absente n'est pas inventée.
+     */
+    suspend fun recupererAllocationsParIds(ids: List<String>): Result<List<AllocationMensuelle>> =
+        runCatching {
+            ids.distinct().mapNotNull { id ->
+                recupererAllocationParId(id).getOrNull()
+            }
+        }
 }
