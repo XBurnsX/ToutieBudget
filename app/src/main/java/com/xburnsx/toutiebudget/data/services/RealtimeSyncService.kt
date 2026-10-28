@@ -66,6 +66,12 @@ class RealtimeSyncService @Inject constructor() {
 
     private val _categoriesUpdated = MutableSharedFlow<Unit>()
 
+    /** CE13 : événement réservé aux mutations d'organisation reçues du
+     * serveur après leur application dans Room. N'est pas émis pour chaque
+     * transaction financière : évite de recharger les catégories inutilement. */
+    private val _organisationUpdated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val organisationUpdated: SharedFlow<Unit> = _organisationUpdated.asSharedFlow()
+
     private val _transactionsUpdated = MutableSharedFlow<Unit>()
     val transactionsUpdated: SharedFlow<Unit> = _transactionsUpdated.asSharedFlow()
 
@@ -241,7 +247,11 @@ class RealtimeSyncService @Inject constructor() {
 
     private suspend fun notifierChangement(collection: String) {
         when (collection) {
-            "allocations_mensuelles", "enveloppes" -> _budgetUpdated.emit(Unit)
+            "allocations_mensuelles" -> _budgetUpdated.emit(Unit)
+            "enveloppes" -> {
+                _budgetUpdated.emit(Unit)
+                _organisationUpdated.emit(Unit)
+            }
             "comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement" -> {
                 _comptesUpdated.emit(Unit)
                 _budgetUpdated.emit(Unit)
@@ -249,6 +259,7 @@ class RealtimeSyncService @Inject constructor() {
             "categories" -> {
                 _categoriesUpdated.emit(Unit)
                 _budgetUpdated.emit(Unit)
+                _organisationUpdated.emit(Unit)
             }
             "transactions" -> {
                 _transactionsUpdated.emit(Unit)
