@@ -98,6 +98,50 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(19, vm.uiState.value.scrollOffset)
     }
 
+    @Test fun enveloppeSignaleFractionsCorrompuesSansCacherLesAutres() = test {
+        b.enveloppe("essence")
+        b.transactions["valide"] = Transaction(
+            id = "valide", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 3.25, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Garage", estFractionnee = true,
+            sousItems = """[{"enveloppeId":"essence","montant":3.25}]"""
+        )
+        b.transactions["illisible"] = Transaction(
+            id = "illisible", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 1.00, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Impossible", estFractionnee = true, sousItems = "pas du JSON"
+        )
+        val vm = app.historiqueEnveloppe("essence")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(listOf("valide"), vm.uiState.value.transactions.map { it.id })
+        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("illisible"))
+    }
+
+    @Test fun allocationOrphelineEstSignaleeSansEffacerLesTransactionsSures() = test {
+        b.enveloppe("essence")
+        b.transactions["valide"] = Transaction(
+            id = "valide", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 5.25, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Irving", estFractionnee = true,
+            sousItems = """[{"enveloppeId":"essence","montant":5.25}]"""
+        )
+        b.transactions["orphan"] = Transaction(
+            id = "orphan", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 2.00, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Sans allocation", allocationMensuelleId = "allocation-supprimee"
+        )
+        val vm = app.historiqueEnveloppe("essence")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(listOf("valide"), vm.uiState.value.transactions.map { it.id })
+        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("allocation"))
+    }
+
     @Test fun enveloppeAfficheSeulementSaPortionDuneDepenseFractionnee() = test {
         b.enveloppe("essence")
         b.enveloppe("epicerie")
