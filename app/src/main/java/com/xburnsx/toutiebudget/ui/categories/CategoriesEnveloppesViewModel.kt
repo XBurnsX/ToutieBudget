@@ -82,6 +82,7 @@ class CategoriesEnveloppesViewModel(
                         isLoading = false,
                         enveloppesGroupees = enveloppesGroupees,
                         categoriesParId = categoriesMap,
+                        enveloppesArchivees = enveloppes.filter { it.estArchive },
                         erreur = null
                     )
                 }
@@ -338,6 +339,110 @@ class CategoriesEnveloppesViewModel(
                         isAjoutEnveloppeDialogVisible = true
                     )
                 }
+            }
+        }
+    }
+
+    /** CA1 : renommer sans changer l'ID ni les références des enveloppes. */
+    fun renommerCategorie(categorieId: String, nouveauNom: String) {
+        val nom = nouveauNom.trim()
+        if (nom.isBlank()) {
+            _uiState.update { it.copy(erreur = "Le nom de catégorie est requis.") }
+            return
+        }
+        viewModelScope.lancerUneFois(verrouEcriture) {
+            try {
+                val categorie = categoriesMap[categorieId]
+                    ?: error("Catégorie introuvable.")
+                require(categoriesMap.values.none {
+                    it.id != categorieId && it.nom.trim().equals(nom, ignoreCase = true)
+                }) { "Une catégorie porte déjà ce nom." }
+                if (nom != categorie.nom) {
+                    categorieRepository.mettreAJourCategorie(categorie.copy(nom = nom)).getOrThrow()
+                }
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Renommage refusé : ${e.message}") }
+            }
+        }
+    }
+
+    /** CA2 : conserve l'identité et tous les montants de l'enveloppe. */
+    fun renommerEnveloppe(enveloppeId: String, nouveauNom: String) {
+        val nom = nouveauNom.trim()
+        if (nom.isBlank()) {
+            _uiState.update { it.copy(erreur = "Le nom d'enveloppe est requis.") }
+            return
+        }
+        viewModelScope.lancerUneFois(verrouEcriture) {
+            try {
+                val toutes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                val env = toutes.firstOrNull { it.id == enveloppeId }
+                    ?: error("Enveloppe introuvable.")
+                require(toutes.none {
+                    it.id != env.id && it.categorieId == env.categorieId &&
+                        it.nom.trim().equals(nom, ignoreCase = true)
+                }) { "Une enveloppe porte déjà ce nom dans cette catégorie." }
+                if (env.nom != nom) enveloppeRepository.mettreAJourEnveloppe(
+                    env.copy(nom = nom)
+                ).getOrThrow()
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Renommage refusé : ${e.message}") }
+            }
+        }
+    }
+
+    /** CA3 : déplacer le classement sans toucher aux transactions ni allocations. */
+    fun deplacerEnveloppeCategorie(enveloppeId: String, destinationCategorieId: String) {
+        viewModelScope.lancerUneFois(verrouEcriture) {
+            try {
+                require(categoriesMap.containsKey(destinationCategorieId)) {
+                    "Catégorie de destination introuvable."
+                }
+                val toutes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                val env = toutes.firstOrNull { it.id == enveloppeId }
+                    ?: error("Enveloppe introuvable.")
+                if (env.categorieId == destinationCategorieId) return@lancerUneFois
+                require(toutes.none {
+                    it.id != env.id && it.categorieId == destinationCategorieId &&
+                        it.nom.trim().equals(env.nom.trim(), ignoreCase = true)
+                }) { "Une enveloppe porte déjà ce nom dans la catégorie de destination." }
+                val ordre = (toutes.filter { it.categorieId == destinationCategorieId }
+                    .maxOfOrNull { it.ordre } ?: -1) + 1
+                enveloppeRepository.mettreAJourEnveloppe(
+                    env.copy(categorieId = destinationCategorieId, ordre = ordre)
+                ).getOrThrow()
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Déplacement refusé : ${e.message}") }
+            }
+        }
+    }
+
+    /** CA4 : restauration par UPDATE, jamais DELETE/CREATE. */
+    fun restaurerEnveloppe(enveloppeId: String) {
+        viewModelScope.lancerUneFois(verrouEcriture) {
+            try {
+                val toutes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                val env = toutes.firstOrNull { it.id == enveloppeId && it.estArchive }
+                    ?: error("Enveloppe archivée introuvable.")
+                require(categoriesMap.containsKey(env.categorieId)) {
+                    "La catégorie d'origine est introuvable; restauration refusée."
+                }
+                require(toutes.none {
+                    it.id != env.id && !it.estArchive && it.categorieId == env.categorieId &&
+                        it.nom.trim().equals(env.nom.trim(), ignoreCase = true)
+                }) { "Le nom existe déjà parmi les enveloppes actives." }
+                enveloppeRepository.mettreAJourEnveloppe(env.copy(estArchive = false))
+                    .getOrThrow()
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(erreur = "Restauration refusée : ${e.message}") }
             }
         }
     }
