@@ -43,40 +43,44 @@ object ReglesObjectifEnveloppe {
         when (type) {
             TypeObjectif.Aucun -> { debut = null; echeance = null; jour = null }
             TypeObjectif.Mensuel -> {
-                jour = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
+                val jourSelectionne = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
                     ?: throw IllegalArgumentException("Choisis un jour du mois (1 à 31).")
-                require(jour in 1..31) { "Jour du mois invalide." }
-                val conserver = memeType && jour == existante.objectifJour &&
+                jour = jourSelectionne
+                require(jourSelectionne in 1..31) { "Jour du mois invalide." }
+                val conserver = memeType && jourSelectionne == existante.objectifJour &&
                     existante.dateDebutObjectif != null && existante.dateObjectif != null
                 val premiere = if (conserver) existante.dateDebutObjectif!!.jour(zone) else {
-                    val ceMois = dateMensuelle(YearMonth.from(aujourdHui), jour)
+                    val ceMois = dateMensuelle(YearMonth.from(aujourdHui), jourSelectionne)
                     if (ceMois.isBefore(aujourdHui)) {
-                        dateMensuelle(YearMonth.from(aujourdHui).plusMonths(1), jour)
+                        dateMensuelle(YearMonth.from(aujourdHui).plusMonths(1), jourSelectionne)
                     } else ceMois
                 }
                 debut = premiere
                 echeance = if (conserver) existante.dateObjectif!!.jour(zone) else premiere
             }
             TypeObjectif.Bihebdomadaire -> {
-                jour = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
+                val jourSelectionne = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
                     ?: throw IllegalArgumentException("Choisis un jour de semaine.")
-                require(jour in 1..7) { "Jour de semaine invalide." }
-                debut = (formulaire.date ?: if (memeType) existante.dateDebutObjectif else null)
+                jour = jourSelectionne
+                require(jourSelectionne in 1..7) { "Jour de semaine invalide." }
+                val departChoisi = (formulaire.date ?: if (memeType) existante.dateDebutObjectif else null)
                     ?.jour(zone) ?: throw IllegalArgumentException("Choisis une date de départ.")
-                require(debut.dayOfWeek.value == jour) {
+                debut = departChoisi
+                require(departChoisi.dayOfWeek.value == jourSelectionne) {
                     "Le jour de semaine doit correspondre à la date de départ."
                 }
-                val conserver = memeType && debut == existante.dateDebutObjectif?.jour(zone) &&
-                    jour == existante.objectifJour && existante.dateObjectif != null
-                echeance = if (conserver) existante.dateObjectif!!.jour(zone) else debut.plusDays(14)
+                val conserver = memeType && departChoisi == existante.dateDebutObjectif?.jour(zone) &&
+                    jourSelectionne == existante.objectifJour && existante.dateObjectif != null
+                echeance = if (conserver) existante.dateObjectif!!.jour(zone) else departChoisi.plusDays(14)
             }
             TypeObjectif.Annuel -> {
                 jour = null
-                debut = (formulaire.date ?: if (memeType) existante.dateDebutObjectif else null)
+                val departChoisi = (formulaire.date ?: if (memeType) existante.dateDebutObjectif else null)
                     ?.jour(zone) ?: aujourdHui
-                val conserver = memeType && debut == existante.dateDebutObjectif?.jour(zone) &&
+                debut = departChoisi
+                val conserver = memeType && departChoisi == existante.dateDebutObjectif?.jour(zone) &&
                     existante.dateObjectif != null
-                echeance = if (conserver) existante.dateObjectif!!.jour(zone) else debut.plusYears(1)
+                echeance = if (conserver) existante.dateObjectif!!.jour(zone) else departChoisi.plusYears(1)
             }
             TypeObjectif.Echeance -> {
                 jour = null
@@ -84,7 +88,7 @@ object ReglesObjectifEnveloppe {
                     ?.jour(zone) ?: throw IllegalArgumentException("Choisis la date de début.")
                 echeance = (formulaire.dateFin ?: if (memeType) existante.dateObjectif else null)
                     ?.jour(zone) ?: throw IllegalArgumentException("Choisis la date d'échéance.")
-                require(!echeance.isBefore(debut)) {
+                require(!echeance!!.isBefore(debut!!)) {
                     "La date d'échéance doit être égale ou postérieure au début."
                 }
             }
