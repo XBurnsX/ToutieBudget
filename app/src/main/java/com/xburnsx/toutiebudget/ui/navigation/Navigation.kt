@@ -216,6 +216,14 @@ fun AppNavigation() {
                     AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
                 }
 
+                // HC13/NV7 : une édition réussie actualise exactement l'historique
+                // d'où elle est partie, sans recommencer un chargement sur chaque recomposition.
+                val retourEdition by backStackEntry.savedStateHandle
+                    .getStateFlow("historique_retour_edition", 0L).collectAsState()
+                LaunchedEffect(retourEdition) {
+                    if (retourEdition > 0L) viewModel.rechargerTransactions()
+                }
+
                 HistoriqueCompteScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
@@ -250,6 +258,12 @@ fun AppNavigation() {
                     AppModule.provideHistoriqueEnveloppeViewModel(savedStateHandle)
                 }
 
+                val retourEdition by backStackEntry.savedStateHandle
+                    .getStateFlow("historique_retour_edition", 0L).collectAsState()
+                LaunchedEffect(retourEdition) {
+                    if (retourEdition > 0L) viewModel.rechargerTransactions()
+                }
+
                 HistoriqueEnveloppeScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
@@ -277,7 +291,12 @@ fun AppNavigation() {
                     transactionId = transactionId,
                     viewModel = viewModel,
                     onTransactionModified = {
-                        // ✅ Retour à l'écran précédent (historique) en conservant la position de scroll
+                        // Signal à la destination d'origine (historique compte OU enveloppe).
+                        // Une date/nom passé en argument ne suffit pas à rafraîchir Room.
+                        navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
+                            val generation = handle.get<Long>("historique_retour_edition") ?: 0L
+                            handle["historique_retour_edition"] = generation + 1L
+                        }
                         navController.popBackStack()
                     },
                     onNavigateBack = {
