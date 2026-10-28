@@ -26,6 +26,16 @@ interface OperationBancaireEnAttenteDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun ajouter(operation: OperationBancaireEnAttente)
 
+    /** Relecture PocketBase seulement (le worker respecte les SyncJobs locaux en attente). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun enregistrerDepuisServeur(operation: OperationBancaireEnAttente)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun enregistrerToutesDepuisServeur(operations: List<OperationBancaireEnAttente>)
+
+    @Query("DELETE FROM operations_bancaires_attente WHERE id = :id AND utilisateur_id = :utilisateurId")
+    suspend fun supprimerDepuisServeur(id: String, utilisateurId: String): Int
+
     @Query("UPDATE operations_bancaires_attente SET statut_bancaire = :statutBancaire, date_operation = :dateOperation, montant_centimes = :montantCentimes, libelle_brut = :libelleBrut, verification_requise = :verificationRequise, montant_final_centimes = :montantFinalCentimes WHERE id = :id AND utilisateur_id = :utilisateurId")
     suspend fun actualiserImport(
         id: String, utilisateurId: String, statutBancaire: String,
