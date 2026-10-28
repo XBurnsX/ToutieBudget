@@ -94,17 +94,33 @@ class HistoriqueEnveloppeViewModel(
      * Supprime une transaction.
      */
     fun supprimerTransaction(transactionId: String) {
+        supprimerSiNonModifiee(transactionId, null)
+    }
+
+    fun supprimerTransactionConfirmee(affichee: TransactionUi) {
+        supprimerSiNonModifiee(affichee.id, affichee)
+    }
+
+    private fun supprimerSiNonModifiee(transactionId: String, affichee: TransactionUi?) {
         viewModelScope.lancerUneFois(verrouSuppression) {
             try {
-                // HE4 : un Result.failure ne déclenche pas catch sans getOrThrow().
-                supprimerTransactionUseCase.executer(transactionId).getOrThrow()
-                // Recharger les transactions après suppression
-                val enveloppeId: String? = savedStateHandle["enveloppeId"]
-                if (enveloppeId != null) {
-                    chargerTransactionsEnveloppe(enveloppeId)
+                if (affichee != null) {
+                    val actuelle = transactionRepository.recupererTransactionParId(transactionId)
+                        .getOrThrow()
+                    if (!VerificationSuppressionHistorique.estEncoreLaMeme(affichee, actuelle)) {
+                        _uiState.update { it.copy(
+                            erreur = "La transaction a changé depuis la confirmation. " +
+                                "Aucune suppression effectuée. Réessaie après actualisation."
+                        ) }
+                        return@lancerUneFois
+                    }
                 }
+                supprimerTransactionUseCase.executer(transactionId).getOrThrow()
+                rechargerTransactions()
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur lors de la suppression: ${e.message}") }
+                _uiState.update { it.copy(
+                    erreur = "Suppression refusée : " + (e.message ?: e.javaClass.simpleName)
+                ) }
             }
         }
     }
