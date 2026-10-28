@@ -270,7 +270,11 @@ class HistoriqueCompteViewModel(
                     // ✅ OPTIMISATION : Utiliser la map des enveloppes
                     val nomsEnveloppesFractions = if (transaction.estFractionnee) {
                         try {
-                            PortionsHistorique.lire(transaction.sousItems).map { portion ->
+                            val portions = PortionsHistorique.lire(transaction.sousItems)
+                            if (!PortionsHistorique.verifierTotal(portions, transaction.montant)) {
+                                avertissements += "Certaines fractions ne correspondent pas au montant total de leur achat."
+                            }
+                            portions.map { portion ->
                                 LibellesHistorique.enveloppe(portion.enveloppeId, enveloppesMap)
                             }
                         } catch (_: Exception) {
