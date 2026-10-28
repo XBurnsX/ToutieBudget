@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import java.text.SimpleDateFormat
@@ -36,7 +37,8 @@ class HistoriqueEnveloppeViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val tiersRepository: TiersRepository,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -275,6 +277,11 @@ class HistoriqueEnveloppeViewModel(
                 // d'enveloppes manquent, montrer quand même les montants sûrs et
                 // signaler explicitement que les libellés sont incomplets.
                 val transactions = resultTransactions.getOrThrow()
+                // EA6 : la file locale peut être nettoyée après succès;
+                // absence de tâche ≠ preuve de synchronisation distante.
+                val tachesSync = syncJobDao?.let { dao ->
+                    runCatching { dao.getAllSyncJobs().first() }.getOrNull()
+                }
                 var enveloppesIndisponibles = false
                 val enveloppes = resultEnveloppes.getOrElse {
                     enveloppesIndisponibles = true
@@ -392,7 +399,12 @@ class HistoriqueEnveloppeViewModel(
                         tiersBrut = transaction.tiersUtiliser,
                         allocationMensuelleId = transaction.allocationMensuelleId,
                         revisionTransaction = transaction.updated,
-                        dateCreationEnregistrement = transaction.created
+                        dateCreationEnregistrement = transaction.created,
+                        statutSynchronisationLocale = if (tachesSync == null)
+                            "Non vérifié (file locale indisponible)"
+                        else StatutSyncHistorique.libelle(
+                            transaction.id, transaction.utilisateurId, tachesSync
+                        )
                     )
                 }
                 val doublons = RegroupementHistorique.nombreDoublons(transactionsUi)
