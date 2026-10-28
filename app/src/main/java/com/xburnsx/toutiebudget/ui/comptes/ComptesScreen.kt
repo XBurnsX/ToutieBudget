@@ -592,8 +592,26 @@ fun ComptesScreen(
             title = { Text("Archiver ${compte?.nom ?: "ce compte"} ?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // ARC3 : avertir sans jamais mettre le montant à zéro
+                    val avertissement = when {
+                        compte is com.xburnsx.toutiebudget.data.modeles.CompteCredit && compte.soldeUtilise < -0.005 ->
+                            "Attention : cette carte n'est pas soldée (${MoneyFormatter.formatAmount(kotlin.math.abs(compte.soldeUtilise))} dû)."
+                        compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005 ->
+                            "Attention : il reste ${MoneyFormatter.formatAmount(kotlin.math.abs(compte.soldeDette))} à rembourser sur cette dette."
+                        compte != null && compte !is com.xburnsx.toutiebudget.data.modeles.CompteCredit &&
+                            compte !is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.solde > 0.005 ->
+                            "Attention : ce compte contient encore de l'argent."
+                        else -> null
+                    }
+                    if (avertissement != null) {
+                        Text(avertissement, color = Color(0xFFFFB74D), fontWeight = FontWeight.SemiBold)
+                    }
                     if (compte != null && kotlin.math.abs(compte.solde) > 0.005) {
                         Text("Solde : ${MoneyFormatter.formatAmount(compte.solde)}")
+                        Text(
+                            "Le montant reste tel quel (rien n'est mis à zéro) et compte encore dans ton patrimoine.",
+                            fontSize = 13.sp, color = Color.LightGray
+                        )
                     }
                     if (compte is com.xburnsx.toutiebudget.data.modeles.CompteCheque && kotlin.math.abs(compte.pretAPlacer) > 0.005) {
                         Text("Prêt à placer : ${MoneyFormatter.formatAmount(compte.pretAPlacer)}")

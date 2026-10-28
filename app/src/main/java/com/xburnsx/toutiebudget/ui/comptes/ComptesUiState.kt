@@ -40,6 +40,10 @@ data class ComptesUiState(
     val compteEnDeplacement: String? = null,
     val versionUI: Int = 0, // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
     val comptesArchives: List<Compte> = emptyList(), // CO3 : liste propre à l'écran Archives
+    // ARC14 : chargement, erreur réelle et résultat de réactivation propres à l'écran Archives
+    val archivesEnChargement: Boolean = false,
+    val erreurArchives: String? = null,
+    val messageArchives: String? = null,
     val isConfirmationArchivageVisible: Boolean = false, // CO7
     val enregistrementEnCours: Boolean = false // CO6
 )

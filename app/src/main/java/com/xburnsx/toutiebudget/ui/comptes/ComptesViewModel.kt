@@ -46,6 +46,7 @@ class ComptesViewModel(
     private val verrouCompte = com.xburnsx.toutiebudget.utils.VerrouOperation()
     private var generationComptes = 0L
     private var generationArchives = 0L
+    @Volatile private var archivesConsultees = false
 
     // Callback pour notifier les autres ViewModels des changements
     var onCompteChange: (() -> Unit)? = null
@@ -62,6 +63,8 @@ class ComptesViewModel(
         viewModelScope.launch {
             realtimeSyncService.comptesUpdated.collectLatest {
                 chargerComptes()
+                // ARC15 : un archivage fait sur un autre appareil apparaît aussi dans Archives
+                if (archivesConsultees) chargerComptesArchives()
             }
         }
         
@@ -107,16 +110,27 @@ class ComptesViewModel(
 
     /** CO3 : liste séparée, qu'un rafraîchissement des comptes actifs ne peut pas écraser. */
     fun chargerComptesArchives() {
+        archivesConsultees = true
         val generation = ++generationArchives
         viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(archivesEnChargement = true) }
             val resultat = compteRepository.recupererTousLesComptes()
             if (generation != generationArchives) return@launch
             resultat.onSuccess { comptes ->
-                _uiState.update { it.copy(comptesArchives = comptes.filter { c -> c.estArchive }.sortedBy { c -> c.nom.lowercase() }) }
+                _uiState.update { it.copy(
+                    archivesEnChargement = false, erreurArchives = null,
+                    comptesArchives = comptes.filter { c -> c.estArchive }.sortedBy { c -> c.nom.lowercase() }
+                ) }
             }.onFailure { erreur ->
-                _uiState.update { it.copy(erreur = "Impossible de charger les comptes archivés: ${erreur.message}") }
+                // ARC14 : une erreur reste une erreur, jamais un faux « aucune archive »
+                _uiState.update { it.copy(archivesEnChargement = false,
+                    erreurArchives = "Impossible de charger les comptes archivés : ${erreur.message}") }
             }
         }
+    }
+
+    fun effacerMessageArchives() {
+        _uiState.update { it.copy(messageArchives = null) }
     }
 
     // 🔄 NOUVELLE MÉTHODE : Rafraîchir les comptes
@@ -249,16 +263,19 @@ class ComptesViewModel(
         val compte = _uiState.value.compteSelectionne ?: return
         viewModelScope.lancerUneFois(verrouCompte) {
             try {
-                val compteArchive = when (compte) {
-                    is CompteCheque -> compte.copy(estArchive = true)
-                    is CompteCredit -> compte.copy(estArchive = true)
-                    is CompteDette -> compte.copy(estArchive = true)
-                    is CompteInvestissement -> compte.copy(estArchive = true)
-                }
-
                 val message = operationAtomique.executer {
+                    // ARC2 : copie intégrale de la version À JOUR (pas celle affichée), même ID et tous les champs
+                    val aJour = compteRepository.getCompteById(compte.id, compte.collection)
+                        ?: throw IllegalStateException("Compte introuvable.")
+                    if (aJour.estArchive) return@executer null // ARC17 : déjà archivé, rien à refaire
+                    val compteArchive = when (aJour) {
+                        is CompteCheque -> aJour.copy(estArchive = true)
+                        is CompteCredit -> aJour.copy(estArchive = true)
+                        is CompteDette -> aJour.copy(estArchive = true)
+                        is CompteInvestissement -> aJour.copy(estArchive = true)
+                    }
                     compteRepository.mettreAJourCompte(compteArchive).getOrThrow()
-                    if (compte is CompteDette) archiverEnveloppeDetteSiTerminee(compte) else null
+                    if (aJour is CompteDette) archiverEnveloppeDetteSiTerminee(aJour) else null
                 }
 
                 _uiState.update {
@@ -398,20 +415,29 @@ class ComptesViewModel(
     /** IF15 : réactiver le même compte (même ID), avec tout son historique. */
     fun reactiverCompte(compte: Compte) {
         viewModelScope.lancerUneFois(verrouCompte) {
-            val actif = when (compte) {
-                is CompteCheque -> compte.copy(estArchive = false)
-                is CompteCredit -> compte.copy(estArchive = false)
-                is CompteDette -> compte.copy(estArchive = false)
-                is CompteInvestissement -> compte.copy(estArchive = false)
-            }
-            compteRepository.mettreAJourCompte(actif)
-                .onSuccess {
-                    chargerComptes()
-                    chargerComptesArchives()
-                    realtimeSyncService.declencherMiseAJourComptes()
-                    onCompteChange?.invoke()
+            runCatching {
+                operationAtomique.executer {
+                    // ARC9 : on relit la version à jour ; restaurer deux fois ne change rien (ARC17)
+                    val aJour = compteRepository.getCompteById(compte.id, compte.collection)
+                        ?: throw IllegalStateException("Compte introuvable.")
+                    if (!aJour.estArchive) return@executer
+                    val actif = when (aJour) {
+                        is CompteCheque -> aJour.copy(estArchive = false)
+                        is CompteCredit -> aJour.copy(estArchive = false)
+                        is CompteDette -> aJour.copy(estArchive = false)
+                        is CompteInvestissement -> aJour.copy(estArchive = false)
+                    }
+                    compteRepository.mettreAJourCompte(actif).getOrThrow()
                 }
-                .onFailure { e -> _uiState.update { it.copy(erreur = "Erreur de réactivation: ${e.message}") } }
+            }.onSuccess {
+                _uiState.update { it.copy(messageArchives = "« ${compte.nom} » est réactivé avec son historique.") }
+                chargerComptes()
+                chargerComptesArchives()
+                realtimeSyncService.declencherMiseAJourComptes()
+                onCompteChange?.invoke()
+            }.onFailure { e ->
+                _uiState.update { it.copy(messageArchives = "Réactivation impossible : ${e.message}") }
+            }
         }
     }
 

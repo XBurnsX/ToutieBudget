@@ -82,7 +82,11 @@ fun ArchivesScreen(
                 }
             )
             TabRow(selectedTabIndex = tabIndex) {
-                listOf("Comptes archivés", "Enveloppes archivées")
+                // ARC20 : compteur par onglet
+                listOf(
+                    "Comptes (${comptesState.comptesArchives.size})",
+                    "Enveloppes (${categoriesState.enveloppesArchivees.size})"
+                )
                     .forEachIndexed { index, nom ->
                         Tab(
                             selected = tabIndex == index,
@@ -125,6 +129,15 @@ fun ArchivesScreen(
                         )
                     }
                 }
+                // ARC14 : erreur réelle avec Réessayer, jamais un faux « aucune archive »
+                comptesState.erreurArchives?.let { erreur ->
+                    Text(erreur, color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                    TextButton(onClick = { comptesViewModel.chargerComptesArchives() }) { Text("Réessayer") }
+                }
+                if (comptesState.archivesEnChargement && comptesState.comptesArchives.isEmpty()) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 Text(
                     "${comptesFiltres.size} compte(s) archivé(s)",
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -138,10 +151,19 @@ fun ArchivesScreen(
                             },
                             onLongClick = { compteARestaurer = compte }
                         )
-                        TextButton(
-                            modifier = Modifier.padding(start = 12.dp),
-                            onClick = { compteAConsulter = compte }
-                        ) { Text("Détails et état archivé") }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                EtatArchive.libelleType(compte) + " · " + EtatArchive.statut(compte),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { compteAConsulter = compte }) { Text("Détails") }
+                            TextButton(onClick = { compteARestaurer = compte }) { Text("Réactiver") }
+                        }
                     }
                 }
             } else {
@@ -198,6 +220,17 @@ fun ArchivesScreen(
 
     // ARA3 : les paramètres sont consultables sans restauration.
     // Aucun solde, objectif ou transaction n'est modifié par ces dialogues.
+    // ARC9 : résultat de la réactivation confirmé à l'écran
+    comptesState.messageArchives?.let { message ->
+        AlertDialog(
+            onDismissRequest = { comptesViewModel.effacerMessageArchives() },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { comptesViewModel.effacerMessageArchives() }) { Text("OK") }
+            }
+        )
+    }
+
     compteAConsulter?.let { compte ->
         AlertDialog(
             onDismissRequest = { compteAConsulter = null },
@@ -206,7 +239,8 @@ fun ArchivesScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Identifiant : ${compte.id}")
                     Text("Collection : ${compte.collection}")
-                    Text("Statut : archivé")
+                    Text("Type : " + EtatArchive.libelleType(compte))
+                    Text("Statut : " + EtatArchive.statut(compte))
                     Text("Solde enregistré : " +
                         com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique
                             .formater(compte.solde))
@@ -259,7 +293,16 @@ fun ArchivesScreen(
         AlertDialog(
             onDismissRequest = { compteARestaurer = null },
             title = { Text("Réactiver ${compte.nom} ?") },
-            text = { Text("Le même compte, ses paramètres et son historique seront conservés.") },
+            text = {
+                // ARA5 : aperçu des conséquences avant de restaurer
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Le même compte (même ID), ses paramètres et son historique sont conservés.")
+                    Text("Il réapparaîtra dans la page Comptes et redeviendra choisissable pour " +
+                        "les nouvelles transactions, virements et paiements.")
+                    Text("Solde qui revient dans les totaux : " +
+                        com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique.formater(compte.solde))
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     comptesViewModel.reactiverCompte(compte)
@@ -285,6 +328,8 @@ fun ArchivesScreen(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text("Choisis la catégorie. L'ID, l'objectif, les allocations et l'historique restent inchangés.")
+                    Text("Elle réapparaîtra dans le budget et redeviendra choisissable pour les " +
+                        "nouvelles transactions et allocations.")
                     if (categoriesState.categoriesParId.isEmpty()) {
                         Text("Aucune catégorie : crée-en une avant de restaurer.")
                     }

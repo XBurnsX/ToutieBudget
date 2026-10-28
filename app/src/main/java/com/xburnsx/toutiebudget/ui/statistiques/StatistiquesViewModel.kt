@@ -626,14 +626,15 @@ class StatistiquesViewModel(
             val tousLesComptes = compteRepository.recupererTousLesComptes()
             if (tousLesComptes.isFailure) throw IllegalStateException("Impossible de charger les comptes", tousLesComptes.exceptionOrNull())
             if (tousLesComptes.isSuccess) {
-                // IF16 : patrimoine COURANT = comptes actifs + dettes archivées encore dues (archivée ≠ remboursée) ;
-                // les comptes archivés (anciens placements, chèques fermés) ne comptent plus
+                // IF16/ARC5 : patrimoine COURANT = comptes actifs + archives qui ont encore un solde réel
+                // (dette due, carte non soldée, placement ou argent restant) ; une archive soldée ne compte plus
                 comptesConnus = tousLesComptes.getOrNull().orEmpty()
                     .filter { !it.estArchive }
                     .sortedBy { it.nom.lowercase() }
                     .map { it.id to it.nom }
                 val comptes = tousLesComptes.getOrNull().orEmpty().filter { compte ->
-                    !compte.estArchive || (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005)
+                    !compte.estArchive || kotlin.math.abs(compte.solde) > 0.005 ||
+                        (compte is com.xburnsx.toutiebudget.data.modeles.CompteDette && compte.soldeDette < -0.005)
                 }
                 
                 
