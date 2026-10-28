@@ -233,9 +233,15 @@ class HistoriqueEnveloppeViewModel(
                             return@filter false
                         }
                     } else emptyList()
-                    val allocation = transaction.allocationMensuelleId
-                    val correspond = allocation != null && allocationIdToEnveloppeId[allocation] == enveloppeId
-                    correspond || portions.any { it.enveloppeId == enveloppeId }
+                    // Pour une fraction, SEULE sa ventilation prouve l'enveloppe;
+                    // une allocation globale historique ne doit pas attribuer
+                    // accidentellement le total à la mauvaise enveloppe.
+                    if (transaction.estFractionnee) {
+                        portions.any { it.enveloppeId == enveloppeId }
+                    } else {
+                        val allocation = transaction.allocationMensuelleId
+                        allocation != null && allocationIdToEnveloppeId[allocation] == enveloppeId
+                    }
                 }
 
                 // Convertir en TransactionUi
