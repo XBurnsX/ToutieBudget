@@ -9,6 +9,9 @@ on:
       - 'app/src/main/java/com/xburnsx/toutiebudget/data/repositories/impl/TransactionRepositoryRoomImpl.kt'
       - 'app/src/main/java/com/xburnsx/toutiebudget/data/room/daos/TransactionDao.kt'
       - 'app/src/test/java/com/xburnsx/toutiebudget/ui/historique/**'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/ui/navigation/Navigation.kt'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/ui/ajout_transaction/AjoutTransactionViewModel.kt'
+      - 'app/src/test/java/com/xburnsx/toutiebudget/ui/EcransAjoutTransactionTest.kt'
       - '.github/workflows/verification-historiques.yml'
   workflow_dispatch:
 
@@ -37,6 +40,7 @@ jobs:
         run: |
           ./gradlew :app:testDebugUnitTest \
             --tests 'com.xburnsx.toutiebudget.ui.historique.*' \
+            --tests 'com.xburnsx.toutiebudget.ui.EcransAjoutTransactionTest' \
             --no-daemon --stacktrace
       - name: Conserver rapports de test
         if: always()
