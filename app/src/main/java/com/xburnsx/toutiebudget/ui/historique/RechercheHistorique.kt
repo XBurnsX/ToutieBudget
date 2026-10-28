@@ -43,6 +43,19 @@ object RechercheHistorique {
             add(transaction.type.name)
             add(transaction.type.libelle)
             addAll(transaction.nomsEnveloppesFractions)
+            if (transaction.estFractionnee) {
+                // HE11 : une note de portion existe même si le tiers et
+                // la note générale ne la mentionnent pas. Ne jamais masquer
+                // la ligne si une métadonnée optionnelle est corrompue.
+                val nombre = runCatching {
+                    PortionsHistorique.lire(transaction.sousItems).size
+                }.getOrDefault(0)
+                MetadonneesFractionsHistorique.lire(transaction.sousItems, nombre)
+                    .forEach { infos ->
+                        add(infos.description)
+                        add(infos.note)
+                    }
+            }
         }
         if (contenus.any { normaliser(it).contains(cle) }) return true
         val cents = montantRechercheCentimes(requete)
