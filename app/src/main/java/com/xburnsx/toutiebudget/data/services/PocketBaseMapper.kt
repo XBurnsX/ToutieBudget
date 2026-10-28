@@ -52,7 +52,7 @@ object PocketBaseMapper {
         val tiersId = item.tiers_id?.takeIf { it.isNotBlank() } ?: return null
         if (item.id.isBlank()) return null
         return com.xburnsx.toutiebudget.data.room.entities.AliasBancaire(
-            id = item.id, utilisateurId = userId, compteId = item.compte_id,
+            id = item.id, utilisateurId = userId, compteId = item.compte_id?.takeIf { it.isNotBlank() },
             libelleBrut = libelle, tiersId = tiersId, active = item.active ?: true
         )
     }
