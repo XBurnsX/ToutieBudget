@@ -415,6 +415,24 @@ class ComptesViewModel(
         }
     }
 
+    fun onFormDetteChange(
+        dateDebut: String? = null,
+        dureeMois: String? = null,
+        versementMensuel: String? = null,
+        tauxAnnuel: String? = null,
+        frequence: com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette? = null
+    ) {
+        _uiState.update { s ->
+            s.copy(formState = s.formState.copy(
+                detteDateDebut = dateDebut ?: s.formState.detteDateDebut,
+                detteDureeMois = dureeMois ?: s.formState.detteDureeMois,
+                detteVersementMensuel = versementMensuel ?: s.formState.detteVersementMensuel,
+                detteTauxAnnuel = tauxAnnuel ?: s.formState.detteTauxAnnuel,
+                detteFrequence = frequence ?: s.formState.detteFrequence
+            ))
+        }
+    }
+
     fun onSauvegarderCompte() {
         if (_uiState.value.enregistrementEnCours) return
         // CO6 : chaque sauvegarde ferme son dialogue elle-même, seulement après réussite
@@ -435,11 +453,30 @@ class ComptesViewModel(
                 // pouvant laisser une dette sans enveloppe après fermeture.
                 try {
                     if (formState.nom.isBlank()) throw IllegalArgumentException("Nom de dette requis.")
-                    val soldeInitial = runCatching {
-                        java.math.BigDecimal(formState.solde.trim().replace(',', '.'))
+                    val dateDebut = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
+                        .lireDate(formState.detteDateDebut)
+                        ?: throw IllegalArgumentException("Date de début requise.")
+                    val duree = formState.detteDureeMois.trim().toIntOrNull()
+                        ?.takeIf { it in 1..600 }
+                        ?: throw IllegalArgumentException("Durée requise entre 1 et 600 mois.")
+                    fun argent(texte: String, nom: String): Double = runCatching {
+                        java.math.BigDecimal(texte.trim().replace(" ", "").replace(',', '.'))
                             .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
                     }.getOrNull()?.takeIf { it.isFinite() && it > 0.0 && it < 1.0e13 }
-                        ?: throw IllegalArgumentException("Montant initial positif au cent requis.")
+                        ?: throw IllegalArgumentException("$nom positif au cent requis.")
+                    val montantTotal = argent(formState.solde, "Montant total du prêt")
+                    val versement = argent(formState.detteVersementMensuel, "Versement mensuel")
+                    val taux = formState.detteTauxAnnuel.trim().replace(',', '.').toDoubleOrNull()
+                        ?.takeIf { it.isFinite() && it in 0.0..100.0 }
+                        ?: throw IllegalArgumentException("Taux annuel requis entre 0 et 100 %.")
+                    val situation = com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
+                        dateDebut = dateDebut,
+                        dureeMois = duree,
+                        mensualite = versement,
+                        tauxAnnuel = taux,
+                        principalInitial = montantTotal,
+                        frequence = formState.detteFrequence
+                    ) ?: throw IllegalArgumentException("Les conditions de la dette ne permettent pas un calcul valide.")
                     val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient
                         .obtenirUtilisateurConnecte()?.id
                         ?: throw IllegalStateException("Session utilisateur indisponible.")
@@ -453,7 +490,7 @@ class ComptesViewModel(
                             categorieRepository.creerCategorie(
                                 com.xburnsx.toutiebudget.data.modeles.Categorie(
                                     id = IdGenerator.generateId(), utilisateurId = utilisateurId,
-                                    nom = "Dettes", ordre = 0
+                                    nom = "Dettes", ordre = 1
                                 )
                             ).getOrThrow()
                         } else throw IllegalStateException("Catégorie Dettes ambiguë.")
@@ -463,18 +500,44 @@ class ComptesViewModel(
                             id = envId, utilisateurId = utilisateurId,
                             nom = formState.nom.trim(), categorieId = catDettes.id,
                             estArchive = false, ordre = 0,
-                            typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
-                            objectifMontant = 0.0, dateObjectif = null,
-                            dateDebutObjectif = null, objectifJour = null,
-                            resetApresEcheance = false
+                            typeObjectif = when (formState.detteFrequence) {
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.MENSUELLE ->
+                                    com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.AUX_DEUX_SEMAINES ->
+                                    com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.HEBDOMADAIRE ->
+                                    com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance
+                            },
+                            objectifMontant = versement,
+                            dateObjectif = if (formState.detteFrequence ==
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.MENSUELLE
+                            ) situation.dateFin else situation.prochaineDatePaiement,
+                            dateDebutObjectif = if (formState.detteFrequence ==
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.MENSUELLE
+                            ) dateDebut else situation.debutCycleActuel,
+                            objectifJour = situation.jourVersement,
+                            resetApresEcheance = formState.detteFrequence ==
+                                com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.HEBDOMADAIRE
                         )
                         enveloppeRepository.creerEnveloppe(enveloppe).getOrThrow()
                         val compte = CompteDette(
                             id = compteId, utilisateurId = utilisateurId,
-                            nom = formState.nom.trim(), soldeDette = -soldeInitial,
+                            nom = formState.nom.trim(), soldeDette = -situation.soldeActuel,
                             estArchive = false, ordre = 0,
-                            montantInitial = soldeInitial, prixTotal = soldeInitial,
+                            montantInitial = montantTotal,
+                            tauxInteret = taux,
+                            paiementMinimum = versement,
+                            dureeMoisPret = duree,
+                            paiementEffectue = situation.paiementsEcoules,
+                            prixTotal = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(
+                                versement * situation.nombrePaiements
+                            ),
                             detailsDetteJson = com.xburnsx.toutiebudget.data.modeles.DetailsDette(
+                                mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE,
+                                dateDebut = formState.detteDateDebut,
+                                dateFin = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(situation.dateFin),
+                                jourVersement = situation.jourVersement,
+                                frequencePaiement = formState.detteFrequence,
                                 enveloppeId = envId
                             ).versJson()
                         )

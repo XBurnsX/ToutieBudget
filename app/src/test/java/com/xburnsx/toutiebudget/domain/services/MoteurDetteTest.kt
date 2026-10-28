@@ -4,6 +4,7 @@ import com.xburnsx.toutiebudget.data.modeles.AjustementDette
 import com.xburnsx.toutiebudget.data.modeles.ChangementTaux
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
 import com.xburnsx.toutiebudget.data.modeles.DetailsDette
+import com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette
 import com.xburnsx.toutiebudget.data.modeles.ModeDette
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette
@@ -66,6 +67,65 @@ class MoteurDetteTest {
         // 10 000 $ à 6 % sur 60 mois = 193,33 $
         assertEquals(193.33, MoteurDette.mensualiteContractuelle(10000.0, 6.0, 60))
         assertEquals(100.0, MoteurDette.mensualiteContractuelle(1200.0, 0.0, 12))
+    }
+
+    @Test
+    fun `pret deja commence calcule cinq paiements et le solde actuel`() {
+        val debut = assertNotNull(MoteurCarteCredit.lireDate("2026-05-05"))
+        val aujourdhui = assertNotNull(MoteurCarteCredit.lireDate("2026-10-27"))
+        val s = assertNotNull(MoteurDette.situationContrat(
+            dateDebut = debut,
+            dureeMois = 36,
+            mensualite = 189.21,
+            tauxAnnuel = 10.0,
+            aujourdHui = aujourdhui,
+            principalInitial = 5863.81
+        ))
+        assertEquals(5, s.paiementsEcoules)
+        assertEquals(5863.81, s.principalInitial)
+        assertEquals(5150.31, s.soldeActuel)
+        assertEquals(713.50, s.capitalPaye)
+        assertEquals(232.55, s.interetsPayes)
+        assertEquals("2029-05-05", MoteurCarteCredit.ecrireDate(s.dateFin))
+        assertEquals(5, s.jourVersement)
+    }
+
+    @Test
+    fun `paiement aux deux semaines compte les vraies periodes de quatorze jours`() {
+        val debut = assertNotNull(MoteurCarteCredit.lireDate("2026-05-05"))
+        val aujourdhui = assertNotNull(MoteurCarteCredit.lireDate("2026-06-03"))
+        val s = assertNotNull(MoteurDette.situationContrat(
+            dateDebut = debut,
+            dureeMois = 36,
+            mensualite = 200.0,
+            tauxAnnuel = 0.0,
+            aujourdHui = aujourdhui,
+            principalInitial = 10000.0,
+            frequence = FrequencePaiementDette.AUX_DEUX_SEMAINES
+        ))
+        assertEquals(78, s.nombrePaiements)
+        assertEquals(2, s.paiementsEcoules)
+        assertEquals(9600.0, s.soldeActuel)
+        assertEquals("2026-06-16", MoteurCarteCredit.ecrireDate(assertNotNull(s.prochaineDatePaiement)))
+    }
+
+    @Test
+    fun `paiement chaque semaine compte les vraies periodes de sept jours`() {
+        val debut = assertNotNull(MoteurCarteCredit.lireDate("2026-05-05"))
+        val aujourdhui = assertNotNull(MoteurCarteCredit.lireDate("2026-05-27"))
+        val s = assertNotNull(MoteurDette.situationContrat(
+            dateDebut = debut,
+            dureeMois = 12,
+            mensualite = 100.0,
+            tauxAnnuel = 0.0,
+            aujourdHui = aujourdhui,
+            principalInitial = 10000.0,
+            frequence = FrequencePaiementDette.HEBDOMADAIRE
+        ))
+        assertEquals(52, s.nombrePaiements)
+        assertEquals(3, s.paiementsEcoules)
+        assertEquals(9700.0, s.soldeActuel)
+        assertEquals("2026-06-02", MoteurCarteCredit.ecrireDate(assertNotNull(s.prochaineDatePaiement)))
     }
 
     @Test

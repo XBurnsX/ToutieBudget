@@ -19,11 +19,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -38,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -55,14 +60,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xburnsx.toutiebudget.data.modeles.ChangementTaux
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
-import com.xburnsx.toutiebudget.data.modeles.ModeDette
-import com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette
+import com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette
 import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
 import com.xburnsx.toutiebudget.domain.services.MoteurDette
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 private val fondCarte = Color(0xFF2C2C2E)
 
@@ -79,14 +85,9 @@ fun DetteScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var confirmerQuitter by remember { mutableStateOf(false) }
-    var dialogueAjustement by remember { mutableStateOf<TypeAjustementDette?>(null) }
     var echeancierOuvert by remember { mutableStateOf(false) }
 
     LaunchedEffect(detteId) { viewModel.chargerDette(detteId) }
-    // DA5 : fermeture seulement après validation Room ET de la trace d'ajustement.
-    LaunchedEffect(uiState.ajustementReussiCompteur) {
-        if (uiState.ajustementReussiCompteur > 0) dialogueAjustement = null
-    }
     // Le ViewModel est partagé : on repart d'un état vide à chaque sortie de l'écran
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { viewModel.reinitialiser() } }
 
@@ -135,7 +136,6 @@ fun DetteScreen(
                         SectionEcheance(dette, uiState)
                         SectionParametres(uiState.formulaire, viewModel::modifierFormulaire)
                         SectionProjection(dette, onVoirEcheancier = { echeancierOuvert = true })
-                        SectionAjustements(dette, onAjuster = { dialogueAjustement = it })
                         SectionVersements(uiState)
 
                         Button(
@@ -159,18 +159,6 @@ fun DetteScreen(
             text = { Text("Les changements non enregistrés seront perdus.") },
             confirmButton = { TextButton(onClick = { confirmerQuitter = false; onRetour() }) { Text("Quitter") } },
             dismissButton = { TextButton(onClick = { confirmerQuitter = false }) { Text("Rester") } }
-        )
-    }
-
-    dialogueAjustement?.let { type ->
-        DialogueAjustement(
-            type = type,
-            enCours = uiState.isSaving,
-            onConfirmer = { montant, date, note ->
-                viewModel.ajusterSolde(type, montant, date, note)
-                // Conserver les champs saisis jusqu'à la confirmation de réussite.
-            },
-            onAnnuler = { dialogueAjustement = null }
         )
     }
 
@@ -225,15 +213,21 @@ private fun SectionResume(dette: CompteDette, uiState: DetteUiState) {
             dette.estArchive && restant < 0.01 -> Note("Remboursée et archivée.")
             dette.estArchive -> Note("Archivée sans être remboursée : le solde réel est conservé.")
         }
-        Ligne("Montant initial", MoneyFormatter.formatAmount(dette.montantInitial))
+        Ligne("Montant total original", MoneyFormatter.formatAmount(dette.montantInitial))
+        MoteurDette.situationContrat(dette)?.let { contrat ->
+            Ligne("Fréquence", contrat.frequence.libelle)
+            Ligne("Paiements déjà écoulés", "${contrat.paiementsEcoules} / ${contrat.nombrePaiements}")
+            Ligne("Capital payé", MoneyFormatter.formatAmount(contrat.capitalPaye), couleur = Color(0xFF10B981))
+            Ligne("Intérêts payés", MoneyFormatter.formatAmount(contrat.interetsPayes))
+            Ligne("Total versé avant le suivi", MoneyFormatter.formatAmount(contrat.totalVerse))
+        }
         val paiements = MoteurDette.paiementsReels(uiState.transactions)
-        Ligne("Versé (${paiements.size} versement${if (paiements.size > 1) "s" else ""})", MoneyFormatter.formatAmount(MoteurDette.totalVerse(uiState.transactions)))
+        if (paiements.isNotEmpty()) {
+            Ligne("Versements enregistrés dans l'app (${paiements.size})", MoneyFormatter.formatAmount(MoteurDette.totalVerse(uiState.transactions)))
+        }
         MoteurDette.echeancesCouvertes(dette, uiState.transactions)?.let {
             Ligne("Équivalent de mensualités (selon montants)", "$it")
         }
-        Ligne("Intérêts ajoutés (confirmés)", MoneyFormatter.formatAmount(MoteurDette.interetsAjoutes(dette)))
-        if (MoteurDette.fraisAjoutes(dette) > 0.005) Ligne("Frais ajoutés (confirmés)", MoneyFormatter.formatAmount(MoteurDette.fraisAjoutes(dette)))
-        Note("Intérêts payés : indisponibles tant que le prêteur ne fournit pas la décomposition de vos versements.")
     }
 }
 
@@ -260,44 +254,67 @@ private fun SectionEcheance(dette: CompteDette, uiState: DetteUiState) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() -> FormulaireDette) -> Unit) {
-    CarteSection("Paramètres") {
-        Champ("Nom", f.nom, f.erreurs["nom"], texte = true) { v -> onChange { copy(nom = v) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ModeDette.entries.forEach { m ->
-                FilterChip(selected = f.mode == m, onClick = { onChange { copy(mode = m) } }, label = { Text(m.libelle) })
-            }
-        }
-        if (f.mode == ModeDette.SIMPLE) {
-            Note("Dette simple : le montant dû et vos paiements, sans taux ni amortissement inventés.")
-        }
-        Champ(if (f.mode == ModeDette.FINANCE) "Principal initial ($)" else "Montant initial ($)", f.montantInitial, f.erreurs["montant"]) { v ->
-            onChange { copy(montantInitial = v) }
-        }
-        Champ(if (f.mode == ModeDette.FINANCE) "Taux annuel (%)" else "Taux annuel (%) — optionnel", f.taux, f.erreurs["taux"]) { v ->
-            onChange { copy(taux = v) }
-        }
-        if (f.mode == ModeDette.FINANCE || f.dureeMois.isNotBlank()) {
-            Champ("Durée (mois)", f.dureeMois, f.erreurs["duree"], entier = true) { v -> onChange { copy(dureeMois = v) } }
-        }
-        val suggestion = if (f.mode == ModeDette.FINANCE) {
-            MoteurDette.mensualiteContractuelle(
-                f.montantInitial.replace(',', '.').toDoubleOrNull() ?: 0.0,
-                f.taux.replace(',', '.').toDoubleOrNull(),
-                f.dureeMois.toIntOrNull()
+    var choisirDate by remember { mutableStateOf(false) }
+    val situation = remember(
+        f.montantInitial,
+        f.dateDebut,
+        f.dureeMois,
+        f.versementPrevu,
+        f.taux,
+        f.frequencePaiement
+    ) {
+        val debut = MoteurCarteCredit.lireDate(f.dateDebut)
+        val duree = f.dureeMois.toIntOrNull()
+        val versement = f.versementPrevu.replace(',', '.').toDoubleOrNull()
+        val taux = f.taux.replace(',', '.').toDoubleOrNull()
+        val montantTotal = f.montantInitial.replace(',', '.').toDoubleOrNull()
+        if (debut != null && duree != null && versement != null && taux != null && montantTotal != null) {
+            MoteurDette.situationContrat(
+                debut, duree, versement, taux,
+                principalInitial = montantTotal,
+                frequence = f.frequencePaiement
             )
         } else null
-        Champ("Versement prévu par mois ($)", f.versementPrevu, f.erreurs["versement"]) { v -> onChange { copy(versementPrevu = v) } }
-        suggestion?.let {
-            TextButton(onClick = { onChange { copy(versementPrevu = MoneyFormatter.roundAmount(it).toString()) } }) {
-                Text("Utiliser la mensualité du contrat : ${MoneyFormatter.formatAmount(it)}")
+    }
+    CarteSection("Paramètres") {
+        Champ("Nom", f.nom, f.erreurs["nom"], texte = true) { v -> onChange { copy(nom = v) } }
+        OutlinedButton(onClick = { choisirDate = true }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.DateRange, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(f.dateDebut.takeIf { it.isNotBlank() }?.let { "Date de début : $it" } ?: "Choisir la date de début")
+        }
+        f.erreurs["dateDebut"]?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        Text("Fréquence des paiements", color = Color.White)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState())
+        ) {
+            FrequencePaiementDette.entries.forEach { frequence ->
+                FilterChip(
+                    selected = f.frequencePaiement == frequence,
+                    onClick = { onChange { copy(frequencePaiement = frequence) } },
+                    label = { Text(frequence.libelle) }
+                )
             }
         }
-        // DF5 : vraies dates du contrat
-        Champ("Date de début (AAAA-MM-JJ)", f.dateDebut, f.erreurs["dateDebut"], texte = true) { v -> onChange { copy(dateDebut = v) } }
-        Champ("Date de fin prévue (AAAA-MM-JJ)", f.dateFin, f.erreurs["dateFin"], texte = true) { v -> onChange { copy(dateFin = v) } }
-        Champ("Jour du versement (1-31)", f.jourVersement, f.erreurs["jour"], entier = true) { v -> onChange { copy(jourVersement = v) } }
+        Champ("Durée du prêt (mois)", f.dureeMois, f.erreurs["duree"], entier = true) { v -> onChange { copy(dureeMois = v) } }
+        Champ("Montant de chaque paiement ($)", f.versementPrevu, f.erreurs["versement"]) { v -> onChange { copy(versementPrevu = v) } }
+        Champ("Taux annuel (%)", f.taux, f.erreurs["taux"]) { v -> onChange { copy(taux = v) } }
+        situation?.let { s ->
+            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+            Ligne("Date de fin calculée", MoteurCarteCredit.ecrireDate(s.dateFin))
+            Ligne("Paiements déjà écoulés", "${s.paiementsEcoules}")
+            Ligne("Montant total original", MoneyFormatter.formatAmount(s.principalInitial))
+            Ligne("Capital payé", MoneyFormatter.formatAmount(s.capitalPaye))
+            Ligne("Intérêts payés", MoneyFormatter.formatAmount(s.interetsPayes))
+            Ligne("Solde actuel calculé", MoneyFormatter.formatAmount(s.soldeActuel), gras = true)
+            Note("La première mensualité est due un mois après la date de début.")
+        }
 
         // DA7 : taux variable avec changements datés
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -327,6 +344,32 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             ) { Text("Ajouter le changement de taux") }
             Note("Le passé n'est jamais recalculé : seuls les versements futurs utilisent le nouveau taux.")
         }
+    }
+    if (choisirDate) {
+        val initiale = MoteurCarteCredit.lireDate(f.dateDebut) ?: Date()
+        val local = Calendar.getInstance().apply { time = initiale }
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH))
+        }
+        val etatDate = rememberDatePickerState(initialSelectedDateMillis = utc.timeInMillis)
+        DatePickerDialog(
+            onDismissRequest = { choisirDate = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    etatDate.selectedDateMillis?.let { millis ->
+                        val choisiUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
+                        val choisi = Calendar.getInstance().apply {
+                            clear()
+                            set(choisiUtc.get(Calendar.YEAR), choisiUtc.get(Calendar.MONTH), choisiUtc.get(Calendar.DAY_OF_MONTH))
+                        }
+                        onChange { copy(dateDebut = MoteurCarteCredit.ecrireDate(choisi.time)) }
+                    }
+                    choisirDate = false
+                }) { Text("Choisir") }
+            },
+            dismissButton = { TextButton(onClick = { choisirDate = false }) { Text("Annuler") } }
+        ) { DatePicker(state = etatDate) }
     }
 }
 
@@ -368,27 +411,6 @@ private fun SectionProjection(dette: CompteDette, onVoirEcheancier: () -> Unit) 
     }
 }
 
-/** DA5 : soldes officiels et intérêts/frais réellement ajoutés, avec date et note. */
-@Composable
-private fun SectionAjustements(dette: CompteDette, onAjuster: (TypeAjustementDette) -> Unit) {
-    CarteSection("Corrections confirmées") {
-        dette.details.ajustements.sortedByDescending { it.date }.forEach { a ->
-            Text(
-                "${a.date} · ${a.type.libelle} : ${MoneyFormatter.formatAmount(a.soldeAvant)} → ${MoneyFormatter.formatAmount(a.soldeApres)}" +
-                    (a.note?.let { " · $it" } ?: ""),
-                color = Color.LightGray,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Note("Une correction n'est jamais un paiement ni un revenu ; elle est notée dans l'historique.")
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            TextButton(onClick = { onAjuster(TypeAjustementDette.SOLDE_OFFICIEL) }) { Text("Solde officiel") }
-            TextButton(onClick = { onAjuster(TypeAjustementDette.INTERETS) }) { Text("Intérêts facturés") }
-            TextButton(onClick = { onAjuster(TypeAjustementDette.FRAIS) }) { Text("Frais facturés") }
-        }
-    }
-}
-
 /** DF3 : versements réels, par date et montant. */
 @Composable
 private fun SectionVersements(uiState: DetteUiState) {
@@ -404,43 +426,6 @@ private fun SectionVersements(uiState: DetteUiState) {
 }
 
 // ===== Dialogues =====
-
-@Composable
-private fun DialogueAjustement(
-    type: TypeAjustementDette,
-    enCours: Boolean,
-    onConfirmer: (Double, String, String?) -> Unit,
-    onAnnuler: () -> Unit
-) {
-    var montant by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(MoteurCarteCredit.ecrireDate(Date())) }
-    var note by remember { mutableStateOf("") }
-    val valeur = montant.replace(',', '.').replace(" ", "").toDoubleOrNull()?.takeIf { it >= 0 && it.isFinite() }
-    val dateValide = MoteurCarteCredit.lireDate(date.trim()) != null
-    AlertDialog(
-        onDismissRequest = { if (!enCours) onAnnuler() },
-        title = { Text(type.libelle) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Champ(
-                    if (type == TypeAjustementDette.SOLDE_OFFICIEL) "Montant restant selon le prêteur ($)" else "Montant ajouté par le prêteur ($)",
-                    montant, null
-                ) { montant = it }
-                Champ("Date (AAAA-MM-JJ)", date, if (dateValide) null else "Date invalide", texte = true) { date = it }
-                Champ("Note (optionnel)", note, null, texte = true) { note = it }
-                if (type != TypeAjustementDette.SOLDE_OFFICIEL) {
-                    Note("Seulement si ces montants ne sont pas déjà inclus dans le solde de l'app.")
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !enCours && valeur != null && dateValide, onClick = { onConfirmer(valeur!!, date.trim(), note.trim().ifBlank { null }) }) {
-                Text("Confirmer")
-            }
-        },
-        dismissButton = { TextButton(onClick = onAnnuler, enabled = !enCours) { Text("Annuler") } }
-    )
-}
 
 @Composable
 private fun DialogueEcheancier(dette: CompteDette, onFermer: () -> Unit) {

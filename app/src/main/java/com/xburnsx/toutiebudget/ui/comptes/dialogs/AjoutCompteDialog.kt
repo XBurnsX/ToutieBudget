@@ -5,7 +5,11 @@ package com.xburnsx.toutiebudget.ui.comptes.dialogs
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
@@ -21,6 +25,11 @@ import com.xburnsx.toutiebudget.ui.comptes.CompteFormState
 import com.xburnsx.toutiebudget.ui.comptes.COULEURS_COMPTES
 import com.xburnsx.toutiebudget.ui.comptes.composants.CouleurSelecteur
 import com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel
+import com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit
+import com.xburnsx.toutiebudget.domain.services.MoteurDette
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import java.util.Calendar
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,11 +40,19 @@ fun AjoutCompteDialog(
     onSave: () -> Unit,
     onOpenKeyboard: (Long, (Long) -> Unit) -> Unit,
     onCarteChange: (String?, String?, com.xburnsx.toutiebudget.data.modeles.EmetteurCarte?) -> Unit = { _, _, _ -> },
+    onDetteChange: (
+        String?,
+        String?,
+        String?,
+        String?,
+        com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette?
+    ) -> Unit = { _, _, _, _, _ -> },
     onTypePlacementChange: (com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement) -> Unit = {}
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
     val couleursDisponibles = COULEURS_COMPTES
     var expanded by remember { mutableStateOf(false) }
+    var choisirDateDette by remember { mutableStateOf(false) }
 
     // État du clavier
     val montantEnCentimes = remember(formState.solde) {
@@ -59,6 +76,7 @@ fun AjoutCompteDialog(
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.ime)
                     .windowInsetsPadding(WindowInsets.navigationBars)
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Champ nom du compte
                 OutlinedTextField(
@@ -108,7 +126,7 @@ fun AjoutCompteDialog(
                     },
                     libelle = when (formState.type) {
                         "Carte de crédit" -> "Limite de crédit"
-                        "Dette" -> "Montant du prêt"
+                        "Dette" -> "Montant total original du prêt"
                         else -> "Solde initial"
                     },
                     utiliserClavier = false, // Désactiver le clavier intégré
@@ -130,6 +148,92 @@ fun AjoutCompteDialog(
                     },
                     modifier = Modifier
                 )
+
+                if (formState.type == "Dette") {
+                    OutlinedButton(
+                        onClick = { choisirDateDette = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                        Text(
+                            formState.detteDateDebut.takeIf { it.isNotBlank() }
+                                ?.let { "Date de début : $it" }
+                                ?: "Choisir la date de début"
+                        )
+                    }
+                    Text("Fréquence des paiements", style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.entries.forEach { frequence ->
+                            FilterChip(
+                                selected = formState.detteFrequence == frequence,
+                                onClick = { onDetteChange(null, null, null, null, frequence) },
+                                label = { Text(frequence.libelle) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = formState.detteDureeMois,
+                        onValueChange = { onDetteChange(null, it, null, null, null) },
+                        label = { Text("Durée du prêt (mois)") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = formState.detteVersementMensuel,
+                        onValueChange = { onDetteChange(null, null, it, null, null) },
+                        label = { Text("Montant de chaque paiement ($)") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = formState.detteTauxAnnuel,
+                        onValueChange = { onDetteChange(null, null, null, it, null) },
+                        label = { Text("Taux annuel (%)") },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    val situation = remember(
+                        formState.solde,
+                        formState.detteDateDebut,
+                        formState.detteDureeMois,
+                        formState.detteVersementMensuel,
+                        formState.detteTauxAnnuel,
+                        formState.detteFrequence
+                    ) {
+                        val debut = MoteurCarteCredit.lireDate(formState.detteDateDebut)
+                        val duree = formState.detteDureeMois.toIntOrNull()
+                        val versement = formState.detteVersementMensuel.replace(',', '.').toDoubleOrNull()
+                        val taux = formState.detteTauxAnnuel.replace(',', '.').toDoubleOrNull()
+                        val montantTotal = formState.solde.replace(',', '.').toDoubleOrNull()
+                        if (debut != null && duree != null && versement != null && taux != null && montantTotal != null) {
+                            MoteurDette.situationContrat(
+                                debut, duree, versement, taux,
+                                principalInitial = montantTotal,
+                                frequence = formState.detteFrequence
+                            )
+                        } else null
+                    }
+                    situation?.let { s ->
+                        Text("Montant total original : ${MoneyFormatter.formatAmount(s.principalInitial)}", style = MaterialTheme.typography.bodySmall)
+                        Text("${s.paiementsEcoules} paiement(s) déjà écoulé(s) sur ${s.nombrePaiements}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Solde actuel calculé : ${MoneyFormatter.formatAmount(s.soldeActuel)}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("Capital payé : ${MoneyFormatter.formatAmount(s.capitalPaye)} · Intérêts payés : ${MoneyFormatter.formatAmount(s.interetsPayes)}", style = MaterialTheme.typography.bodySmall)
+                        Text("Fin calculée : ${MoteurCarteCredit.ecrireDate(s.dateFin)}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 
                 // CC3 : configuration minimale d'une carte (émetteur, solde SIGNÉ, taux des achats)
                 if (formState.type == "Carte de crédit") {
@@ -185,7 +289,11 @@ fun AjoutCompteDialog(
         confirmButton = {
             Button(
                 onClick = onSave,
-                enabled = formState.nom.isNotBlank() && formState.type.isNotBlank()
+                enabled = formState.nom.isNotBlank() && formState.type.isNotBlank() &&
+                    (formState.type != "Dette" || (
+                        formState.solde.isNotBlank() && formState.detteDateDebut.isNotBlank() && formState.detteDureeMois.isNotBlank() &&
+                            formState.detteVersementMensuel.isNotBlank() && formState.detteTauxAnnuel.isNotBlank()
+                    ))
             ) {
                 Text("Sauvegarder")
             }
@@ -196,4 +304,31 @@ fun AjoutCompteDialog(
             }
         }
     )
+
+    if (choisirDateDette) {
+        val initiale = MoteurCarteCredit.lireDate(formState.detteDateDebut) ?: java.util.Date()
+        val locale = Calendar.getInstance().apply { time = initiale }
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(locale.get(Calendar.YEAR), locale.get(Calendar.MONTH), locale.get(Calendar.DAY_OF_MONTH))
+        }
+        val etatDate = rememberDatePickerState(initialSelectedDateMillis = utc.timeInMillis)
+        DatePickerDialog(
+            onDismissRequest = { choisirDateDette = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    etatDate.selectedDateMillis?.let { millis ->
+                        val jourUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
+                        val jourLocal = Calendar.getInstance().apply {
+                            clear()
+                            set(jourUtc.get(Calendar.YEAR), jourUtc.get(Calendar.MONTH), jourUtc.get(Calendar.DAY_OF_MONTH))
+                        }
+                        onDetteChange(MoteurCarteCredit.ecrireDate(jourLocal.time), null, null, null, null)
+                    }
+                    choisirDateDette = false
+                }) { Text("Choisir") }
+            },
+            dismissButton = { TextButton(onClick = { choisirDateDette = false }) { Text("Annuler") } }
+        ) { DatePicker(state = etatDate) }
+    }
 }

@@ -384,6 +384,30 @@ class EcransModifierSupprimerTest {
         assertTrue(resume.contains("Montant") && resume.contains("Mois"), resume)
     }
 
+    // ===== Historique du compte =====
+
+    @Test
+    fun `historique compte reste visible si le libelle allocation ne se resout pas`() = test {
+        b.cheque("chq", 995.0, 0.0)
+        b.transactions["t1"] = com.xburnsx.toutiebudget.data.modeles.Transaction(
+            id = "t1",
+            utilisateurId = "u",
+            type = TypeTransaction.Depense,
+            montant = 5.0,
+            date = maintenant,
+            compteId = "chq",
+            collectionCompte = "comptes_cheques",
+            allocationMensuelleId = "allocation-liee-non-resolue",
+            tiersUtiliser = "Irving"
+        )
+
+        val vm = app.historiqueCompte("chq").also { attendre() }
+
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(listOf("t1"), vm.uiState.value.transactions.map { it.id })
+        assertEquals(1, vm.uiState.value.transactionsGroupees.values.flatten().size)
+    }
+
     // ===== Supprimer depuis l'historique =====
 
     @Test

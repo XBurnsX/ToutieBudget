@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.xburnsx.toutiebudget.data.modeles.AjustementDette
 import com.xburnsx.toutiebudget.data.modeles.ChangementTaux
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette
 import com.xburnsx.toutiebudget.data.modeles.ModeDette
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette
@@ -155,6 +156,7 @@ class DetteViewModel(
                     aJour.details.dateDebut != avant.details.dateDebut ||
                     aJour.details.dateFin != avant.details.dateFin ||
                     aJour.details.jourVersement != avant.details.jourVersement ||
+                    aJour.details.frequencePaiement != avant.details.frequencePaiement ||
                     aJour.details.enveloppeId != avant.details.enveloppeId ||
                     aJour.details.tauxVariable != avant.details.tauxVariable ||
                     aJour.details.changementsTaux != avant.details.changementsTaux
@@ -162,30 +164,75 @@ class DetteViewModel(
                     "Les paramètres de cette dette ont été modifiés ailleurs. " +
                         "Recharge le dossier avant de sauvegarder; ton brouillon n'a pas été écrasé."
                 )
+                val dateDebut = MoteurCarteCredit.lireDate(f.dateDebut)
+                    ?: throw IllegalStateException("Date de début invalide.")
+                val duree = f.dureeMois.trim().toIntOrNull()
+                    ?: throw IllegalStateException("Durée invalide.")
+                val versement = nombre(f.versementPrevu)
+                    ?: throw IllegalStateException("Montant du paiement invalide.")
+                val taux = f.taux.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
+                    ?: throw IllegalStateException("Taux annuel invalide.")
+                val situation = com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
+                    dateDebut, duree, versement, taux,
+                    principalInitial = aJour.montantInitial,
+                    frequence = f.frequencePaiement
+                ) ?: throw IllegalStateException("Impossible de calculer cette dette.")
                 val details = aJour.details.copy(
-                    mode = f.mode,
-                    dateDebut = f.dateDebut.trim().ifBlank { null },
-                    dateFin = f.dateFin.trim().ifBlank { null },
-                    jourVersement = f.jourVersement.trim().toIntOrNull(),
+                    mode = ModeDette.FINANCE,
+                    dateDebut = f.dateDebut.trim(),
+                    dateFin = MoteurCarteCredit.ecrireDate(situation.dateFin),
+                    jourVersement = situation.jourVersement,
+                    frequencePaiement = f.frequencePaiement,
                     enveloppeId = f.enveloppeId ?: aJour.details.enveloppeId,
                     tauxVariable = f.tauxVariable,
                     changementsTaux = f.changementsTaux
                 )
                 val aSauver = aJour.copy(
                     nom = f.nom.trim(),
-                    montantInitial = nombre(f.montantInitial) ?: aJour.montantInitial,
-                    tauxInteret = if (f.taux.isBlank()) null else f.taux.trim().replace(" ", "").replace(',', '.').toDoubleOrNull(),
-                    dureeMoisPret = f.dureeMois.trim().toIntOrNull(),
-                    paiementMinimum = nombre(f.versementPrevu),
+                    montantInitial = situation.principalInitial,
+                    tauxInteret = taux,
+                    dureeMoisPret = duree,
+                    paiementMinimum = versement,
+                    soldeDette = if (etat.transactions.none { it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement }) {
+                        -situation.soldeActuel
+                    } else aJour.soldeDette,
+                    paiementEffectue = if (etat.transactions.none { it.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement }) {
+                        situation.paiementsEcoules
+                    } else aJour.paiementEffectue,
+                    prixTotal = MoneyFormatter.roundAmount(versement * situation.nombrePaiements),
                     detailsDetteJson = details.versJson()
-                    // soldeDette, paiementEffectue et estArchive restent ceux de la version à jour
                 )
                 compteRepository.mettreAJourCompte(aSauver).getOrThrow()
+                val envId = details.enveloppeId
+                    ?: throw IllegalStateException("Enveloppe liée à la dette introuvable.")
+                val env = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+                    .singleOrNull { it.id == envId && it.utilisateurId == aJour.utilisateurId }
+                    ?: throw IllegalStateException("Enveloppe liée à la dette introuvable ou ambiguë.")
+                enveloppeRepository.mettreAJourEnveloppe(env.copy(
+                    nom = f.nom.trim(),
+                    typeObjectif = when (f.frequencePaiement) {
+                        FrequencePaiementDette.MENSUELLE ->
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel
+                        FrequencePaiementDette.AUX_DEUX_SEMAINES ->
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire
+                        FrequencePaiementDette.HEBDOMADAIRE ->
+                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance
+                    },
+                    objectifMontant = versement,
+                    dateObjectif = if (f.frequencePaiement == FrequencePaiementDette.MENSUELLE) {
+                        situation.dateFin
+                    } else situation.prochaineDatePaiement,
+                    dateDebutObjectif = if (f.frequencePaiement == FrequencePaiementDette.MENSUELLE) {
+                        dateDebut
+                    } else situation.debutCycleActuel,
+                    objectifJour = situation.jourVersement,
+                    resetApresEcheance = f.frequencePaiement == FrequencePaiementDette.HEBDOMADAIRE
+                )).getOrThrow()
                 aJour to aSauver
                 }
                 com.xburnsx.toutiebudget.ui.budget.BudgetEvents.onCompteUpdated() // la page Comptes se recharge sur cet événement
 
-                val avertissement = if (etat.dette != null && abs(aJour.soldeDette - etat.dette.soldeDette) > 0.005) {
+                val avertissement = if (abs(aJour.soldeDette - etat.dette.soldeDette) > 0.005) {
                     "Le solde a changé entre-temps (paiement ailleurs) : le solde réel a été conservé."
                 } else null
                 val formulaire = FormulaireDette.depuis(aSauver, aSauver.details.enveloppeId)
@@ -324,7 +371,7 @@ data class DetteUiState(
 /** Brouillon des paramètres (DF1). Les montants sont du texte saisi. */
 data class FormulaireDette(
     val nom: String = "",
-    val mode: ModeDette = ModeDette.SIMPLE,
+    val mode: ModeDette = ModeDette.FINANCE,
     val montantInitial: String = "",
     val taux: String = "",
     val dureeMois: String = "",
@@ -332,6 +379,7 @@ data class FormulaireDette(
     val dateDebut: String = "",
     val dateFin: String = "",
     val jourVersement: String = "",
+    val frequencePaiement: FrequencePaiementDette = FrequencePaiementDette.MENSUELLE,
     val tauxVariable: Boolean = false,
     val changementsTaux: List<ChangementTaux> = emptyList(),
     val enveloppeId: String? = null,
@@ -349,28 +397,27 @@ data class FormulaireDette(
             return nombre.toDouble().takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
         }
         if (nom.isBlank()) e["nom"] = "Nom requis"
-        n(montantInitial).let {
-            if (it == null || it < 0) e["montant"] = "Montant invalide (maximum deux décimales)"
-        }
-        if (versementPrevu.isNotBlank()) n(versementPrevu).let {
-            if (it == null || it < 0) e["versement"] = "Versement invalide (maximum deux décimales)"
+        n(versementPrevu).let {
+            if (it == null || it <= 0) e["versement"] = "Paiement positif requis (maximum deux décimales)"
         }
         fun t(s: String) = s.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
             ?.takeIf { it.isFinite() && it in 0.0..100.0 }
-        if (mode == ModeDette.FINANCE) {
-            t(taux).let { if (it == null) e["taux"] = "Taux entre 0 et 100 requis pour un prêt financé" }
-            dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
-        } else {
-            if (taux.isNotBlank() && t(taux) == null) e["taux"] = "Taux entre 0 et 100"
-            if (dureeMois.isNotBlank() && dureeMois.trim().toIntOrNull() !in 1..600) e["duree"] = "Durée de 1 à 600 mois"
+        t(taux).let { if (it == null) e["taux"] = "Taux entre 0 et 100 requis" }
+        dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
+        if (MoteurCarteCredit.lireDate(dateDebut.trim()) == null) e["dateDebut"] = "Choisis la date de début"
+        val situationValide = MoteurCarteCredit.lireDate(dateDebut.trim())?.let { debut ->
+            val duree = dureeMois.trim().toIntOrNull()
+            val versement = n(versementPrevu)
+            val tauxAnnuel = t(taux)
+            if (duree != null && versement != null && tauxAnnuel != null) {
+                com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
+                    debut, duree, versement, tauxAnnuel,
+                    principalInitial = n(montantInitial),
+                    frequence = frequencePaiement
+                )
+            } else null
         }
-        listOf("dateDebut" to dateDebut, "dateFin" to dateFin).forEach { (cle, v) ->
-            if (v.isNotBlank() && MoteurCarteCredit.lireDate(v.trim()) == null) e[cle] = "Date AAAA-MM-JJ"
-        }
-        val debut = MoteurCarteCredit.lireDate(dateDebut.trim())
-        val fin = MoteurCarteCredit.lireDate(dateFin.trim())
-        if (debut != null && fin != null && fin.before(debut)) e["dateFin"] = "La fin précède le début"
-        if (jourVersement.isNotBlank() && jourVersement.trim().toIntOrNull() !in 1..31) e["jour"] = "Jour entre 1 et 31"
+        if (e.isEmpty() && situationValide == null) e["versement"] = "Conditions de prêt impossibles à calculer"
         if (changementsTaux.any { c ->
                 MoteurCarteCredit.lireDate(c.date) == null ||
                     !c.taux.isFinite() || c.taux !in 0.0..100.0
@@ -386,7 +433,7 @@ data class FormulaireDette(
             fun t(v: Double?) = v?.let { MoneyFormatter.roundAmount(it).toString() } ?: ""
             return FormulaireDette(
                 nom = dette.nom,
-                mode = d.mode,
+                mode = ModeDette.FINANCE,
                 montantInitial = t(dette.montantInitial),
                 taux = dette.tauxInteret?.toString() ?: "",
                 dureeMois = dette.dureeMoisPret?.toString() ?: "",
@@ -394,6 +441,7 @@ data class FormulaireDette(
                 dateDebut = d.dateDebut ?: "",
                 dateFin = d.dateFin ?: "",
                 jourVersement = d.jourVersement?.toString() ?: "",
+                frequencePaiement = d.frequencePaiement ?: FrequencePaiementDette.MENSUELLE,
                 tauxVariable = d.tauxVariable,
                 changementsTaux = d.changementsTaux,
                 enveloppeId = enveloppeId

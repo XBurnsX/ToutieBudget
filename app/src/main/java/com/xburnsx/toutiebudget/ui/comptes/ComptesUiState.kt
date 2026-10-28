@@ -14,6 +14,12 @@ data class CompteFormState(
     val soldeCarte: String = "",
     val tauxCarte: String = "",
     val emetteurCarte: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte = com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.AUTRE,
+    val detteDateDebut: String = "",
+    val detteDureeMois: String = "",
+    val detteVersementMensuel: String = "",
+    val detteTauxAnnuel: String = "",
+    val detteFrequence: com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette =
+        com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette.MENSUELLE,
     // IA7 : type de compte de placement (métadonnée)
     val typePlacement: com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement = com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement.NON_PRECISE
 )

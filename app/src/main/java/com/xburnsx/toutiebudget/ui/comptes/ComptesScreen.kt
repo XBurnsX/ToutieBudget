@@ -212,7 +212,13 @@ fun ComptesScreen(
                                     val nomCompte = compte.nom
 
                                     if (compteId.isNotEmpty() && collectionCompte.isNotEmpty()) {
-                                        onCompteClick(compteId, collectionCompte, nomCompte)
+                                        when (compte) {
+                                            is com.xburnsx.toutiebudget.data.modeles.CompteDette ->
+                                                onDetteLongClick(compteId)
+                                            is com.xburnsx.toutiebudget.data.modeles.CompteInvestissement ->
+                                                onInvestissementLongClick(compteId)
+                                            else -> onCompteClick(compteId, collectionCompte, nomCompte)
+                                        }
                                     }
                                 },
                                 onLongClick = {
@@ -232,6 +238,7 @@ fun ComptesScreen(
         AjoutCompteDialog(
             formState = uiState.formState,
             onCarteChange = viewModel::onFormCarteChange,
+            onDetteChange = viewModel::onFormDetteChange,
             onTypePlacementChange = viewModel::onTypePlacementChange,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,

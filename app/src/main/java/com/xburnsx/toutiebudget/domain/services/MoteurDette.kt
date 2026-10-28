@@ -1,6 +1,7 @@
 package com.xburnsx.toutiebudget.domain.services
 
 import com.xburnsx.toutiebudget.data.modeles.CompteDette
+import com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette
 import com.xburnsx.toutiebudget.data.modeles.ModeDette
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette
@@ -10,6 +11,7 @@ import java.util.Date
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 /**
  * Moteur UNIQUE des dettes (DF4) : écran, validation, échéancier et simulations utilisent ces
@@ -18,7 +20,8 @@ import kotlin.math.pow
  */
 object MoteurDette {
 
-    private const val MAX_PERIODES = 600
+    private const val MAX_MOIS = 600
+    private const val MAX_PERIODES = 5200
 
     fun arrondi(v: Double): Double = MoteurCarteCredit.arrondi(v)
 
@@ -42,13 +45,120 @@ object MoteurDette {
     fun mensualiteContractuelle(principal: Double, tauxAnnuel: Double?, dureeMois: Int?): Double? {
         if (!principal.isFinite() || principal <= 0 || tauxAnnuel == null ||
             !tauxAnnuel.isFinite() || tauxAnnuel !in 0.0..100.0 ||
-            dureeMois == null || dureeMois !in 1..MAX_PERIODES
+            dureeMois == null || dureeMois !in 1..MAX_MOIS
         ) return null
         if (tauxAnnuel == 0.0) return arrondi(principal / dureeMois)
         val r = tauxAnnuel / 100.0 / 12.0
         val facteur = (1 + r).pow(dureeMois)
         val m = principal * r * facteur / (facteur - 1)
         return if (m.isFinite()) arrondi(m) else null
+    }
+
+    data class SituationContrat(
+        val principalInitial: Double,
+        val paiementsEcoules: Int,
+        val soldeActuel: Double,
+        val capitalPaye: Double,
+        val interetsPayes: Double,
+        val totalVerse: Double,
+        val dateFin: Date,
+        val jourVersement: Int,
+        val nombrePaiements: Int,
+        val frequence: FrequencePaiementDette,
+        val debutCycleActuel: Date,
+        val prochaineDatePaiement: Date?
+    )
+
+    /**
+     * Reconstitue un prêt déjà commencé à partir de ses conditions contractuelles.
+     * La date de début est la date du contrat; la première mensualité arrive un mois plus tard.
+     * Les calculs sont arrondis au cent à chaque échéance, comme sur un relevé.
+     */
+    fun situationContrat(
+        dateDebut: Date,
+        dureeMois: Int,
+        mensualite: Double,
+        tauxAnnuel: Double,
+        aujourdHui: Date = Date(),
+        nombrePaiementsForce: Int? = null,
+        principalInitial: Double? = null,
+        frequence: FrequencePaiementDette = FrequencePaiementDette.MENSUELLE
+    ): SituationContrat? {
+        if (dureeMois !in 1..MAX_MOIS || !mensualite.isFinite() || mensualite <= 0.0 ||
+            !tauxAnnuel.isFinite() || tauxAnnuel !in 0.0..100.0 ||
+            (principalInitial != null && (!principalInitial.isFinite() || principalInitial <= 0.0))
+        ) return null
+        val versement = arrondi(mensualite)
+        if (versement <= 0.0) return null
+        val nombrePaiements = nombrePaiementsContrat(dureeMois, frequence)
+        val tauxPeriode = tauxAnnuel / 100.0 / frequence.paiementsParAn
+        val principalExact = principalInitial ?: if (tauxPeriode == 0.0) {
+            versement * nombrePaiements
+        } else {
+            versement * (1.0 - (1.0 + tauxPeriode).pow(-nombrePaiements)) / tauxPeriode
+        }
+        if (!principalExact.isFinite() || principalExact <= 0.0) return null
+        val principal = arrondi(principalExact)
+        val jour = Calendar.getInstance().apply { time = dateDebut }.get(Calendar.DAY_OF_MONTH)
+        val dateFin = dateEcheance(dateDebut, nombrePaiements, jour, frequence)
+        val nombre = nombrePaiementsForce?.coerceIn(0, nombrePaiements) ?: run {
+            var ecoulees = 0
+            for (numero in 1..nombrePaiements) {
+                if (!dateEcheance(dateDebut, numero, jour, frequence).after(finJour(aujourdHui))) ecoulees++ else break
+            }
+            ecoulees
+        }
+
+        var solde = principal
+        var totalVerse = 0.0
+        var interets = 0.0
+        repeat(nombre) {
+            val interet = arrondi(solde * tauxPeriode)
+            val du = arrondi(solde + interet)
+            val paiement = min(versement, du)
+            solde = arrondi(du - paiement)
+            totalVerse = arrondi(totalVerse + paiement)
+            interets = arrondi(interets + interet)
+        }
+        val capital = arrondi(principal - solde)
+        val debutCycleActuel = if (nombre == 0) {
+            debutJour(dateDebut)
+        } else {
+            dateEcheance(dateDebut, nombre, jour, frequence)
+        }
+        val prochaineDatePaiement = if (nombre < nombrePaiements) {
+            dateEcheance(dateDebut, nombre + 1, jour, frequence)
+        } else null
+        return SituationContrat(
+            principalInitial = principal,
+            paiementsEcoules = nombre,
+            soldeActuel = solde,
+            capitalPaye = capital,
+            interetsPayes = interets,
+            totalVerse = totalVerse,
+            dateFin = dateFin,
+            jourVersement = jour,
+            nombrePaiements = nombrePaiements,
+            frequence = frequence,
+            debutCycleActuel = debutCycleActuel,
+            prochaineDatePaiement = prochaineDatePaiement
+        )
+    }
+
+    fun situationContrat(dette: CompteDette): SituationContrat? {
+        val debut = MoteurCarteCredit.lireDate(dette.details.dateDebut) ?: return null
+        val duree = dette.dureeMoisPret ?: return null
+        val mensualite = dette.paiementMinimum ?: return null
+        val taux = dette.tauxInteret ?: return null
+        return situationContrat(
+            dateDebut = debut,
+            dureeMois = duree,
+            mensualite = mensualite,
+            tauxAnnuel = taux,
+            nombrePaiementsForce = dette.paiementEffectue,
+            principalInitial = dette.montantInitial,
+            frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
+        )
     }
 
     /** Versement prévu : celui saisi, sinon la mensualité du contrat (prêt financé seulement). */
@@ -85,18 +195,14 @@ object MoteurDette {
         if (dateLimite.before(depart)) return 0
         val debutContrat = debutJour(depart)
         val limite = debutJour(dateLimite)
-        val mois = Calendar.getInstance().apply {
-            time = debutContrat
-            set(Calendar.DAY_OF_MONTH, 1)
-        }
+        val frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
+        val duree = dette.dureeMoisPret ?: return null
+        val nombrePaiements = nombrePaiementsContrat(duree, frequence)
         var echeancesExigibles = 0
-        for (i in 0 until MAX_PERIODES) {
-            val echeance = (mois.clone() as Calendar).apply {
-                set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
-            }.time
+        for (numero in 1..nombrePaiements) {
+            val echeance = dateEcheance(debutContrat, numero, jour, frequence)
             if (echeance.after(limite)) break
-            if (!echeance.before(debutContrat)) echeancesExigibles++
-            mois.add(Calendar.MONTH, 1)
+            echeancesExigibles++
         }
         val total = arrondi(paiementsReels(transactionsDette, aujourdHui).sumOf { it.montant })
         if (!total.isFinite()) return null
@@ -125,19 +231,17 @@ object MoteurDette {
         // contrats démarrant le 29-31, utiliser le dernier jour du mois.
         val aPartir = listOfNotNull(debutJour(aujourdHui), dateContrat).maxOrNull() ?: return null
         if (dateFin != null && dateFin.before(aPartir)) return null
-        val cal = Calendar.getInstance().apply {
-            time = aPartir
-            set(Calendar.DAY_OF_MONTH, 1)
-        }
-        var resultat: Date? = null
-        repeat(2) {
-            val c = (cal.clone() as Calendar).apply {
-                set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
+        val debut = dateContrat ?: return null
+        val frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
+        val nombrePaiements = dette.dureeMoisPret?.let { nombrePaiementsContrat(it, frequence) }
+            ?: MAX_PERIODES
+        for (numero in 1..nombrePaiements) {
+            val resultat = dateEcheance(debut, numero, jour, frequence)
+            if (!resultat.before(aPartir) && (dateFin == null || !resultat.after(dateFin))) {
+                return resultat
             }
-            if (resultat == null && !c.time.before(aPartir)) resultat = c.time
-            cal.add(Calendar.MONTH, 1)
         }
-        return resultat?.takeIf { dateFin == null || !it.after(dateFin) }
+        return null
     }
 
     enum class StatutEcheance(val libelle: String) { PAYEE("payée"), PARTIELLE("partiellement payée"), NON_PAYEE("non payée") }
@@ -150,7 +254,8 @@ object MoteurDette {
     fun etatProchaineEcheance(dette: CompteDette, transactionsDette: List<Transaction>, aujourdHui: Date = Date()): EtatEcheance? {
         val echeance = prochaineEcheance(dette, aujourdHui) ?: return null
         val prevu = min(versementPrevu(dette) ?: return null, restant(dette) + totalVerseDepuis(dette, transactionsDette, echeance))
-        val debutPeriode = Calendar.getInstance().apply { time = echeance; add(Calendar.MONTH, -1) }.time
+        val frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
+        val debutPeriode = reculerPeriode(echeance, frequence)
         val verse = arrondi(paiementsReels(transactionsDette, aujourdHui).filter {
             it.date.after(debutPeriode) && !it.date.after(finJour(echeance))
         }.sumOf { it.montant })
@@ -163,7 +268,8 @@ object MoteurDette {
     }
 
     private fun totalVerseDepuis(dette: CompteDette, transactionsDette: List<Transaction>, echeance: Date): Double {
-        val debutPeriode = Calendar.getInstance().apply { time = echeance; add(Calendar.MONTH, -1) }.time
+        val frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
+        val debutPeriode = reculerPeriode(echeance, frequence)
         return paiementsReels(transactionsDette).filter { it.date.after(debutPeriode) }.sumOf { it.montant }
     }
 
@@ -209,6 +315,7 @@ object MoteurDette {
             ?: return Echeancier(emptyList(), null, 0.0, null, "Jour de versement inconnu pour le contrat.")
         val cal = Calendar.getInstance().apply { time = premiere }
         val jourContrat = dette.details.jourVersement ?: cal.get(Calendar.DAY_OF_MONTH)
+        val frequence = dette.details.frequencePaiement ?: FrequencePaiementDette.MENSUELLE
         val periodes = mutableListOf<Periode>()
         var totalInterets = 0.0
 
@@ -218,7 +325,7 @@ object MoteurDette {
                 periodes, null, arrondi(totalInterets), null,
                 "Taux du contrat inconnu pour cette période : impossible de calculer les intérêts."
             )
-            val interets = arrondi(solde * taux / 100.0 / 12.0)
+            val interets = arrondi(solde * taux / 100.0 / frequence.paiementsParAn)
             val du = arrondi(solde + interets)
             val paiement = min(versement, du)
             if (paiement <= interets && du > 0.005) {
@@ -230,11 +337,9 @@ object MoteurDette {
             totalInterets += interets
             solde = soldeFinal
             if (solde <= 0.005) return Echeancier(periodes, numero, arrondi(totalInterets), date)
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            cal.add(Calendar.MONTH, 1)
-            cal.set(Calendar.DAY_OF_MONTH, min(jourContrat, cal.getActualMaximum(Calendar.DAY_OF_MONTH)))
+            cal.time = avancerPeriode(date, jourContrat, frequence)
         }
-        return Echeancier(periodes, null, arrondi(totalInterets), null, "Plus de ${MAX_PERIODES / 12} ans avec ce versement.")
+        return Echeancier(periodes, null, arrondi(totalInterets), null, "Le prêt ne se rembourse pas avec ce versement.")
     }
 
     private fun debutJour(d: Date): Date = Calendar.getInstance().apply {
@@ -244,4 +349,55 @@ object MoteurDette {
     private fun finJour(d: Date): Date = Calendar.getInstance().apply {
         time = d; set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
     }.time
+
+    fun nombrePaiementsContrat(dureeMois: Int, frequence: FrequencePaiementDette): Int =
+        (dureeMois * frequence.paiementsParAn / 12.0).roundToInt().coerceAtLeast(1)
+
+    private fun dateEcheance(
+        debut: Date,
+        numero: Int,
+        jour: Int,
+        frequence: FrequencePaiementDette
+    ): Date {
+        return Calendar.getInstance().apply {
+            time = debut
+            when (frequence) {
+                FrequencePaiementDette.MENSUELLE -> {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    add(Calendar.MONTH, numero)
+                    set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
+                }
+                FrequencePaiementDette.AUX_DEUX_SEMAINES -> add(Calendar.DAY_OF_YEAR, numero * 14)
+                FrequencePaiementDette.HEBDOMADAIRE -> add(Calendar.DAY_OF_YEAR, numero * 7)
+            }
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+    }
+
+    private fun avancerPeriode(date: Date, jour: Int, frequence: FrequencePaiementDette): Date =
+        Calendar.getInstance().apply {
+            time = date
+            when (frequence) {
+                FrequencePaiementDette.MENSUELLE -> {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    add(Calendar.MONTH, 1)
+                    set(Calendar.DAY_OF_MONTH, min(jour, getActualMaximum(Calendar.DAY_OF_MONTH)))
+                }
+                FrequencePaiementDette.AUX_DEUX_SEMAINES -> add(Calendar.DAY_OF_YEAR, 14)
+                FrequencePaiementDette.HEBDOMADAIRE -> add(Calendar.DAY_OF_YEAR, 7)
+            }
+        }.time
+
+    private fun reculerPeriode(date: Date, frequence: FrequencePaiementDette): Date =
+        Calendar.getInstance().apply {
+            time = date
+            when (frequence) {
+                FrequencePaiementDette.MENSUELLE -> add(Calendar.MONTH, -1)
+                FrequencePaiementDette.AUX_DEUX_SEMAINES -> add(Calendar.DAY_OF_YEAR, -14)
+                FrequencePaiementDette.HEBDOMADAIRE -> add(Calendar.DAY_OF_YEAR, -7)
+            }
+        }.time
 }

@@ -207,7 +207,7 @@ class HistoriqueCompteViewModel(
      */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, erreur = null) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
                 val deferredTransactions = async { 
@@ -220,15 +220,13 @@ class HistoriqueCompteViewModel(
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
 
-                // HC : aucune erreur de repository ne doit produire un faux historique vide.
-                resultTransactions.getOrThrow()
-                resultEnveloppes.getOrThrow()
-                
-                val transactions = resultTransactions.getOrNull() ?: emptyList()
-                val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
-                // HC/HE1 : résoudre par ID sur toutes les périodes, jamais uniquement le mois courant.
+                // L'historique appartient au compte : seules ses transactions sont obligatoires.
+                // Les enveloppes/allocations ne servent qu'à enrichir les libellés et ne doivent
+                // jamais empêcher l'affichage des mouvements financiers.
+                val transactions = resultTransactions.getOrThrow()
+                val enveloppes = resultEnveloppes.getOrElse { emptyList() }
                 val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    enveloppeRepository.recupererAllocationParId(id).getOrThrow()
+                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
                 }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
@@ -312,6 +310,7 @@ class HistoriqueCompteViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        erreur = null,
                         transactions = transactionsUi,
                         transactionsGroupees = transactionsGroupees
                     )

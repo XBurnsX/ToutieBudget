@@ -16,6 +16,9 @@ data class DetailsDette(
     val dateDebut: String? = null,
     val dateFin: String? = null,
     val jourVersement: Int? = null,
+    // Null uniquement pour les anciennes dettes créées avant l'ajout du choix;
+    // elles restent mensuelles pour compatibilité.
+    val frequencePaiement: FrequencePaiementDette? = null,
     // DF11 : lien permanent vers l'enveloppe de la dette
     val enveloppeId: String? = null,
     // DA7 : taux variable, changements datés (le passé n'est jamais recalculé)
@@ -43,6 +46,12 @@ data class DetailsDette(
             }
         }
     }
+}
+
+enum class FrequencePaiementDette(val libelle: String, val paiementsParAn: Int) {
+    HEBDOMADAIRE("Chaque semaine", 52),
+    AUX_DEUX_SEMAINES("Aux deux semaines", 26),
+    MENSUELLE("Chaque mois", 12)
 }
 
 enum class ModeDette(val libelle: String) {
