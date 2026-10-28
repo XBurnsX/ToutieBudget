@@ -366,7 +366,12 @@ class EnveloppeRepositoryRoomImpl(
                                 (tx.estFractionnee && runCatching {
                                     com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
                                         .lire(tx.sousItems).any { it.enveloppeId == id }
-                                }.getOrElse { tx.sousItems?.contains(id) == true })
+                                }.getOrElse {
+                                    // CE5 : JSON illisible = impossible de prouver
+                                    // qu'un paiement technique ne cible pas
+                                    // l'enveloppe. Refuser le retrait.
+                                    true
+                                })
                         }
                     }
                     require(!paiementLie) {
@@ -417,8 +422,9 @@ class EnveloppeRepositoryRoomImpl(
                                 .lire(tx.sousItems)
                             fractions.any { it.enveloppeId == id }
                         }.getOrElse {
-                            // En présence de JSON illisible, ne pas risquer un DELETE.
-                            tx.sousItems?.contains(id) == true
+                            // JSON fractionné corrompu : le rattachement
+                            // est inconnu; aucun DELETE définitif autorisé.
+                            true
                         })
                 }
                 // Même l'ancien point d'entrée DELETE ne peut plus retirer
