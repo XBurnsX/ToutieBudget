@@ -660,62 +660,31 @@ class CategoriesEnveloppesViewModel(
      * Met à jour l'ordre des catégories et synchronise avec PocketBase.
      */
     fun onDeplacerCategorie(nomCategorie: String, nouvellePosition: Int) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
-                // Obtenir la liste actuelle des catégories triées par ordre
-                val categoriesOrdonnees = categoriesMap.values.sortedBy { it.ordre }
-
-                val categorieADeplacer = categoriesOrdonnees.find { it.nom == nomCategorie }
-                    ?: throw Exception("Catégorie '$nomCategorie' introuvable")
-
-                // Calculer les nouveaux ordres
-                val nouvellesCategories = calculerNouveauxOrdres(
-                    categoriesOrdonnees,
-                    categorieADeplacer,
-                    nouvellePosition
+                // CE9/CE11 : les noms ne servent qu'à retrouver l'action UI.
+                // Le classement et le contrôle concurrent utilisent les ID.
+                val avant = categoriesMap.values.sortedWith(
+                    compareBy<Categorie> { it.ordre }.thenBy { it.id }
                 )
-
-                // 🔥 METTRE À JOUR LE CACHE LOCAL AVANT L'INTERFACE
-                categoriesMap = nouvellesCategories.associateBy { it.id }
-
-                // 🔥 RECONSTRUIRE LES GROUPES DANS LE BON ORDRE
-                val nouveauxGroupes = organiserDonneesPourAffichage(nouvellesCategories, enveloppesList)
-
-                // 🔥 METTRE À JOUR L'INTERFACE IMMÉDIATEMENT
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        enveloppesGroupees = nouveauxGroupes,
+                val selection = avant.singleOrNull { it.nom == nomCategorie }
+                    ?: error("Catégorie ambiguë ou introuvable : $nomCategorie")
+                val apres = calculerNouveauxOrdres(avant, selection, nouvellePosition)
+                if (avant == apres) return@lancerUneFois
+                // Les changements ne deviennent visibles qu'après commit Room.
+                categorieRepository.reorganiserCategories(avant, apres).getOrThrow()
+                categoriesMap = apres.associateBy { it.id }
+                _uiState.update { etat ->
+                    etat.copy(
+                        enveloppesGroupees = organiserDonneesPourAffichage(apres, enveloppesList),
                         categorieEnDeplacement = null,
-                        versionUI = currentState.versionUI + 1 // 🔥 FORCER LA RECOMPOSITION
+                        versionUI = etat.versionUI + 1,
+                        erreur = null
                     )
                 }
-
-                // Synchroniser avec PocketBase en batch
-                val categoriesModifiees = nouvellesCategories.filter { nouvelle ->
-                    val ancienne = categoriesOrdonnees.find { it.id == nouvelle.id }
-                    ancienne?.ordre != nouvelle.ordre
-                }
-
-                // 🔥 SYNCHRONISER AVEC POCKETBASE
-                val misesAJour = categoriesModifiees.map { categorie ->
-                    categorieRepository.mettreAJourCategorie(categorie)
-                }
-
-                // 🔥 ATTENDRE QUE TOUTES LES MISES À JOUR SOIENT TERMINÉES
-                misesAJour.forEach { resultat ->
-                    resultat.onFailure { erreur ->
-                        _uiState.update { it.copy(erreur = "Erreur déplacement: ${erreur.message}") }
-                        // En cas d'erreur, recharger les données depuis PocketBase
-                        chargerDonnees()
-                        return@launch
-                    }
-                }
-
-                // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier les autres ViewModels
                 realtimeSyncService.declencherMiseAJourBudget()
-
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
+                _uiState.update { it.copy(erreur = "Classement non enregistré : ${e.message}") }
                 chargerDonnees()
             }
         }
@@ -754,63 +723,31 @@ class CategoriesEnveloppesViewModel(
      * Met à jour l'ordre des enveloppes et synchronise avec PocketBase.
      */
     fun onDeplacerEnveloppe(enveloppeId: String, nouvellePosition: Int) {
-        viewModelScope.launch {
+        viewModelScope.lancerUneFois(verrouEcriture) {
             try {
-                // Trouver l'enveloppe et sa catégorie
-                val enveloppeADeplacer = enveloppesList.find { it.id == enveloppeId }
-                    ?: throw Exception("Enveloppe '$enveloppeId' introuvable")
-
-                val categorieNom =
-                    categoriesMap.values.find { it.id == enveloppeADeplacer.categorieId }?.nom
-                        ?: throw Exception("Catégorie de l'enveloppe introuvable")
-
-                // Obtenir les enveloppes de cette catégorie triées par ordre
-                val enveloppesDeCategorie = enveloppesList
-                    .filter { it.categorieId == enveloppeADeplacer.categorieId && !it.estArchive }
-                    .sortedBy { it.ordre }
-
-                // Calculer les nouveaux ordres
-                val nouvellesEnveloppes = calculerNouveauxOrdresEnveloppes(
-                    enveloppesDeCategorie,
-                    enveloppeADeplacer,
-                    nouvellePosition
-                )
-
-                // Mise à jour optimiste de l'interface
-                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                nouveauxGroupes[categorieNom] = nouvellesEnveloppes
-
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        enveloppesGroupees = nouveauxGroupes,
-                        enveloppeEnDeplacement = null
+                val selection = enveloppesList.firstOrNull { it.id == enveloppeId }
+                    ?: error("Enveloppe introuvable.")
+                val avant = enveloppesList.filter {
+                    it.categorieId == selection.categorieId && !it.estArchive
+                }.sortedWith(compareBy<Enveloppe> { it.ordre }.thenBy { it.id })
+                val apres = calculerNouveauxOrdresEnveloppes(avant, selection, nouvellePosition)
+                if (avant == apres) return@lancerUneFois
+                enveloppeRepository.reorganiserEnveloppes(avant, apres).getOrThrow()
+                enveloppesList = enveloppesList.map { env ->
+                    apres.firstOrNull { it.id == env.id } ?: env
+                }
+                _uiState.update { etat ->
+                    etat.copy(
+                        enveloppesGroupees = organiserDonneesPourAffichage(
+                            categoriesMap.values.toList(), enveloppesList
+                        ),
+                        enveloppeEnDeplacement = null,
+                        erreur = null
                     )
                 }
-
-                // Mettre à jour le cache local
-                enveloppesList = enveloppesList.map { enveloppe ->
-                    nouvellesEnveloppes.find { it.id == enveloppe.id } ?: enveloppe
-                }
-
-                // Synchroniser avec PocketBase en batch
-                val enveloppesModifiees = nouvellesEnveloppes.filter { nouvelle ->
-                    val ancienne = enveloppesDeCategorie.find { it.id == nouvelle.id }
-                    ancienne?.ordre != nouvelle.ordre
-                }
-
-                enveloppesModifiees.forEach { enveloppe ->
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppe).onFailure { erreur ->
-                        _uiState.update { it.copy(erreur = "Erreur déplacement enveloppe: ${erreur.message}") }
-                        chargerDonnees()
-                        return@launch
-                    }
-                }
-
-                // 🔥 SYNCHRONISATION TEMPS RÉEL
                 realtimeSyncService.declencherMiseAJourBudget()
-
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
+                _uiState.update { it.copy(erreur = "Classement non enregistré : ${e.message}") }
                 chargerDonnees()
             }
         }
