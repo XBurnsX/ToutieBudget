@@ -30,7 +30,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +55,10 @@ fun HistoriqueEnveloppeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val navigationEvents by viewModel.navigationEvents.collectAsState()
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = uiState.scrollPosition)
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = uiState.scrollPosition,
+        initialFirstVisibleItemScrollOffset = uiState.scrollOffset
+    )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
     
     // Observer les événements de navigation
@@ -62,7 +67,9 @@ fun HistoriqueEnveloppeScreen(
             when (event) {
                 is HistoriqueNavigationEvent.ModifierTransaction -> {
                     // Sauvegarder la position actuelle avant de naviguer
-                    viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
+                    viewModel.sauvegarderPositionScroll(
+                        listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset
+                    )
                     onModifierTransaction(event.transactionId)
                     viewModel.effacerNavigationEvent()
                 }
@@ -75,9 +82,12 @@ fun HistoriqueEnveloppeScreen(
         }
     }
 
-    // Sauvegarder la position de scroll quand elle change
-    LaunchedEffect(remember { derivedStateOf { listState.firstVisibleItemIndex } }) {
-        viewModel.sauvegarderPositionScroll(listState.firstVisibleItemIndex)
+    // HC14 : écouter vraiment les mouvements (item + décalage pixels), sans relancer
+    // la collecte à chaque recomposition ni revenir au début après une modification.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .distinctUntilChanged()
+            .collect { (index, offset) -> viewModel.sauvegarderPositionScroll(index, offset) }
     }
 
     Scaffold(
