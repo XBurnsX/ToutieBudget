@@ -39,7 +39,8 @@ class EnveloppeRepositoryRoomImpl(
     private val allocationMensuelleDao: AllocationMensuelleDao,
     private val syncJobDao: SyncJobDao,
     private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique =
-        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
+        com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte,
+    private val transactionDao: com.xburnsx.toutiebudget.data.room.daos.TransactionDao? = null
 ) : EnveloppeRepository {
     private val client = PocketBaseClient
     
@@ -273,24 +274,59 @@ class EnveloppeRepositoryRoomImpl(
     override suspend fun supprimerEnveloppe(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
-            // 1. Supprimer de Room (PRIMARY)
-            enveloppeDao.deleteEnveloppeById(id)
-            
-            // 2. Ajouter à la liste de tâches pour synchronisation
-            val syncJob = SyncJob(
-                id = IdGenerator.generateId(),
-                type = "ENVELOPPE",
-                action = "DELETE",
-                dataJson = gson.toJson(mapOf("id" to id)),
-                recordId = id, // 🆕 CORRECTION : Ajouter l'ID de l'enregistrement à supprimer
-                createdAt = System.currentTimeMillis(),
-                status = "PENDING"
-            )
-            syncJobDao.insertSyncJob(syncJob)
-
-            // 3. Retourner le succès immédiatement (offline-first)
-            Result.success(Unit)
-            
+                val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                    ?: error("Connexion requise pour retirer une enveloppe.")
+                val env = enveloppeDao.getEnveloppeById(id)
+                    ?: error("Enveloppe introuvable.")
+                require(env.utilisateurId == utilisateur) {
+                    "Enveloppe hors session."
+                }
+                val allocations = allocationMensuelleDao
+                    .getAllocationsByUtilisateur(utilisateur).first()
+                    .filter { it.enveloppeId == id }
+                val transactions = (transactionDao
+                    ?: error("Vérification de l'historique indisponible."))
+                    .getTransactionsByUtilisateur(utilisateur).first()
+                val idsAllocations = allocations.map { it.id }.toSet()
+                val liees = transactions.filter { tx ->
+                    tx.allocationMensuelleId in idsAllocations ||
+                        (tx.estFractionnee && runCatching {
+                            val fractions = com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+                                .lire(tx.sousItems)
+                            fractions.any { it.enveloppeId == id }
+                        }.getOrElse {
+                            // En présence de JSON illisible, ne pas risquer un DELETE.
+                            tx.sousItems?.contains(id) == true
+                        })
+                }
+                val utilisee = allocations.isNotEmpty() || liees.isNotEmpty()
+                if (utilisee) {
+                    require(liees.none {
+                        it.type == "Paiement" || it.type == "PaiementEffectue"
+                    }) { "Enveloppe de paiement technique : retrait refusé." }
+                    // CE1 : toujours garder ID, allocations, transactions et historique.
+                    val archivee = env.copy(estArchive = true)
+                    if (!env.estArchive) {
+                        enveloppeDao.updateEnveloppe(archivee)
+                        syncJobDao.insertSyncJob(SyncJob(
+                            id = IdGenerator.generateId(),
+                            type = "ENVELOPPE", action = "UPDATE",
+                            dataJson = genererJsonEnveloppeManuel(archivee),
+                            recordId = id, createdAt = System.currentTimeMillis(),
+                            status = "PENDING"
+                        ))
+                    }
+                } else {
+                    enveloppeDao.deleteEnveloppeById(id)
+                    syncJobDao.insertSyncJob(SyncJob(
+                        id = IdGenerator.generateId(),
+                        type = "ENVELOPPE", action = "DELETE",
+                        dataJson = gson.toJson(mapOf("id" to id)),
+                        recordId = id, createdAt = System.currentTimeMillis(),
+                        status = "PENDING"
+                    ))
+                }
+                Result.success(Unit)
             }
         } catch (e: Exception) {
             Result.failure(e)
