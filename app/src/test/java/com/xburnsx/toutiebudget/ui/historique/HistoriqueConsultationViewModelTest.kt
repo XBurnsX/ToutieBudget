@@ -2,6 +2,9 @@ package com.xburnsx.toutiebudget.ui.historique
 
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
 import com.xburnsx.toutiebudget.fakes.AppliEnMemoire
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
@@ -390,6 +393,75 @@ class HistoriqueConsultationViewModelTest {
         val libelle = vm.uiState.value.transactions.single().nomsEnveloppesFractions.single()
         assertTrue(libelle.contains("introuvable"))
         assertTrue(libelle.contains("env-absente"))
+    }
+
+    @Test fun changementDeProfilPendantChargementRejetteLesAnciennesTransactions() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 23.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Ancien profil"
+        )
+        var session = "profil-A"
+        val depot = object : TransactionRepository by b.depotTransactions {
+            override fun identifiantSessionHistorique(): String? = session
+
+            override suspend fun recupererTransactionsPourCompte(
+                compteId: String, collectionCompte: String
+            ): Result<List<Transaction>> {
+                val resultat = b.depotTransactions.recupererTransactionsPourCompte(compteId, collectionCompte)
+                session = "profil-B" // la session bascule pendant la lecture
+                return resultat
+            }
+        }
+        val vm = HistoriqueCompteViewModel(
+            depot, b.depotEnveloppes, app.autres.depotTiers, app.supprimer,
+            SavedStateHandle(mapOf("compteId" to "chq", "collectionCompte" to "comptes_cheques"))
+        )
+        val store = ViewModelStore().apply { put("historique-change", vm) }
+        try {
+            attendre()
+            assertTrue(vm.uiState.value.transactions.isEmpty())
+            assertTrue(vm.uiState.value.transactionsGroupees.isEmpty())
+            assertTrue(vm.uiState.value.erreur.orEmpty().contains("session a changé"))
+        } finally {
+            store.clear()
+        }
+    }
+
+    @Test fun deconnexionPendantRechargementMasqueLesTransactionsPrecedentes() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 23.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Ancien profil"
+        )
+        var deconnecte = false
+        val depot = object : TransactionRepository by b.depotTransactions {
+            override suspend fun recupererTransactionsPourCompte(
+                compteId: String, collectionCompte: String
+            ): Result<List<Transaction>> =
+                if (deconnecte) Result.failure(SecurityException("Connexion requise."))
+                else b.depotTransactions.recupererTransactionsPourCompte(compteId, collectionCompte)
+        }
+        val vm = HistoriqueCompteViewModel(
+            depot, b.depotEnveloppes, app.autres.depotTiers, app.supprimer,
+            SavedStateHandle(mapOf("compteId" to "chq", "collectionCompte" to "comptes_cheques"))
+        )
+        val store = ViewModelStore().apply { put("historique-deconnexion", vm) }
+        try {
+            attendre()
+            assertEquals(1, vm.uiState.value.transactions.size)
+            deconnecte = true
+            vm.rechargerTransactions()
+            attendre()
+            assertTrue(vm.uiState.value.transactions.isEmpty())
+            assertTrue(vm.uiState.value.transactionsGroupees.isEmpty())
+            assertTrue(vm.uiState.value.erreur.orEmpty().contains("Connexion requise"))
+            assertTrue(b.transactions.containsKey("achat")) // lecture seule : rien supprimé
+        } finally {
+            store.clear()
+        }
     }
 
 }
