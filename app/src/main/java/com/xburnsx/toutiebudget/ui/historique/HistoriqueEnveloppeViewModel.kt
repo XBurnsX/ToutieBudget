@@ -207,6 +207,7 @@ class HistoriqueEnveloppeViewModel(
     private fun chargerTransactionsEnveloppe(enveloppeId: String) {
         chargementJob?.cancel()
         chargementJob = viewModelScope.launch(Dispatchers.IO) {
+            val identiteDebut = transactionRepository.identifiantSessionHistorique()
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
@@ -343,6 +344,9 @@ class HistoriqueEnveloppeViewModel(
 
                 // Ne pas écraser la lecture récente par un chargement annulé.
                 coroutineContext.ensureActive()
+                if (identiteDebut != transactionRepository.identifiantSessionHistorique()) {
+                    throw SecurityException("La session a changé pendant le chargement de l'historique.")
+                }
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
