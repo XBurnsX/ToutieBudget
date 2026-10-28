@@ -294,8 +294,10 @@ class CategoriesEnveloppesViewModel(
                     ?: throw Exception("Catégorie '$categorieNom' introuvable ou ambiguë")
 
                 // CE8 : pas deux enveloppes au même nom dans une catégorie ; CE10 : ordre stable dès la création
+                // CE8/CA4 : même une homonyme archivée doit être contrôlée,
+                // sinon la restauration créerait deux enveloppes identiques.
                 val voisines = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
-                    .filter { it.categorieId == categorie.id && !it.estArchive }
+                    .filter { it.categorieId == categorie.id }
                 if (voisines.any { it.nom.trim().equals(nom, ignoreCase = true) }) {
                     _uiState.update { it.copy(erreur = "L'enveloppe « $nom » existe déjà dans $categorieNom") }
                     return@lancerUneFois
