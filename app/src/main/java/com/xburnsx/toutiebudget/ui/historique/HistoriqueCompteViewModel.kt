@@ -123,7 +123,7 @@ class HistoriqueCompteViewModel(
                     "Cette transaction n'appartient pas au compte connecté."
                 }
                 if (affichee != null) {
-                    val actuelle = transactionRepository.recupererTransactionParId(transactionId)
+                    val actuelle = transactionRepository.recupererTransactionDeLaSession(transactionId)
                         .getOrThrow()
                     if (!VerificationSuppressionHistorique.estEncoreLaMeme(affichee, actuelle)) {
                         _uiState.update { it.copy(
