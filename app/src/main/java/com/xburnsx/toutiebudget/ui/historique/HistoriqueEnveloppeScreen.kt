@@ -23,6 +23,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,6 +76,7 @@ fun HistoriqueEnveloppeScreen(
         initialFirstVisibleItemScrollOffset = uiState.scrollOffset
     )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
+    var menuComptesOuvert by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // Observer les événements de navigation
@@ -194,6 +198,51 @@ fun HistoriqueEnveloppeScreen(
                 }
             }
 
+            // EA4 : tous les comptes sources des mouvements de cette enveloppe.
+            // Le libellé indique aussi la collection pour éviter deux ID ambigus.
+            val sourcesDisponibles = remember(uiState.transactions) {
+                uiState.transactions.mapNotNull { transaction ->
+                    val id = transaction.compteId?.takeIf { it.isNotBlank() }
+                    val collection = transaction.collectionCompte?.takeIf { it.isNotBlank() }
+                    if (id == null || collection == null) null
+                    else CompteSourceHistorique(id, collection)
+                }.distinct().sortedWith(
+                    compareBy<CompteSourceHistorique> { it.collectionCompte }.thenBy { it.compteId }
+                )
+            }
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
+                OutlinedButton(onClick = { menuComptesOuvert = true }) {
+                    Text(
+                        "Compte : " + (uiState.compteSourceFiltre?.let {
+                            it.compteId + " (" + it.collectionCompte + ")"
+                        } ?: "Tous")
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuComptesOuvert,
+                    onDismissRequest = { menuComptesOuvert = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Tous les comptes") },
+                        onClick = {
+                            menuComptesOuvert = false
+                            viewModel.selectionnerCompteSource(null)
+                            scope.launch { listState.scrollToItem(0) }
+                        }
+                    )
+                    sourcesDisponibles.forEach { source ->
+                        DropdownMenuItem(
+                            text = { Text(source.compteId + " (" + source.collectionCompte + ")") },
+                            onClick = {
+                                menuComptesOuvert = false
+                                viewModel.selectionnerCompteSource(source)
+                                scope.launch { listState.scrollToItem(0) }
+                            }
+                        )
+                    }
+                }
+            }
+
             // EA2/EA5 : chiffres de la période ET de la recherche visibles.
             // Ne pas additionner le montant TOTAL d'un achat fractionné : le
             // ViewModel fournit déjà uniquement la portion de cette enveloppe.
@@ -263,8 +312,9 @@ fun HistoriqueEnveloppeScreen(
                             "Historique partiel : certaines transactions sont impossibles à rattacher."
                         uiState.searchQuery.isNotBlank() ->
                             "Aucun résultat pour la recherche dans la période sélectionnée."
-                        uiState.periode.vue != VuePeriodeHistorique.TOUTES ->
-                            "Aucun mouvement pour cette période. Essaie un autre mois ou « Tout »."
+                        uiState.periode.vue != VuePeriodeHistorique.TOUTES ||
+                            uiState.compteSourceFiltre != null ->
+                            "Aucun mouvement pour ces filtres. Essaie un autre mois ou « Tous les comptes »."
                         else -> "Aucune transaction pour cette enveloppe."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
