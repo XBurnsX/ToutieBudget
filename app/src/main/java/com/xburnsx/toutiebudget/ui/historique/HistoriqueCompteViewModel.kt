@@ -111,6 +111,17 @@ class HistoriqueCompteViewModel(
     private fun supprimerSiNonModifiee(transactionId: String, affichee: TransactionUi?) {
         viewModelScope.lancerUneFois(verrouSuppression) {
             try {
+                // HC5 : valider l'appartenance au compte connecté AVANT l'UseCase.
+                // La requête Room est filtrée par utilisateur_id + compte + collection.
+                val compteId = savedStateHandle.get<String>("compteId")
+                    ?: error("Compte d'origine manquant.")
+                val collection = savedStateHandle.get<String>("collectionCompte")
+                    ?: error("Collection du compte manquante.")
+                val visiblesDuCompte = transactionRepository
+                    .recupererTransactionsPourCompte(compteId, collection).getOrThrow()
+                require(visiblesDuCompte.any { it.id == transactionId }) {
+                    "Cette transaction n'appartient pas au compte connecté."
+                }
                 if (affichee != null) {
                     val actuelle = transactionRepository.recupererTransactionParId(transactionId)
                         .getOrThrow()
