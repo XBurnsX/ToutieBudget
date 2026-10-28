@@ -3,6 +3,8 @@ package com.xburnsx.toutiebudget.ui.historique
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,9 +18,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +55,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
+import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -65,6 +77,7 @@ fun HistoriqueCompteScreen(
         initialFirstVisibleItemScrollOffset = uiState.scrollOffset
     )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
+    var menuTypeOuvert by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Observer les événements de navigation
@@ -160,6 +173,90 @@ fun HistoriqueCompteScreen(
                 )
             )
 
+            // HA1/HA2 : périodes et types. Même recherche et même ViewModel
+            // au retour de Modifier : pas de nouveau chargement à chaque clic.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    VuePeriodeHistorique.TOUTES to "Tout",
+                    VuePeriodeHistorique.MOIS to "Mois",
+                    VuePeriodeHistorique.ANNEE to "Année"
+                ).forEach { (vue, libelle) ->
+                    FilterChip(
+                        selected = uiState.periode.vue == vue,
+                        onClick = {
+                            viewModel.selectionnerVuePeriode(vue)
+                            scope.launch { listState.scrollToItem(0) }
+                        },
+                        label = { Text(libelle) }
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box {
+                    OutlinedButton(onClick = { menuTypeOuvert = true }) {
+                        Text("Type : " + (uiState.typeFiltre?.libelle ?: "Tous"))
+                    }
+                    DropdownMenu(
+                        expanded = menuTypeOuvert,
+                        onDismissRequest = { menuTypeOuvert = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Tous les types") },
+                            onClick = {
+                                menuTypeOuvert = false
+                                viewModel.selectionnerTypeFiltre(null)
+                                scope.launch { listState.scrollToItem(0) }
+                            }
+                        )
+                        TypeTransaction.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.libelle) },
+                                onClick = {
+                                    menuTypeOuvert = false
+                                    viewModel.selectionnerTypeFiltre(type)
+                                    scope.launch { listState.scrollToItem(0) }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            if (uiState.periode.vue != VuePeriodeHistorique.TOUTES) {
+                val periode = uiState.periode
+                val libellePeriode = if (periode.vue == VuePeriodeHistorique.MOIS) {
+                    YearMonth.of(periode.annee, periode.mois).format(
+                        DateTimeFormatter.ofPattern("LLLL yyyy", Locale.CANADA_FRENCH)
+                    )
+                } else periode.annee.toString()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = {
+                        viewModel.deplacerPeriode(-1)
+                        scope.launch { listState.scrollToItem(0) }
+                    }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Période précédente")
+                    }
+                    Text(libellePeriode, style = MaterialTheme.typography.titleSmall)
+                    IconButton(onClick = {
+                        viewModel.deplacerPeriode(1)
+                        scope.launch { listState.scrollToItem(0) }
+                    }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Période suivante")
+                    }
+                }
+            }
+
             // HC10 : les transactions peuvent être disponibles même si leurs libellés
             // d'enveloppes / allocations ne le sont pas. Ne jamais cacher l'incident.
             uiState.avertissement?.let { texte ->
@@ -193,10 +290,13 @@ fun HistoriqueCompteScreen(
                     CircularProgressIndicator()
                 } else if (uiState.transactionsGroupees.isEmpty() && uiState.erreur == null) {
                     Text(
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            "Aucune transaction trouvée pour \"${uiState.searchQuery}\""
-                        } else {
-                            "Aucune transaction pour ce compte."
+                        when {
+                            uiState.searchQuery.isNotEmpty() ->
+                                "Aucun résultat pour cette recherche avec les filtres choisis."
+                            uiState.periode.vue != VuePeriodeHistorique.TOUTES ||
+                                uiState.typeFiltre != null ->
+                                "Aucun mouvement pour ces filtres. Choisis « Tout » et « Tous les types »."
+                            else -> "Aucune transaction pour ce compte."
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
