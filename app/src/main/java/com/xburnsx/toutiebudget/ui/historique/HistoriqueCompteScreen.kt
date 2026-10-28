@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,7 @@ fun HistoriqueCompteScreen(
         initialFirstVisibleItemScrollOffset = uiState.scrollOffset
     )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Observer les événements de navigation
     LaunchedEffect(navigationEvents) {
@@ -127,7 +129,10 @@ fun HistoriqueCompteScreen(
             // Barre de recherche
             TextField(
                 value = uiState.searchQuery,
-                onValueChange = { viewModel.mettreAJourRecherche(it) },
+                onValueChange = { query ->
+                    viewModel.mettreAJourRecherche(query)
+                    scope.launch { listState.scrollToItem(0) }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -137,7 +142,10 @@ fun HistoriqueCompteScreen(
                 },
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.mettreAJourRecherche("") }) {
+                        IconButton(onClick = {
+                            viewModel.mettreAJourRecherche("")
+                            scope.launch { listState.scrollToItem(0) }
+                        }) {
                             Icon(Icons.Default.Clear, contentDescription = "Effacer")
                         }
                     }
