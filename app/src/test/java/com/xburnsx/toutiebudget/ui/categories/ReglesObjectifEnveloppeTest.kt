@@ -106,4 +106,23 @@ class ReglesObjectifEnveloppeTest {
             }
         }
     }
+    @Test fun renouvellementAutomatiqueRefuseDureeNulleMaisEcheanceSimplePermise() {
+        val date = date("2027-02-28")
+        val sansReset = ReglesObjectifEnveloppe.appliquer(
+            enveloppe, ObjectifFormState(
+                type = TypeObjectif.Echeance, montant = "100",
+                dateDebut = date, dateFin = date, resetApresEcheance = false
+            ), zone = zone
+        )
+        assertEquals(date, sansReset.dateObjectif)
+        assertThrows(IllegalArgumentException::class.java) {
+            ReglesObjectifEnveloppe.appliquer(
+                enveloppe, ObjectifFormState(
+                    type = TypeObjectif.Echeance, montant = "100",
+                    dateDebut = date, dateFin = date, resetApresEcheance = true
+                ), zone = zone
+            )
+        }
+    }
+
 }
