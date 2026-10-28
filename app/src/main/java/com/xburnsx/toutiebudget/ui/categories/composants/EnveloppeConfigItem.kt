@@ -26,7 +26,9 @@ fun EnveloppeConfigItem(
     isDragged: Boolean = false,
     onObjectifClick: () -> Unit,
     onSupprimerClick: () -> Unit = {},
-    onSupprimerEnveloppe: () -> Unit = {}
+    onSupprimerEnveloppe: () -> Unit = {},
+    onRenommerEnveloppe: () -> Unit = {},
+    onDeplacerCategorie: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     
@@ -93,6 +95,20 @@ fun EnveloppeConfigItem(
                         onClick = {
                             onSupprimerClick()
                             showMenu = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Renommer l'enveloppe") },
+                        onClick = {
+                            showMenu = false
+                            onRenommerEnveloppe()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Déplacer vers une catégorie") },
+                        onClick = {
+                            showMenu = false
+                            onDeplacerCategorie()
                         }
                     )
                     DropdownMenuItem(
