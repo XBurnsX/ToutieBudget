@@ -419,140 +419,41 @@ class CategoriesEnveloppesViewModel(
      * Sauvegarde l'objectif d'une enveloppe avec mise à jour instantanée.
      */
     fun onSauvegarderObjectif() {
-        val enveloppe = _uiState.value.enveloppePourObjectif ?: return
-        val formState = _uiState.value.objectifFormState
-        val montant = formState.montant.replace(',', '.').toDoubleOrNull() ?: 0.0
-
-        // CE14 : un objectif exige un montant positif
-        if (formState.type != TypeObjectif.Aucun && montant <= 0.0) {
-            _uiState.update { it.copy(erreur = "Le montant de l'objectif doit être plus grand que 0 $") }
+        val state = _uiState.value
+        val enveloppe = state.enveloppePourObjectif ?: return
+        val candidate = try {
+            ReglesObjectifEnveloppe.appliquer(enveloppe, state.objectifFormState)
+        } catch (e: IllegalArgumentException) {
+            _uiState.update { it.copy(erreur = e.message ?: "Objectif invalide.") }
             return
         }
-
+        // CE17 : même configuration = aucune écriture et aucune réinitialisation.
+        if (candidate == enveloppe) {
+            onFermerObjectifDialog()
+            return
+        }
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
-                // 🔥 CALCULER LA DATE DE DÉBUT SELON LE TYPE D'OBJECTIF
-                val dateDebutCalculee = when (formState.type) {
-                    TypeObjectif.Mensuel -> {
-                        // Pour les objectifs mensuels, utiliser le jour sélectionné du mois actuel
-                        val calendar = Calendar.getInstance()
-                        val jourSelectionne = formState.jour ?: calendar.get(Calendar.DAY_OF_MONTH)
-                        calendar.set(Calendar.DAY_OF_MONTH, jourSelectionne)
-                        calendar.set(Calendar.HOUR_OF_DAY, 0)
-                        calendar.set(Calendar.MINUTE, 0)
-                        calendar.set(Calendar.SECOND, 0)
-                        calendar.set(Calendar.MILLISECOND, 0)
-
-                        // S'assurer que c'est le mois actuel ou le suivant si le jour est déjà passé
-                        if (calendar.time.before(Date())) {
-                            calendar.add(Calendar.MONTH, 1)
-                        }
-                        calendar.time
-                    }
-
-                    TypeObjectif.Bihebdomadaire -> {
-                        // 🔥 CORRECTION: Pour les objectifs bihebdomadaires, utiliser formState.date (pas dateDebut)
-                        val dateSelectionnee = formState.date
-                        if (dateSelectionnee != null) {
-                            val calendar = Calendar.getInstance()
-                            calendar.time = dateSelectionnee
-                            calendar.set(Calendar.HOUR_OF_DAY, 0)
-                            calendar.set(Calendar.MINUTE, 0)
-                            calendar.set(Calendar.SECOND, 0)
-                            calendar.set(Calendar.MILLISECOND, 0)
-                            calendar.time
-                        } else {
-                            null
-                        }
-                    }
-
-                    TypeObjectif.Annuel -> {
-                        // Pour les objectifs annuels, utiliser la date sélectionnée dans le date picker
-                        formState.date ?: Date()
-                    }
-
-                    TypeObjectif.Echeance -> {
-                        // Pour les échéances, utiliser la date définie ou aujourd'hui
-                        formState.dateDebut ?: Date()
-                    }
-
-                    else -> null
-                }
-
-                // 🔥 CALCULER LA DATE D'OBJECTIF SELON LE TYPE
-                val dateObjectifCalculee = when (formState.type) {
-                    TypeObjectif.Mensuel -> {
-                        // Pour les objectifs mensuels, la date d'objectif est la même que la date de début
-                        dateDebutCalculee
-                    }
-
-                    TypeObjectif.Bihebdomadaire -> {
-                        // Pour les objectifs bihebdomadaires, date d'objectif = date de début + 14 jours
-                        dateDebutCalculee?.let { dateDebut ->
-                            val calendar = Calendar.getInstance()
-                            calendar.time = dateDebut
-                            calendar.add(Calendar.DAY_OF_YEAR, 14) // Ajouter 14 jours
-                            calendar.time
-                        }
-                    }
-
-                    TypeObjectif.Echeance -> {
-                        // 🆕 Pour les échéances, utiliser la date de fin sélectionnée
-                        formState.dateFin
-                    }
-
-                    TypeObjectif.Annuel -> {
-                        // Pour les objectifs annuels, calculer date de fin = date début + 12 mois
-                        dateDebutCalculee?.let { dateDebut ->
-                            val calendar = Calendar.getInstance()
-                            calendar.time = dateDebut
-                            calendar.add(Calendar.MONTH, 12) // Ajouter 12 mois
-                            calendar.time
-                        }
-                    }
-
-                    else -> null
-                }
-
-                val enveloppeModifiee = enveloppe.copy(
-                    objectifMontant = montant,
-                    typeObjectif = formState.type,
-                    dateDebutObjectif = dateDebutCalculee, // 🔥 UTILISER la date de début calculée
-                    dateObjectif = if (formState.type == TypeObjectif.Echeance) formState.dateFin else dateObjectifCalculee, // 🆕 UTILISER dateObjectif au lieu de dateFinObjectif
-                    objectifJour = formState.jour,
-                    resetApresEcheance = formState.resetApresEcheance // 🆕 AJOUTER le champ resetApresEcheance
-                )
-
-                // Mise à jour instantanée de l'interface
-                val nouveauxGroupes = _uiState.value.enveloppesGroupees.toMutableMap()
-                nouveauxGroupes.forEach { (categorie, enveloppes) ->
-                    val nouvellesEnveloppes = enveloppes.map { env ->
-                        if (env.id == enveloppe.id) enveloppeModifiee else env
-                    }
-                    nouveauxGroupes[categorie] = nouvellesEnveloppes
-                }
-
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        enveloppesGroupees = nouveauxGroupes,
+                // CE19 : ne pas fermer ni vider les champs sur erreur Room.
+                // L'affichage est remplacé seulement après confirmation de l'écriture.
+                enveloppeRepository.mettreAJourEnveloppe(candidate).getOrThrow()
+                _uiState.update { actuel ->
+                    actuel.copy(
+                        enveloppesGroupees = actuel.enveloppesGroupees.mapValues { (_, liste) ->
+                            liste.map { if (it.id == candidate.id) candidate else it }
+                        },
                         isObjectifDialogVisible = false,
                         enveloppePourObjectif = null,
-                        objectifFormState = ObjectifFormState()
+                        objectifFormState = ObjectifFormState(),
+                        erreur = null
                     )
                 }
-
-                // Envoyer à PocketBase
-                enveloppeRepository.mettreAJourEnveloppe(enveloppeModifiee).onSuccess {
-                    // 🔥 SYNCHRONISATION TEMPS RÉEL : Notifier le budget après modification d'objectif
-                    realtimeSyncService.declencherMiseAJourBudget()
-                }.onFailure { erreur ->
-                    _uiState.update { it.copy(erreur = "Erreur sauvegarde objectif: ${erreur.message}") }
-                    chargerDonnees() // Recharger en cas d'erreur
-                }
-
+                chargerDonnees()
+                realtimeSyncService.declencherMiseAJourBudget()
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
-                onFermerObjectifDialog()
+                _uiState.update {
+                    it.copy(erreur = "Échec de la sauvegarde de l'objectif : ${e.message}")
+                }
             }
         }
     }
