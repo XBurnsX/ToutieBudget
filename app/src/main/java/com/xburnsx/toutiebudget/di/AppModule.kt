@@ -90,7 +90,8 @@ import android.content.Context
          CategorieRepositoryRoomImpl(
              database.categorieDao(),
              database.syncJobDao(),
-             operationAtomique
+             operationAtomique,
+             database.enveloppeDao()
          )
      }
            private val transactionRepository: TransactionRepository by lazy { 
