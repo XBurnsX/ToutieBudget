@@ -239,7 +239,14 @@ class HistoriqueEnveloppeViewModel(
                     emptyList()
                 }
                 // HE1 : chaque allocation est retrouvée directement par son ID, quelle que soit sa période.
-                val idsAllocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct()
+                // HE1/HE16 : une transaction fractionnée est rattachée par
+                // ses portions; sa référence d'allocation globale n'est pas
+                // nécessaire au filtrage. Ne pas charger les allocations
+                // historiques étrangères à ces rattachements.
+                val idsAllocations = transactions.asSequence()
+                    .filterNot { it.estFractionnee }
+                    .mapNotNull { it.allocationMensuelleId }
+                    .distinct().toList()
                 var erreurLectureAllocations = false
                 val allocations = enveloppeRepository.recupererAllocationsParIds(idsAllocations)
                     .getOrElse {
@@ -250,7 +257,7 @@ class HistoriqueEnveloppeViewModel(
                     allocations.map { it.id }.toSet().size
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
-                val enveloppeIdToNom = enveloppes.associateBy({ it.id }, { it.nom })
+                val enveloppesParId = enveloppes.associateBy { it.id }
                 val allocationIdToEnveloppeId = allocations.associateBy({ it.id }, { it.enveloppeId })
 
                 // Filtrer les transactions pour cette enveloppe spécifique
@@ -308,7 +315,7 @@ class HistoriqueEnveloppeViewModel(
                     // Récupérer le nom de l'enveloppe
                     val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
                         allocationIdToEnveloppeId[allocationId]?.let { envId ->
-                            enveloppeIdToNom[envId]
+                            LibellesHistorique.enveloppe(envId, enveloppesParId)
                         }
                     }
 
@@ -333,8 +340,9 @@ class HistoriqueEnveloppeViewModel(
                         sousItems = transaction.sousItems,
                         nomsEnveloppesFractions = portionsValides[transaction.id]
                             ?.map { portion ->
-                                enveloppeIdToNom[portion.enveloppeId]
-                                    ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                                LibellesHistorique.enveloppe(
+                                    portion.enveloppeId, enveloppesParId
+                                )
                             } ?: emptyList(),
                         compteId = transaction.compteId,
                         collectionCompte = transaction.collectionCompte,
