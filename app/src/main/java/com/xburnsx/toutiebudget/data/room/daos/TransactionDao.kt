@@ -39,6 +39,34 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE allocation_mensuelle_id = :allocationId ORDER BY date DESC")
     fun getTransactionsByAllocation(allocationId: String): Flow<List<Transaction>>
+
+    /**
+     * HE14 : candidats d'une enveloppe en pages stables.
+     * Transactions non fractionnées : allocation réellement rattachée à
+     * l'enveloppe dans Room. Transactions fractionnées : candidat seulement;
+     * le ViewModel valide ensuite le JSON de chaque portion. Ne jamais filtrer
+     * les fractions par LIKE sur l'ID (risque de faux négatif historique).
+     */
+    @Query("""
+        SELECT t.* FROM transactions AS t
+        WHERE t.utilisateur_id = :utilisateurId
+          AND (
+             (t.est_fractionnee = 0 AND t.allocation_mensuelle_id IN (
+                 SELECT a.id FROM allocation_mensuelle AS a
+                 WHERE a.utilisateur_id = :utilisateurId
+                   AND a.enveloppeId = :enveloppeId
+             ))
+             OR t.est_fractionnee = 1
+          )
+        ORDER BY t.date DESC, t.id DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    suspend fun getCandidatsHistoriqueEnveloppe(
+        utilisateurId: String,
+        enveloppeId: String,
+        limit: Int,
+        offset: Int
+    ): List<Transaction>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction): Long
