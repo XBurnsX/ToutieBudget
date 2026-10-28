@@ -25,6 +25,7 @@ object PocketBaseMapper {
         "allocations_mensuelles",
         "transactions",
         "tiers",
+        "alias_bancaires",
         "pret_personnel"
     )
 
@@ -39,8 +40,21 @@ object PocketBaseMapper {
         "allocations_mensuelles" -> versAllocationMensuelle(item)
         "transactions" -> versTransaction(item)
         "tiers" -> versTiers(item)
+        "alias_bancaires" -> versAliasBancaire(item)
         "pret_personnel" -> versPretPersonnel(item)
         else -> null
+    }
+
+    /** Ignorer une fiche d'alias invalide, jamais l'attribuer à un autre utilisateur. */
+    fun versAliasBancaire(item: ItemPocketBase): com.xburnsx.toutiebudget.data.room.entities.AliasBancaire? {
+        val userId = item.utilisateur_id?.takeIf { it.isNotBlank() } ?: return null
+        val libelle = item.libelle_brut?.takeIf { it.isNotBlank() } ?: return null
+        val tiersId = item.tiers_id?.takeIf { it.isNotBlank() } ?: return null
+        if (item.id.isBlank()) return null
+        return com.xburnsx.toutiebudget.data.room.entities.AliasBancaire(
+            id = item.id, utilisateurId = userId, compteId = item.compte_id,
+            libelleBrut = libelle, tiersId = tiersId, active = item.active ?: true
+        )
     }
 
     fun stringVersTypeObjectif(typeString: String?): TypeObjectif = when (typeString?.trim()) {
