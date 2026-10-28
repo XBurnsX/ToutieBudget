@@ -85,7 +85,12 @@ class CategoriesEnveloppesViewModel(
                         enveloppesGroupees = enveloppesGroupees,
                         categoriesParId = categoriesMap,
                         enveloppesArchivees = enveloppes.filter { it.estArchive },
-                        erreur = null
+                        // CE19 : un rechargement ne masque pas l'erreur d'une
+                        // opération refusée. Seul le retry d'un chargement
+                        // réussi efface son propre message.
+                        erreur = currentState.erreur?.takeUnless {
+                            it.startsWith("Erreur de chargement")
+                        }
                     )
                 }
 
