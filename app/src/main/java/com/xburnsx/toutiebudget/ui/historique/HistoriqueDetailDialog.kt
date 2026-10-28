@@ -49,6 +49,10 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                 if (!transaction.collectionCompte.isNullOrBlank()) {
                     Text("Collection du compte : " + transaction.collectionCompte)
                 }
+                transaction.statutSynchronisationLocale?.let { statut ->
+                    Text("Synchronisation locale : " + statut)
+                }
+                Text("Rapprochement bancaire : non vérifié dans cet historique.")
                 transaction.dateCreationEnregistrement?.let { date ->
                     Text("Créé : " + DateFormat.getDateTimeInstance(
                         DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.CANADA_FRENCH
