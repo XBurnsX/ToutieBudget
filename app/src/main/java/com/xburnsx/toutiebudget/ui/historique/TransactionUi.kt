@@ -13,5 +13,9 @@ data class TransactionUi(
     val note: String?,
     val estFractionnee: Boolean = false,
     val sousItems: String? = null,
-    val nomsEnveloppesFractions: List<String> = emptyList()
+    val nomsEnveloppesFractions: List<String> = emptyList(),
+    /** Lecture seule : informations de compte pour le détail d'une transaction. */
+    val compteId: String? = null,
+    val nomCompte: String? = null,
+    val collectionCompte: String? = null
 ) 
