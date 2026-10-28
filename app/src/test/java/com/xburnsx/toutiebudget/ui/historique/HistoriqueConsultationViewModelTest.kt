@@ -160,8 +160,8 @@ class HistoriqueConsultationViewModelTest {
     }
 
     @Test fun enveloppeAfficheSeulementSaPortionDuneDepenseFractionnee() = test {
-        b.enveloppe("essence")
-        b.enveloppe("epicerie")
+        b.enveloppe("essence", nom = "Essence auto")
+        b.enveloppe("epicerie", nom = "Épicerie familiale")
         b.transactions["fraction"] = Transaction(
             id = "fraction", utilisateurId = "u", type = TypeTransaction.Depense,
             montant = 12.50, date = Date(), compteId = "chq",
@@ -175,6 +175,11 @@ class HistoriqueConsultationViewModelTest {
         assertNull(vm.uiState.value.erreur)
         assertEquals(1, vm.uiState.value.transactions.size)
         assertEquals(5.25, vm.uiState.value.transactions.single().montant, 0.00001)
+        assertEquals(
+            listOf("Essence auto", "Épicerie familiale"),
+            vm.uiState.value.transactions.single().nomsEnveloppesFractions
+        )
+        assertEquals("chq", vm.uiState.value.transactions.single().compteId)
         vm.mettreAJourRecherche("5,25")
         assertEquals(1, vm.uiState.value.transactionsGroupees.values.flatten().size)
         vm.mettreAJourRecherche("7,25")
