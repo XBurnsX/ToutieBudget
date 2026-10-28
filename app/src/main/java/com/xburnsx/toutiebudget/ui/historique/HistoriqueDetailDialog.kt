@@ -46,6 +46,19 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                         AffichageMontantHistorique.formater(transaction.montant))
                 }
                 Text("Date et heure : " + dateTexte)
+                if (!transaction.collectionCompte.isNullOrBlank()) {
+                    Text("Collection du compte : " + transaction.collectionCompte)
+                }
+                transaction.dateCreationEnregistrement?.let { date ->
+                    Text("Créé : " + DateFormat.getDateTimeInstance(
+                        DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.CANADA_FRENCH
+                    ).format(date))
+                }
+                transaction.revisionTransaction?.let { date ->
+                    Text("Dernière modification : " + DateFormat.getDateTimeInstance(
+                        DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.CANADA_FRENCH
+                    ).format(date))
+                }
                 Text(
                     "Compte : " + (transaction.nomCompte?.takeIf { it.isNotBlank() }
                         ?: transaction.compteId?.takeIf { it.isNotBlank() }
