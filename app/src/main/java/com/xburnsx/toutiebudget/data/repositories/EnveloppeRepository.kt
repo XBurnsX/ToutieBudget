@@ -49,6 +49,27 @@ interface EnveloppeRepository {
      */
     suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit>
 
+    /**
+     * CE13/CA4 : compare l'instantané affiché à la version actuelle avant
+     * d'écrire la nouvelle organisation. Implémentation Room atomique.
+     * Les fake repositories restent compatibles avec ce fallback.
+     */
+    suspend fun modifierOrganisationSiInchangee(
+        attendue: Enveloppe, nouvelle: Enveloppe
+    ): Result<Unit> = runCatching {
+        require(attendue.id.isNotBlank() && attendue.id == nouvelle.id &&
+            attendue.utilisateurId == nouvelle.utilisateurId) {
+            "Identité de l'enveloppe invalide."
+        }
+        val courante = recupererToutesLesEnveloppes().getOrThrow()
+            .firstOrNull { it.id == attendue.id }
+            ?: throw NoSuchElementException("Enveloppe introuvable.")
+        require(courante == attendue) {
+            "Cette enveloppe a changé depuis son affichage. Recharge les données."
+        }
+        if (courante != nouvelle) mettreAJourEnveloppe(nouvelle).getOrThrow()
+    }
+
     /** CE11/CE13/CA6 : réorganise avec vérification de conflit.
      * Room surcharge pour l'atomicité des changements et des SyncJobs. */
     suspend fun reorganiserEnveloppes(avant: List<Enveloppe>, apres: List<Enveloppe>): Result<Unit> =
