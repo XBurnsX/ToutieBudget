@@ -219,28 +219,23 @@ class HistoriqueEnveloppeViewModel(
                 // Un JSON de fractions illisible doit être signalé, pas devenir
                 // silencieusement une transaction "absente".
                 var fractionsIllisibles = 0
+                val portionsValides = mutableMapOf<String, List<PortionsHistorique.Portion>>()
                 val transactionsEnveloppe = transactions.filter { transaction ->
-                    // 1) Cas simple: allocation -> enveloppe
-                    val allocId = transaction.allocationMensuelleId
-                    val matchSimple = allocId != null && allocationIdToEnveloppeId[allocId] == enveloppeId
-                    if (matchSimple) return@filter true
-                    
-                    // 2) Cas transaction fractionnée: sous-items contenant l'enveloppe
-                    if (transaction.estFractionnee) {
+                    // Valider toutes les portions AVANT de montrer la transaction.
+                    // Même une portion absent ne doit jamais apparaître à 0 $.
+                    val portions = if (transaction.estFractionnee) {
                         try {
-                            require(!transaction.sousItems.isNullOrBlank()) { "Fractions absentes." }
-                            val arr = JsonParser.parseString(transaction.sousItems).asJsonArray
-                            require(arr.size() > 0) { "Fractions vides." }
-                            arr.any { elem ->
-                                val fraction = elem.asJsonObject
-                                (fraction.get("enveloppe_id") ?: fraction.get("enveloppeId"))
-                                    ?.takeIf { !it.isJsonNull }?.asString == enveloppeId
+                            PortionsHistorique.lire(transaction.sousItems).also {
+                                portionsValides[transaction.id] = it
                             }
                         } catch (_: Exception) {
                             fractionsIllisibles++
-                            false
+                            return@filter false
                         }
-                    } else false
+                    } else emptyList()
+                    val allocation = transaction.allocationMensuelleId
+                    val correspond = allocation != null && allocationIdToEnveloppeId[allocation] == enveloppeId
+                    correspond || portions.any { it.enveloppeId == enveloppeId }
                 }
 
                 // Convertir en TransactionUi
@@ -269,16 +264,12 @@ class HistoriqueEnveloppeViewModel(
                     }
 
                     // HE2 : dans l'historique d'une enveloppe, une transaction fractionnée montre sa portion.
-                    val montantPourEnveloppe = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
-                        runCatching {
-                            JsonParser.parseString(transaction.sousItems).asJsonArray
-                                .filter { (it.asJsonObject.get("enveloppe_id") ?: it.asJsonObject.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString == enveloppeId }
-                                .sumOf { it.asJsonObject.get("montant")?.asDouble ?: 0.0 }
-                        }.getOrElse { cause ->
-                            // HE2 : ne jamais présenter le montant total de l'achat
-                            // comme si c'était la portion de cette enveloppe.
-                            throw IllegalStateException("Fractionnement illisible pour la transaction ${transaction.id}", cause)
-                        }
+                    val montantPourEnveloppe = if (transaction.estFractionnee) {
+                        PortionsHistorique.totalPourEnveloppe(
+                            portionsValides[transaction.id]
+                                ?: error("Fractions validées introuvables."),
+                            enveloppeId
+                        )
                     } else transaction.montant
 
                     TransactionUi(
