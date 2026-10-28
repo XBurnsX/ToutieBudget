@@ -510,4 +510,25 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(3, vm.uiState.value.transactionsGroupees.values.flatten().size)
     }
 
+    @Test fun enveloppeArchiveeEtReferenceDeFractionPerdueConserventLeursVraisLibelles() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("auto", nom = "Essence")
+        b.enveloppes["auto"] = b.enveloppes.getValue("auto").copy(estArchive = true)
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 60.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Station",
+            estFractionnee = true,
+            sousItems = """[{"enveloppeId":"auto","montant":20.00},{"enveloppeId":"ancienne-supprimee","montant":40.00}]"""
+        )
+        val vm = app.historiqueEnveloppe("auto")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        val achat = vm.uiState.value.transactions.single()
+        assertEquals(20.0, achat.montant, 0.0000001)
+        assertEquals(60.0, achat.montantTotalTransaction ?: 0.0, 0.0000001)
+        assertEquals("Essence (archivée)", achat.nomsEnveloppesFractions.first())
+        assertTrue(achat.nomsEnveloppesFractions[1].contains("ancienne-supprimee"))
+    }
+
 }
