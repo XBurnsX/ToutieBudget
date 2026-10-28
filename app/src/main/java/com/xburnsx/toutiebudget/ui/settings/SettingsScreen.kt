@@ -117,6 +117,7 @@ fun SettingsScreen(
     onNavigateToArchives: () -> Unit = {},
     onNavigateToSyncJobs: () -> Unit = {},
     onNavigateToDatabaseManager: () -> Unit = {},
+    onNavigateToAliasBancaires: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {}
 ) {
     val context = LocalContext.current
