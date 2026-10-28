@@ -208,6 +208,11 @@ class HistoriqueCompteViewModel(
                 // jamais empêcher l'affichage des mouvements financiers.
                 val transactions = resultTransactions.getOrThrow()
                 val avertissements = mutableListOf<String>()
+                val montantsInvalides = transactions.count { !it.montant.isFinite() }
+                if (montantsInvalides > 0) {
+                    avertissements += "$montantsInvalides transaction(s) avec montant invalide : " +
+                        "aucun montant de remplacement n'est utilisé."
+                }
                 val enveloppes = resultEnveloppes.getOrElse { cause ->
                     avertissements += "Certaines informations d'enveloppes n'ont pas pu être chargées."
                     emptyList()
