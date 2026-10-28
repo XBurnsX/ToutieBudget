@@ -287,7 +287,14 @@ class HistoriqueEnveloppeViewModel(
                         nomEnveloppe = nomEnveloppe,
                         note = transaction.note,
                         estFractionnee = transaction.estFractionnee,
-                        sousItems = transaction.sousItems
+                        sousItems = transaction.sousItems,
+                        nomsEnveloppesFractions = portionsValides[transaction.id]
+                            ?.map { portion ->
+                                enveloppeIdToNom[portion.enveloppeId]
+                                    ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                            } ?: emptyList(),
+                        compteId = transaction.compteId,
+                        collectionCompte = transaction.collectionCompte
                     )
                 }
 
