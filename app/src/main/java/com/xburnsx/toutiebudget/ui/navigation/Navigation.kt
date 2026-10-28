@@ -626,10 +626,10 @@ fun MainAppScaffold(
             // Route archives
             composable("archives") {
                 val comptesVm = AppModule.provideComptesViewModel()
-                val budgetVm = AppModule.provideBudgetViewModel()
+                val categoriesVm = AppModule.provideCategoriesEnveloppesViewModel()
                 ArchivesScreen(
                     comptesViewModel = comptesVm,
-                    budgetViewModel = budgetVm,
+                    categoriesViewModel = categoriesVm,
                     onBack = { bottomBarNavController.popBackStack() },
                     onVoirHistoriqueCompte = { compteId, collectionCompte, nomCompte ->
                         mainNavController.navigate(
