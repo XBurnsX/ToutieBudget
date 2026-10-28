@@ -31,6 +31,22 @@ object PortionsHistorique {
         }
     }
 
+    /**
+     * HC9 : la somme des fractions doit réconcilier le montant bancaire
+     * au centime. La vérification n'altère ni l'historique ni les allocations.
+     */
+    fun verifierTotal(portions: List<Portion>, montantTransaction: Double): Boolean {
+        if (portions.isEmpty() || !montantTransaction.isFinite()) return false
+        return runCatching {
+            val total = portions.fold(0L) { cumul, portion ->
+                Math.addExact(cumul, portion.montantCentimes)
+            }
+            val bancaire = BigDecimal.valueOf(montantTransaction)
+                .movePointRight(2).longValueExact()
+            total == bancaire
+        }.getOrDefault(false)
+    }
+
     fun totalPourEnveloppe(portions: List<Portion>, enveloppeId: String): Double {
         val correspondantes = portions.filter { it.enveloppeId == enveloppeId }
         require(correspondantes.isNotEmpty()) { "Aucune portion de cette enveloppe." }
