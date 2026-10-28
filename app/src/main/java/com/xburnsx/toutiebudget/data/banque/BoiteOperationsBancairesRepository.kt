@@ -94,6 +94,29 @@ class BoiteOperationsBancairesRepository(
         }
     }
 
+
+    suspend fun importerCsv(
+        compteId: String,
+        collectionCompte: String,
+        contenuCsv: String
+    ): List<OperationBancaireEnAttente> {
+        val lignes = ImportCsvBancaire.analyser(contenuCsv)
+        return database.withTransaction {
+            lignes.map { ligne ->
+                importer(LigneBanque(
+                    compteId = compteId,
+                    collectionCompte = collectionCompte,
+                    source = "CSV",
+                    idExterne = ligne.idExterne,
+                    dateOperation = ligne.date,
+                    montantCentimes = ligne.montantCentimes,
+                    libelleBrut = ligne.libelleBrut,
+                    statutBancaire = ligne.statut
+                ))
+            }
+        }
+    }
+
     /** Ignorer est réversible ; on ne détruit jamais l'original bancaire. */
     suspend fun ignorer(id: String): Boolean =
         dao.changerDecision(id, userId(), "IGNOREE") > 0
