@@ -89,8 +89,11 @@ class HistoriqueCompteViewModel(
     /**
      * Sauvegarde la position de scroll actuelle.
      */
-    fun sauvegarderPositionScroll(position: Int) {
-        _uiState.update { it.copy(scrollPosition = position) }
+    fun sauvegarderPositionScroll(position: Int, offset: Int = 0) {
+        _uiState.update { etat ->
+            if (etat.scrollPosition == position && etat.scrollOffset == offset) etat
+            else etat.copy(scrollPosition = position, scrollOffset = offset)
+        }
     }
 
     /**
@@ -229,9 +232,17 @@ class HistoriqueCompteViewModel(
                 // Les enveloppes/allocations ne servent qu'à enrichir les libellés et ne doivent
                 // jamais empêcher l'affichage des mouvements financiers.
                 val transactions = resultTransactions.getOrThrow()
-                val enveloppes = resultEnveloppes.getOrElse { emptyList() }
+                val avertissements = mutableListOf<String>()
+                val enveloppes = resultEnveloppes.getOrElse { cause ->
+                    avertissements += "Certaines informations d'enveloppes n'ont pas pu être chargées."
+                    emptyList()
+                }
                 val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    enveloppeRepository.recupererAllocationParId(id).getOrNull()
+                    val resultat = enveloppeRepository.recupererAllocationParId(id)
+                    if (resultat.isFailure) {
+                        avertissements += "Certaines allocations historiques sont indisponibles."
+                    }
+                    resultat.getOrNull()
                 }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
@@ -316,6 +327,7 @@ class HistoriqueCompteViewModel(
                     it.copy(
                         isLoading = false,
                         erreur = null,
+                        avertissement = avertissements.distinct().takeIf { it.isNotEmpty() }?.joinToString(" "),
                         transactions = transactionsUi,
                         transactionsGroupees = transactionsGroupees
                     )
