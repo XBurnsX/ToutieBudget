@@ -379,8 +379,14 @@ class HistoriqueEnveloppeViewModel(
                 throw annulation // ancien chargement : surtout ne pas écraser le plus récent
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false,
-                        erreur = "Erreur lors du chargement: ${e.message ?: e.javaClass.simpleName}")
+                    val sessionPerdue = e is SecurityException
+                    it.copy(
+                        isLoading = false,
+                        erreur = "Erreur lors du chargement: ${e.message ?: e.javaClass.simpleName}",
+                        transactions = if (sessionPerdue) emptyList() else it.transactions,
+                        transactionsGroupees = if (sessionPerdue) emptyMap() else it.transactionsGroupees,
+                        avertissement = if (sessionPerdue) null else it.avertissement
+                    )
                 }
             }
         }
