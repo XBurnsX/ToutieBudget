@@ -703,54 +703,23 @@ class CategoriesEnveloppesViewModel(
      */
     fun onConfirmerSuppressionEnveloppe() {
         val enveloppe = _uiState.value.enveloppePourSuppression ?: return
-
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
-                // CE2 : aucun argent ne disparaît. Une enveloppe qui garde un solde (n'importe quel mois) est refusée.
-                val allocations = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
-                val soldeRestant = allocations.sumOf { it.solde }
-                if (allocations.any { kotlin.math.round(it.solde * 100.0).toLong() != 0L }) {
-                    _uiState.update {
-                        it.copy(
-                            erreur = "« ${enveloppe.nom} » contient encore ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(soldeRestant)}. " +
-                                "Virez cet argent ailleurs avant de la retirer."
-                        )
-                    }
-                    return@lancerUneFois
-                }
-                // CE5 : une enveloppe de paiement technique doit rester
-                // active tant que les opérations liées la référencent.
-                val sources = transactionRepository?.recupererToutesLesTransactions()?.getOrThrow()
-                if (sources != null) {
-                    val allocationsIds = allocations.map { it.id }.toSet()
-                    val paiementLie = sources.any { tx ->
-                        val technique = tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement ||
-                            tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue
-                        technique && (
-                            tx.allocationMensuelleId in allocationsIds ||
-                                (tx.estFractionnee && runCatching {
-                                    com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
-                                        .lire(tx.sousItems).any { it.enveloppeId == enveloppe.id }
-                                }.getOrDefault(false))
-                            )
-                    }
-                    require(!paiementLie) {
-                        "Cette enveloppe est liée à un paiement de carte ou de dette. Archivage bloqué."
-                    }
-                }
-                // CE1/CE4 : une absence d'allocations ne prouve pas qu'aucun
-                // historique n'existe. L'archivage garde IDs et références.
-                // Ne masquer l'enveloppe qu'après confirmation de l'écriture.
-                enveloppeRepository.mettreAJourEnveloppe(
-                    enveloppe.copy(estArchive = true)
-                ).getOrThrow()
+                // CE2/CE5 : le dépôt Room valide encore une fois les soldes
+                // ET les paiements sous transaction, sans course entre l'UI
+                // et l'écriture. Sur simulateur, la validation des soldes
+                // est également effectuée par l'interface Repository.
+                enveloppeRepository
+                    .archiverEnveloppeApresVerification(enveloppe.id)
+                    .getOrThrow()
                 onFermerConfirmationSuppressionEnveloppe()
                 chargerDonnees()
                 realtimeSyncService.declencherMiseAJourBudget()
-
             } catch (e: Exception) {
-                _uiState.update { it.copy(erreur = "Erreur: ${e.message}") }
-                chargerDonnees()
+                // La fenêtre reste ouverte; aucun argent n'est déplacé.
+                _uiState.update {
+                    it.copy(erreur = "Retrait refusé : ${e.message}")
+                }
             }
         }
     }
