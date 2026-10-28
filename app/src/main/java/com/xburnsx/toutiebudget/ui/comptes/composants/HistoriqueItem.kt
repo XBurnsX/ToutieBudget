@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
+import com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique
 import com.google.gson.JsonParser
 import java.util.Date
 
@@ -262,7 +262,7 @@ fun HistoriqueItem(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "$nomEnveloppe - ${MoneyFormatter.formatAmount(montant)}" +
+                                    text = "$nomEnveloppe - ${AffichageMontantHistorique.formater(montant)}" +
                                         if (noteFraction.isNotEmpty()) " · $noteFraction" else "",
                                     fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -286,7 +286,7 @@ fun HistoriqueItem(
                 ) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = MoneyFormatter.formatAmount(transaction.montant),
+                            text = AffichageMontantHistorique.formater(transaction.montant),
                             fontSize = 16.sp,
                             color = couleurMontant,
                             fontWeight = FontWeight.Bold
