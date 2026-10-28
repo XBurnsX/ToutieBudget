@@ -27,9 +27,10 @@ import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
         Tiers::class,
         PretPersonnel::class,
         AllocationMensuelle::class,
-        HistoriqueAllocation::class
+        HistoriqueAllocation::class,
+        AliasBancaire::class
     ],
-    version = 7, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements
+    version = 8, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements
     exportSchema = false
 )
 @TypeConverters(DateStringConverter::class)
@@ -47,6 +48,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
     abstract fun categorieDao(): CategorieDao
     abstract fun enveloppeDao(): EnveloppeDao
     abstract fun tiersDao(): TiersDao
+    abstract fun aliasBancaireDao(): AliasBancaireDao
     abstract fun pretPersonnelDao(): PretPersonnelDao
     abstract fun allocationMensuelleDao(): AllocationMensuelleDao
     abstract fun historiqueAllocationDao(): HistoriqueAllocationDao
@@ -62,7 +64,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
                     ToutieBudgetDatabase::class.java,
                     "toutiebudget_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7) // 🆕 AJOUT : Migrations
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8) // 🆕 AJOUT : Migrations
                 // .fallbackToDestructiveMigration() // DÉSACTIVÉ : Utiliser les migrations pour préserver les données
                 .build()
                 INSTANCE = instance
@@ -70,6 +72,26 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
             }
         }
         
+        // BANQ-02 : migration additive, sans modifier les comptes ni les écritures existantes.
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS alias_bancaires (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        utilisateur_id TEXT NOT NULL,
+                        compte_id TEXT,
+                        libelle_brut TEXT NOT NULL,
+                        tiers_id TEXT NOT NULL,
+                        active INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_alias_bancaires_utilisateur_id_compte_id " +
+                    "ON alias_bancaires (utilisateur_id, compte_id)"
+                )
+            }
+        }
+
         // 🆕 MIGRATION : Version 1 vers 2 - Ajout du champ recordId
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
