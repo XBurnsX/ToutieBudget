@@ -2,7 +2,6 @@ package com.xburnsx.toutiebudget.ui.historique
 
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import java.math.BigDecimal
-import java.math.RoundingMode
 
 /**
  * EA2/EA5 : aperçu des mouvements visibles de l'enveloppe.
@@ -24,11 +23,11 @@ data class ResumeHistoriqueEnveloppe(
             var depenses = 0L
             var revenus = 0L
             var autres = 0
-            lignes.distinctBy { it.id }.forEach { ligne ->
+            val uniques = lignes.distinctBy { it.id }
+            uniques.forEach { ligne ->
                 require(ligne.montant.isFinite()) { "Montant invalide dans l'historique." }
                 val cents = BigDecimal.valueOf(ligne.montant)
-                    .movePointRight(2).setScale(0, RoundingMode.HALF_UP)
-                    .longValueExact()
+                    .movePointRight(2).longValueExact()
                 when (ligne.type) {
                     TypeTransaction.Depense -> depenses = Math.addExact(depenses, cents)
                     TypeTransaction.Revenu -> revenus = Math.addExact(revenus, cents)
@@ -36,7 +35,7 @@ data class ResumeHistoriqueEnveloppe(
                 }
             }
             return ResumeHistoriqueEnveloppe(
-                nombre = lignes.distinctBy { it.id }.count(),
+                nombre = uniques.size,
                 depensesCentimes = depenses,
                 revenusCentimes = revenus,
                 autresOperations = autres
