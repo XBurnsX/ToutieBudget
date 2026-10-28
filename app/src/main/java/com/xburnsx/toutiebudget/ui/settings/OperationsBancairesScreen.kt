@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.xburnsx.toutiebudget.data.banque.ReconnaissanceTiersBancaire
+import com.xburnsx.toutiebudget.data.banque.RegleAliasBancaire
+import com.xburnsx.toutiebudget.data.modeles.Tiers
+import com.xburnsx.toutiebudget.ui.ajout_transaction.composants.SelecteurTiers
 import com.xburnsx.toutiebudget.data.modeles.Compte
 import com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente
 import com.xburnsx.toutiebudget.di.AppModule
@@ -57,7 +61,12 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var comptes by remember { mutableStateOf<List<Compte>>(emptyList()) }
     var operations by remember { mutableStateOf<List<OperationBancaireEnAttente>>(emptyList()) }
-    var nomsReconnu by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var tiers by remember { mutableStateOf<List<Tiers>>(emptyList()) }
+    var tiersReconnus by remember { mutableStateOf<Map<String, Tiers>>(emptyMap()) }
+    var editionId by remember { mutableStateOf<String?>(null) }
+    var nomSaisi by remember { mutableStateOf("") }
+    var tiersChoisi by remember { mutableStateOf<Tiers?>(null) }
+    var memoriserAssociation by remember { mutableStateOf(false) }
     var compteId by remember { mutableStateOf("") }
     var menuComptes by remember { mutableStateOf(false) }
     var afficherIgnorees by remember { mutableStateOf(false) }
@@ -69,6 +78,7 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
         try {
             comptes = compteRepository.recupererTousLesComptes().getOrThrow()
                 .filter { !it.estArchive && it.collection in setOf("comptes_cheques", "comptes_credits") }
+            tiers = tiersRepository.recupererTousLesTiers().getOrThrow()
             repository.toutesLesOperations().collectLatest { operations = it }
         } catch (e: Exception) {
             erreur = e.message ?: "Impossible de charger les opérations bancaires."
@@ -79,15 +89,15 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
         try {
             val userId = PocketBaseClient.obtenirUtilisateurConnecte()?.id.orEmpty()
             val regles = aliasRepository.toutes()
-            val tiers = tiersRepository.recupererTousLesTiers().getOrThrow()
-            nomsReconnu = operations.mapNotNull { operation ->
+            tiers = tiersRepository.recupererTousLesTiers().getOrThrow()
+            tiersReconnus = operations.mapNotNull { operation ->
                 val reconnu = ReconnaissanceTiersBancaire.reconnaitre(
                     userId, operation.compteId, operation.libelleBrut, regles, tiers
                 )
-                if (reconnu == null) null else operation.id to reconnu.nom
+                if (reconnu == null) null else operation.id to reconnu
             }.toMap()
         } catch (_: Exception) {
-            nomsReconnu = emptyMap()
+            tiersReconnus = emptyMap()
         }
     }
 
@@ -177,7 +187,10 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
                         Text("Compte : " + (comptes.firstOrNull { it.id == operation.compteId }?.nom
                             ?: "Compte archivé ou indisponible"))
                         Text("Statut bancaire : " + operation.statutBancaire)
-                        Text("Tiers proposé : " + (nomsReconnu[operation.id] ?: "aucun (choix manuel requis)"))
+                        Text("Tiers choisi : " + (tiers.firstOrNull { it.id == operation.tiersId }?.nom
+                            ?: "aucun"))
+                        Text("Tiers suggéré : " + (tiersReconnus[operation.id]?.nom
+                            ?: "aucun (choix manuel requis)"))
                         if (operation.verificationRequise) {
                             Text("Montant modifié par la banque : vérifier avant de classer.")
                         }
@@ -194,6 +207,17 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
                                         }
                                     }
                                 ) { Text("Ignorer") }
+                                TextButton(onClick = {
+                                    if (editionId == operation.id) {
+                                        editionId = null
+                                    } else {
+                                        editionId = operation.id
+                                        tiersChoisi = tiers.firstOrNull { it.id == operation.tiersId }
+                                            ?: tiersReconnus[operation.id]
+                                        nomSaisi = tiersChoisi?.nom.orEmpty()
+                                        memoriserAssociation = false
+                                    }
+                                }) { Text(if (editionId == operation.id) "Fermer" else "Choisir le tiers") }
                                 Text("À confirmer")
                             } else {
                                 TextButton(
@@ -208,6 +232,76 @@ fun OperationsBancairesScreen(onBack: () -> Unit) {
                                     }
                                 ) { Text("Remettre en attente") }
                             }
+                        }
+                        if (operation.decision == "A_CONFIRMER" && editionId == operation.id) {
+                            SelecteurTiers(
+                                tiersDisponibles = tiers,
+                                tiersUtiliser = nomSaisi,
+                                onTiersUtiliserChange = { nom ->
+                                    nomSaisi = nom
+                                    if (tiersChoisi?.nom != nom) tiersChoisi = null
+                                },
+                                onTiersSelectionne = { choix ->
+                                    tiersChoisi = choix
+                                    nomSaisi = choix.nom
+                                },
+                                onCreerNouveauTiers = { nom ->
+                                    scope.launch {
+                                        try {
+                                            val nouveau = tiersRepository.creerTiers(Tiers(nom = nom)).getOrThrow()
+                                            tiers = tiersRepository.recupererTousLesTiers().getOrThrow()
+                                            tiersChoisi = tiers.firstOrNull { it.id == nouveau.id } ?: nouveau
+                                            nomSaisi = tiersChoisi?.nom.orEmpty()
+                                        } catch (e: Exception) {
+                                            erreur = e.message ?: "Création du tiers impossible."
+                                        }
+                                    }
+                                },
+                                isLoading = enCours,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row {
+                                Checkbox(
+                                    checked = memoriserAssociation,
+                                    onCheckedChange = { memoriserAssociation = it }
+                                )
+                                Text("Mémoriser pour les prochaines fois",
+                                    modifier = Modifier.padding(top = 12.dp))
+                            }
+                            Button(
+                                enabled = !enCours && tiersChoisi != null,
+                                onClick = {
+                                    val choix = tiersChoisi ?: return@Button
+                                    scope.launch {
+                                        enCours = true
+                                        try {
+                                            repository.selectionnerTiers(operation.id, choix.id)
+                                            if (memoriserAssociation) {
+                                                val user = PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                                                    ?: error("Utilisateur non connecté.")
+                                                val existing = aliasRepository.toutes().firstOrNull {
+                                                    it.compteId == operation.compteId &&
+                                                        ReconnaissanceTiersBancaire.normaliser(it.libelleBrut) ==
+                                                        ReconnaissanceTiersBancaire.normaliser(operation.libelleBrut)
+                                                }
+                                                aliasRepository.enregistrer(RegleAliasBancaire(
+                                                    id = existing?.id.orEmpty(),
+                                                    utilisateurId = user,
+                                                    compteId = operation.compteId,
+                                                    libelleBrut = operation.libelleBrut,
+                                                    tiersId = choix.id
+                                                ))
+                                            }
+                                            editionId = null
+                                            progression = "Tiers attribué au brouillon; aucun débit effectué."
+                                        } catch (e: Exception) {
+                                            erreur = e.message ?: "Association impossible."
+                                        } finally {
+                                            enCours = false
+                                        }
+                                    }
+                                }
+                            ) { Text("Appliquer au brouillon") }
                         }
                     }
                 }
