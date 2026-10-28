@@ -169,12 +169,13 @@ interface SyncJobDao {
     suspend fun getPendingSyncJobsCount(): Int
 
     /**
-     * Compte les tâches pas encore envoyées (PENDING/FAILED) qui touchent cette fiche.
+     * Compte les tâches non confirmées (PENDING/FAILED/IN_PROGRESS) liées à cette fiche.
+     * Un upload en cours interdit également de remplacer sa version locale.
      * Certaines anciennes tâches CREATE n'ont pas de recordId : on cherche aussi "id":"<id>"
      * dans le JSON (les clés étrangères sont en snake_case, ex. "compte_id", donc pas de faux positif).
      */
     @Query(
-        "SELECT COUNT(*) FROM sync_jobs WHERE status IN ('PENDING', 'FAILED') " +
+        "SELECT COUNT(*) FROM sync_jobs WHERE status IN ('PENDING', 'FAILED', 'IN_PROGRESS') " +
         "AND (recordId = :recordId OR dataJson LIKE '%\"id\":\"' || :recordId || '\"%')"
     )
     suspend fun compterTachesEnAttentePourFiche(recordId: String): Int
