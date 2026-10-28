@@ -122,7 +122,7 @@ class HistoriqueCompteViewModel(
                 require(visiblesDuCompte.any { it.id == transactionId }) {
                     "Cette transaction n'appartient pas au compte connecté."
                 }
-                if (affichee != null) {
+                val transactionAttendue = if (affichee != null) {
                     val actuelle = transactionRepository.recupererTransactionDeLaSession(transactionId)
                         .getOrThrow()
                     if (!VerificationSuppressionHistorique.estEncoreLaMeme(affichee, actuelle)) {
@@ -132,8 +132,13 @@ class HistoriqueCompteViewModel(
                         ) }
                         return@lancerUneFois
                     }
-                }
-                supprimerTransactionUseCase.executer(transactionId).getOrThrow()
+                    actuelle
+                } else null
+                // Deuxième comparaison sous le verrou transactionnel du UseCase :
+                // évite une suppression périmée même si Room change après la 1re lecture.
+                supprimerTransactionUseCase.executer(
+                    transactionId, transactionAttendue = transactionAttendue
+                ).getOrThrow()
                 rechargerTransactions()
             } catch (e: Exception) {
                 _uiState.update { it.copy(
