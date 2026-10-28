@@ -51,6 +51,7 @@ data class ApercuRetraitEnveloppe(
     val periodesAvecSolde: Int,
     val allocationsFutures: Int,
     val soldeRestant: Double,
+    val soldeMoisCourant: Double = 0.0,
     val transactionsLiees: Int?,
     val paiementsTechniquesLies: Int?
 )
