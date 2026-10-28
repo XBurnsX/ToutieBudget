@@ -33,6 +33,7 @@ class InitialImportService(
     private val enveloppeDao: EnveloppeDao,
     private val allocationMensuelleDao: AllocationMensuelleDao,
     private val tiersDao: TiersDao,
+    private val aliasBancaireDao: AliasBancaireDao,
     private val pretPersonnelDao: PretPersonnelDao,
     private val syncJobDao: SyncJobDao
 ) {
@@ -100,6 +101,19 @@ class InitialImportService(
             importer("comptes_investissement", urlBase, token, utilisateurId) { compteInvestissementDao.insertAll(it.map(PocketBaseMapper::versCompteInvestissement)) }
             importer("categories", urlBase, token, utilisateurId) { categorieDao.insertAll(it.map(PocketBaseMapper::versCategorie)) }
             importer("tiers", urlBase, token, utilisateurId) { tiersDao.insertAll(it.map(PocketBaseMapper::versTiers)) }
+            // Une ancienne instance PocketBase peut ne pas avoir cette collection.
+            // Son absence (404) ne doit pas rendre l'APK inutilisable.
+            try {
+                importer("alias_bancaires", urlBase, token, utilisateurId) { fiches ->
+                    aliasBancaireDao.enregistrerToutes(
+                        fiches.filter { it.utilisateur_id == utilisateurId }
+                            .mapNotNull(PocketBaseMapper::versAliasBancaire)
+                    )
+                }
+            } catch (e: ImportIncompletException) {
+                if (e.cause?.message != "HTTP 404") throw e
+                Log.w(logTag, "Collection alias_bancaires absente : configuration PocketBase requise")
+            }
             importer("pret_personnel", urlBase, token, utilisateurId) { pretPersonnelDao.insertAll(it.map(PocketBaseMapper::versPretPersonnel)) }
 
             onProgressUpdate?.invoke(3, "Import des transactions et enveloppes...")
@@ -244,5 +258,9 @@ data class ItemPocketBase(
     val date_creation: String?,
     val details_carte_json: Any? = null, // Cartes de crédit (section 10)
     val details_dette_json: Any? = null, // Dettes (section 11)
-    val details_investissement_json: Any? = null // Placements (section 12)
+    val details_investissement_json: Any? = null, // Placements (section 12)
+    val libelle_brut: String? = null,
+    val compte_id: String? = null,
+    val tiers_id: String? = null,
+    val active: Boolean? = null
 )
