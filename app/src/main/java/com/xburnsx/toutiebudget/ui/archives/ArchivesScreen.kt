@@ -1,82 +1,99 @@
 package com.xburnsx.toutiebudget.ui.archives
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.xburnsx.toutiebudget.data.modeles.Compte
+import com.xburnsx.toutiebudget.data.modeles.Enveloppe
 import com.xburnsx.toutiebudget.ui.comptes.ComptesViewModel
 import com.xburnsx.toutiebudget.ui.comptes.composants.CompteItem
-import com.xburnsx.toutiebudget.ui.budget.BudgetViewModel
-import com.xburnsx.toutiebudget.ui.budget.EnveloppeUi
+import com.xburnsx.toutiebudget.ui.categories.CategoriesEnveloppesViewModel
 
+/**
+ * ARC7/ARC8/ARC10 : la liste des enveloppes archivées vient directement
+ * du repository par le ViewModel de catégories; elle ne dépend PAS du mois
+ * affiché dans le budget et n'active pas un filtre global sur celui-ci.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivesScreen(
     comptesViewModel: ComptesViewModel,
-    budgetViewModel: BudgetViewModel,
+    categoriesViewModel: CategoriesEnveloppesViewModel,
     onBack: () -> Unit,
     onVoirHistoriqueCompte: (String, String, String) -> Unit = { _, _, _ -> },
     onVoirHistoriqueEnveloppe: (String, String) -> Unit = { _, _ -> }
 ) {
     val comptesState by comptesViewModel.uiState.collectAsState()
-    val budgetState by budgetViewModel.uiState.collectAsState()
-
-    val comptesArchives = comptesState.comptesGroupes.values.flatten().filter { it.estArchive }
-    val enveloppesArchives: List<EnveloppeUi> = budgetState.categoriesEnveloppes
-        .flatMap { it.enveloppes }
-        .filter { env -> env.estArchive }
-
-    var tabIndex by remember { mutableStateOf(0) }
+    val categoriesState by categoriesViewModel.uiState.collectAsState()
+    var tabIndex by remember { mutableIntStateOf(0) }
     var recherche by remember { mutableStateOf("") }
-    val tabs = listOf("Comptes archivés", "Enveloppes archivées")
+    var filtreCompte by remember { mutableStateOf("") }
+    var compteARestaurer by remember { mutableStateOf<Compte?>(null) }
+    var enveloppeARestaurer by remember { mutableStateOf<Enveloppe?>(null) }
+    var destinationRestauration by remember { mutableStateOf<String?>(null) }
+    var restaurationDemandee by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         comptesViewModel.chargerComptesArchives()
-        budgetViewModel.setShowArchived(true)
+        categoriesViewModel.chargerDonnees()
     }
-    DisposableEffect(Unit) {
-        onDispose { budgetViewModel.setShowArchived(false) }
+    LaunchedEffect(categoriesState.enveloppesArchivees, restaurationDemandee) {
+        if (restaurationDemandee && enveloppeARestaurer != null &&
+            categoriesState.enveloppesArchivees.none { it.id == enveloppeARestaurer?.id }
+        ) {
+            enveloppeARestaurer = null
+            destinationRestauration = null
+            restaurationDemandee = false
+        }
+    }
+    LaunchedEffect(categoriesState.erreur) {
+        if (categoriesState.erreur != null) restaurationDemandee = false
     }
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    windowInsets = WindowInsets(0),
-                    title = { Text("Archives", fontWeight = FontWeight.Bold) },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF121212), titleContentColor = Color.White),
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = Color.White) }
+    val comptesFiltres = comptesState.comptesArchives
+        .filter { filtreCompte.isBlank() || it.collection == filtreCompte }
+        .filter { it.nom.contains(recherche.trim(), ignoreCase = true) }
+    val enveloppesFiltrees = categoriesState.enveloppesArchivees
+        .filter { it.nom.contains(recherche.trim(), ignoreCase = true) ||
+            (categoriesState.categoriesParId[it.categorieId]?.nom ?: "")
+                .contains(recherche.trim(), ignoreCase = true) }
+
+    Scaffold(topBar = {
+        Column {
+            TopAppBar(
+                title = { Text("Archives") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
-                )
-                TabRow(selectedTabIndex = tabIndex, containerColor = Color(0xFF121212)) {
-                    tabs.forEachIndexed { index, title ->
+                }
+            )
+            TabRow(selectedTabIndex = tabIndex) {
+                listOf("Comptes archivés", "Enveloppes archivées")
+                    .forEachIndexed { index, nom ->
                         Tab(
                             selected = tabIndex == index,
                             onClick = { tabIndex = index },
-                            text = { Text(title, color = if (tabIndex == index) Color.White else Color.LightGray) }
+                            text = { Text(nom) }
                         )
                     }
-                }
             }
-        },
-        containerColor = Color(0xFF121212)
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // ARA1 : recherche locale dans les éléments déjà archivés, sans écriture.
+        }
+    }) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             OutlinedTextField(
                 value = recherche,
                 onValueChange = { recherche = it },
@@ -84,62 +101,149 @@ fun ArchivesScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             )
-
-            when (tabIndex) {
-                0 -> {
-                    // CO3 : liste propre aux archives, non écrasée par les rafraîchissements des comptes actifs
-                    val comptesArchivesDyn = comptesState.comptesArchives.filter {
-                        it.nom.contains(recherche.trim(), ignoreCase = true)
-                    }
-                    // IF15 : un placement archivé peut être réactivé (même compte, même historique)
-                    var aReactiver by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Compte?>(null) }
-                    Text("${comptesArchivesDyn.size} compte(s) archivé(s)", modifier = Modifier.padding(horizontal = 16.dp))
-                    LazyColumn { items(comptesArchivesDyn, key = { it.id }) { c ->
-                        CompteItem(
-                            compte = c,
-                            onClick = { onVoirHistoriqueCompte(c.id, c.collection, c.nom) },
-                            onLongClick = { aReactiver = c }
-                        )
-                    } }
-                    aReactiver?.let { compte ->
-                        AlertDialog(
-                            onDismissRequest = { aReactiver = null },
-                            title = { Text("Réactiver ${compte.nom} ?") },
-                            text = { Text("Le compte revient dans la liste avec ses transactions et ses valeurs passées.") },
-                            confirmButton = {
-                                TextButton(onClick = { comptesViewModel.reactiverCompte(compte); aReactiver = null }) { Text("Réactiver") }
-                            },
-                            dismissButton = { TextButton(onClick = { aReactiver = null }) { Text("Annuler") } }
+            if (tabIndex == 0) {
+                // ARA2 : filtres exclusifs à Archives, jamais au budget actif.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val choix = listOf(
+                        "" to "Tous", "comptes_cheques" to "Chèques",
+                        "comptes_credits" to "Cartes", "comptes_dettes" to "Dettes",
+                        "comptes_investissement" to "Invest."
+                    )
+                    choix.forEach { (collection, libelle) ->
+                        FilterChip(
+                            selected = filtreCompte == collection,
+                            onClick = { filtreCompte = collection },
+                            label = { Text(libelle) }
                         )
                     }
                 }
-                1 -> {
-                    var aReactiver by remember { mutableStateOf<EnveloppeUi?>(null) }
-                    val enveloppesFiltrees = enveloppesArchives.filter {
-                        it.nom.contains(recherche.trim(), ignoreCase = true)
-                    }
-                    Text("${enveloppesFiltrees.size} enveloppe(s) archivée(s)", modifier = Modifier.padding(horizontal = 16.dp))
-                    LazyColumn { items(enveloppesFiltrees, key = { it.id }) { env ->
-                        ListItem(
-                            modifier = Modifier.clickable { onVoirHistoriqueEnveloppe(env.id, env.nom) },
-                            headlineContent = { Text(env.nom, color = Color.White) },
-                            supportingContent = { Text("Objectif: ${env.objectif}", color = Color.LightGray) },
-                            trailingContent = { TextButton(onClick = { aReactiver = env }) { Text("Réactiver") } }
-                        )
-                    } }
-                    aReactiver?.let { env ->
-                        AlertDialog(
-                            onDismissRequest = { aReactiver = null },
-                            title = { Text("Réactiver ${env.nom} ?") },
-                            text = { Text("L'enveloppe revient dans le budget avec son objectif, ses allocations et son historique.") },
-                            confirmButton = {
-                                TextButton(onClick = { budgetViewModel.reactiverEnveloppe(env.id); aReactiver = null }) { Text("Réactiver") }
+                Text(
+                    "${comptesFiltres.size} compte(s) archivé(s)",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(comptesFiltres, key = { it.collection + ":" + it.id }) { compte ->
+                        CompteItem(
+                            compte = compte,
+                            onClick = {
+                                onVoirHistoriqueCompte(compte.id, compte.collection, compte.nom)
                             },
-                            dismissButton = { TextButton(onClick = { aReactiver = null }) { Text("Annuler") } }
+                            onLongClick = { compteARestaurer = compte }
+                        )
+                    }
+                }
+            } else {
+                if (categoriesState.erreur != null) {
+                    Text(
+                        "Chargement des archives : ${categoriesState.erreur}",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    TextButton(onClick = { categoriesViewModel.chargerDonnees() }) {
+                        Text("Réessayer")
+                    }
+                }
+                Text(
+                    "${enveloppesFiltrees.size} enveloppe(s) archivée(s)",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                if (categoriesState.isLoading && categoriesState.enveloppesArchivees.isEmpty()) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(enveloppesFiltrees, key = { it.id }) { env ->
+                        val nomCategorie = categoriesState.categoriesParId[env.categorieId]?.nom
+                            ?: "Catégorie d'origine introuvable"
+                        ListItem(
+                            modifier = Modifier.clickable {
+                                onVoirHistoriqueEnveloppe(env.id, env.nom)
+                            },
+                            headlineContent = { Text(env.nom) },
+                            supportingContent = {
+                                Text("$nomCategorie · Objectif : ${env.objectifMontant}")
+                            },
+                            trailingContent = {
+                                TextButton(onClick = {
+                                    enveloppeARestaurer = env
+                                    destinationRestauration =
+                                        env.categorieId.takeIf {
+                                            categoriesState.categoriesParId.containsKey(it)
+                                        }
+                                    restaurationDemandee = false
+                                }) { Text("Restaurer") }
+                            }
                         )
                     }
                 }
             }
         }
+    }
+
+    compteARestaurer?.let { compte ->
+        AlertDialog(
+            onDismissRequest = { compteARestaurer = null },
+            title = { Text("Réactiver ${compte.nom} ?") },
+            text = { Text("Le même compte, ses paramètres et son historique seront conservés.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    comptesViewModel.reactiverCompte(compte)
+                    compteARestaurer = null
+                }) { Text("Réactiver") }
+            },
+            dismissButton = {
+                TextButton(onClick = { compteARestaurer = null }) { Text("Annuler") }
+            }
+        )
+    }
+
+    enveloppeARestaurer?.let { env ->
+        AlertDialog(
+            onDismissRequest = {
+                enveloppeARestaurer = null
+                restaurationDemandee = false
+            },
+            title = { Text("Restaurer ${env.nom} ?") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text("Choisis la catégorie. L'ID, l'objectif, les allocations et l'historique restent inchangés.")
+                    if (categoriesState.categoriesParId.isEmpty()) {
+                        Text("Aucune catégorie : crée-en une avant de restaurer.")
+                    }
+                    categoriesState.categoriesParId.values.sortedBy { it.ordre }
+                        .forEach { categorie ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = destinationRestauration == categorie.id,
+                                    onClick = { destinationRestauration = categorie.id }
+                                )
+                                Text(categorie.nom)
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = destinationRestauration != null && !restaurationDemandee,
+                    onClick = {
+                        destinationRestauration?.let { categorieId ->
+                            categoriesViewModel.restaurerEnveloppe(env.id, categorieId)
+                            restaurationDemandee = true
+                        }
+                    }
+                ) { Text("Restaurer") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    enveloppeARestaurer = null
+                    restaurationDemandee = false
+                }) { Text("Annuler") }
+            }
+        )
     }
 }
