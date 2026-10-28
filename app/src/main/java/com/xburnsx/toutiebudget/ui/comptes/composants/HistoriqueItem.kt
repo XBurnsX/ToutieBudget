@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Info
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueDetailDialog
 import com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+import com.xburnsx.toutiebudget.ui.historique.SensMontantHistorique
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,18 +48,11 @@ fun HistoriqueItem(
     var showMenu by remember(transaction.id) { mutableStateOf(false) }
     var showDetails by remember(transaction.id) { mutableStateOf(false) }
 
-    val couleurMontant = when (transaction.type) {
-        TypeTransaction.Depense -> Color.Red
-        TypeTransaction.Pret -> Color.Red        // PRET = ROUGE (argent qui sort)
-        TypeTransaction.Revenu -> Color.Green
-        TypeTransaction.Emprunt -> Color.Green   // EMPRUNT = VERT (argent qui entre)
-        TypeTransaction.RemboursementRecu -> Color.Green  // REMBOURSEMENT REÇU = VERT (argent qui rentre)
-        TypeTransaction.RemboursementDonne -> Color.Red   // REMBOURSEMENT DONNÉ = ROUGE (argent qui sort)
-        TypeTransaction.Paiement -> Color.Red    // PAIEMENT = ROUGE (argent qui sort)
-        TypeTransaction.PaiementEffectue -> Color.Red    // PAIEMENT EFFECTUE = ROUGE (argent qui sort)
-        TypeTransaction.TransfertSortant -> Color.Red    // VIREMENT SORTANT = ROUGE (argent qui sort)
-        TypeTransaction.TransfertEntrant -> Color.Green  // VIREMENT ENTRANT = VERT (argent qui entre)
-        else -> Color.Yellow
+    val sens = SensMontantHistorique.determiner(transaction.type, transaction.collectionCompte)
+    val couleurMontant = when (sens) {
+        SensMontantHistorique.Sens.SORTIE -> MaterialTheme.colorScheme.error
+        SensMontantHistorique.Sens.ENTREE -> Color(0xFF38A169)
+        SensMontantHistorique.Sens.INCONNU -> MaterialTheme.colorScheme.onSurface
     }
 
     // ✅ Formater la date et l'heure complète avec texte spécial pour les virements
@@ -140,10 +134,10 @@ fun HistoriqueItem(
                     .height(IntrinsicSize.Min)
             ) {
                 // Barre d'accent verticale selon le type
-                val accentColor = when (transaction.type) {
-                    TypeTransaction.Depense, TypeTransaction.Pret -> MaterialTheme.colorScheme.error
-                    TypeTransaction.Revenu, TypeTransaction.Emprunt -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.primary
+                val accentColor = when (sens) {
+                    SensMontantHistorique.Sens.SORTIE -> MaterialTheme.colorScheme.error
+                    SensMontantHistorique.Sens.ENTREE -> MaterialTheme.colorScheme.tertiary
+                    SensMontantHistorique.Sens.INCONNU -> MaterialTheme.colorScheme.primary
                 }
                 Box(
                     modifier = Modifier
