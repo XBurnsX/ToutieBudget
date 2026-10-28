@@ -377,7 +377,9 @@ class CategoriesEnveloppesViewModel(
                     it.id != categorieId && it.nom.trim().equals(nom, ignoreCase = true)
                 }) { "Une catégorie porte déjà ce nom." }
                 if (nom != categorie.nom) {
-                    categorieRepository.mettreAJourCategorie(categorie.copy(nom = nom)).getOrThrow()
+                    categorieRepository.modifierCategorieSiInchangee(
+                        categorie, categorie.copy(nom = nom)
+                    ).getOrThrow()
                 }
                 chargerDonnees()
                 realtimeSyncService.declencherMiseAJourBudget()
