@@ -40,7 +40,8 @@ class EnveloppeRepositoryRoomImpl(
     private val syncJobDao: SyncJobDao,
     private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique =
         com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte,
-    private val transactionDao: com.xburnsx.toutiebudget.data.room.daos.TransactionDao? = null
+    private val transactionDao: com.xburnsx.toutiebudget.data.room.daos.TransactionDao? = null,
+    private val categorieDao: com.xburnsx.toutiebudget.data.room.daos.CategorieDao? = null
 ) : EnveloppeRepository {
     private val client = PocketBaseClient
     
@@ -268,6 +269,46 @@ class EnveloppeRepositoryRoomImpl(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun modifierOrganisationSiInchangee(
+        attendue: Enveloppe, nouvelle: Enveloppe
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            operationAtomique.executer {
+                val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                    ?: throw SecurityException("Session requise.")
+                require(attendue.id.isNotBlank() && nouvelle.id == attendue.id &&
+                    attendue.utilisateurId == utilisateur &&
+                    nouvelle.utilisateurId == utilisateur) {
+                    "Enveloppe hors session ou identité différente."
+                }
+                val existante = enveloppeDao.getEnveloppeById(attendue.id)
+                    ?.toEnveloppeModel()
+                    ?: throw NoSuchElementException("Enveloppe supprimée entretemps.")
+                require(existante == attendue) {
+                    "Conflit de synchronisation : enveloppe modifiée sur un autre appareil."
+                }
+                val destination = categorieDao
+                    ?: error("Vérification de catégorie indisponible.")
+                val cat = destination.getCategorieById(nouvelle.categorieId)
+                    ?: error("Catégorie de destination introuvable.")
+                require(cat.utilisateurId == utilisateur) {
+                    "Catégorie de destination hors session."
+                }
+                require(nouvelle.nom.isNotBlank()) { "Nom d'enveloppe requis." }
+                val doublon = enveloppeDao.getEnveloppesByUtilisateur(utilisateur).first()
+                    .any { autre ->
+                        autre.id != nouvelle.id && autre.categorieId == nouvelle.categorieId &&
+                            autre.nom.trim().equals(nouvelle.nom.trim(), ignoreCase = true)
+                    }
+                require(!doublon) { "Ce nom existe déjà dans la catégorie de destination." }
+                if (existante != nouvelle) {
+                    // La mise à jour et le SyncJob sont une seule transaction Room.
+                    mettreAJourEnveloppe(nouvelle).getOrThrow()
+                }
+            }
         }
     }
 
