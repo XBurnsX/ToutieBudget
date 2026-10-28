@@ -40,10 +40,22 @@ class SupprimerTransactionUseCase(
      *
      * @return Result indiquant le succès ou l'échec avec l'exception
      */
-    suspend fun executer(transactionId: String, garderEcriture: Boolean = false): Result<Unit> = runCatching { operationAtomique.executer {
-        // 1. Récupérer la transaction existante
+    suspend fun executer(
+        transactionId: String,
+        garderEcriture: Boolean = false,
+        transactionAttendue: Transaction? = null
+    ): Result<Unit> = runCatching { operationAtomique.executer {
+        // HC1/HC6 : relecture ET comparaison dans la même transaction Room
+        // que les écritures d'annulation. Une modification entre la fenêtre
+        // de confirmation et le commit ne peut plus supprimer une autre version.
+        // L'argument optionnel ne change pas les parcours de modification existants.
         val transaction = transactionRepository.recupererTransactionParId(transactionId)
             .getOrThrow()
+        if (transactionAttendue != null && transaction != transactionAttendue) {
+            throw IllegalStateException(
+                "Transaction modifiée depuis la confirmation : suppression annulée."
+            )
+        }
         require(transaction.montant.isFinite() && transaction.montant > 0.0) {
             "Transaction invalide : montant nul ou non fini."
         }
