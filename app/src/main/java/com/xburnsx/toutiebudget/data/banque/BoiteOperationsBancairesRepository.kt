@@ -33,6 +33,7 @@ class BoiteOperationsBancairesRepository(
             ?: error("Utilisateur connecté requis pour importer des opérations.")
 
     fun operationsAConfirmer() = dao.observerAConfirmer(userId())
+    fun toutesLesOperations() = dao.observerToutes(userId())
 
     suspend fun importer(ligne: LigneBanque): OperationBancaireEnAttente {
         val uid = userId()
