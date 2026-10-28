@@ -48,6 +48,20 @@ interface EnveloppeRepository {
      * @return Result indiquant le succès ou l'échec
      */
     suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit>
+
+    /** CE11/CE13/CA6 : réorganise avec vérification de conflit.
+     * Room surcharge pour l'atomicité des changements et des SyncJobs. */
+    suspend fun reorganiserEnveloppes(avant: List<Enveloppe>, apres: List<Enveloppe>): Result<Unit> =
+        runCatching {
+            val actuelles = recupererToutesLesEnveloppes().getOrThrow().associateBy { it.id }
+            require(avant.all { actuelles[it.id] == it }) {
+                "Les enveloppes ont changé sur un autre appareil. Recharge le classement."
+            }
+            require(avant.map { it.id }.toSet() == apres.map { it.id }.toSet())
+            apres.filter { actuelles[it.id]?.ordre != it.ordre }
+                .forEach { mettreAJourEnveloppe(it).getOrThrow() }
+        }
+
     
     /**
      * Supprime une enveloppe par son ID.
