@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Info
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueDetailDialog
 import com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+import com.xburnsx.toutiebudget.ui.historique.MetadonneesFractionsHistorique
 import com.xburnsx.toutiebudget.ui.historique.SensMontantHistorique
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,11 +69,15 @@ fun HistoriqueItem(
         if (transaction.estFractionnee) {
             runCatching {
                 val portions = PortionsHistorique.lire(transaction.sousItems)
-                val json = JsonParser.parseString(transaction.sousItems).asJsonArray
+                val infos = MetadonneesFractionsHistorique.lire(
+                    transaction.sousItems, portions.size
+                )
                 portions.mapIndexed { index, portion ->
-                    val description = json[index].asJsonObject.get("description")
-                        ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
-                    Triple(description, portion.montantCentimes / 100.0, portion.enveloppeId)
+                    Triple(
+                        infos[index].description,
+                        portion.montantCentimes / 100.0,
+                        portion.enveloppeId
+                    )
                 }
             }.getOrDefault(emptyList())
         } else emptyList()
@@ -93,13 +98,10 @@ fun HistoriqueItem(
 
     // AT10 : les notes de chaque fraction restent visibles dans l'historique,
     // même après un chargement Room/PocketBase ou une modification.
-    val notesFractions = remember(transaction.sousItems) {
-        if (!transaction.estFractionnee || transaction.sousItems.isNullOrBlank()) emptyList()
-        else runCatching {
-            JsonParser.parseString(transaction.sousItems).asJsonArray.map { element ->
-                element.asJsonObject.get("note")?.takeIf { !it.isJsonNull }?.asString.orEmpty()
-            }
-        }.getOrDefault(emptyList())
+    val notesFractions = remember(transaction.sousItems, transaction.estFractionnee, fractions.size) {
+        if (!transaction.estFractionnee || fractions.isEmpty()) emptyList()
+        else MetadonneesFractionsHistorique
+            .lire(transaction.sousItems, fractions.size).map { it.note }
     }
 
     // Récupérer les noms des enveloppes pour les fractions
@@ -112,11 +114,8 @@ fun HistoriqueItem(
         } else {
             // Fallback : utiliser la description ou l'enveloppeId
             fractions.map { (description, montant, enveloppeId) ->
-                val nomEnveloppe = if (description.contains("Fraction")) {
-                    "Enveloppe $enveloppeId"
-                } else {
-                    description
-                }
+                val nomEnveloppe = description.takeIf { it.isNotBlank() }
+                    ?: "Enveloppe historique (ID : $enveloppeId)"
                 Pair(nomEnveloppe, montant)
             }
         }
