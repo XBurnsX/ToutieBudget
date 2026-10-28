@@ -17,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.*
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -204,17 +207,22 @@ fun AppNavigation() {
                 val collectionCompte = backStackEntry.arguments?.getString("collectionCompte") ?: ""
                 val nomCompte = backStackEntry.arguments?.getString("nomCompte") ?: ""
 
-                // HC14/HC20 : une même destination conserve SON ViewModel pendant
-                // les recompositions et le retour de Modifier. Sinon chaque changement
-                // d'état recréait un ViewModel et relançait un chargement.
-                val viewModel = remember(backStackEntry.id) {
-                    val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
-                        set("compteId", compteId)
-                        set("collectionCompte", collectionCompte)
-                        set("nomCompte", nomCompte)
+                // La destination Navigation possède son vrai ViewModelStore.
+                // Le ViewModel survit à Modifier, puis est libéré au popBackStack.
+                val viewModel = composeViewModel<com.xburnsx.toutiebudget.ui.historique.HistoriqueCompteViewModel>(
+                    viewModelStoreOwner = backStackEntry,
+                    factory = remember(backStackEntry.id) {
+                        historiqueFactory {
+                            AppModule.provideHistoriqueCompteViewModel(
+                                androidx.lifecycle.SavedStateHandle().apply {
+                                    set("compteId", compteId)
+                                    set("collectionCompte", collectionCompte)
+                                    set("nomCompte", nomCompte)
+                                }
+                            )
+                        }
                     }
-                    AppModule.provideHistoriqueCompteViewModel(savedStateHandle)
-                }
+                )
 
                 // HC13/NV7 : une édition réussie actualise exactement l'historique
                 // d'où elle est partie, sans recommencer un chargement sur chaque recomposition.
@@ -249,14 +257,19 @@ fun AppNavigation() {
                 val enveloppeId = backStackEntry.arguments?.getString("enveloppeId") ?: ""
                 val nomEnveloppe = backStackEntry.arguments?.getString("nomEnveloppe") ?: ""
 
-                // Même entrée de navigation = même historique en mémoire.
-                val viewModel = remember(backStackEntry.id) {
-                    val savedStateHandle = androidx.lifecycle.SavedStateHandle().apply {
-                        set("enveloppeId", enveloppeId)
-                        set("nomEnveloppe", nomEnveloppe)
+                val viewModel = composeViewModel<com.xburnsx.toutiebudget.ui.historique.HistoriqueEnveloppeViewModel>(
+                    viewModelStoreOwner = backStackEntry,
+                    factory = remember(backStackEntry.id) {
+                        historiqueFactory {
+                            AppModule.provideHistoriqueEnveloppeViewModel(
+                                androidx.lifecycle.SavedStateHandle().apply {
+                                    set("enveloppeId", enveloppeId)
+                                    set("nomEnveloppe", nomEnveloppe)
+                                }
+                            )
+                        }
                     }
-                    AppModule.provideHistoriqueEnveloppeViewModel(savedStateHandle)
-                }
+                )
 
                 val retourEdition by backStackEntry.savedStateHandle
                     .getStateFlow("historique_retour_edition", 0L).collectAsState()
@@ -724,3 +737,16 @@ private fun PlaceholderScreen(name: String) {
 private fun androidx.navigation.NavController.retourDepuis(route: String) {
     if (currentBackStackEntry?.destination?.route == route) popBackStack()
 }
+
+/**
+ * Usine typée pour les historiques dans le ViewModelStore de l'entrée Navigation.
+ * Contrairement à remember { ViewModel() }, on obtient onCleared() au bon moment.
+ */
+private fun <T : ViewModel> historiqueFactory(construire: () -> T): ViewModelProvider.Factory =
+    object : ViewModelProvider.Factory {
+        override fun <VM : ViewModel> create(modelClass: Class<VM>): VM {
+            val instance = construire()
+            return modelClass.cast(instance)
+                ?: throw IllegalArgumentException("Type de ViewModel historique inattendu.")
+        }
+    }
