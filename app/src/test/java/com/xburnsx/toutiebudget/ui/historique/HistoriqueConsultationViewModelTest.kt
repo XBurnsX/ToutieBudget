@@ -229,4 +229,85 @@ class HistoriqueConsultationViewModelTest {
         vm.mettreAJourRecherche("DEPANNEUR")
         assertEquals(1, vm.uiState.value.transactionsGroupees.values.flatten().size)
     }
+    @Test fun selectionMoisEtAnneeSurVraiHistoriqueEnveloppe() = test {
+        b.enveloppe("essence")
+        fun date(jour: String) = Date.from(
+            java.time.LocalDate.parse(jour).atStartOfDay(
+                java.time.ZoneId.systemDefault()
+            ).toInstant()
+        )
+        for ((id, jour) in listOf(
+            "dec25" to "2025-12-31",
+            "jan26" to "2026-01-01",
+            "dec26" to "2026-12-31",
+            "jan27" to "2027-01-01"
+        )) {
+            b.transactions[id] = Transaction(
+                id = id, utilisateurId = "u",
+                type = TypeTransaction.Depense, montant = 5.0,
+                date = date(jour), compteId = "chq",
+                collectionCompte = "comptes_cheques",
+                tiersUtiliser = "Station",
+                estFractionnee = true,
+                sousItems = """[{"enveloppeId":"essence","montant":5.00}]"""
+            )
+        }
+        val vm = app.historiqueEnveloppe("essence")
+        attendre()
+        assertEquals(4, vm.uiState.value.transactionsGroupees.values.flatten().size)
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.ANNEE)
+        val vers2026 = 2026 - vm.uiState.value.periode.annee
+        vm.deplacerPeriode(vers2026)
+        assertEquals(
+            setOf("jan26", "dec26"),
+            vm.uiState.value.transactionsGroupees.values.flatten().map { it.id }.toSet()
+        )
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.MOIS)
+        vm.deplacerPeriode(1 - vm.uiState.value.periode.mois)
+        assertEquals(
+            listOf("jan26"),
+            vm.uiState.value.transactionsGroupees.values.flatten().map { it.id }
+        )
+        vm.rechargerTransactions()
+        attendre()
+        assertEquals(VuePeriodeHistorique.MOIS, vm.uiState.value.periode.vue)
+        assertEquals(
+            listOf("jan26"),
+            vm.uiState.value.transactionsGroupees.values.flatten().map { it.id }
+        )
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.TOUTES)
+        assertEquals(4, vm.uiState.value.transactionsGroupees.values.flatten().size)
+    }
+
+    @Test fun filtragePeriodeEtRechercheNeCreentPasDeTransactionsOuDeDoublons() = test {
+        b.enveloppe("auto")
+        val date = Date.from(
+            java.time.LocalDate.of(2026, 10, 15)
+                .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+        )
+        b.transactions["tx1"] = Transaction(
+            id = "tx1", utilisateurId = "u",
+            type = TypeTransaction.Depense, montant = 60.0, date = date,
+            compteId = "chq", collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Costco", estFractionnee = true,
+            sousItems = """[{"enveloppeId":"auto","montant":20.00}]"""
+        )
+        val vm = app.historiqueEnveloppe("auto")
+        attendre()
+        val avant = b.transactions.keys.toSet()
+        vm.selectionnerVuePeriode(VuePeriodeHistorique.ANNEE)
+        vm.deplacerPeriode(2026 - vm.uiState.value.periode.annee)
+        vm.mettreAJourRecherche("COSTCO")
+        assertEquals(1, vm.uiState.value.transactionsGroupees.values.flatten().size)
+        assertEquals(
+            2000L, ResumeHistoriqueEnveloppe.calculer(
+                vm.uiState.value.transactionsGroupees.values.flatten()
+            ).depensesCentimes
+        )
+        vm.mettreAJourRecherche("introuvable")
+        assertTrue(vm.uiState.value.transactionsGroupees.isEmpty())
+        assertEquals(avant, b.transactions.keys.toSet())
+        assertEquals(60.0, b.transactions.getValue("tx1").montant, 0.000001)
+    }
+
 }
