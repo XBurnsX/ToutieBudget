@@ -4,7 +4,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
+
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -30,9 +30,9 @@ fun ConfirmationSuppressionTransaction(
         ?: "Non renseigné"
     val montantTotal = transaction.montantTotalTransaction ?: transaction.montant
     val montant = if (transaction.montantTotalTransaction != null) {
-        "Achat complet : " + MoneyFormatter.formatAmount(montantTotal) +
-            "\nPortion visible ici : " + MoneyFormatter.formatAmount(transaction.montant)
-    } else "Montant : " + MoneyFormatter.formatAmount(montantTotal)
+        "Achat complet : " + AffichageMontantHistorique.formater(montantTotal) +
+            "\nPortion visible ici : " + AffichageMontantHistorique.formater(transaction.montant)
+    } else "Montant : " + AffichageMontantHistorique.formater(montantTotal)
     val operationLiee = transaction.type.name.startsWith("Transfert") ||
         transaction.type.name.startsWith("Paiement")
     val impact = when {
