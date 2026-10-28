@@ -217,6 +217,9 @@ class TransactionRepositoryRoomImpl(
         }
     }
 
+    override fun identifiantSessionHistorique(): String? =
+        client.obtenirUtilisateurConnecte()?.id
+
     // HC5 : lit seulement une transaction appartenant au profil actuellement
     // connecté. Cette API est utilisée par les écrans d'historique.
     override suspend fun recupererTransactionDeLaSession(transactionId: String): Result<Transaction> =
