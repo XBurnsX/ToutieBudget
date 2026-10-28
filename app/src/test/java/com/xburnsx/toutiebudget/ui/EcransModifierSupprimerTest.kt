@@ -849,4 +849,54 @@ class EcransModifierSupprimerTest {
         assertTrue(vm.uiState.value.isAjoutEnveloppeDialogVisible)
     }
 
+    @Test
+    fun `restaurer enveloppe archivee sans categorie origine en conserve ID et allocations`() = test {
+        b.categorie("c2", "Transport")
+        val ancienne = b.enveloppe("assurance", "Assurance", categorieId = "supprimee")
+            .copy(estArchive = true)
+        b.enveloppes[ancienne.id] = ancienne
+        val historique = b.allocation("assurance", Date(), solde = 0.0, alloue = 42.0)
+        val vm = categories()
+        vm.restaurerEnveloppe("assurance", "c2")
+        attendre()
+        val restauree = b.enveloppes.getValue("assurance")
+        assertFalse(restauree.estArchive)
+        assertEquals("c2", restauree.categorieId)
+        assertEquals("assurance", restauree.id)
+        assertEquals(historique, b.allocations.getValue(historique.id))
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c2").any { it.id == "assurance" })
+    }
+
+    @Test
+    fun `restauration orpheline sans choix de categorie refusee sans mutation`() = test {
+        b.categorie("c2", "Transport")
+        val ancienne = b.enveloppe("assurance", "Assurance", categorieId = "supprimee")
+            .copy(estArchive = true)
+        b.enveloppes[ancienne.id] = ancienne
+        val vm = categories()
+        vm.restaurerEnveloppe("assurance")
+        attendre()
+        assertTrue(b.enveloppes.getValue("assurance").estArchive)
+        assertEquals("supprimee", b.enveloppes.getValue("assurance").categorieId)
+        assertNotNull(vm.uiState.value.erreur)
+    }
+
+    @Test
+    fun `version enveloppe et categorie modifiee rejette nouvelle edition`() = test {
+        val ancienneCat = b.categorie("c1", "Maison")
+        val ancienneEnv = b.enveloppe("loyer", "Loyer", categorieId = "c1")
+        b.categories["c1"] = ancienneCat.copy(nom = "Habitation")
+        b.enveloppes["loyer"] = ancienneEnv.copy(nom = "Location")
+        val categorieResultat = b.depotCategories.modifierCategorieSiInchangee(
+            ancienneCat, ancienneCat.copy(nom = "Dépenses")
+        )
+        val enveloppeResultat = b.depotEnveloppes.modifierOrganisationSiInchangee(
+            ancienneEnv, ancienneEnv.copy(nom = "Loyer principal")
+        )
+        assertTrue(categorieResultat.isFailure)
+        assertTrue(enveloppeResultat.isFailure)
+        assertEquals("Habitation", b.categories.getValue("c1").nom)
+        assertEquals("Location", b.enveloppes.getValue("loyer").nom)
+    }
+
 }
