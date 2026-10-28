@@ -69,6 +69,13 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                             color = MaterialTheme.colorScheme.error
                         )
                     } else {
+                        val totalBancaire = transaction.montantTotalTransaction ?: transaction.montant
+                        if (!PortionsHistorique.verifierTotal(fractions, totalBancaire)) {
+                            Text(
+                                "Attention : les fractions ne totalisent pas le montant bancaire de l'achat.",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                         val objets = runCatching {
                             JsonParser.parseString(transaction.sousItems).asJsonArray
                         }.getOrNull()
