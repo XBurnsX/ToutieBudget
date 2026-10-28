@@ -45,4 +45,21 @@ class RechercheHistoriqueTest {
         assertEquals(12.50, achat.montant, 0.00000001)
         assertEquals("Épicerie du Marché", achat.tiersUtiliser)
     }
+    @Test fun aliasIrvingEtIrvAvecNumeroDeStationSontEquivalents() {
+        val irv = achat.copy(tiersUtiliser = "IRV-0421", montant = 51.30)
+        val irving = achat.copy(tiersUtiliser = "Irving #0421", montant = 51.30)
+        assertTrue(RechercheHistorique.correspond(irv, "Irving 0421"))
+        assertTrue(RechercheHistorique.correspond(irving, "IRV 0421"))
+        assertTrue(RechercheHistorique.correspond(irv, "irving"))
+        assertFalse(RechercheHistorique.correspond(irv, "IRV 9999"))
+    }
+
+    @Test fun milliersFrancaisAvecEspacesInsecablesSontDesMontantsExacts() {
+        val achatImportant = achat.copy(montant = 1234.56)
+        assertTrue(RechercheHistorique.correspond(achatImportant, "1 234,56 $"))
+        assertTrue(RechercheHistorique.correspond(achatImportant, "1\u00A0234,56 $"))
+        assertTrue(RechercheHistorique.correspond(achatImportant, "1\u202F234,56 $"))
+        assertFalse(RechercheHistorique.correspond(achatImportant, "1\u202F234,57 $"))
+    }
+
 }
