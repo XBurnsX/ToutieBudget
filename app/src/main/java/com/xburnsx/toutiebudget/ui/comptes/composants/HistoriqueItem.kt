@@ -78,6 +78,18 @@ fun HistoriqueItem(
         } else emptyList()
     }
     val fractionsIllisibles = transaction.estFractionnee && fractions.isEmpty()
+    val fractionsNonReconciliables = remember(
+        transaction.estFractionnee, transaction.sousItems,
+        transaction.montant, transaction.montantTotalTransaction
+    ) {
+        transaction.estFractionnee && !fractionsIllisibles &&
+            runCatching {
+                !PortionsHistorique.verifierTotal(
+                    PortionsHistorique.lire(transaction.sousItems),
+                    transaction.montantTotalTransaction ?: transaction.montant
+                )
+            }.getOrDefault(false)
+    }
 
     // AT10 : les notes de chaque fraction restent visibles dans l'historique,
     // même après un chargement Room/PocketBase ou une modification.
@@ -221,6 +233,13 @@ fun HistoriqueItem(
                 if (fractionsIllisibles) {
                     Text(
                         "Répartition indisponible — données invalides",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
+                if (fractionsNonReconciliables) {
+                    Text(
+                        "Attention : les fractions ne correspondent pas au total de l'achat.",
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp
                     )
