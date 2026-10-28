@@ -201,6 +201,20 @@ class TransactionRepositoryRoomImpl(
         }
     }
 
+    override suspend fun recupererCandidatsHistoriqueEnveloppe(
+        enveloppeId: String, limit: Int, offset: Int
+    ): Result<List<Transaction>> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(enveloppeId.isNotBlank()) { "Enveloppe requise." }
+            require(limit in 1..500 && offset >= 0) { "Pagination invalide." }
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: throw SecurityException("Connexion requise pour l'historique.")
+            transactionDao.getCandidatsHistoriqueEnveloppe(
+                utilisateurId, enveloppeId, limit, offset
+            ).map { it.toTransactionModel() }
+        }
+    }
+
     override suspend fun recupererTransactionsParAllocation(allocationId: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         try {
             // Récupérer depuis Room (PRIMARY)
