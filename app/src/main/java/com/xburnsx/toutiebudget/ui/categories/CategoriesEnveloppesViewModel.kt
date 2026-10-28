@@ -57,6 +57,7 @@ class CategoriesEnveloppesViewModel(
      */
     fun chargerDonnees() {
         val generation = ++generationChargement
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             try {
                 // Charger les données en parallèle
