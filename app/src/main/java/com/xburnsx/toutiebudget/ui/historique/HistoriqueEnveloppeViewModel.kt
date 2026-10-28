@@ -105,6 +105,16 @@ class HistoriqueEnveloppeViewModel(
     private fun supprimerSiNonModifiee(transactionId: String, affichee: TransactionUi?) {
         viewModelScope.lancerUneFois(verrouSuppression) {
             try {
+                // HE5 : ne supprimer qu'un mouvement actuellement attribué à
+                // l'enveloppe ouverte ET toujours visible dans la session courante.
+                require(_uiState.value.transactions.any { it.id == transactionId }) {
+                    "Cette transaction ne figure plus dans cette enveloppe."
+                }
+                val visiblesUtilisateur = transactionRepository
+                    .recupererToutesLesTransactions().getOrThrow()
+                require(visiblesUtilisateur.any { it.id == transactionId }) {
+                    "Cette transaction n'appartient pas à la session courante."
+                }
                 if (affichee != null) {
                     val actuelle = transactionRepository.recupererTransactionParId(transactionId)
                         .getOrThrow()
