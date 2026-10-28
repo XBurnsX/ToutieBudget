@@ -59,6 +59,7 @@ class CategorieRepositoryRoomImpl(
 
     override suspend fun creerCategorie(categorie: Categorie): Result<Categorie> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Convertir le modèle en entité Room
             val categorieEntity = CategorieEntity(
                 id = categorie.id.ifBlank { IdGenerator.generateId() },
@@ -90,6 +91,7 @@ class CategorieRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(categorie.copy(id = categorieEntity.id))
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -97,6 +99,7 @@ class CategorieRepositoryRoomImpl(
 
     override suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Convertir le modèle en entité Room
             val categorieEntity = CategorieEntity(
                 id = categorie.id,
@@ -114,6 +117,7 @@ class CategorieRepositoryRoomImpl(
                 type = "CATEGORIE",
                 action = "UPDATE",
                 dataJson = gson.toJson(categorieEntity),
+                recordId = categorieEntity.id,
                 createdAt = System.currentTimeMillis(),
                 status = "PENDING"
             )
@@ -125,6 +129,7 @@ class CategorieRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(categorie)
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -153,6 +158,7 @@ class CategorieRepositoryRoomImpl(
 
     override suspend fun supprimerCategorie(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            operationAtomique.executer {
             // 1. Supprimer de Room (PRIMARY)
             categorieDao.deleteCategorieById(id)
             
@@ -173,6 +179,7 @@ class CategorieRepositoryRoomImpl(
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
