@@ -403,8 +403,8 @@ class CategoriesEnveloppesViewModel(
                     it.id != env.id && it.categorieId == env.categorieId &&
                         it.nom.trim().equals(nom, ignoreCase = true)
                 }) { "Une enveloppe porte déjà ce nom dans cette catégorie." }
-                if (env.nom != nom) enveloppeRepository.mettreAJourEnveloppe(
-                    env.copy(nom = nom)
+                if (env.nom != nom) enveloppeRepository.modifierOrganisationSiInchangee(
+                    env, env.copy(nom = nom)
                 ).getOrThrow()
                 chargerDonnees()
                 realtimeSyncService.declencherMiseAJourBudget()
@@ -431,8 +431,8 @@ class CategoriesEnveloppesViewModel(
                 }) { "Une enveloppe porte déjà ce nom dans la catégorie de destination." }
                 val ordre = (toutes.filter { it.categorieId == destinationCategorieId }
                     .maxOfOrNull { it.ordre } ?: -1) + 1
-                enveloppeRepository.mettreAJourEnveloppe(
-                    env.copy(categorieId = destinationCategorieId, ordre = ordre)
+                enveloppeRepository.modifierOrganisationSiInchangee(
+                    env, env.copy(categorieId = destinationCategorieId, ordre = ordre)
                 ).getOrThrow()
                 chargerDonnees()
                 realtimeSyncService.declencherMiseAJourBudget()
