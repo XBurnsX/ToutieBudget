@@ -12,6 +12,7 @@ import com.xburnsx.toutiebudget.data.services.InitialImportService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
  import com.xburnsx.toutiebudget.data.banque.AliasBancaireRepository
+ import com.xburnsx.toutiebudget.data.banque.BoiteOperationsBancairesRepository
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
@@ -129,6 +130,13 @@ import android.content.Context
              database.tiersDao(), database.syncJobDao())
      }
      fun provideAliasBancaireRepository(): AliasBancaireRepository = aliasBancaireRepository
+
+     // BANQ-03 : import bancaire en attente, strictement sans effet sur les soldes.
+     private val boiteOperationsBancairesRepository: BoiteOperationsBancairesRepository by lazy {
+         BoiteOperationsBancairesRepository(database, database.operationBancaireEnAttenteDao())
+     }
+     fun provideBoiteOperationsBancairesRepository(): BoiteOperationsBancairesRepository =
+         boiteOperationsBancairesRepository
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
