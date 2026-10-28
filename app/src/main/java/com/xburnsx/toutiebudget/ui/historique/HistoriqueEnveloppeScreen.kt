@@ -2,6 +2,8 @@ package com.xburnsx.toutiebudget.ui.historique
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +17,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,6 +53,9 @@ import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -135,6 +143,56 @@ fun HistoriqueEnveloppeScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+            // EA1 : toutes les périodes, une année ou un mois. La sélection est
+            // conservée par le ViewModel au retour de Modifier une transaction.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    VuePeriodeHistorique.TOUTES to "Tout",
+                    VuePeriodeHistorique.MOIS to "Mois",
+                    VuePeriodeHistorique.ANNEE to "Année"
+                ).forEach { (vue, libelle) ->
+                    FilterChip(
+                        selected = uiState.periode.vue == vue,
+                        onClick = {
+                            viewModel.selectionnerVuePeriode(vue)
+                            scope.launch { listState.scrollToItem(0) }
+                        },
+                        label = { Text(libelle) }
+                    )
+                }
+            }
+            if (uiState.periode.vue != VuePeriodeHistorique.TOUTES) {
+                val periode = uiState.periode
+                val nomPeriode = if (periode.vue == VuePeriodeHistorique.MOIS) {
+                    YearMonth.of(periode.annee, periode.mois).format(
+                        DateTimeFormatter.ofPattern("LLLL yyyy", Locale.CANADA_FRENCH)
+                    )
+                } else periode.annee.toString()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = {
+                        viewModel.deplacerPeriode(-1)
+                        scope.launch { listState.scrollToItem(0) }
+                    }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Période précédente")
+                    }
+                    Text(nomPeriode, style = MaterialTheme.typography.titleSmall)
+                    IconButton(onClick = {
+                        viewModel.deplacerPeriode(1)
+                        scope.launch { listState.scrollToItem(0) }
+                    }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Période suivante")
+                    }
+                }
+            }
+
             // Les allocations manquantes sont signalées sans les interpréter comme 0 $.
             uiState.avertissement?.let { texte ->
                 Text(
