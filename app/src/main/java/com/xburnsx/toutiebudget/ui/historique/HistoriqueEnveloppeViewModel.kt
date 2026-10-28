@@ -251,6 +251,7 @@ class HistoriqueEnveloppeViewModel(
                 // Filtrer les transactions pour cette enveloppe spécifique
                 // Un JSON de fractions illisible doit être signalé, pas devenir
                 // silencieusement une transaction "absente".
+                val montantsInvalides = transactions.count { !it.montant.isFinite() }
                 var fractionsIllisibles = 0
                 var fractionsNonReconciliables = 0
                 val portionsValides = mutableMapOf<String, List<PortionsHistorique.Portion>>()
@@ -362,6 +363,8 @@ class HistoriqueEnveloppeViewModel(
                                 add("Lecture des allocations impossible.")
                             if (allocationsIndisponibles > 0)
                                 add("$allocationsIndisponibles allocation(s) historique(s) introuvable(s).")
+                            if (montantsInvalides > 0)
+                                add("$montantsInvalides transaction(s) avec un montant total invalide.")
                             if (fractionsIllisibles > 0)
                                 add("$fractionsIllisibles transaction(s) fractionnée(s) illisible(s).")
                             if (fractionsNonReconciliables > 0)
