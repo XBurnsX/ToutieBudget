@@ -719,9 +719,15 @@ class CategoriesEnveloppesViewModel(
                 if (sources != null) {
                     val allocationsIds = allocations.map { it.id }.toSet()
                     val paiementLie = sources.any { tx ->
-                        tx.allocationMensuelleId in allocationsIds &&
-                            (tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement ||
-                                tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue)
+                        val technique = tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement ||
+                            tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue
+                        technique && (
+                            tx.allocationMensuelleId in allocationsIds ||
+                                (tx.estFractionnee && runCatching {
+                                    com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+                                        .lire(tx.sousItems).any { it.enveloppeId == enveloppe.id }
+                                }.getOrDefault(false))
+                            )
                     }
                     require(!paiementLie) {
                         "Cette enveloppe est liée à un paiement de carte ou de dette. Archivage bloqué."
