@@ -627,7 +627,7 @@ class EcransModifierSupprimerTest {
         assertNotNull(vm.uiState.value.erreur)
         assertFalse(b.enveloppes.getValue("loyer").estArchive)
         assertEquals(55.0, soldeEnveloppe("loyer"))
-        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("Maison").any { it.id == "loyer" })
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c1").any { it.id == "loyer" })
     }
 
     @Test
