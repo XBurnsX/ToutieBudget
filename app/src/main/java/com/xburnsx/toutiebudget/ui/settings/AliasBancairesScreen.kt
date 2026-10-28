@@ -63,6 +63,10 @@ fun AliasBancairesScreen(onBack: () -> Unit) {
     var regleId by remember { mutableStateOf("") }
     var regleActive by remember { mutableStateOf(true) }
     var suppressionConfirmee by remember { mutableStateOf<RegleAliasBancaire?>(null) }
+    var libelleTest by remember { mutableStateOf("") }
+    var compteTestId by remember { mutableStateOf("") }
+    var compteTestOuvert by remember { mutableStateOf(false) }
+    var resultatTest by remember { mutableStateOf<String?>(null) }
 
     suspend fun charger() {
         isLoading = true
@@ -222,6 +226,49 @@ fun AliasBancairesScreen(onBack: () -> Unit) {
             if (regleId.isNotBlank()) {
                 TextButton(onClick = { effacerFormulaire() }) { Text("Annuler la modification") }
             }
+            Spacer(Modifier.height(10.dp))
+            Text("Tester la reconnaissance (sans créer de transaction)")
+            OutlinedTextField(
+                value = libelleTest,
+                onValueChange = { libelleTest = it; resultatTest = null },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Libellé tel que fourni par la banque") },
+                singleLine = true
+            )
+            OutlinedButton(onClick = { compteTestOuvert = true }) {
+                Text(comptes.firstOrNull { it.id == compteTestId }?.nom ?: "Sélectionner le compte à tester")
+            }
+            DropdownMenu(
+                expanded = compteTestOuvert,
+                onDismissRequest = { compteTestOuvert = false }
+            ) {
+                comptes.forEach { compte ->
+                    DropdownMenuItem(
+                        text = { Text(compte.nom) },
+                        onClick = {
+                            compteTestId = compte.id
+                            compteTestOuvert = false
+                            resultatTest = null
+                        }
+                    )
+                }
+            }
+            Button(
+                enabled = libelleTest.isNotBlank() && compteTestId.isNotBlank() && !isLoading,
+                onClick = {
+                    scope.launch {
+                        try {
+                            val trouve = repository.reconnaitre(compteTestId, libelleTest)
+                            resultatTest = if (trouve == null)
+                                "Aucune correspondance certaine : sélection manuelle requise."
+                            else "Tiers reconnu : ${trouve.nom} (ID : ${trouve.id})"
+                        } catch (e: Exception) {
+                            resultatTest = e.message ?: "Reconnaissance impossible."
+                        }
+                    }
+                }
+            ) { Text("Vérifier le tiers proposé") }
+            resultatTest?.let { Text(it) }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Règles enregistrées")
