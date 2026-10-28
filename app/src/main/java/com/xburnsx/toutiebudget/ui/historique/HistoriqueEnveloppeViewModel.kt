@@ -116,7 +116,7 @@ class HistoriqueEnveloppeViewModel(
                     "Cette transaction n'appartient pas à la session courante."
                 }
                 if (affichee != null) {
-                    val actuelle = transactionRepository.recupererTransactionParId(transactionId)
+                    val actuelle = transactionRepository.recupererTransactionDeLaSession(transactionId)
                         .getOrThrow()
                     if (!VerificationSuppressionHistorique.estEncoreLaMeme(affichee, actuelle)) {
                         _uiState.update { it.copy(
