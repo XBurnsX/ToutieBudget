@@ -10,15 +10,23 @@ import kotlin.math.roundToLong
  * aux données comptables. Cherche dans les champs réellement affichés.
  */
 object RechercheHistorique {
+    /**
+     * HC17 : la ponctuation d'un nom de commerce ne doit pas casser sa
+     * recherche (IRV-0421, IRV 0421, Irving #0421).
+     * L'alias IRV → IRVING est explicite et ne touche pas aux montants.
+     */
     fun normaliser(texte: String): String =
         Normalizer.normalize(texte, Normalizer.Form.NFD)
             .replace(Regex("\\p{M}+"), "")
             .lowercase(Locale.ROOT).trim()
-            .replace(Regex("\\s+"), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+            .trim()
+            .replace(Regex("\\birv\\b"), "irving")
 
     private fun montantRechercheCentimes(requete: String): Long? {
-        val nettoye = requete.trim().replace("\u00A0", "")
-            .replace(" ", "").replace("$", "").replace(",", ".")
+        // Espaces habituels, insécables et insécables étroits des devises FR-CA.
+        val nettoye = requete.trim().replace(Regex("[\\s\\p{Z}]+"), "")
+            .replace("$", "").replace(",", ".")
         if (!nettoye.matches(Regex("[+-]?\\d+(\\.\\d{1,2})?"))) return null
         return runCatching {
             BigDecimal(nettoye).movePointRight(2).longValueExact()
