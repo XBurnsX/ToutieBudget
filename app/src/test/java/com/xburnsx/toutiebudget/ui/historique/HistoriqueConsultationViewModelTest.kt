@@ -531,4 +531,31 @@ class HistoriqueConsultationViewModelTest {
         assertTrue(achat.nomsEnveloppesFractions[1].contains("ancienne-supprimee"))
     }
 
+    @Test fun historiqueEnveloppeLiresPlusDeDeuxPagesEtRespecteLeFiltreCompte() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.cheque("second", 1000.0, 0.0)
+        b.enveloppe("essence")
+        repeat(1003) { n ->
+            b.transactions["achat-$n"] = Transaction(
+                id = "achat-$n", utilisateurId = "u",
+                type = TypeTransaction.Depense, montant = 1.00,
+                date = Date(1_790_000_000_000L + n * 1000L),
+                compteId = if (n % 2 == 0) "chq" else "second",
+                collectionCompte = "comptes_cheques",
+                tiersUtiliser = "Station",
+                estFractionnee = true,
+                sousItems = """[{"enveloppeId":"essence","montant":1.00}]"""
+            )
+        }
+        val vm = app.historiqueEnveloppe("essence")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(1003, vm.uiState.value.transactions.size)
+        assertEquals(1003, vm.uiState.value.transactionsGroupees.values.sumOf { it.size })
+        vm.selectionnerCompteSource(CompteSourceHistorique("chq", "comptes_cheques"))
+        assertEquals(502, vm.uiState.value.transactionsGroupees.values.sumOf { it.size })
+        vm.selectionnerCompteSource(null)
+        assertEquals(1003, vm.uiState.value.transactionsGroupees.values.sumOf { it.size })
+    }
+
 }
