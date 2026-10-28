@@ -26,6 +26,7 @@ object PocketBaseMapper {
         "transactions",
         "tiers",
         "alias_bancaires",
+        "operations_bancaires_attente",
         "pret_personnel"
     )
 
@@ -41,6 +42,7 @@ object PocketBaseMapper {
         "transactions" -> versTransaction(item)
         "tiers" -> versTiers(item)
         "alias_bancaires" -> versAliasBancaire(item)
+        "operations_bancaires_attente" -> versOperationBancaire(item)
         "pret_personnel" -> versPretPersonnel(item)
         else -> null
     }
@@ -54,6 +56,34 @@ object PocketBaseMapper {
         return com.xburnsx.toutiebudget.data.room.entities.AliasBancaire(
             id = item.id, utilisateurId = userId, compteId = item.compte_id?.takeIf { it.isNotBlank() },
             libelleBrut = libelle, tiersId = tiersId, active = item.active ?: true
+        )
+    }
+
+    fun versOperationBancaire(item: ItemPocketBase):
+        com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente? {
+        val utilisateurId = item.utilisateur_id?.takeIf { it.isNotBlank() } ?: return null
+        val compteId = item.compte_id?.takeIf { it.isNotBlank() } ?: return null
+        val collection = item.collection_compte
+            ?.takeIf { it in setOf("comptes_cheques", "comptes_credits") } ?: return null
+        val source = item.source?.takeIf { it in setOf("CSV", "PLAID", "NOTIFICATION") } ?: return null
+        val externe = item.id_externe?.takeIf { it.isNotBlank() } ?: return null
+        val date = item.date_operation ?: return null
+        if (runCatching { java.time.LocalDate.parse(date) }.isFailure) return null
+        val cents = item.montant_centimes?.toLongOrNull()?.takeIf { it != 0L } ?: return null
+        val libelle = item.libelle_brut?.takeIf { it.isNotBlank() } ?: return null
+        val statut = item.statut_bancaire?.takeIf { it in setOf("EN_ATTENTE", "FINALISEE") }
+            ?: return null
+        val decision = item.decision?.takeIf { it in setOf("A_CONFIRMER", "IGNOREE") }
+            ?: return null
+        if (item.id.isBlank()) return null
+        return com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente(
+            id = item.id, utilisateurId = utilisateurId, compteId = compteId,
+            collectionCompte = collection, source = source, idExterne = externe,
+            dateOperation = date, montantCentimes = cents, libelleBrut = libelle,
+            statutBancaire = statut, decision = decision,
+            tiersId = item.tiers_id?.takeIf { it.isNotBlank() },
+            verificationRequise = item.verification_requise ?: false,
+            montantFinalCentimes = item.montant_final_centimes?.toLongOrNull()
         )
     }
 
