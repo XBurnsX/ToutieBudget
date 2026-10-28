@@ -7,10 +7,12 @@ package com.xburnsx.toutiebudget.ui.historique
 data class HistoriqueCompteUiState(
     val isLoading: Boolean = true,
     val erreur: String? = null,
+    val avertissement: String? = null,
     val nomCompte: String = "",
     val transactions: List<TransactionUi> = emptyList(),
     val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
     val scrollPosition: Int = 0,
+    val scrollOffset: Int = 0,
     val searchQuery: String = ""
 )
 
