@@ -135,6 +135,15 @@ fun HistoriqueEnveloppeScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+            // Les allocations manquantes sont signalées sans les interpréter comme 0 $.
+            uiState.avertissement?.let { texte ->
+                Text(
+                    text = texte,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // HC10/HC12 : une erreur n'efface pas les transactions précédentes.
             uiState.erreur?.let { erreur ->
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
