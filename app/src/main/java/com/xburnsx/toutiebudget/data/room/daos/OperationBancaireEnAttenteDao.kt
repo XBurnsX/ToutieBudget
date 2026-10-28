@@ -43,6 +43,9 @@ interface OperationBancaireEnAttenteDao {
         verificationRequise: Boolean, montantFinalCentimes: Long?
     )
 
+    @Query("UPDATE operations_bancaires_attente SET tiers_id = :tiersId WHERE id = :id AND utilisateur_id = :utilisateurId AND decision = 'A_CONFIRMER'")
+    suspend fun selectionnerTiers(id: String, utilisateurId: String, tiersId: String): Int
+
     @Query("UPDATE operations_bancaires_attente SET decision = :decision WHERE id = :id AND utilisateur_id = :utilisateurId AND decision IN ('A_CONFIRMER', 'IGNOREE')")
     suspend fun changerDecision(id: String, utilisateurId: String, decision: String): Int
 }
