@@ -43,9 +43,10 @@ interface TransactionDao {
     /**
      * HE14 : candidats d'une enveloppe en pages stables.
      * Transactions non fractionnées : allocation réellement rattachée à
-     * l'enveloppe dans Room. Transactions fractionnées : candidat seulement;
-     * le ViewModel valide ensuite le JSON de chaque portion. Ne jamais filtrer
-     * les fractions par LIKE sur l'ID (risque de faux négatif historique).
+     * l'enveloppe dans Room. Transactions fractionnées : candidat détecté
+     * par INSTR sur l'ID PocketBase (ASCII) sans joker LIKE; le ViewModel
+     * valide ensuite le JSON complet (formats camelCase et snake_case).
+     * INSTR n'est JAMAIS une preuve de rattachement à lui seul.
      */
     @Query("""
         SELECT t.* FROM transactions AS t
@@ -56,7 +57,7 @@ interface TransactionDao {
                  WHERE a.utilisateur_id = :utilisateurId
                    AND a.enveloppeId = :enveloppeId
              ))
-             OR t.est_fractionnee = 1
+             OR (t.est_fractionnee = 1 AND INSTR(t.sous_items, :enveloppeId) > 0)
           )
         ORDER BY t.date DESC, t.id DESC
         LIMIT :limit OFFSET :offset
