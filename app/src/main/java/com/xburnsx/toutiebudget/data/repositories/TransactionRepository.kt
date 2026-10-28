@@ -64,6 +64,19 @@ interface TransactionRepository {
      * @return Result contenant la transaction, ou une erreur
      */
     suspend fun recupererTransactionParId(transactionId: String): Result<Transaction>
+
+    /**
+     * HC5 : consultation de l'historique limitée à la session connectée.
+     * La variante Room utilise utilisateur_id dans le SQL. Implémentation
+     * par défaut compatible avec les dépôts de test et non-Room.
+     * N'affecte pas les autres opérations existantes par ID.
+     */
+    suspend fun recupererTransactionDeLaSession(transactionId: String): Result<Transaction> =
+        runCatching {
+            recupererToutesLesTransactions().getOrThrow()
+                .firstOrNull { it.id == transactionId }
+                ?: throw NoSuchElementException("Transaction absente de la session courante.")
+        }
     
     /**
      * Met à jour une transaction existante.
