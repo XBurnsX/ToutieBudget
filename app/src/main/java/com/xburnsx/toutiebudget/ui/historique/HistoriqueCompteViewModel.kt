@@ -14,6 +14,8 @@ import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 // import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +43,8 @@ class HistoriqueCompteViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouSuppression = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    // HC20 : annule le chargement précédent avant d'en démarrer un nouveau.
+    private var chargementJob: Job? = null
 
     private val _uiState = MutableStateFlow(HistoriqueCompteUiState())
     val uiState: StateFlow<HistoriqueCompteUiState> = _uiState.asStateFlow()
@@ -206,8 +210,9 @@ class HistoriqueCompteViewModel(
      * Charge les transactions pour un compte spécifique.
      */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(isLoading = true, erreur = null) }
+        chargementJob?.cancel()
+        chargementJob = viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isLoading = true) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
                 val deferredTransactions = async { 
@@ -320,9 +325,12 @@ class HistoriqueCompteViewModel(
                 if (_uiState.value.searchQuery.isNotEmpty()) {
                     filtrerTransactions()
                 }
+            } catch (annulation: CancellationException) {
+                throw annulation // ancien chargement annulé, le nouveau conserve la main
             } catch (e: Exception) {
-                e.printStackTrace()
-                _uiState.update { it.copy(isLoading = false, erreur = e.message) }
+                _uiState.update {
+                    it.copy(isLoading = false, erreur = "Chargement impossible : ${e.message ?: e.javaClass.simpleName}")
+                }
             }
         }
     }
