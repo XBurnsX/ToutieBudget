@@ -50,7 +50,7 @@ class ObjectifResetService(
             enveloppes.forEach { enveloppe ->
                 if (doitEtreResetBihebdomadaire(enveloppe)) {
                     val enveloppeResetee = resetterObjectifBihebdomadaire(enveloppe)
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee).getOrThrow()
                     enveloppesResetees.add(enveloppeResetee)
                 }
             }
@@ -72,7 +72,7 @@ class ObjectifResetService(
             enveloppes.forEach { enveloppe ->
                 if (doitEtreResetAnnuel(enveloppe)) {
                     val enveloppeResetee = resetterObjectifAnnuel(enveloppe)
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee).getOrThrow()
                     enveloppesResetees.add(enveloppeResetee)
                 }
             }
@@ -94,7 +94,7 @@ class ObjectifResetService(
             enveloppes.forEach { enveloppe ->
                 if (doitEtreResetEcheance(enveloppe)) {
                     val enveloppeResetee = resetterObjectifEcheance(enveloppe)
-                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee)
+                    enveloppeRepository.mettreAJourEnveloppe(enveloppeResetee).getOrThrow()
                     enveloppesResetees.add(enveloppeResetee)
                 }
             }
@@ -283,22 +283,24 @@ class ObjectifResetService(
         val dateDebutObjectif = enveloppe.dateDebutObjectif ?: return enveloppe
         val dateObjectif = enveloppe.dateObjectif ?: return enveloppe
 
-        // 🆕 CALCULER LA PÉRIODE EXACTE entre début et fin
-        val periodeEnMillis = dateObjectif.time - dateDebutObjectif.time
-        val periodeEnJours = periodeEnMillis / (1000L * 60 * 60 * 24)
+        // CE18 : les millisecondes ne sont pas des jours calendaires
+        // (passage à l'heure d'été/hiver). Recalculer en dates locales,
+        // sans raccourcir une échéance d'un jour à cause du DST.
+        val zone = java.time.ZoneId.systemDefault()
+        val debutCalendaire = dateDebutObjectif.toInstant().atZone(zone).toLocalDate()
+        val finCalendaire = dateObjectif.toInstant().atZone(zone).toLocalDate()
+        val periodeEnJours = java.time.temporal.ChronoUnit.DAYS.between(
+            debutCalendaire, finCalendaire
+        )
+        if (periodeEnJours <= 0L) return enveloppe
 
-        // La nouvelle date de début = ancienne date d'objectif (la date de fin qui vient de passer)
+        // Renouvellement du cycle seulement si l'utilisateur l'a demandé
+        // par resetApresEcheance (vérifié dans doitEtreResetEcheance).
         val nouvelleDateDebut = dateObjectif
-
-        // La nouvelle date d'objectif = nouvelle date de début + période calculée
-        val nouvelleDateObjectif = Calendar.getInstance().apply {
-            time = nouvelleDateDebut
-            add(Calendar.DAY_OF_YEAR, periodeEnJours.toInt())
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
+        val nouvelleDateObjectif = Date.from(
+            finCalendaire.plusDays(periodeEnJours)
+                .atStartOfDay(zone).toInstant()
+        )
 
         // 🆕 RESET SEULEMENT DES DÉPENSES : Pour les objectifs d'échéance,
         // on garde l'argent non dépensé mais on reset les dépenses
