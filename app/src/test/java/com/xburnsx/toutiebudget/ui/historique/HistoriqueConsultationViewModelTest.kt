@@ -310,4 +310,39 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(60.0, b.transactions.getValue("tx1").montant, 0.000001)
     }
 
+    @Test fun compteRefuseSuppressionDeTransactionDansUnAutreCompte() = test {
+        b.cheque("cheque", 1000.0, 0.0)
+        b.cheque("autre", 1000.0, 0.0)
+        b.transactions["secret"] = Transaction(
+            id = "secret", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 15.00, date = Date(), compteId = "autre",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Confidentiel"
+        )
+        val vm = app.historiqueCompte("cheque")
+        attendre()
+        assertTrue(vm.uiState.value.transactions.isEmpty())
+        vm.supprimerTransaction("secret")
+        attendre()
+        assertTrue(b.transactions.containsKey("secret"))
+        assertTrue(vm.uiState.value.erreur.orEmpty().contains("n'appartient pas au compte"))
+    }
+
+    @Test fun enveloppeRefuseSuppressionDeTransactionDuneAutreEnveloppe() = test {
+        b.enveloppe("essence")
+        b.enveloppe("loyer")
+        b.transactions["loyer_tx"] = Transaction(
+            id = "loyer_tx", utilisateurId = "u",
+            type = TypeTransaction.Depense, montant = 100.0,
+            date = Date(), compteId = "chq", collectionCompte = "comptes_cheques",
+            tiersUtiliser = "Loyer", estFractionnee = true,
+            sousItems = """[{"enveloppeId":"loyer","montant":100.00}]"""
+        )
+        val vm = app.historiqueEnveloppe("essence")
+        attendre()
+        vm.supprimerTransaction("loyer_tx")
+        attendre()
+        assertTrue(b.transactions.containsKey("loyer_tx"))
+        assertTrue(vm.uiState.value.erreur.orEmpty().contains("ne figure plus"))
+    }
+
 }
