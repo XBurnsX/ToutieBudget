@@ -13,7 +13,10 @@ data class HistoriqueCompteUiState(
     val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
     val scrollPosition: Int = 0,
     val scrollOffset: Int = 0,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    /** HA1/HA2 : conserver les filtres après modification et retour d'écran. */
+    val periode: PeriodeHistorique = PeriodeHistorique(),
+    val typeFiltre: com.xburnsx.toutiebudget.data.modeles.TypeTransaction? = null
 )
 
 /**
