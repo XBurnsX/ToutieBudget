@@ -185,15 +185,17 @@ class TransactionRepositoryRoomImpl(
 
     override suspend fun recupererTransactionsPourCompte(compteId: String, collectionCompte: String): Result<List<Transaction>> = withContext(Dispatchers.IO) {
         try {
-            // Récupérer depuis Room (PRIMARY)
-            val transactionsEntities = transactionDao.getTransactionsByCompte(compteId, collectionCompte).first()
-            
-            // Convertir les entités en modèles
-            val transactions = transactionsEntities.map { entity ->
-                entity.toTransactionModel()
+            // HC5 : ne JAMAIS lire l'historique d'un autre utilisateur
+            // dans une base Room partagée entre deux sessions.
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@withContext Result.failure(IllegalStateException("Connexion requise pour cet historique."))
+            require(compteId.isNotBlank() && collectionCompte.isNotBlank()) {
+                "Identifiant de compte invalide."
             }
-            
-            Result.success(transactions)
+            val transactionsEntities = transactionDao
+                .getTransactionsDuCompteUtilisateur(utilisateurId, compteId, collectionCompte)
+                .first()
+            Result.success(transactionsEntities.map { it.toTransactionModel() })
         } catch (e: Exception) {
             Result.failure(e)
         }
