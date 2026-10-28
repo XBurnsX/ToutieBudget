@@ -106,18 +106,15 @@ fun HistoriqueItem(
 
     // Récupérer les noms des enveloppes pour les fractions
     val fractionsAvecNoms = remember(fractions, transaction.nomsEnveloppesFractions) {
-        if (transaction.nomsEnveloppesFractions.isNotEmpty()) {
-            // Utiliser les vrais noms des enveloppes passés depuis le ViewModel
-            fractions.zip(transaction.nomsEnveloppesFractions) { (_, montant, _), nomEnveloppe ->
-                Pair(nomEnveloppe, montant)
-            }
-        } else {
-            // Fallback : utiliser la description ou l'enveloppeId
-            fractions.map { (description, montant, enveloppeId) ->
-                val nomEnveloppe = description.takeIf { it.isNotBlank() }
-                    ?: "Enveloppe historique (ID : $enveloppeId)"
-                Pair(nomEnveloppe, montant)
-            }
+        // HC9 : zip() perdait silencieusement des fractions lorsqu'il
+        // manquait seulement un nom historique. Chaque montant doit rester
+        // visible, même si la liste de libellés est partielle.
+        fractions.mapIndexed { index, (description, montant, enveloppeId) ->
+            val nom = transaction.nomsEnveloppesFractions.getOrNull(index)
+                ?.takeIf { it.isNotBlank() }
+                ?: description.takeIf { it.isNotBlank() }
+                ?: "Enveloppe historique (ID : $enveloppeId)"
+            Pair(nom, montant)
         }
     }
 
