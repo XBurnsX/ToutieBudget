@@ -146,6 +146,22 @@ class BoiteOperationsBancairesRepository(
         return modifie
     }
 
+    /** Affectation du tiers existant à UN import, sans changer un alias général. */
+    suspend fun selectionnerTiers(id: String, tiersId: String): Boolean {
+        val uid = userId()
+        require(database.tiersDao().getTiersById(tiersId)?.utilisateurId == uid) {
+            "Le tiers doit exister et appartenir à l'utilisateur."
+        }
+        val modifie = database.withTransaction {
+            if (dao.selectionnerTiers(id, uid, tiersId) == 0) return@withTransaction false
+            val operation = dao.parId(id, uid) ?: error("Opération introuvable.")
+            mettreEnFile(operation, "UPDATE")
+            true
+        }
+        if (modifie) SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+        return modifie
+    }
+
     suspend fun lire(id: String): OperationBancaireEnAttente? = dao.parId(id, userId())
 
     /** JSON utilisé par la collection PocketBase. Centimes conservés en texte entier. */
