@@ -11,6 +11,10 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: String): Transaction?
+
+    // HC5 : une transaction d'un autre profil ne doit pas être accessible par ID.
+    @Query("SELECT * FROM transactions WHERE id = :id AND utilisateur_id = :utilisateurId LIMIT 1")
+    suspend fun getTransactionHistoriqueDeLaSession(id: String, utilisateurId: String): Transaction?
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId AND compte_id = :compteId ORDER BY date DESC")
     fun getTransactionsByUtilisateurAndCompte(utilisateurId: String, compteId: String): Flow<List<Transaction>>
