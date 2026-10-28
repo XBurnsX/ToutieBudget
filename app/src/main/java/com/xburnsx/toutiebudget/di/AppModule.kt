@@ -268,7 +268,8 @@ import android.content.Context
          CategoriesEnveloppesViewModel(
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
-             realtimeSyncService = realtimeSyncService
+             realtimeSyncService = realtimeSyncService,
+             transactionRepository = transactionRepository
          )
      }
 
