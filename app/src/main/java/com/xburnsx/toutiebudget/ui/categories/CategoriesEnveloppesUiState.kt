@@ -21,6 +21,7 @@ data class CategoriesEnveloppesUiState(
     val enveloppesGroupees: Map<String, List<Enveloppe>> = emptyMap(),
     // CE9 : les groupes sont identifiés par ID, non par le nom affiché.
     val categoriesParId: Map<String, com.xburnsx.toutiebudget.data.modeles.Categorie> = emptyMap(),
+    val enveloppesArchivees: List<Enveloppe> = emptyList(),
     val versionUI: Int = 0, // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
     val isAjoutCategorieDialogVisible: Boolean = false,
     val isAjoutEnveloppeDialogVisible: Boolean = false,
