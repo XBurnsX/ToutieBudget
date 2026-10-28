@@ -6,6 +6,8 @@ import com.google.gson.GsonBuilder
 import com.xburnsx.toutiebudget.data.modeles.Tiers
 import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
 import com.xburnsx.toutiebudget.data.room.daos.AliasBancaireDao
+import com.xburnsx.toutiebudget.data.room.daos.CompteChequeDao
+import com.xburnsx.toutiebudget.data.room.daos.CompteCreditDao
 import com.xburnsx.toutiebudget.data.room.daos.SyncJobDao
 import com.xburnsx.toutiebudget.data.room.daos.TiersDao
 import com.xburnsx.toutiebudget.data.room.entities.AliasBancaire
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.first
 class AliasBancaireRepository(
     private val database: ToutieBudgetDatabase,
     private val aliasDao: AliasBancaireDao,
+    private val compteChequeDao: CompteChequeDao,
+    private val compteCreditDao: CompteCreditDao,
     private val tiersDao: TiersDao,
     private val syncJobDao: SyncJobDao
 ) {
@@ -38,6 +42,7 @@ class AliasBancaireRepository(
 
     suspend fun reconnaitre(compteId: String, libelleOriginal: String): Tiers? {
         val userId = utilisateurConnecte()
+        if (!compteBancaireAutorise(compteId, userId)) return null
         val regles = aliasDao.toutesParUtilisateur(userId).map { it.versRegle() }
         val tiers = tiersDao.getTiersByUtilisateur(userId).first().map {
             Tiers(id = it.id, nom = it.nom, utilisateur_id = it.utilisateurId,
@@ -52,7 +57,9 @@ class AliasBancaireRepository(
         val userId = utilisateurConnecte()
         require(regle.utilisateurId == userId) { "Règle d'un autre utilisateur." }
         require(regle.libelleBrut.isNotBlank()) { "Libellé bancaire requis." }
-        require(regle.compteId == null || regle.compteId.isNotBlank()) { "Compte invalide." }
+        require(regle.compteId == null || (regle.compteId.isNotBlank() && compteBancaireAutorise(regle.compteId, userId))) {
+            "Le compte doit être un compte bancaire ou une carte appartenant à cet utilisateur."
+        }
         require(tiersDao.getTiersById(regle.tiersId)?.utilisateurId == userId) {
             "Le tiers existant doit appartenir à l'utilisateur."
         }
@@ -116,6 +123,13 @@ class AliasBancaireRepository(
             ))
         }
         SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
+    }
+
+    private suspend fun compteBancaireAutorise(compteId: String, utilisateurId: String): Boolean {
+        val cheque = compteChequeDao.getCompteById(compteId)
+        if (cheque?.utilisateurId == utilisateurId && !cheque.estArchive) return true
+        val carte = compteCreditDao.getCompteById(compteId)
+        return carte?.utilisateurId == utilisateurId && !carte.estArchive
     }
 
     private fun AliasBancaire.versRegle() =
