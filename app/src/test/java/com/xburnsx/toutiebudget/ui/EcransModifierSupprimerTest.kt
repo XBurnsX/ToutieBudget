@@ -750,4 +750,66 @@ class EcransModifierSupprimerTest {
         assertEquals(30.0, soldeEnveloppe("loyer")); assertEquals(40.0, soldeEnveloppe("hydro"))
         assertEquals(0.0, soldeEnveloppe("loyer", moisPrecedent())); assertEquals(0.0, soldeEnveloppe("hydro", moisPrecedent()))
     }
+    @Test
+    fun `renommer categorie et enveloppe conserve tous les identifiants`() = test {
+        b.categorie("c1", "Maison")
+        b.enveloppe("loyer", "Loyer", categorieId = "c1")
+        val allocation = b.allocation("loyer", Date(), solde = 140.0)
+        val vm = categories()
+        vm.renommerCategorie("c1", "Habitation")
+        attendre()
+        vm.renommerEnveloppe("loyer", "Location")
+        attendre()
+        assertEquals("Habitation", b.categories.getValue("c1").nom)
+        assertEquals("Location", b.enveloppes.getValue("loyer").nom)
+        assertEquals("c1", b.enveloppes.getValue("loyer").categorieId)
+        assertEquals(allocation.id, b.allocations.getValue(allocation.id).id)
+        assertEquals("loyer", b.allocations.getValue(allocation.id).enveloppeId)
+        assertTrue(vm.uiState.value.enveloppesGroupees.containsKey("c1"))
+    }
+
+    @Test
+    fun `deplacer enveloppe conserve son id allocations et montants`() = test {
+        b.categorie("c1", "Maison")
+        b.categorie("c2", "Transport")
+        b.enveloppe("loyer", "Loyer", categorieId = "c1")
+        val allocation = b.allocation("loyer", Date(), solde = 90.0)
+        val vm = categories()
+        vm.deplacerEnveloppeCategorie("loyer", "c2")
+        attendre()
+        assertEquals("c2", b.enveloppes.getValue("loyer").categorieId)
+        assertEquals(90.0, b.allocations.getValue(allocation.id).solde, 0.00001)
+        assertEquals("loyer", b.allocations.getValue(allocation.id).enveloppeId)
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c2").any { it.id == "loyer" })
+    }
+
+    @Test
+    fun `restaurer archivee conserve ses allocations`() = test {
+        b.categorie("c1", "Maison")
+        b.enveloppes["vieux"] = b.enveloppe("vieux", "Ancienne", categorieId = "c1")
+            .copy(estArchive = true)
+        val allocation = b.allocation("vieux", Date(), solde = 0.0)
+        val vm = categories()
+        assertTrue(vm.uiState.value.enveloppesArchivees.any { it.id == "vieux" })
+        vm.restaurerEnveloppe("vieux")
+        attendre()
+        assertEquals(false, b.enveloppes.getValue("vieux").estArchive)
+        assertEquals(allocation.id, b.allocations.getValue(allocation.id).id)
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c1").any { it.id == "vieux" })
+    }
+
+    @Test
+    fun `categories homonymes ne melangent pas les groupes et erreurs visibles`() = test {
+        b.categorie("c1", "Maison")
+        b.categorie("c2", "Maison")
+        b.enveloppe("loyer", "Loyer", categorieId = "c1")
+        b.enveloppe("autre", "Logement", categorieId = "c2")
+        val vm = categories()
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c1").any { it.id == "loyer" })
+        assertTrue(vm.uiState.value.enveloppesGroupees.getValue("c2").any { it.id == "autre" })
+        vm.renommerCategorie("c1", "Maison")
+        attendre()
+        assertTrue(vm.uiState.value.erreur.orEmpty().contains("déjà ce nom"))
+    }
+
 }
