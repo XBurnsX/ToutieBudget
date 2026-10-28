@@ -22,6 +22,8 @@ data class CategoriesEnveloppesUiState(
     // CE9 : les groupes sont identifiés par ID, non par le nom affiché.
     val categoriesParId: Map<String, com.xburnsx.toutiebudget.data.modeles.Categorie> = emptyMap(),
     val enveloppesArchivees: List<Enveloppe> = emptyList(),
+    val apercuRetrait: ApercuRetraitEnveloppe? = null,
+    val previsualisationRetraitEnCours: Boolean = false,
     val versionUI: Int = 0, // 🔥 COMPTEUR DE VERSION POUR FORCER LA RECOMPOSITION
     val isAjoutCategorieDialogVisible: Boolean = false,
     val isAjoutEnveloppeDialogVisible: Boolean = false,
@@ -41,4 +43,14 @@ data class CategoriesEnveloppesUiState(
     val categorieEnDeplacement: String? = null,
     val enveloppeEnDeplacement: String? = null, // 🆕 Pour le déplacement d'enveloppes
     val ordreTemporaire: Map<String, Int> = emptyMap() // Cache temporaire des ordres pendant le drag
+)
+
+/** CE2/CA5 : valeurs issues de Room, jamais des soldes estimés. */
+data class ApercuRetraitEnveloppe(
+    val nombreAllocations: Int,
+    val periodesAvecSolde: Int,
+    val allocationsFutures: Int,
+    val soldeRestant: Double,
+    val transactionsLiees: Int?,
+    val paiementsTechniquesLies: Int?
 )
