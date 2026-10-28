@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,6 +57,120 @@ fun CategoriesEnveloppesScreen(
     var montantClavierInitial by remember { mutableStateOf(0L) }
     var nomDialogClavier by remember { mutableStateOf("") }
     var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
+
+    // CA1–CA4 : les dialogues gardent leur saisie tant que l'écriture Room
+    // n'a pas réellement été reflétée dans l'état du ViewModel.
+    var categorieARenommer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Categorie?>(null) }
+    var enveloppeARenommer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Enveloppe?>(null) }
+    var enveloppeADeplacer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Enveloppe?>(null) }
+    var nomEdition by remember { mutableStateOf("") }
+    var destinationCategorie by remember { mutableStateOf<String?>(null) }
+    var sauvegardeDemandee by remember { mutableStateOf(false) }
+    var voirArchives by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.categoriesParId, uiState.enveloppesGroupees, sauvegardeDemandee) {
+        if (sauvegardeDemandee) {
+            val categorieOK = categorieARenommer?.let {
+                uiState.categoriesParId[it.id]?.nom == nomEdition.trim()
+            } ?: false
+            val enveloppeOK = enveloppeARenommer?.let { source ->
+                uiState.enveloppesGroupees.values.flatten()
+                    .firstOrNull { it.id == source.id }?.nom == nomEdition.trim()
+            } ?: false
+            val transfertOK = enveloppeADeplacer?.let { source ->
+                uiState.enveloppesGroupees.values.flatten()
+                    .firstOrNull { it.id == source.id }?.categorieId == destinationCategorie
+            } ?: false
+            if (categorieOK || enveloppeOK || transfertOK) {
+                categorieARenommer = null
+                enveloppeARenommer = null
+                enveloppeADeplacer = null
+                sauvegardeDemandee = false
+            }
+        }
+    }
+
+    if (categorieARenommer != null || enveloppeARenommer != null) {
+        val categorie = categorieARenommer
+        val env = enveloppeARenommer
+        AlertDialog(
+            onDismissRequest = {
+                categorieARenommer = null
+                enveloppeARenommer = null
+                sauvegardeDemandee = false
+            },
+            title = { Text(if (categorie != null) "Renommer la catégorie" else "Renommer l'enveloppe") },
+            text = {
+                OutlinedTextField(
+                    value = nomEdition,
+                    onValueChange = { nomEdition = it },
+                    label = { Text("Nouveau nom") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    when {
+                        categorie != null -> viewModel.renommerCategorie(categorie.id, nomEdition)
+                        env != null -> viewModel.renommerEnveloppe(env.id, nomEdition)
+                    }
+                    sauvegardeDemandee = true
+                }, enabled = nomEdition.isNotBlank() && !sauvegardeDemandee) {
+                    Text("Enregistrer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    categorieARenommer = null
+                    enveloppeARenommer = null
+                    sauvegardeDemandee = false
+                }) { Text("Annuler") }
+            }
+        )
+    }
+
+    enveloppeADeplacer?.let { env ->
+        AlertDialog(
+            onDismissRequest = { enveloppeADeplacer = null; sauvegardeDemandee = false },
+            title = { Text("Déplacer ${env.nom}") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 320.dp).verticalScroll(
+                        androidx.compose.foundation.rememberScrollState()
+                    )
+                ) {
+                    uiState.categoriesParId.values.sortedBy { it.ordre }
+                        .filter { it.id != env.categorieId }
+                        .forEach { categorie ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = destinationCategorie == categorie.id,
+                                    onClick = { destinationCategorie = categorie.id }
+                                )
+                                Text(categorie.nom)
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = destinationCategorie != null && !sauvegardeDemandee,
+                    onClick = {
+                        destinationCategorie?.let {
+                            viewModel.deplacerEnveloppeCategorie(env.id, it)
+                            sauvegardeDemandee = true
+                        }
+                    }
+                ) { Text("Déplacer") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    enveloppeADeplacer = null
+                    sauvegardeDemandee = false
+                }) { Text("Annuler") }
+            }
+        )
+    }
 
     // ===== DIALOGUES =====
     
@@ -218,6 +333,35 @@ fun CategoriesEnveloppesScreen(
                 }
             }
 
+            if (uiState.enveloppesArchivees.isNotEmpty()) {
+                TextButton(
+                    onClick = { voirArchives = !voirArchives },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                ) {
+                    Text(if (voirArchives) "Masquer les enveloppes archivées"
+                         else "Enveloppes archivées (${uiState.enveloppesArchivees.size})")
+                }
+                if (voirArchives) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 230.dp)
+                            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                    ) {
+                        uiState.enveloppesArchivees.sortedBy { it.nom }.forEach { env ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(env.nom + " (archivée)")
+                                TextButton(onClick = { viewModel.restaurerEnveloppe(env.id) }) {
+                                    Text("Restaurer")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -278,8 +422,25 @@ fun CategoriesEnveloppesScreen(
                                 onObjectifClick = viewModel::onOuvrirObjectifDialog,
                                 onSupprimerEnveloppe = viewModel::onOuvrirConfirmationSuppressionEnveloppe,
                                 onSupprimerObjectifEnveloppe = viewModel::onSupprimerObjectifEnveloppe,
-                                onSupprimerCategorie = { nom ->
+                                onSupprimerCategorie = { _ ->
                                     viewModel.onOuvrirConfirmationSuppressionCategorie(categorieId)
+                                },
+                                onRenommerCategorie = {
+                                    uiState.categoriesParId[categorieId]?.let { cat ->
+                                        nomEdition = cat.nom
+                                        categorieARenommer = cat
+                                        sauvegardeDemandee = false
+                                    }
+                                },
+                                onRenommerEnveloppe = { env ->
+                                    nomEdition = env.nom
+                                    enveloppeARenommer = env
+                                    sauvegardeDemandee = false
+                                },
+                                onDeplacerEnveloppeCategorie = { env ->
+                                    destinationCategorie = null
+                                    enveloppeADeplacer = env
+                                    sauvegardeDemandee = false
                                 },
                                 modifier = Modifier
                             )
