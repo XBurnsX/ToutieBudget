@@ -63,13 +63,13 @@ fun ArchivesScreen(
         if (categoriesState.erreur != null) restaurationDemandee = false
     }
 
-    val comptesFiltres = comptesState.comptesArchives
-        .filter { filtreCompte.isBlank() || it.collection == filtreCompte }
-        .filter { it.nom.contains(recherche.trim(), ignoreCase = true) }
-    val enveloppesFiltrees = categoriesState.enveloppesArchivees
-        .filter { it.nom.contains(recherche.trim(), ignoreCase = true) ||
-            (categoriesState.categoriesParId[it.categorieId]?.nom ?: "")
-                .contains(recherche.trim(), ignoreCase = true) }
+    val comptesFiltres = RechercheArchives.comptes(
+        comptesState.comptesArchives, recherche, filtreCompte
+    )
+    val enveloppesFiltrees = RechercheArchives.enveloppes(
+        categoriesState.enveloppesArchivees, recherche,
+        categoriesState.categoriesParId.mapValues { it.value.nom }
+    )
 
     Scaffold(topBar = {
         Column {
