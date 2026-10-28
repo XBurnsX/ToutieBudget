@@ -254,7 +254,9 @@ fun CategoriesEnveloppesScreen(
                             "Allocations historiques : ${a.nombreAllocations}\n" +
                             "Périodes avec solde : ${a.periodesAvecSolde}\n" +
                             "Allocations futures : ${a.allocationsFutures}\n" +
-                            "Solde cumulé des allocations : " +
+                            "Solde du mois courant : " +
+                                com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique.formater(a.soldeMoisCourant) +
+                                "\nSolde cumulé des allocations : " +
                                 com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique.formater(a.soldeRestant) +
                                 "\nTransactions liées : " + (a.transactionsLiees?.toString() ?: "Non vérifiées") +
                                 "\nPaiements techniques : " + (a.paiementsTechniquesLies?.toString() ?: "Non vérifiés")
