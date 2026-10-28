@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.gson.JsonParser
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
+
 import java.text.DateFormat
 import java.util.Locale
 
@@ -39,12 +39,12 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                 Text("Tiers : " + transaction.tiersUtiliser)
                 if (transaction.montantTotalTransaction != null) {
                     Text("Montant total de l'achat : " +
-                        MoneyFormatter.formatAmount(transaction.montantTotalTransaction))
+                        AffichageMontantHistorique.formater(transaction.montantTotalTransaction))
                     Text("Portion de cette enveloppe : " +
-                        MoneyFormatter.formatAmount(transaction.montant))
+                        AffichageMontantHistorique.formater(transaction.montant))
                 } else {
                     Text("Montant de la transaction : " +
-                        MoneyFormatter.formatAmount(transaction.montant))
+                        AffichageMontantHistorique.formater(transaction.montant))
                 }
                 Text("Date et heure : " + dateTexte)
                 Text(
@@ -88,7 +88,7 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                             val note = objet?.get("note")
                                 ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
                             Text(nom + " : " +
-                                MoneyFormatter.formatAmount(portion.montantCentimes / 100.0))
+                                AffichageMontantHistorique.formater(portion.montantCentimes / 100.0))
                             if (description.isNotBlank()) Text("Description : " + description)
                             if (note.isNotBlank()) Text("Note : " + note)
                         }
