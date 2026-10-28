@@ -153,11 +153,22 @@ class EnveloppeRepositoryRoomImpl(
     override suspend fun creerEnveloppe(enveloppe: Enveloppe): Result<Enveloppe> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
+            // CE4/CE13 : verrou de session et ID vérifiés avant REPLACE.
+            val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                ?: throw SecurityException("Connexion requise.")
+            require(enveloppe.utilisateurId.isBlank() || enveloppe.utilisateurId == utilisateur) {
+                "Impossible de créer un élément appartenant à un autre profil."
+            }
+            if (enveloppe.id.isNotBlank()) {
+                require(enveloppeDao.getEnveloppeById(enveloppe.id) == null) {
+                    "Identifiant déjà existant : création refusée."
+                }
+            }
             // 1. Convertir le modèle en entité Room
             val enveloppeEntity = EnveloppeEntity(
                 id = enveloppe.id.ifBlank { IdGenerator.generateId() },
                 utilisateurId = enveloppe.utilisateurId.ifBlank { 
-                    client.obtenirUtilisateurConnecte()?.id ?: "" 
+                    utilisateur 
                 },
                 nom = enveloppe.nom,
                 categorieId = enveloppe.categorieId,
@@ -206,6 +217,15 @@ class EnveloppeRepositoryRoomImpl(
     override suspend fun mettreAJourEnveloppe(enveloppe: Enveloppe): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             operationAtomique.executer {
+            // CE13 : empêcher qu'une ancienne session écrase une ligne d'un autre utilisateur.
+            val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                ?: throw SecurityException("Connexion requise.")
+            val courante = enveloppeDao.getEnveloppeById(enveloppe.id)
+                ?: throw NoSuchElementException("Élément introuvable : modification refusée.")
+            require(courante.utilisateurId == utilisateur &&
+                enveloppe.utilisateurId == utilisateur) {
+                "Élément hors session : écriture refusée."
+            }
             // 1. Convertir le modèle en entité Room
             val enveloppeEntity = EnveloppeEntity(
                 id = enveloppe.id,
