@@ -189,6 +189,7 @@ class HistoriqueCompteViewModel(
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
         chargementJob?.cancel()
         chargementJob = viewModelScope.launch(Dispatchers.IO) {
+            val identiteDebut = transactionRepository.identifiantSessionHistorique()
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
@@ -313,6 +314,9 @@ class HistoriqueCompteViewModel(
 
                 // Un ancien chargement annulé ne doit jamais publier un résultat tardif.
                 coroutineContext.ensureActive()
+                if (identiteDebut != transactionRepository.identifiantSessionHistorique()) {
+                    throw SecurityException("La session a changé pendant le chargement de l'historique.")
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
