@@ -188,25 +188,8 @@ class HistoriqueEnveloppeViewModel(
     /**
      * Groupe les transactions par date avec format français.
      */
-    private fun grouperTransactionsParDate(transactions: List<TransactionUi>): Map<String, List<TransactionUi>> {
-        val formateurDate = SimpleDateFormat("d MMMM yyyy", Locale.FRENCH).apply {
-            timeZone = TimeZone.getDefault()
-        }
-
-        // Regrouper avec une vraie clé calendaire, plutôt que reparcourir une date
-        // affichée en texte français. Cela évite les regroupements au 1er janvier
-        // 1970 si l'analyse du libellé échoue et garantit l'ordre chronologique.
-        val jours = transactions.groupBy { transaction ->
-            java.time.Instant.ofEpochMilli(transaction.date.time)
-                .atZone(java.time.ZoneId.systemDefault())
-                .toLocalDate()
-        }
-        return jours.entries.sortedByDescending { it.key }.associate { (jour, lignes) ->
-            formateurDate.format(
-                Date.from(jour.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant())
-            ) to lignes.sortedByDescending { it.date }
-        }
-    }
+    private fun grouperTransactionsParDate(transactions: List<TransactionUi>): Map<String, List<TransactionUi>> =
+        RegroupementHistorique.grouper(transactions)
 
     /**
      * Charge les transactions pour une enveloppe spécifique.
@@ -340,6 +323,7 @@ class HistoriqueEnveloppeViewModel(
                         revisionTransaction = transaction.updated
                     )
                 }
+                val doublons = RegroupementHistorique.nombreDoublons(transactionsUi)
 
                 // Utiliser la nouvelle méthode de groupement
 
@@ -362,6 +346,8 @@ class HistoriqueEnveloppeViewModel(
                                 add("$allocationsIndisponibles allocation(s) historique(s) introuvable(s).")
                             if (fractionsIllisibles > 0)
                                 add("$fractionsIllisibles transaction(s) fractionnée(s) illisible(s).")
+                            if (doublons > 0)
+                                add("$doublons doublon(s) de transaction écarté(s) de l'affichage.")
                         }.takeIf { it.isNotEmpty() }?.joinToString(" ")?.let {
                             "$it Historique possiblement incomplet."
                         }
