@@ -196,13 +196,15 @@ class HistoriqueEnveloppeViewModel(
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
 
-                // HE7/HE12 : aucun repository en échec ne doit être interprété
-                // comme une liste vide d'enveloppes ou de tiers.
-                resultTransactions.getOrThrow()
-                resultEnveloppes.getOrThrow()
-                
-                val transactions = resultTransactions.getOrNull() ?: emptyList()
-                val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
+                // Les transactions sont obligatoires. Si seules les MÉTADONNÉES
+                // d'enveloppes manquent, montrer quand même les montants sûrs et
+                // signaler explicitement que les libellés sont incomplets.
+                val transactions = resultTransactions.getOrThrow()
+                var enveloppesIndisponibles = false
+                val enveloppes = resultEnveloppes.getOrElse {
+                    enveloppesIndisponibles = true
+                    emptyList()
+                }
                 // HE1 : chaque allocation est retrouvée directement par son ID, quelle que soit sa période.
                 val idsAllocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct()
                 var erreurLectureAllocations = false
@@ -311,6 +313,8 @@ class HistoriqueEnveloppeViewModel(
                         transactionsGroupees = transactionsGroupees,
                         erreur = null,
                         avertissement = buildList {
+                            if (enveloppesIndisponibles)
+                                add("Les noms d'enveloppes sont momentanément indisponibles.")
                             if (erreurLectureAllocations)
                                 add("Lecture des allocations impossible.")
                             if (allocationsIndisponibles > 0)
