@@ -267,24 +267,19 @@ class HistoriqueCompteViewModel(
                     }
 
                     // ✅ OPTIMISATION : Utiliser la map des enveloppes
-                    val nomsEnveloppesFractions = if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+                    val nomsEnveloppesFractions = if (transaction.estFractionnee) {
                         try {
-                            val jsonArray = com.google.gson.JsonParser.parseString(transaction.sousItems).asJsonArray
-                            jsonArray.mapNotNull { element ->
-                                val obj = element.asJsonObject
-                                val enveloppeId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString
-                                if (enveloppeId != null) {
-                                    enveloppesMap[enveloppeId]?.nom ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
-                                } else {
-                                    null
-                                }
+                            PortionsHistorique.lire(transaction.sousItems).map { portion ->
+                                enveloppesMap[portion.enveloppeId]?.nom
+                                    ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
                             }
                         } catch (_: Exception) {
+                            // Le mouvement complet garde son vrai montant; seules
+                            // ses portions sont impossibles à afficher. Le signaler.
+                            avertissements += "Certaines fractions historiques sont illisibles."
                             emptyList()
                         }
-                    } else {
-                        emptyList()
-                    }
+                    } else emptyList()
 
                     TransactionUi(
                         id = transaction.id,
