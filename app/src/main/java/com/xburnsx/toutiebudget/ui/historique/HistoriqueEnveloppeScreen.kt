@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
@@ -23,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -35,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +64,7 @@ fun HistoriqueEnveloppeScreen(
         initialFirstVisibleItemScrollOffset = uiState.scrollOffset
     )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // Observer les événements de navigation
     LaunchedEffect(navigationEvents) {
@@ -109,6 +114,27 @@ fun HistoriqueEnveloppeScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // HE17 : mêmes fonctions de recherche que l'historique d'un compte.
+            TextField(
+                value = uiState.searchQuery,
+                onValueChange = { recherche ->
+                    viewModel.mettreAJourRecherche(recherche)
+                    scope.launch { listState.scrollToItem(0) }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Rechercher un tiers, une note ou un montant...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Rechercher") },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotBlank()) {
+                        IconButton(onClick = {
+                            viewModel.mettreAJourRecherche("")
+                            scope.launch { listState.scrollToItem(0) }
+                        }) { Icon(Icons.Default.Clear, contentDescription = "Effacer la recherche") }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
             // HC10/HC12 : une erreur n'efface pas les transactions précédentes.
             uiState.erreur?.let { erreur ->
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -125,7 +151,7 @@ fun HistoriqueEnveloppeScreen(
                 CircularProgressIndicator()
             } else if (uiState.transactionsGroupees.isEmpty() && uiState.erreur == null) {
                 Text(
-                    "Aucune transaction pour cette enveloppe.",
+                    if (uiState.searchQuery.isNotBlank()) "Aucune transaction trouvée pour \"${uiState.searchQuery}\"" else "Aucune transaction pour cette enveloppe.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
