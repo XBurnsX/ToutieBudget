@@ -166,6 +166,54 @@ class HistoriqueCompteViewModel(
         }
     }
 
+    // HA1/HA2 : changement de filtres sans requête Room ni toucher aux montants.
+    fun selectionnerVuePeriode(vue: VuePeriodeHistorique) {
+        _uiState.update { actuel ->
+            val periode = actuel.periode.copy(vue = vue)
+            actuel.copy(
+                periode = periode,
+                scrollPosition = 0,
+                scrollOffset = 0,
+                transactionsGroupees = grouperTransactionsParDate(
+                    FiltrageHistoriqueCompte.appliquer(
+                        actuel.transactions, actuel.searchQuery, periode, actuel.typeFiltre
+                    )
+                )
+            )
+        }
+    }
+
+    fun deplacerPeriode(pas: Int) {
+        _uiState.update { actuel ->
+            val periode = actuel.periode.deplacer(pas)
+            actuel.copy(
+                periode = periode,
+                scrollPosition = 0,
+                scrollOffset = 0,
+                transactionsGroupees = grouperTransactionsParDate(
+                    FiltrageHistoriqueCompte.appliquer(
+                        actuel.transactions, actuel.searchQuery, periode, actuel.typeFiltre
+                    )
+                )
+            )
+        }
+    }
+
+    fun selectionnerTypeFiltre(type: TypeTransaction?) {
+        _uiState.update { actuel ->
+            actuel.copy(
+                typeFiltre = type,
+                scrollPosition = 0,
+                scrollOffset = 0,
+                transactionsGroupees = grouperTransactionsParDate(
+                    FiltrageHistoriqueCompte.appliquer(
+                        actuel.transactions, actuel.searchQuery, actuel.periode, type
+                    )
+                )
+            )
+        }
+    }
+
     /**
      * Met à jour la requête de recherche et filtre les transactions.
      */
@@ -176,7 +224,9 @@ class HistoriqueCompteViewModel(
             actuel.copy(
                 searchQuery = query,
                 transactionsGroupees = grouperTransactionsParDate(
-                    RechercheHistorique.filtrer(actuel.transactions, query)
+                    FiltrageHistoriqueCompte.appliquer(
+                        actuel.transactions, query, actuel.periode, actuel.typeFiltre
+                    )
                 )
             )
         }
@@ -334,7 +384,9 @@ class HistoriqueCompteViewModel(
                         avertissement = avertissements.distinct().takeIf { it.isNotEmpty() }?.joinToString(" "),
                         transactions = transactionsUi,
                         transactionsGroupees = grouperTransactionsParDate(
-                            RechercheHistorique.filtrer(transactionsUi, it.searchQuery)
+                            FiltrageHistoriqueCompte.appliquer(
+                                transactionsUi, it.searchQuery, it.periode, it.typeFiltre
+                            )
                         )
                     )
                 }
