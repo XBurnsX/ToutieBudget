@@ -73,6 +73,48 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(2, vm.uiState.value.transactionsGroupees.values.flatten().size)
     }
 
+    @Test fun confirmationPerimeeNeSupprimeRienDansLeCompte() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 12.50, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Irving"
+        )
+        val vm = app.historiqueCompte("chq")
+        attendre()
+        val affichee = vm.uiState.value.transactions.single()
+        b.transactions["achat"] = b.transactions.getValue("achat").copy(montant = 14.25)
+
+        vm.supprimerTransactionConfirmee(affichee)
+        attendre()
+
+        assertEquals(14.25, b.transactions.getValue("achat").montant, 0.000001)
+        assertTrue(vm.uiState.value.erreur.orEmpty().contains("Aucune suppression"))
+    }
+
+    @Test fun confirmationPerimeeNeSupprimeRienDansLenveloppe() = test {
+        b.enveloppe("auto")
+        b.transactions["achat"] = Transaction(
+            id = "achat", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 60.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Station",
+            estFractionnee = true,
+            sousItems = """[{"enveloppeId":"auto","montant":20.00},{"enveloppeId":"courses","montant":40.00}]"""
+        )
+        val vm = app.historiqueEnveloppe("auto")
+        attendre()
+        val affichee = vm.uiState.value.transactions.single()
+        assertEquals(20.0, affichee.montant, 0.000001)
+        assertEquals(60.0, affichee.montantTotalTransaction!!, 0.000001)
+        b.transactions["achat"] = b.transactions.getValue("achat").copy(
+            sousItems = """[{"enveloppeId":"auto","montant":25.00},{"enveloppeId":"courses","montant":35.00}]"""
+        )
+        vm.supprimerTransactionConfirmee(affichee)
+        attendre()
+        assertTrue(b.transactions.containsKey("achat"))
+        assertTrue(vm.uiState.value.erreur.orEmpty().contains("Aucune suppression"))
+    }
+
     @Test fun compteNeCachePasUnAchatSiSesFractionsSontIncompletes() = test {
         b.cheque("chq", 1000.0, 0.0)
         b.transactions["achat"] = Transaction(
