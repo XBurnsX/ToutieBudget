@@ -72,6 +72,8 @@ fun CategoriesEnveloppesScreen(
     var categorieARenommer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Categorie?>(null) }
     var enveloppeARenommer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Enveloppe?>(null) }
     var enveloppeADeplacer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Enveloppe?>(null) }
+    var enveloppeARestaurer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Enveloppe?>(null) }
+    var destinationRestauration by remember { mutableStateOf<String?>(null) }
     var nomEdition by remember { mutableStateOf("") }
     var destinationCategorie by remember { mutableStateOf<String?>(null) }
     var sauvegardeDemandee by remember { mutableStateOf(false) }
@@ -79,6 +81,16 @@ fun CategoriesEnveloppesScreen(
 
     LaunchedEffect(uiState.erreur) {
         if (uiState.erreur != null) sauvegardeDemandee = false
+    }
+
+    LaunchedEffect(uiState.enveloppesArchivees, sauvegardeDemandee) {
+        if (sauvegardeDemandee && enveloppeARestaurer != null &&
+            uiState.enveloppesArchivees.none { it.id == enveloppeARestaurer?.id }
+        ) {
+            enveloppeARestaurer = null
+            destinationRestauration = null
+            sauvegardeDemandee = false
+        }
     }
 
     LaunchedEffect(uiState.categoriesParId, uiState.enveloppesGroupees, sauvegardeDemandee) {
@@ -179,6 +191,59 @@ fun CategoriesEnveloppesScreen(
             dismissButton = {
                 TextButton(onClick = {
                     enveloppeADeplacer = null
+                    sauvegardeDemandee = false
+                }) { Text("Annuler") }
+            }
+        )
+    }
+
+    // CA4 : la catégorie d'origine peut avoir disparu depuis l'archivage.
+    // Proposer les catégories existantes : aucune création fictive, aucun
+    // changement d'ID de l'enveloppe ou de ses allocations.
+    enveloppeARestaurer?.let { ancienne ->
+        AlertDialog(
+            onDismissRequest = {
+                enveloppeARestaurer = null
+                destinationRestauration = null
+            },
+            title = { Text("Restaurer « ${ancienne.nom} »") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 330.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                ) {
+                    Text("Sa catégorie d'origine n'existe plus. Choisis où la restaurer.")
+                    if (uiState.categoriesParId.isEmpty()) {
+                        Text("Crée d'abord une catégorie, puis réessaie.")
+                    }
+                    uiState.categoriesParId.values
+                        .sortedWith(compareBy({ it.ordre }, { it.nom }))
+                        .forEach { categorie ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = destinationRestauration == categorie.id,
+                                    onClick = { destinationRestauration = categorie.id }
+                                )
+                                Text(categorie.nom)
+                            }
+                        }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = destinationRestauration != null && !sauvegardeDemandee,
+                    onClick = {
+                        destinationRestauration?.let { destination ->
+                            viewModel.restaurerEnveloppe(ancienne.id, destination)
+                            sauvegardeDemandee = true
+                        }
+                    }
+                ) { Text("Restaurer") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    enveloppeARestaurer = null
+                    destinationRestauration = null
                     sauvegardeDemandee = false
                 }) { Text("Annuler") }
             }
@@ -398,7 +463,15 @@ fun CategoriesEnveloppesScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(env.nom + " (archivée)")
-                                TextButton(onClick = { viewModel.restaurerEnveloppe(env.id) }) {
+                                TextButton(onClick = {
+                                    if (uiState.categoriesParId.containsKey(env.categorieId)) {
+                                        viewModel.restaurerEnveloppe(env.id)
+                                    } else {
+                                        enveloppeARestaurer = env
+                                        destinationRestauration = null
+                                        sauvegardeDemandee = false
+                                    }
+                                }) {
                                     Text("Restaurer")
                                 }
                             }
