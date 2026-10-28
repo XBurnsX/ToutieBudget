@@ -31,6 +31,20 @@ interface CategorieRepository {
      */
     suspend fun mettreAJourCategorie(categorie: Categorie): Result<Categorie>
 
+    /** CE11/CE13/CA6 : vérifie l'instantané avant, n'écrit que les ordres changés.
+     * Room surcharge pour exécuter ces changements ET les SyncJobs atomiquement. */
+    suspend fun reorganiserCategories(avant: List<Categorie>, apres: List<Categorie>): Result<Unit> =
+        runCatching {
+            val actuelles = recupererToutesLesCategories().getOrThrow().associateBy { it.id }
+            require(avant.all { actuelles[it.id] == it }) {
+                "Les catégories ont changé sur un autre appareil. Recharge le classement."
+            }
+            require(avant.map { it.id }.toSet() == apres.map { it.id }.toSet())
+            apres.filter { actuelles[it.id]?.ordre != it.ordre }
+                .forEach { mettreAJourCategorie(it).getOrThrow() }
+        }
+
+
     /**
      * Supprime une catégorie par son ID.
      * @param id L'ID de la catégorie à supprimer
