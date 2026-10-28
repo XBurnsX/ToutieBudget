@@ -77,6 +77,7 @@ fun HistoriqueEnveloppeScreen(
     )
     var transactionASupprimer by remember { mutableStateOf<TransactionUi?>(null) }
     var menuComptesOuvert by remember { mutableStateOf(false) }
+    var afficherEvolutionMensuelle by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // Observer les événements de navigation
@@ -278,6 +279,47 @@ fun HistoriqueEnveloppeScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            // EA5 : dépenses et revenus des 12 derniers mois disponibles.
+            // Une portion d'achat est comptée uniquement pour cette enveloppe.
+            TextButton(
+                onClick = { afficherEvolutionMensuelle = !afficherEvolutionMensuelle },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Text(if (afficherEvolutionMensuelle) "Masquer l'évolution mensuelle"
+                     else "Voir l'évolution mensuelle")
+            }
+            if (afficherEvolutionMensuelle) {
+                val evolution = remember(uiState.transactions) {
+                    runCatching {
+                        TendanceMensuelleEnveloppe.calculer(uiState.transactions).take(12)
+                    }.getOrNull()
+                }
+                if (evolution == null) {
+                    Text(
+                        "Évolution indisponible : montant mensuel historique invalide.",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (evolution.isEmpty()) {
+                    Text("Aucune dépense ou revenu mensuel connu.",
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        evolution.forEach { mois ->
+                            Text(
+                                mois.mois.format(
+                                    DateTimeFormatter.ofPattern("LLLL yyyy", Locale.CANADA_FRENCH)
+                                ) + " · Dépenses : " +
+                                    MoneyFormatter.formatAmountFromCents(mois.depensesCentimes) +
+                                    " · Revenus : " +
+                                    MoneyFormatter.formatAmountFromCents(mois.revenusCentimes),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }
