@@ -203,7 +203,10 @@ class RealtimeSyncService @Inject constructor() {
         val corps = JsonObject().apply {
             addProperty("clientId", clientId)
             add("subscriptions", com.google.gson.JsonArray().apply {
-                PocketBaseMapper.collectionsSynchronisees.forEach { add("$it/*") }
+                PocketBaseMapper.collectionsSynchronisees.forEach { collection ->
+                    if (collection != "alias_bancaires" ||
+                        collectionAliasDisponible(urlBase, token)) add("$collection/*")
+                }
             })
         }
         val request = Request.Builder()
@@ -252,7 +255,7 @@ class RealtimeSyncService @Inject constructor() {
                 _budgetUpdated.emit(Unit)
                 _comptesUpdated.emit(Unit)
             }
-            "tiers", "pret_personnel" -> _comptesUpdated.emit(Unit)
+            "tiers", "pret_personnel", "alias_bancaires" -> _comptesUpdated.emit(Unit)
         }
     }
 
@@ -262,6 +265,19 @@ class RealtimeSyncService @Inject constructor() {
      * (SyncJob PENDING/FAILED), la version locale gagne et la fiche du serveur est ignorée ;
      * elle sera écrasée sur le serveur quand le SyncJob passera.
      */
+    /** Optionnel : ne jamais bloquer les abonnements existants si le backend alias manque. */
+    private fun collectionAliasDisponible(urlBase: String, token: String): Boolean {
+        val request = Request.Builder()
+            .url("$urlBase/api/collections/alias_bancaires/records?perPage=1")
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        return try {
+            httpClient.newCall(request).execute().use { it.isSuccessful }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private suspend fun appliquerFicheDansRoom(collection: String, action: String, record: JsonObject) {
         val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance() ?: return
         val db = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(context)
@@ -270,6 +286,8 @@ class RealtimeSyncService @Inject constructor() {
         // Ne garder que les fiches de l'utilisateur connecté
         val utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: return
         if (!item.utilisateur_id.isNullOrBlank() && item.utilisateur_id != utilisateurId) return
+        // Une règle d'alias sans propriétaire n'est jamais importée.
+        if (collection == "alias_bancaires" && item.utilisateur_id != utilisateurId) return
 
         if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) return
 
@@ -284,6 +302,7 @@ class RealtimeSyncService @Inject constructor() {
                 "allocations_mensuelles" -> db.allocationMensuelleDao().deleteAllocationById(item.id)
                 "transactions" -> db.transactionDao().deleteTransactionById(item.id)
                 "tiers" -> db.tiersDao().deleteTiersById(item.id)
+                "alias_bancaires" -> db.aliasBancaireDao().supprimer(item.id, utilisateurId)
                 "pret_personnel" -> db.pretPersonnelDao().deletePretById(item.id)
             }
             return
@@ -329,6 +348,7 @@ class RealtimeSyncService @Inject constructor() {
             is com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle -> db.allocationMensuelleDao().insertAllocation(entite)
             is com.xburnsx.toutiebudget.data.room.entities.Transaction -> db.transactionDao().insertTransaction(entite)
             is com.xburnsx.toutiebudget.data.room.entities.Tiers -> db.tiersDao().insertTiers(entite)
+            is com.xburnsx.toutiebudget.data.room.entities.AliasBancaire -> db.aliasBancaireDao().enregistrer(entite)
             is com.xburnsx.toutiebudget.data.room.entities.PretPersonnel -> db.pretPersonnelDao().insertPret(entite)
         }
     }
@@ -349,17 +369,20 @@ class RealtimeSyncService @Inject constructor() {
         for (collection in PocketBaseMapper.collectionsSynchronisees) {
             val cle = "dernier_updated_$collection"
             val depuis = prefs.getString(cle, null)
-            if (depuis == null) {
+            if (depuis == null && collection != "alias_bancaires") {
                 prefs.edit().putString(cle, horodatageServeur(System.currentTimeMillis() - MARGE_PREMIER_LANCEMENT_MS)).apply()
                 continue
             }
+            // Contrairement aux anciennes collections, importer TOUS les alias au
+            // premier passage : certains utilisateurs ont déjà fini leur import initial.
+            val dateDepuis = depuis ?: "1970-01-01 00:00:00.000Z"
 
             try {
-                var plusRecent: String = depuis
+                var plusRecent: String = dateDepuis
                 var page = 1
                 while (true) {
                     val filtre = URLEncoder.encode(
-                        "utilisateur_id='$utilisateurId' && updated>'$depuis'",
+                        "utilisateur_id='$utilisateurId' && updated>'$dateDepuis'",
                         Charsets.UTF_8.name()
                     )
                     val request = Request.Builder()
