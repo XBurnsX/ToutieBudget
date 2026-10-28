@@ -251,14 +251,18 @@ class HistoriqueEnveloppeViewModel(
                 // Un JSON de fractions illisible doit être signalé, pas devenir
                 // silencieusement une transaction "absente".
                 var fractionsIllisibles = 0
+                var fractionsNonReconciliables = 0
                 val portionsValides = mutableMapOf<String, List<PortionsHistorique.Portion>>()
                 val transactionsEnveloppe = transactions.filter { transaction ->
                     // Valider toutes les portions AVANT de montrer la transaction.
                     // Même une portion absent ne doit jamais apparaître à 0 $.
                     val portions = if (transaction.estFractionnee) {
                         try {
-                            PortionsHistorique.lire(transaction.sousItems).also {
-                                portionsValides[transaction.id] = it
+                            PortionsHistorique.lire(transaction.sousItems).also { fractions ->
+                                portionsValides[transaction.id] = fractions
+                                if (!PortionsHistorique.verifierTotal(fractions, transaction.montant)) {
+                                    fractionsNonReconciliables++
+                                }
                             }
                         } catch (_: Exception) {
                             fractionsIllisibles++
@@ -356,6 +360,8 @@ class HistoriqueEnveloppeViewModel(
                                 add("$allocationsIndisponibles allocation(s) historique(s) introuvable(s).")
                             if (fractionsIllisibles > 0)
                                 add("$fractionsIllisibles transaction(s) fractionnée(s) illisible(s).")
+                            if (fractionsNonReconciliables > 0)
+                                add("$fractionsNonReconciliables achat(s) avec répartition différente du total.")
                             if (doublons > 0)
                                 add("$doublons doublon(s) de transaction écarté(s) de l'affichage.")
                         }.takeIf { it.isNotEmpty() }?.joinToString(" ")?.let {
