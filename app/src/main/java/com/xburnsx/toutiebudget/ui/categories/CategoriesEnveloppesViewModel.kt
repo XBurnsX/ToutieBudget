@@ -442,22 +442,28 @@ class CategoriesEnveloppesViewModel(
         }
     }
 
-    /** CA4 : restauration par UPDATE, jamais DELETE/CREATE. */
-    fun restaurerEnveloppe(enveloppeId: String) {
+    /** CA4 : restaurer dans la catégorie d'origine OU dans une catégorie
+     * choisie lorsque l'ancienne a disparu. Conserver l'ID, les allocations
+     * et l'historique; refuser toute catégorie inexistante. */
+    fun restaurerEnveloppe(enveloppeId: String, destinationCategorieId: String? = null) {
         viewModelScope.lancerUneFois(verrouEcriture) {
             try {
                 val toutes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
                 val env = toutes.firstOrNull { it.id == enveloppeId && it.estArchive }
                     ?: error("Enveloppe archivée introuvable.")
-                require(categoriesMap.containsKey(env.categorieId)) {
-                    "La catégorie d'origine est introuvable; restauration refusée."
+                val destination = destinationCategorieId ?: env.categorieId
+                require(categoriesMap.containsKey(destination)) {
+                    "La catégorie d'origine est introuvable. Choisis une autre catégorie avant de restaurer."
                 }
                 require(toutes.none {
-                    it.id != env.id && !it.estArchive && it.categorieId == env.categorieId &&
+                    it.id != env.id && it.categorieId == destination &&
                         it.nom.trim().equals(env.nom.trim(), ignoreCase = true)
-                }) { "Le nom existe déjà parmi les enveloppes actives." }
-                enveloppeRepository.mettreAJourEnveloppe(env.copy(estArchive = false))
-                    .getOrThrow()
+                }) { "Le nom existe déjà dans la catégorie sélectionnée." }
+                // CE13 : le repository revalide la version à l'instant
+                // du commit, pour ne pas écraser une modification distante.
+                enveloppeRepository.modifierOrganisationSiInchangee(
+                    env, env.copy(estArchive = false, categorieId = destination)
+                ).getOrThrow()
                 chargerDonnees()
                 realtimeSyncService.declencherMiseAJourBudget()
             } catch (e: Exception) {
