@@ -216,6 +216,9 @@ class HistoriqueEnveloppeViewModel(
                 val allocationIdToEnveloppeId = allocations.associateBy({ it.id }, { it.enveloppeId })
 
                 // Filtrer les transactions pour cette enveloppe spécifique
+                // Un JSON de fractions illisible doit être signalé, pas devenir
+                // silencieusement une transaction "absente".
+                var fractionsIllisibles = 0
                 val transactionsEnveloppe = transactions.filter { transaction ->
                     // 1) Cas simple: allocation -> enveloppe
                     val allocId = transaction.allocationMensuelleId
@@ -223,13 +226,20 @@ class HistoriqueEnveloppeViewModel(
                     if (matchSimple) return@filter true
                     
                     // 2) Cas transaction fractionnée: sous-items contenant l'enveloppe
-                    if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
+                    if (transaction.estFractionnee) {
                         try {
+                            require(!transaction.sousItems.isNullOrBlank()) { "Fractions absentes." }
                             val arr = JsonParser.parseString(transaction.sousItems).asJsonArray
-                            arr.any { elem -> 
-                                (elem.asJsonObject.get("enveloppe_id") ?: elem.asJsonObject.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString == enveloppeId 
+                            require(arr.size() > 0) { "Fractions vides." }
+                            arr.any { elem ->
+                                val fraction = elem.asJsonObject
+                                (fraction.get("enveloppe_id") ?: fraction.get("enveloppeId"))
+                                    ?.takeIf { !it.isJsonNull }?.asString == enveloppeId
                             }
-                        } catch (_: Exception) { false }
+                        } catch (_: Exception) {
+                            fractionsIllisibles++
+                            false
+                        }
                     } else false
                 }
 
@@ -293,9 +303,14 @@ class HistoriqueEnveloppeViewModel(
                         transactions = transactionsUi,
                         transactionsGroupees = transactionsGroupees,
                         erreur = null,
-                        avertissement = if (allocationsIndisponibles > 0)
-                            "$allocationsIndisponibles allocation(s) historique(s) introuvable(s) : liste possiblement incomplète."
-                        else null
+                        avertissement = buildList {
+                            if (allocationsIndisponibles > 0)
+                                add("$allocationsIndisponibles allocation(s) historique(s) introuvable(s).")
+                            if (fractionsIllisibles > 0)
+                                add("$fractionsIllisibles transaction(s) fractionnée(s) illisible(s).")
+                        }.takeIf { it.isNotEmpty() }?.joinToString(" ")?.let {
+                            "$it Historique possiblement incomplet."
+                        }
                     )
                 }
                 
