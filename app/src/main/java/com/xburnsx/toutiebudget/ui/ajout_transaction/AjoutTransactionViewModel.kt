@@ -703,7 +703,12 @@ class AjoutTransactionViewModel(
                 _uiState.update { it.copy(messageErreur = "Seules une dépense ou un revenu peuvent être repris.") }
                 return@launch
             }
-            if (allComptes.isEmpty()) chargerDonneesInitiales()
+            // HC13 : le formulaire est déjà en train de charger dans init.
+            // Ne pas relancer ce chargement : il écraserait ensuite la
+            // sélection réutilisée et empêcherait le préremplissage.
+            if (_uiState.value.isLoading) {
+                uiState.first { !it.isLoading }
+            }
 
             val fractions = if (tx.estFractionnee && !tx.sousItems.isNullOrBlank()) {
                 runCatching {
