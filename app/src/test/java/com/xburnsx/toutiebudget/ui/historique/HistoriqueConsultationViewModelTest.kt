@@ -345,4 +345,51 @@ class HistoriqueConsultationViewModelTest {
         assertTrue(vm.uiState.value.erreur.orEmpty().contains("ne figure plus"))
     }
 
+    @Test fun libelleEnveloppeArchiveeEtAllocationIntrouvableCompte() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.enveloppe("essence", nom = "Essence auto")
+        b.enveloppes["essence"] = b.enveloppes.getValue("essence").copy(estArchive = true)
+        val allocation = b.allocation("essence", Date(), solde = 0.0)
+        b.transactions["archive"] = Transaction(
+            id = "archive", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 10.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Station",
+            allocationMensuelleId = allocation.id
+        )
+        b.transactions["orpheline"] = Transaction(
+            id = "orpheline", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 5.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Marché",
+            allocationMensuelleId = "alloc-supprimee"
+        )
+        val vm = app.historiqueCompte("chq")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        val mouvements = vm.uiState.value.transactions.associateBy { it.id }
+        assertEquals("Essence auto (archivée)", mouvements.getValue("archive").nomEnveloppe)
+        assertEquals(
+            "Allocation historique introuvable (ID : alloc-supprimee)",
+            mouvements.getValue("orpheline").nomEnveloppe
+        )
+        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("allocations"))
+    }
+
+    @Test fun ancienneFractionGardeSaReferenceMemeSiEnveloppeSupprimee() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["fraction-inconnue"] = Transaction(
+            id = "fraction-inconnue", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 3.15, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Station",
+            estFractionnee = true,
+            sousItems = """[{"enveloppe_id":"env-absente","montant":3.15}]"""
+        )
+        val vm = app.historiqueCompte("chq")
+        attendre()
+        assertNull(vm.uiState.value.erreur)
+        assertEquals(3.15, vm.uiState.value.transactions.single().montant, 0.00001)
+        val libelle = vm.uiState.value.transactions.single().nomsEnveloppesFractions.single()
+        assertTrue(libelle.contains("introuvable"))
+        assertTrue(libelle.contains("env-absente"))
+    }
+
 }
