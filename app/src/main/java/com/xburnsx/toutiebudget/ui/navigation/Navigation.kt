@@ -510,6 +510,7 @@ fun MainAppScaffold(
                     onNavigateToArchives = { bottomBarNavController.navigate("archives") },
                     onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") },
                     onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") },
+                    onNavigateToAliasBancaires = { bottomBarNavController.navigate("alias_bancaires") },
                     onNavigateToHistory = { bottomBarNavController.navigate(Screen.HistoriqueGeneral.route) }
                 )
             }
