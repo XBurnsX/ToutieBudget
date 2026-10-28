@@ -14,7 +14,9 @@ data class HistoriqueEnveloppeUiState(
     val scrollOffset: Int = 0,
     val searchQuery: String = "",
     val periode: PeriodeHistorique = PeriodeHistorique(),
-    val compteSourceFiltre: CompteSourceHistorique? = null
+    val compteSourceFiltre: CompteSourceHistorique? = null,
+    val enveloppeArchivee: Boolean = false,
+    val enveloppeIntrouvable: Boolean = false
 )
 
 /** EA4 : une collection est indispensable car deux types de comptes
