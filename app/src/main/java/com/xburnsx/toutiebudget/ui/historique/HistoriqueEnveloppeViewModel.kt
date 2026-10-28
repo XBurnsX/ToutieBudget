@@ -304,6 +304,10 @@ class HistoriqueEnveloppeViewModel(
                     }
                 val allocationsIndisponibles = idsAllocations.size -
                     allocations.map { it.id }.toSet().size
+                val enveloppeOuverte = enveloppes.firstOrNull { it.id == enveloppeId }
+                val enveloppeArchivee = enveloppeOuverte?.estArchive == true
+                val enveloppeIntrouvable = !enveloppesIndisponibles &&
+                    enveloppeOuverte == null
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
                 val enveloppesParId = enveloppes.associateBy { it.id }
@@ -424,6 +428,8 @@ class HistoriqueEnveloppeViewModel(
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
+                        enveloppeArchivee = enveloppeArchivee,
+                        enveloppeIntrouvable = enveloppeIntrouvable,
                         transactions = transactionsUi,
                         transactionsGroupees = grouperTransactionsParDate(
                             FiltrageHistoriqueEnveloppe.appliquer(
