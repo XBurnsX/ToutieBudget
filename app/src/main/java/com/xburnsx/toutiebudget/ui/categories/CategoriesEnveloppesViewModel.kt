@@ -30,7 +30,8 @@ import java.util.Date
 class CategoriesEnveloppesViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val categorieRepository: CategorieRepository,
-    private val realtimeSyncService: RealtimeSyncService
+    private val realtimeSyncService: RealtimeSyncService,
+    private val transactionRepository: com.xburnsx.toutiebudget.data.repositories.TransactionRepository? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -618,8 +619,63 @@ class CategoriesEnveloppesViewModel(
         _uiState.update {
             it.copy(
                 enveloppePourSuppression = enveloppe,
-                isConfirmationSuppressionEnveloppeVisible = true
+                isConfirmationSuppressionEnveloppeVisible = true,
+                apercuRetrait = null,
+                previsualisationRetraitEnCours = true
             )
+        }
+        viewModelScope.launch {
+            try {
+                val allocations = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id)
+                    .getOrThrow()
+                val aujourdHui = java.time.YearMonth.now()
+                val futures = allocations.count { allocation ->
+                    java.time.YearMonth.from(
+                        allocation.mois.toInstant()
+                            .atZone(java.time.ZoneId.systemDefault())
+                    ).isAfter(aujourdHui)
+                }
+                val mouvements = transactionRepository?.recupererToutesLesTransactions()
+                    ?.getOrThrow()
+                val idsAllocations = allocations.map { it.id }.toSet()
+                val transactionsLiees = mouvements?.filter { tx ->
+                    tx.allocationMensuelleId in idsAllocations ||
+                        (tx.estFractionnee && runCatching {
+                            com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
+                                .lire(tx.sousItems).any { it.enveloppeId == enveloppe.id }
+                        }.getOrDefault(false))
+                }
+                val techniques = transactionsLiees?.count { tx ->
+                    tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement ||
+                        tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue
+                }
+                if (_uiState.value.enveloppePourSuppression?.id == enveloppe.id) {
+                    _uiState.update {
+                        it.copy(
+                            previsualisationRetraitEnCours = false,
+                            apercuRetrait = ApercuRetraitEnveloppe(
+                                nombreAllocations = allocations.size,
+                                periodesAvecSolde = allocations.count {
+                                    !com.xburnsx.toutiebudget.utils.MoneyFormatter.isAmountZero(it.solde)
+                                },
+                                allocationsFutures = futures,
+                                soldeRestant = allocations.sumOf { it.solde },
+                                transactionsLiees = transactionsLiees?.size,
+                                paiementsTechniquesLies = techniques
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                if (_uiState.value.enveloppePourSuppression?.id == enveloppe.id) {
+                    _uiState.update {
+                        it.copy(
+                            previsualisationRetraitEnCours = false,
+                            erreur = "Prévisualisation indisponible : ${e.message}"
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -627,7 +683,9 @@ class CategoriesEnveloppesViewModel(
         _uiState.update {
             it.copy(
                 enveloppePourSuppression = null,
-                isConfirmationSuppressionEnveloppeVisible = false
+                isConfirmationSuppressionEnveloppeVisible = false,
+                apercuRetrait = null,
+                previsualisationRetraitEnCours = false
             )
         }
     }
@@ -651,6 +709,20 @@ class CategoriesEnveloppesViewModel(
                         )
                     }
                     return@lancerUneFois
+                }
+                // CE5 : une enveloppe de paiement technique doit rester
+                // active tant que les opérations liées la référencent.
+                val sources = transactionRepository?.recupererToutesLesTransactions()?.getOrThrow()
+                if (sources != null) {
+                    val allocationsIds = allocations.map { it.id }.toSet()
+                    val paiementLie = sources.any { tx ->
+                        tx.allocationMensuelleId in allocationsIds &&
+                            (tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.Paiement ||
+                                tx.type == com.xburnsx.toutiebudget.data.modeles.TypeTransaction.PaiementEffectue)
+                    }
+                    require(!paiementLie) {
+                        "Cette enveloppe est liée à un paiement de carte ou de dette. Archivage bloqué."
+                    }
                 }
                 // CE1/CE4 : une absence d'allocations ne prouve pas qu'aucun
                 // historique n'existe. L'archivage garde IDs et références.
