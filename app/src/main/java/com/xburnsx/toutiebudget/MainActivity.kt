@@ -39,5 +39,27 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching { AppModule.provideActualisationCours().actualiserTout() }
         }
+        archiverComptesSoldesSiDemande()
+    }
+
+    /** ARA6 : seulement si activé dans Paramètres, une fois par jour ; on dit ce qui a été archivé. */
+    private fun archiverComptesSoldesSiDemande() {
+        val prefs = com.xburnsx.toutiebudget.utils.PreferencesManager
+        if (!prefs.getArchivageAutomatique(this)) return
+        val jour = java.time.LocalDate.now().toString()
+        if (prefs.getDernierArchivageAutomatique(this) == jour) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val noms = runCatching { AppModule.provideArchivageAutomatique().executer() }.getOrNull() ?: return@launch
+            prefs.setDernierArchivageAutomatique(this@MainActivity, jour)
+            if (noms.isNotEmpty()) {
+                launch(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Archivé automatiquement : ${noms.joinToString()}. Réactivable dans Paramètres > Archives.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
     }
 }

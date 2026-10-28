@@ -29,6 +29,9 @@ class HistoriqueAllocationRepositoryRoomImpl(
         return historiqueAllocationDao.getHistoriqueByAllocation(allocationId)
     }
     
+    override suspend fun parAllocations(ids: List<String>): List<HistoriqueAllocation> =
+        ids.distinct().chunked(400).flatMap { historiqueAllocationDao.parAllocations(it) }
+
     override suspend fun insertHistorique(historique: HistoriqueAllocation) {
         // HG3 : Room remonte ses exceptions à l'appelant. Ne jamais annoncer
         // un succès avant l'écriture, ni journaliser montants et noms privés.

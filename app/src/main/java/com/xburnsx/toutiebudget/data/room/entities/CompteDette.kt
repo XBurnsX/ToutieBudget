@@ -49,5 +49,12 @@ data class CompteDette(
 
     // Section 11 : mode, dates du contrat, lien d'enveloppe, taux variables, ajustements (JSON de DetailsDette)
     @ColumnInfo(name = "details_dette_json")
-    val detailsDetteJson: String? = null
+    val detailsDetteJson: String? = null,
+
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @ColumnInfo(name = "archive_le")
+    val archiveLe: String? = null,
+
+    @ColumnInfo(name = "raison_archivage")
+    val raisonArchivage: String? = null
 )

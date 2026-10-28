@@ -87,4 +87,7 @@ interface HistoriqueAllocationService {
         pretAPlacerAvant: Double,
         pretAPlacerApres: Double
     )
+
+    /** GA5 : montant des déficits déjà couverts par les virements vers ces allocations (0 si inconnu). */
+    suspend fun montantDejaCouvert(allocationIds: List<String>): Double = 0.0
 }

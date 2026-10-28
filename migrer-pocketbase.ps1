@@ -7,6 +7,8 @@
 #   user_preferences.enveloppes_favorites : enveloppes favorites de la page Budget (A4)
 #   comptes_investissement.solde          : valeur du placement (nombre). S'il manque, le serveur renvoie
 #                                           le placement sans solde et l'app affichait 0 $.
+#   archive_le / raison_archivage          : date et raison d'archivage des comptes et enveloppes (ARA4)
+#   allocations_mensuelles.montant_reporte : solde de fin de mois parti au mois suivant (GN3)
 #
 # Le script ne fait qu'AJOUTER des champs manquants ; il ne modifie ni ne supprime rien d'autre.
 # On peut le relancer sans risque.
@@ -22,6 +24,11 @@ $champsAAjouter = @(
     @{ collection = 'user_preferences'; champ = 'enveloppes_favorites' },
     @{ collection = 'comptes_investissement'; champ = 'solde'; type = 'number' }
 )
+foreach ($c in @('comptes_cheques', 'comptes_credits', 'comptes_dettes', 'comptes_investissement', 'enveloppes')) {
+    $champsAAjouter += @{ collection = $c; champ = 'archive_le'; type = 'text' }
+    $champsAAjouter += @{ collection = $c; champ = 'raison_archivage'; type = 'text' }
+}
+$champsAAjouter += @{ collection = 'allocations_mensuelles'; champ = 'montant_reporte'; type = 'number' }
 
 # Connexion admin (le mot de passe reste dans cette fenêtre)
 $courriel = Read-Host "Courriel admin PocketBase"
@@ -43,6 +50,8 @@ foreach ($cible in $champsAAjouter) {
     # PocketBase remplace la liste complète : on renvoie les champs existants (avec leurs id) + le nouveau
     if ($cible.type -eq 'number') {
         $champs += [pscustomobject]@{ name = $cible.champ; type = 'number'; required = $false }
+    } elseif ($cible.type -eq 'text') {
+        $champs += [pscustomobject]@{ name = $cible.champ; type = 'text'; required = $false }
     } else {
         $champs += [pscustomobject]@{ name = $cible.champ; type = 'json'; required = $false; maxSize = 2000000 }
     }

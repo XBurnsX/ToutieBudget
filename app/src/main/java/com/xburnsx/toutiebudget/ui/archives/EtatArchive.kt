@@ -28,5 +28,5 @@ object EtatArchive {
         compte !is CompteCredit && compte !is CompteDette && abs(compte.solde) > 0.005 ->
             "archivé avec ${MoneyFormatter.formatAmount(compte.solde)}"
         else -> "archivé, soldé"
-    }
+    } + (compte.archiveLe?.let { " · le $it" } ?: "")
 }

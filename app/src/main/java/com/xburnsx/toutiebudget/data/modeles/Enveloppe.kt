@@ -25,5 +25,10 @@ data class Enveloppe(
     @SerializedName("objectif_jour")  // Garder ce champ si nécessaire
     val objectifJour: Int? = null,
     @SerializedName("reset_apres_echeance")  // Nouveau champ pour les objectifs d'échéance
-    val resetApresEcheance: Boolean = false
+    val resetApresEcheance: Boolean = false,
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @SerializedName("archive_le")
+    val archiveLe: String? = null,
+    @SerializedName("raison_archivage")
+    val raisonArchivage: String? = null
 )

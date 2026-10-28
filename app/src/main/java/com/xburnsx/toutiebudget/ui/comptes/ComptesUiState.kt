@@ -45,5 +45,6 @@ data class ComptesUiState(
     val erreurArchives: String? = null,
     val messageArchives: String? = null,
     val isConfirmationArchivageVisible: Boolean = false, // CO7
+    val raisonArchivage: String = "", // ARA4 : raison facultative saisie avant d'archiver
     val enregistrementEnCours: Boolean = false // CO6
 )

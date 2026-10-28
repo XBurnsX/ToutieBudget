@@ -27,5 +27,9 @@ data class AllocationMensuelle(
     
     val compteSourceId: String? = null,
     
-    val collectionCompteSource: String? = null
+    val collectionCompteSource: String? = null,
+
+    // GN3 : solde de fin de mois parti au mois suivant ; le mois passé garde ainsi sa vraie valeur
+    @ColumnInfo(name = "montant_reporte", defaultValue = "0")
+    val montantReporte: Double = 0.0
 )

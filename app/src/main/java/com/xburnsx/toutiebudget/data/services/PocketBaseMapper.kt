@@ -105,7 +105,9 @@ object PocketBaseMapper {
         couleur = item.couleur ?: "#FF0000",
         estArchive = item.archive ?: false,
         ordre = item.ordre ?: 0,
-        collection = item.collection ?: "comptes_cheques"
+        collection = item.collection ?: "comptes_cheques",
+        archiveLe = item.archive_le?.takeIf { it.isNotBlank() },
+        raisonArchivage = item.raison_archivage?.takeIf { it.isNotBlank() }
     )
 
     fun versCompteCredit(item: ItemPocketBase) = CompteCredit(
@@ -121,7 +123,9 @@ object PocketBaseMapper {
         paiementMinimum = item.paiement_minimum?.toDoubleOrNull(),
         fraisMensuelsJson = item.frais_mensuels_json?.let { gson.toJson(it) },
         collection = item.collection ?: "comptes_credits",
-        detailsCarteJson = item.details_carte_json?.let { if (it is String) it else gson.toJson(it) }
+        detailsCarteJson = item.details_carte_json?.let { if (it is String) it else gson.toJson(it) },
+        archiveLe = item.archive_le?.takeIf { it.isNotBlank() },
+        raisonArchivage = item.raison_archivage?.takeIf { it.isNotBlank() }
     )
 
     fun versCompteDette(item: ItemPocketBase) = CompteDette(
@@ -138,7 +142,9 @@ object PocketBaseMapper {
         paiementEffectue = item.paiement_effectue ?: 0,
         prixTotal = item.prix_total?.toDoubleOrNull(),
         collection = item.collection ?: "comptes_dettes",
-        detailsDetteJson = item.details_dette_json?.let { if (it is String) it else gson.toJson(it) }
+        detailsDetteJson = item.details_dette_json?.let { if (it is String) it else gson.toJson(it) },
+        archiveLe = item.archive_le?.takeIf { it.isNotBlank() },
+        raisonArchivage = item.raison_archivage?.takeIf { it.isNotBlank() }
     )
 
     fun versCompteInvestissement(item: ItemPocketBase) = CompteInvestissement(
@@ -150,7 +156,9 @@ object PocketBaseMapper {
         estArchive = item.archive ?: false,
         ordre = item.ordre ?: 0,
         collection = item.collection ?: "comptes_investissement",
-        detailsInvestissementJson = item.details_investissement_json?.let { if (it is String) it else gson.toJson(it) }
+        detailsInvestissementJson = item.details_investissement_json?.let { if (it is String) it else gson.toJson(it) },
+        archiveLe = item.archive_le?.takeIf { it.isNotBlank() },
+        raisonArchivage = item.raison_archivage?.takeIf { it.isNotBlank() }
     )
 
     fun versCategorie(item: ItemPocketBase) = Categorie(
@@ -189,7 +197,9 @@ object PocketBaseMapper {
         dateObjectif = item.date_objectif,
         dateDebutObjectif = item.date_debut_objectif,
         objectifJour = item.objectif_jour?.toIntOrNull(),
-        resetApresEcheance = item.reset_apres_echeance ?: false
+        resetApresEcheance = item.reset_apres_echeance ?: false,
+        archiveLe = item.archive_le?.takeIf { it.isNotBlank() },
+        raisonArchivage = item.raison_archivage?.takeIf { it.isNotBlank() }
     )
 
     fun versAllocationMensuelle(item: ItemPocketBase) = AllocationMensuelle(
@@ -201,7 +211,8 @@ object PocketBaseMapper {
         alloue = item.alloue?.toDoubleOrNull() ?: 0.0,
         depense = item.depense?.toDoubleOrNull() ?: 0.0,
         compteSourceId = item.compte_source_id,
-        collectionCompteSource = item.collection_compte_source
+        collectionCompteSource = item.collection_compte_source,
+        montantReporte = item.montant_reporte?.toDoubleOrNull() ?: 0.0
     )
 
     fun versTiers(item: ItemPocketBase) = Tiers(

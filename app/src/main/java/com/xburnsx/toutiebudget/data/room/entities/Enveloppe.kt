@@ -43,5 +43,12 @@ data class Enveloppe(
     val objectifJour: Int? = null,
     
     @ColumnInfo(name = "reset_apres_echeance")
-    val resetApresEcheance: Boolean = false
+    val resetApresEcheance: Boolean = false,
+
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @ColumnInfo(name = "archive_le")
+    val archiveLe: String? = null,
+
+    @ColumnInfo(name = "raison_archivage")
+    val raisonArchivage: String? = null
 )

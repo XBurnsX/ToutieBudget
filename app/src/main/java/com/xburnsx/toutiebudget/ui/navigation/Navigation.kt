@@ -559,11 +559,18 @@ fun MainAppScaffold(
                     onRetour = {
                         bottomBarNavController.popBackStack()
                     },
-                    onVirementClick = { enveloppeId, montantNegatif, mois ->
+                    onVirementClick = { enveloppeId, montantNegatif, mois, total ->
                         // Naviguer vers le virement avec paramètres pré-remplis
                         val moisInt = mois.month + 1 // +1 car month commence à 0
                         val anneeInt = mois.year + 1900 // +1900 car year commence à 1900
-                        bottomBarNavController.navigate("virer_argent_pre_rempli/$enveloppeId/$montantNegatif/$moisInt/$anneeInt")
+                        bottomBarNavController.navigate(
+                            "virer_argent_pre_rempli/${android.net.Uri.encode(enveloppeId)}/$montantNegatif/$moisInt/$anneeInt?total=$total"
+                        )
+                    },
+                    onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
+                        mainNavController.navigate(
+                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        )
                     }
                 )
             }
@@ -696,7 +703,10 @@ fun MainAppScaffold(
             }
 
             // Route pour virement avec paramètres pré-remplis
-            composable("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}") { backStackEntry ->
+            composable(
+                "virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}?total={total}",
+                arguments = listOf(navArgument("total") { type = NavType.BoolType; defaultValue = true })
+            ) { backStackEntry ->
                 val enveloppeId = backStackEntry.arguments?.getString("enveloppeId") ?: ""
                 val montantNegatif = backStackEntry.arguments?.getString("montantNegatif") ?: "0"
                 val moisInt = backStackEntry.arguments?.getString("moisInt") ?: "1"
@@ -729,11 +739,12 @@ fun MainAppScaffold(
                 VirerArgentScreen(
                     viewModel = viewModel,
                     onNavigateBack = {
-                        bottomBarNavController.retourDepuis("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}")
+                        bottomBarNavController.retourDepuis("virer_argent_pre_rempli/{enveloppeId}/{montantNegatif}/{moisInt}/{anneeInt}?total={total}")
                     },
                     enveloppePreselectionnee = enveloppeId,
                     montantPreselectionne = montant,
-                    moisPreselectionne = dateMois
+                    moisPreselectionne = dateMois,
+                    couvertureTotale = backStackEntry.arguments?.getBoolean("total") ?: true
                 )
             }
             

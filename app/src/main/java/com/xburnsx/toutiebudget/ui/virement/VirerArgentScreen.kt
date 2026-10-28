@@ -43,10 +43,13 @@ fun VirerArgentScreen(
     onNavigateBack: () -> Unit = {},
     enveloppePreselectionnee: String? = null,
     montantPreselectionne: Double? = null,
-    moisPreselectionne: Date? = null
+    moisPreselectionne: Date? = null,
+    /** GN9 : vrai pour « Couvrir entièrement », faux pour un montant personnalisé. */
+    couvertureTotale: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var montantRecalcule by remember { mutableStateOf(false) }
 
     // Configuration automatique des paramètres pré-remplis
     LaunchedEffect(enveloppePreselectionnee, montantPreselectionne, moisPreselectionne) {
@@ -81,6 +84,14 @@ fun VirerArgentScreen(
             // Présélectionner l'enveloppe destination
             enveloppeDestination?.let { enveloppe ->
                 viewModel.onEnveloppeSelected(enveloppe, isSource = false)
+                // GN8 : le déficit est recalculé sur les données fraîches, une seule fois,
+                // seulement pour une couverture totale (un montant personnalisé est gardé).
+                val deficitCentimes = -kotlin.math.round(enveloppe.solde * 100.0).toLong()
+                val prerempliCentimes = montantPreselectionne?.let { kotlin.math.round(it * 100).toLong() }
+                if (!montantRecalcule && couvertureTotale && deficitCentimes > 0 && deficitCentimes != prerempliCentimes) {
+                    viewModel.onMontantChange(deficitCentimes.toString())
+                }
+                montantRecalcule = true
             }
         }
     }

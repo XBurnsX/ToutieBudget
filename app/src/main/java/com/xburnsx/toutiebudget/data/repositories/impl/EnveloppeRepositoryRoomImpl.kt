@@ -125,7 +125,8 @@ class EnveloppeRepositoryRoomImpl(
                 alloue = allocation.alloue,
                 depense = allocation.depense,
                 compteSourceId = allocation.compteSourceId,
-                collectionCompteSource = allocation.collectionCompteSource
+                collectionCompteSource = allocation.collectionCompteSource,
+                montantReporte = allocation.montantReporte
             )
 
             // 2. Mettre à jour en Room (PRIMARY)
@@ -180,7 +181,10 @@ class EnveloppeRepositoryRoomImpl(
                 dateObjectif = enveloppe.dateObjectif?.let { dateFormatter.format(it) },
                 dateDebutObjectif = enveloppe.dateDebutObjectif?.let { dateFormatter.format(it) },
                 objectifJour = enveloppe.objectifJour,
-                resetApresEcheance = enveloppe.resetApresEcheance
+                resetApresEcheance = enveloppe.resetApresEcheance,
+                // ARA4 : date posée à l'archivage, effacée à la restauration
+                archiveLe = if (enveloppe.estArchive) enveloppe.archiveLe ?: InfosArchivage.aujourdhui() else null,
+                raisonArchivage = if (enveloppe.estArchive) enveloppe.raisonArchivage?.trim()?.ifBlank { null } else null
             )
 
             // 2. Sauvegarder en Room (PRIMARY)
@@ -240,7 +244,10 @@ class EnveloppeRepositoryRoomImpl(
                 dateObjectif = enveloppe.dateObjectif?.let { dateFormatter.format(it) },
                 dateDebutObjectif = enveloppe.dateDebutObjectif?.let { dateFormatter.format(it) },
                 objectifJour = enveloppe.objectifJour,
-                resetApresEcheance = enveloppe.resetApresEcheance
+                resetApresEcheance = enveloppe.resetApresEcheance,
+                // ARA4 : date posée à l'archivage, effacée à la restauration
+                archiveLe = if (enveloppe.estArchive) enveloppe.archiveLe ?: InfosArchivage.aujourdhui() else null,
+                raisonArchivage = if (enveloppe.estArchive) enveloppe.raisonArchivage?.trim()?.ifBlank { null } else null
             )
 
             // 2. Mettre à jour en Room (PRIMARY)
@@ -378,7 +385,8 @@ class EnveloppeRepositoryRoomImpl(
                         "Paiement de carte ou de dette lié : archivage interdit."
                     }
                     if (!env.estArchive) {
-                        val archivee = env.copy(estArchive = true)
+                        val archivee = env.copy(estArchive = true,
+                            archiveLe = env.archiveLe ?: InfosArchivage.aujourdhui())
                         enveloppeDao.updateEnveloppe(archivee)
                         syncJobDao.insertSyncJob(
                             SyncJob(
@@ -437,7 +445,9 @@ class EnveloppeRepositoryRoomImpl(
                         it.type == "Paiement" || it.type == "PaiementEffectue"
                     }) { "Enveloppe de paiement technique : retrait refusé." }
                     // CE1 : toujours garder ID, allocations, transactions et historique.
-                    val archivee = env.copy(estArchive = true)
+                    val archivee = env.copy(estArchive = true,
+                        archiveLe = env.archiveLe ?: InfosArchivage.aujourdhui(),
+                        raisonArchivage = env.raisonArchivage ?: "Enveloppe retirée (historique conservé)")
                     if (!env.estArchive) {
                         enveloppeDao.updateEnveloppe(archivee)
                         syncJobDao.insertSyncJob(SyncJob(
@@ -589,7 +599,8 @@ class EnveloppeRepositoryRoomImpl(
                 alloue = allocation.alloue,
                 depense = allocation.depense,
                 compteSourceId = allocation.compteSourceId,
-                collectionCompteSource = allocation.collectionCompteSource
+                collectionCompteSource = allocation.collectionCompteSource,
+                montantReporte = allocation.montantReporte
             )
 
             // 2. Sauvegarder en Room (PRIMARY)
@@ -680,7 +691,9 @@ class EnveloppeRepositoryRoomImpl(
             dateObjectif = dateObjectif?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } },
             dateDebutObjectif = dateDebutObjectif?.let { try { dateFormatter.parse(it) } catch (e: Exception) { null } },
             objectifJour = objectifJour,
-            resetApresEcheance = resetApresEcheance
+            resetApresEcheance = resetApresEcheance,
+            archiveLe = archiveLe,
+            raisonArchivage = raisonArchivage
         )
         
         // 🎯 LOG DÉTAILLÉ POUR DÉBUGGER LA CONVERSION ROOM → MODÈLE !
@@ -708,7 +721,8 @@ class EnveloppeRepositoryRoomImpl(
             alloue = alloue,
             depense = depense,
             compteSourceId = compteSourceId,
-            collectionCompteSource = collectionCompteSource
+            collectionCompteSource = collectionCompteSource,
+            montantReporte = montantReporte
         )
     }
 }

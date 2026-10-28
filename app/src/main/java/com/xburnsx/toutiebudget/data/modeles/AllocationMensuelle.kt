@@ -12,5 +12,7 @@ data class AllocationMensuelle(
     val alloue: Double,
     val depense: Double,
     val compteSourceId: String?,
-    val collectionCompteSource: String?
+    val collectionCompteSource: String?,
+    /** GN3 : montant reporté au mois suivant par le rollover (solde réel de fin de mois). */
+    val montantReporte: Double = 0.0
 )

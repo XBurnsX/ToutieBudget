@@ -277,6 +277,16 @@ class RealtimeSyncService @Inject constructor() {
      * (SyncJob PENDING/FAILED), la version locale gagne et la fiche du serveur est ignorée ;
      * elle sera écrasée sur le serveur quand le SyncJob passera.
      */
+    /**
+     * ARA4 : un serveur sans les champs d'archivage (script pas encore lancé) renvoie null ;
+     * on garde alors la date et la raison du téléphone tant que la fiche reste archivée.
+     */
+    private fun archiveLeGarde(item: ItemPocketBase, archive: Boolean, serveur: String?, local: String?): String? =
+        if (!archive) null else serveur ?: local.takeIf { item.archive_le == null }
+
+    private fun raisonGardee(item: ItemPocketBase, archive: Boolean, serveur: String?, local: String?): String? =
+        if (!archive) null else serveur ?: local.takeIf { item.raison_archivage == null }
+
     /** Optionnel : ne jamais bloquer les abonnements existants si le backend alias manque. */
     private fun collectionOptionnelleDisponible(collection: String, urlBase: String, token: String): Boolean {
         val request = Request.Builder()
@@ -337,20 +347,30 @@ class RealtimeSyncService @Inject constructor() {
                 db.compteChequeDao().insertCompte(
                     if (local == null) entite else entite.copy(
                         solde = if (item.solde == null) local.solde else entite.solde,
-                        pretAPlacerRaw = if (item.pret_a_placer == null) local.pretAPlacerRaw else entite.pretAPlacerRaw
+                        pretAPlacerRaw = if (item.pret_a_placer == null) local.pretAPlacerRaw else entite.pretAPlacerRaw,
+                        archiveLe = archiveLeGarde(item, entite.estArchive, entite.archiveLe, local.archiveLe),
+                        raisonArchivage = raisonGardee(item, entite.estArchive, entite.raisonArchivage, local.raisonArchivage)
                     )
                 )
             }
             is com.xburnsx.toutiebudget.data.room.entities.CompteCredit -> {
                 val local = db.compteCreditDao().getCompteById(entite.id)
                 db.compteCreditDao().insertCompte(
-                    if (local == null || item.solde_utilise != null) entite else entite.copy(soldeUtilise = local.soldeUtilise)
+                    (if (local == null || item.solde_utilise != null) entite else entite.copy(soldeUtilise = local.soldeUtilise))
+                        .let { e -> if (local == null) e else e.copy(
+                            archiveLe = archiveLeGarde(item, e.estArchive, e.archiveLe, local.archiveLe),
+                            raisonArchivage = raisonGardee(item, e.estArchive, e.raisonArchivage, local.raisonArchivage)
+                        ) }
                 )
             }
             is com.xburnsx.toutiebudget.data.room.entities.CompteDette -> {
                 val local = db.compteDetteDao().getCompteById(entite.id)
                 db.compteDetteDao().insertCompte(
-                    if (local == null || item.solde_dette != null) entite else entite.copy(soldeDette = local.soldeDette)
+                    (if (local == null || item.solde_dette != null) entite else entite.copy(soldeDette = local.soldeDette))
+                        .let { e -> if (local == null) e else e.copy(
+                            archiveLe = archiveLeGarde(item, e.estArchive, e.archiveLe, local.archiveLe),
+                            raisonArchivage = raisonGardee(item, e.estArchive, e.raisonArchivage, local.raisonArchivage)
+                        ) }
                 )
             }
             is com.xburnsx.toutiebudget.data.room.entities.CompteInvestissement -> {
@@ -359,13 +379,29 @@ class RealtimeSyncService @Inject constructor() {
                     if (local == null) entite else entite.copy(
                         solde = if (item.solde == null) local.solde else entite.solde,
                         detailsInvestissementJson = if (item.details_investissement_json == null) local.detailsInvestissementJson
-                            else entite.detailsInvestissementJson
+                            else entite.detailsInvestissementJson,
+                        archiveLe = archiveLeGarde(item, entite.estArchive, entite.archiveLe, local.archiveLe),
+                        raisonArchivage = raisonGardee(item, entite.estArchive, entite.raisonArchivage, local.raisonArchivage)
                     )
                 )
             }
             is com.xburnsx.toutiebudget.data.room.entities.Categorie -> db.categorieDao().insertCategorie(entite)
-            is com.xburnsx.toutiebudget.data.room.entities.Enveloppe -> db.enveloppeDao().insertEnveloppe(entite)
-            is com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle -> db.allocationMensuelleDao().insertAllocation(entite)
+            is com.xburnsx.toutiebudget.data.room.entities.Enveloppe -> {
+                val local = db.enveloppeDao().getEnveloppeById(entite.id)
+                db.enveloppeDao().insertEnveloppe(
+                    if (local == null) entite else entite.copy(
+                        archiveLe = archiveLeGarde(item, entite.estArchive, entite.archiveLe, local.archiveLe),
+                        raisonArchivage = raisonGardee(item, entite.estArchive, entite.raisonArchivage, local.raisonArchivage)
+                    )
+                )
+            }
+            is com.xburnsx.toutiebudget.data.room.entities.AllocationMensuelle -> {
+                // GN3 : un serveur sans le champ ne remet pas le report du téléphone à 0
+                val local = if (item.montant_reporte == null) db.allocationMensuelleDao().getAllocationById(entite.id) else null
+                db.allocationMensuelleDao().insertAllocation(
+                    if (local == null) entite else entite.copy(montantReporte = local.montantReporte)
+                )
+            }
             is com.xburnsx.toutiebudget.data.room.entities.Transaction -> db.transactionDao().insertTransaction(entite)
             is com.xburnsx.toutiebudget.data.room.entities.Tiers -> db.tiersDao().insertTiers(entite)
             is com.xburnsx.toutiebudget.data.room.entities.AliasBancaire -> db.aliasBancaireDao().enregistrer(entite)

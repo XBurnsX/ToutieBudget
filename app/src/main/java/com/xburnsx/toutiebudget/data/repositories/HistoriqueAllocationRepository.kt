@@ -33,6 +33,9 @@ interface HistoriqueAllocationRepository {
      * Insère un nouvel enregistrement d'historique.
      */
     suspend fun insertHistorique(historique: HistoriqueAllocation)
+
+    /** GA5 : historique des allocations données ; vide par défaut (dépôts sans historique). */
+    suspend fun parAllocations(ids: List<String>): List<HistoriqueAllocation> = emptyList()
     
     /**
      * Insère plusieurs enregistrements d'historique.

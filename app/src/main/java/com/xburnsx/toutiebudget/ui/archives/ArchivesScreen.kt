@@ -194,7 +194,8 @@ fun ArchivesScreen(
                             },
                             headlineContent = { Text(env.nom) },
                             supportingContent = {
-                                Text("$nomCategorie · Objectif : ${env.objectifMontant}")
+                                Text("$nomCategorie · Objectif : ${env.objectifMontant}" +
+                                    (env.archiveLe?.let { " · archivée le $it" } ?: ""))
                             },
                             trailingContent = {
                                 Column(horizontalAlignment = Alignment.End) {
@@ -241,6 +242,9 @@ fun ArchivesScreen(
                     Text("Collection : ${compte.collection}")
                     Text("Type : " + EtatArchive.libelleType(compte))
                     Text("Statut : " + EtatArchive.statut(compte))
+                    // ARA4
+                    Text("Archivé le : " + (compte.archiveLe ?: "date inconnue (archivé avant cette version)"))
+                    compte.raisonArchivage?.let { Text("Raison : $it") }
                     Text("Solde enregistré : " +
                         com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique
                             .formater(compte.solde))
@@ -270,6 +274,9 @@ fun ArchivesScreen(
                         (categoriesState.categoriesParId[env.categorieId]?.nom
                             ?: "Supprimée (ID : ${env.categorieId})"))
                     Text("Statut : archivée")
+                    // ARA4
+                    Text("Archivée le : " + (env.archiveLe ?: "date inconnue (archivée avant cette version)"))
+                    env.raisonArchivage?.let { Text("Raison : $it") }
                     Text("Type d'objectif : ${env.typeObjectif}")
                     Text("Montant d'objectif : " +
                         com.xburnsx.toutiebudget.ui.historique.AffichageMontantHistorique

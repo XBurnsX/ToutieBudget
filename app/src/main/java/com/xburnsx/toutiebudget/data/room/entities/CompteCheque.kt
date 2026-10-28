@@ -32,5 +32,12 @@ data class CompteCheque(
     
     val ordre: Int = 0,
     
-    val collection: String = "comptes_cheques"
+    val collection: String = "comptes_cheques",
+
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @ColumnInfo(name = "archive_le")
+    val archiveLe: String? = null,
+
+    @ColumnInfo(name = "raison_archivage")
+    val raisonArchivage: String? = null
 )

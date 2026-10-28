@@ -257,6 +257,10 @@ class BudgetViewModel(
                 // 9. État des catégories ouvertes et favoris : l'appareil d'abord (C2), même hors ligne
                 val categoriesOuvertes = preferenceRepository.recupererCategoriesOuvertes()
                 val enveloppesFavorites = preferenceRepository.recupererEnveloppesFavorites()
+                // GA5 : une lecture d'historique en échec ne bloque jamais le budget
+                val dejaCouvert = runCatching {
+                    historiqueAllocationService.montantDejaCouvert(allocations.map { it.id })
+                }.getOrDefault(0.0)
 
                 if (generation != generationChargementBudget) return@launch
 
@@ -266,6 +270,7 @@ class BudgetViewModel(
                         isLoading = false,
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
                         categoriesEnveloppes = categoriesEnveloppesUi,
+                        montantDejaCouvertMois = dejaCouvert,
                         // C2 : un clic effectué pendant la lecture Room ne peut
                         // pas être remplacé par un état de préférences plus ancien.
                         categoriesOuvertes = if (generationPreferencesBudget == generationPreferencesAuDebut)
@@ -466,7 +471,10 @@ class BudgetViewModel(
                 dateObjectif = dateObjectifStr, // déjà une chaîne formatée ou un jour simple
                 versementRecommande = versementRecommande,
                 typeObjectif = enveloppe.typeObjectif, // Utiliser le nouveau nom de propriété
-                estArchive = enveloppe.estArchive
+                estArchive = enveloppe.estArchive,
+                montantReporte = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(
+                    allocationsDeLEnveloppe.sumOf { it.montantReporte }
+                )
             )
         }
     }

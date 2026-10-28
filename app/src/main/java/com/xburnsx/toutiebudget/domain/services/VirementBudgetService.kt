@@ -92,7 +92,7 @@ class VirementBudgetService(
             kotlin.math.round(allocationExistante.solde * 100.0).toLong() <= 0L
         val avant = if (changerProvenance) {
             allocationMensuelleRepository.creerNouvelleAllocation(allocationExistante.copy(
-                id = "", solde = 0.0, alloue = 0.0, depense = 0.0,
+                id = "", solde = 0.0, alloue = 0.0, depense = 0.0, montantReporte = 0.0,
                 compteSourceId = compte.id, collectionCompteSource = compte.collection
             ))
         } else allocationExistante
@@ -186,7 +186,7 @@ class VirementBudgetService(
             kotlin.math.round(destExistante.solde * 100.0).toLong() <= 0L
         val destAvant = if (nouvelleLigneDestination) {
             allocationMensuelleRepository.creerNouvelleAllocation(destExistante.copy(
-                id = "", solde = 0.0, alloue = 0.0, depense = 0.0,
+                id = "", solde = 0.0, alloue = 0.0, depense = 0.0, montantReporte = 0.0,
                 compteSourceId = provenance,
                 collectionCompteSource = sourceAvant.collectionCompteSource
             ))

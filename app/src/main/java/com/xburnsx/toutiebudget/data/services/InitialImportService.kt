@@ -229,6 +229,11 @@ data class ItemPocketBase(
     val couleur: String?,
     val archive: Boolean?,
     val est_archive: Boolean?,
+    // ARA4 : date et raison d'archivage (absents sur un ancien serveur)
+    val archive_le: String? = null,
+    // GN3 : montant reporté au mois suivant (absent sur un ancien serveur)
+    val montant_reporte: String? = null,
+    val raison_archivage: String? = null,
     val ordre: Int?,
     val limite_credit: String?,
     val taux_interet: String?,

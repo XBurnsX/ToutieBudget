@@ -53,5 +53,12 @@ data class CompteCredit(
     // Section 10 : profil, taux détaillés, cycle et relevés officiels (JSON de DetailsCarte)
     @ColumnInfo(name = "details_carte_json")
     @SerializedName("details_carte_json")
-    val detailsCarteJson: String? = null
+    val detailsCarteJson: String? = null,
+
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @ColumnInfo(name = "archive_le")
+    val archiveLe: String? = null,
+
+    @ColumnInfo(name = "raison_archivage")
+    val raisonArchivage: String? = null
 )

@@ -585,7 +585,9 @@ class CompteRepositoryRoomImpl(
             couleur = this.couleur,
             estArchive = this.estArchive,
             ordre = this.ordre,
-            collection = this.collection
+            collection = this.collection,
+            archiveLe = this.archiveLe,
+            raisonArchivage = this.raisonArchivage
         )
     }
 
@@ -599,7 +601,10 @@ class CompteRepositoryRoomImpl(
             couleur = this.couleur,
             estArchive = this.estArchive,
             ordre = this.ordre,
-            collection = this.collection
+            collection = this.collection,
+            // ARA4 : date posée à l'archivage, effacée à la réactivation
+            archiveLe = if (this.estArchive) this.archiveLe ?: InfosArchivage.aujourdhui() else null,
+            raisonArchivage = if (this.estArchive) this.raisonArchivage?.trim()?.ifBlank { null } else null
         )
     }
 
@@ -617,7 +622,9 @@ class CompteRepositoryRoomImpl(
             paiementMinimum = this.paiementMinimum,
             fraisMensuelsJson = this.fraisMensuelsJson?.let { JsonParser.parseString(it) },
             collection = this.collection,
-            detailsCarteJson = this.detailsCarteJson
+            detailsCarteJson = this.detailsCarteJson,
+            archiveLe = this.archiveLe,
+            raisonArchivage = this.raisonArchivage
         )
     }
 
@@ -635,7 +642,10 @@ class CompteRepositoryRoomImpl(
             paiementMinimum = this.paiementMinimum,
             fraisMensuelsJson = this.fraisMensuelsJson?.toString(),
             collection = this.collection,
-            detailsCarteJson = this.detailsCarteJson
+            detailsCarteJson = this.detailsCarteJson,
+            // ARA4 : date posée à l'archivage, effacée à la réactivation
+            archiveLe = if (this.estArchive) this.archiveLe ?: InfosArchivage.aujourdhui() else null,
+            raisonArchivage = if (this.estArchive) this.raisonArchivage?.trim()?.ifBlank { null } else null
         )
     }
 
@@ -654,7 +664,9 @@ class CompteRepositoryRoomImpl(
             paiementEffectue = this.paiementEffectue,
             prixTotal = this.prixTotal,
             collection = this.collection,
-            detailsDetteJson = this.detailsDetteJson
+            detailsDetteJson = this.detailsDetteJson,
+            archiveLe = this.archiveLe,
+            raisonArchivage = this.raisonArchivage
         )
     }
 
@@ -673,7 +685,10 @@ class CompteRepositoryRoomImpl(
             paiementEffectue = this.paiementEffectue,
             prixTotal = this.prixTotal,
             collection = this.collection,
-            detailsDetteJson = this.detailsDetteJson
+            detailsDetteJson = this.detailsDetteJson,
+            // ARA4 : date posée à l'archivage, effacée à la réactivation
+            archiveLe = if (this.estArchive) this.archiveLe ?: InfosArchivage.aujourdhui() else null,
+            raisonArchivage = if (this.estArchive) this.raisonArchivage?.trim()?.ifBlank { null } else null
         )
     }
 
@@ -687,7 +702,9 @@ class CompteRepositoryRoomImpl(
             estArchive = this.estArchive,
             ordre = this.ordre,
             collection = this.collection,
-            detailsInvestissementJson = this.detailsInvestissementJson
+            detailsInvestissementJson = this.detailsInvestissementJson,
+            archiveLe = this.archiveLe,
+            raisonArchivage = this.raisonArchivage
         )
     }
 
@@ -701,7 +718,10 @@ class CompteRepositoryRoomImpl(
             estArchive = this.estArchive,
             ordre = this.ordre,
             collection = this.collection,
-            detailsInvestissementJson = this.detailsInvestissementJson
+            detailsInvestissementJson = this.detailsInvestissementJson,
+            // ARA4 : date posée à l'archivage, effacée à la réactivation
+            archiveLe = if (this.estArchive) this.archiveLe ?: InfosArchivage.aujourdhui() else null,
+            raisonArchivage = if (this.estArchive) this.raisonArchivage?.trim()?.ifBlank { null } else null
         )
     }
     

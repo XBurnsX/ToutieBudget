@@ -219,6 +219,18 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     )
                 }
 
+                // GN3 : mois passé déjà reporté ; son vrai solde de fin de mois reste visible
+                if (kotlin.math.abs(enveloppe.montantReporte) >= 0.005) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Fin de mois : ${MoneyFormatter.formatAmount(enveloppe.solde + enveloppe.montantReporte)}" +
+                            " (reporté au mois suivant : ${MoneyFormatter.formatAmount(enveloppe.montantReporte)})",
+                        color = Color.LightGray,
+                        fontSize = 11.sp,
+                        lineHeight = 11.sp
+                    )
+                }
+
                 // Afficher le texte de l'objectif directement sous le nom si un objectif est défini
                 if (objectif > 0) {
                     Spacer(modifier = Modifier.height(2.dp)) // ESPACE CONTRÔLÉ entre dépensé et objectif

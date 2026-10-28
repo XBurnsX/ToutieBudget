@@ -15,6 +15,8 @@ object PreferencesManager {
     private const val KEY_NOTIF_ENV_NEGATIF = "notif_env_negatif"
     private const val KEY_NOTIF_PAIEMENT_JOUR = "notif_paiement_jour"
     private const val KEY_NOTIF_ECHEANCE_DETTES = "notif_echeance_dettes"
+    private const val KEY_ARCHIVAGE_AUTO = "archivage_automatique"
+    private const val KEY_DERNIER_ARCHIVAGE_AUTO = "dernier_archivage_automatique"
     private const val KEY_SHOW_ARCHIVED = "show_archived"
     private const val KEY_ARCHIVE_AUTO_ENABLED = "archive_auto_enabled"
     private const val KEY_ARCHIVE_MONTHS = "archive_months"
@@ -122,6 +124,26 @@ object PreferencesManager {
     fun setNotifEcheanceDettes(context: Context, active: Boolean) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit { putBoolean(KEY_NOTIF_ECHEANCE_DETTES, active) }
+    }
+
+    /** ARA6 : archivage automatique des comptes soldés, désactivé par défaut. */
+    fun getArchivageAutomatique(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ARCHIVAGE_AUTO, false)
+
+    fun setArchivageAutomatique(context: Context, active: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putBoolean(KEY_ARCHIVAGE_AUTO, active) }
+    }
+
+    /** Dernier jour (yyyy-MM-dd) où l'archivage automatique a tourné : une fois par jour au plus. */
+    fun getDernierArchivageAutomatique(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_DERNIER_ARCHIVAGE_AUTO, null)
+
+    fun setDernierArchivageAutomatique(context: Context, jour: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putString(KEY_DERNIER_ARCHIVAGE_AUTO, jour) }
     }
 
     fun setNotifPaiementJour(context: Context, jour: Int) {

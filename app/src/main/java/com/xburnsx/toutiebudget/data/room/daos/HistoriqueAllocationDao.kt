@@ -11,6 +11,11 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface HistoriqueAllocationDao {
+
+    /** GA5 : entrées d'historique des allocations données (un mois du budget). */
+    @Query("SELECT * FROM historique_allocation WHERE allocationId IN (:ids)")
+    suspend fun parAllocations(ids: List<String>): List<HistoriqueAllocation>
+
     
     /**
      * Récupère tout l'historique des allocations pour un compte donné,

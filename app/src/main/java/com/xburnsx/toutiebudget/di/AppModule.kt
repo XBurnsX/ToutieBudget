@@ -174,7 +174,7 @@ import android.content.Context
             database.syncJobDao()
         )
     }
-     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository) }
+     private val rolloverService: RolloverService by lazy { RolloverServiceImpl(enveloppeRepository, allocationMensuelleRepository, operationAtomique) }
      private val serverStatusService: com.xburnsx.toutiebudget.data.services.ServerStatusService by lazy { com.xburnsx.toutiebudget.data.services.ServerStatusService() }
      
     // ===== SERVICES D'OPTIMISATION (non utilisés) =====
@@ -378,6 +378,12 @@ import android.content.Context
          )
      }
      fun provideActualisationCours(): com.xburnsx.toutiebudget.data.services.ActualisationCours = actualisationCours
+     private val archivageAutomatique by lazy {
+         com.xburnsx.toutiebudget.data.services.ArchivageAutomatique(
+             compteRepository, transactionRepository, operationAtomique, realtimeSyncService
+         )
+     }
+     fun provideArchivageAutomatique(): com.xburnsx.toutiebudget.data.services.ArchivageAutomatique = archivageAutomatique
              fun provideStatistiquesViewModel(): StatistiquesViewModel = createStatistiquesViewModel()
       fun providePretPersonnelViewModel(): PretPersonnelViewModel = pretPersonnelViewModel
       fun provideSyncJobViewModel(): SyncJobViewModel = syncJobViewModel

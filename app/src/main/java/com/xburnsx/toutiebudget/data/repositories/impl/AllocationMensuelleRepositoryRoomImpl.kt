@@ -273,7 +273,8 @@ class AllocationMensuelleRepositoryRoomImpl(
                 alloue = allocation.alloue,
                 depense = allocation.depense,
                 compteSourceId = allocation.compteSourceId,
-                collectionCompteSource = allocation.collectionCompteSource
+                collectionCompteSource = allocation.collectionCompteSource,
+                montantReporte = allocation.montantReporte
             )
 
             // 2. Mettre à jour en Room (PRIMARY)
@@ -346,7 +347,8 @@ class AllocationMensuelleRepositoryRoomImpl(
                 alloue = allocation.alloue,
                 depense = allocation.depense,
                 compteSourceId = allocation.compteSourceId,
-                collectionCompteSource = allocation.collectionCompteSource
+                collectionCompteSource = allocation.collectionCompteSource,
+                montantReporte = allocation.montantReporte
             )
 
             // 2. Sauvegarder en Room (PRIMARY)
@@ -403,7 +405,8 @@ class AllocationMensuelleRepositoryRoomImpl(
             alloue = alloue,
             depense = depense,
             compteSourceId = compteSourceId,
-            collectionCompteSource = collectionCompteSource
+            collectionCompteSource = collectionCompteSource,
+            montantReporte = montantReporte
         )
     }
 }

@@ -31,7 +31,7 @@ import com.xburnsx.toutiebudget.data.room.converters.DateStringConverter
         AliasBancaire::class,
         OperationBancaireEnAttente::class
     ],
-    version = 9, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements
+    version = 10, // 4 : SyncJobs ; 5 : cartes ; 6 : dettes ; 7 : placements ; 10 : date/raison d'archivage
     exportSchema = false
 )
 @TypeConverters(DateStringConverter::class)
@@ -66,7 +66,7 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
                     ToutieBudgetDatabase::class.java,
                     "toutiebudget_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9) // 🆕 AJOUT : Migrations
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10) // 🆕 AJOUT : Migrations
                 // .fallbackToDestructiveMigration() // DÉSACTIVÉ : Utiliser les migrations pour préserver les données
                 .build()
                 INSTANCE = instance
@@ -75,6 +75,19 @@ abstract class ToutieBudgetDatabase : RoomDatabase() {
         }
         
         // BANQ-03 : file d'import bancaire purement informative, sans effet financier.
+        // ARA4 : date et raison d'archivage ; GN3 : montant reporté. Colonnes ajoutées sans toucher aux données.
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                listOf("comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement", "enveloppes")
+                    .forEach { table ->
+                        database.execSQL("ALTER TABLE $table ADD COLUMN archive_le TEXT")
+                        database.execSQL("ALTER TABLE $table ADD COLUMN raison_archivage TEXT")
+                    }
+                // GN3 : montant reporté au mois suivant, 0 pour les mois déjà passés
+                database.execSQL("ALTER TABLE allocation_mensuelle ADD COLUMN montant_reporte REAL NOT NULL DEFAULT 0")
+            }
+        }
+
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("""

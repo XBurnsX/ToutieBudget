@@ -413,6 +413,32 @@ fun SettingsScreen(
             }
 
             item {
+                // ARA6 : facultatif, désactivé par défaut ; retour en arrière par « Réactiver » dans Archives
+                val contextLocal = LocalContext.current
+                var archivageAuto by remember {
+                    mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager.getArchivageAutomatique(contextLocal))
+                }
+                SettingsCard {
+                    RowParam(
+                        icone = Icons.Default.Archive,
+                        titre = "Archiver automatiquement les comptes soldés",
+                        description = "Solde à 0 $, sans Prêt à placer ni titre, et aucune transaction depuis 60 jours. " +
+                            "Jamais une dette encore due. Réactivable dans Archives.",
+                        trailing = {
+                            Switch(
+                                checked = archivageAuto,
+                                onCheckedChange = { active ->
+                                    archivageAuto = active
+                                    com.xburnsx.toutiebudget.utils.PreferencesManager
+                                        .setArchivageAutomatique(contextLocal, active)
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
+            item {
                 val contextLocal = LocalContext.current
                 var rappelsDettes by remember {
                     mutableStateOf(com.xburnsx.toutiebudget.utils.PreferencesManager

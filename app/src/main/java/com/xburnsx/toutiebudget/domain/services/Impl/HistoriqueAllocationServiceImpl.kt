@@ -55,6 +55,11 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         historiqueAllocationRepository.insertHistorique(historique)
     }
     
+    override suspend fun montantDejaCouvert(allocationIds: List<String>): Double =
+        com.xburnsx.toutiebudget.domain.services.CouvertureDeficit.montantCouvert(
+            historiqueAllocationRepository.parAllocations(allocationIds)
+        )
+
     override suspend fun enregistrerModificationAllocation(
         allocationAvant: AllocationMensuelle,
         allocationApres: AllocationMensuelle,
@@ -82,7 +87,8 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
                 pretAPlacerApres = pretAPlacerApres,
                 dateAction = dateFormatter.format(java.time.Instant.now()),
                 allocationId = allocationApres.id,
-                details = "Allocation mensuelle modifiée"
+                // GA5 : solde de l'enveloppe avant/après, pour savoir quelle part a couvert un déficit
+                details = com.xburnsx.toutiebudget.domain.services.CouvertureDeficit.details(allocationAvant.solde, allocationApres.solde)
             )
             
         historiqueAllocationRepository.insertHistorique(historique)

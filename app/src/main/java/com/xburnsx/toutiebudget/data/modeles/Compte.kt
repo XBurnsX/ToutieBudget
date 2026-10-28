@@ -15,6 +15,9 @@ sealed interface Compte {
     val estArchive: Boolean
     val ordre: Int
     val collection: String
+    /** ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage, null si actif. */
+    val archiveLe: String?
+    val raisonArchivage: String?
 }
 
 data class CompteCheque(
@@ -29,7 +32,12 @@ data class CompteCheque(
     @SerializedName("archive")  // ← CORRECTION: "archive" au lieu de "est_archive"
     override val estArchive: Boolean,
     override val ordre: Int,
-    override val collection: String = "comptes_cheques"
+    override val collection: String = "comptes_cheques",
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @SerializedName("archive_le")
+    override val archiveLe: String? = null,
+    @SerializedName("raison_archivage")
+    override val raisonArchivage: String? = null
 ) : Compte {
     // Propriété calculée pour gérer la valeur par défaut
     val pretAPlacer: Double get() = pretAPlacerRaw ?: 0.0
@@ -72,7 +80,12 @@ data class CompteCredit(
     val fraisMensuelsJson: com.google.gson.JsonElement? = null, // Peut être String ou Array
     override val collection: String = "comptes_credits",
     @SerializedName("details_carte_json")
-    val detailsCarteJson: String? = null // Section 10 : JSON de DetailsCarte
+    val detailsCarteJson: String? = null, // Section 10 : JSON de DetailsCarte
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @SerializedName("archive_le")
+    override val archiveLe: String? = null,
+    @SerializedName("raison_archivage")
+    override val raisonArchivage: String? = null
 ) : Compte {
     // Pour compatibilité avec l'interface Compte, on map soldeUtilise vers solde
     override val solde: Double get() = soldeUtilise
@@ -153,7 +166,12 @@ data class CompteDette(
     val prixTotal: Double? = null,
     override val collection: String = "comptes_dettes",
     @SerializedName("details_dette_json")
-    val detailsDetteJson: String? = null // Section 11 : JSON de DetailsDette
+    val detailsDetteJson: String? = null, // Section 11 : JSON de DetailsDette
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @SerializedName("archive_le")
+    override val archiveLe: String? = null,
+    @SerializedName("raison_archivage")
+    override val raisonArchivage: String? = null
 ) : Compte {
     /** Mode, contrat, lien d'enveloppe et corrections confirmées (valeurs par défaut si rien n'est configuré). */
     val details: DetailsDette get() = DetailsDette.depuis(detailsDetteJson)
@@ -177,7 +195,12 @@ data class CompteInvestissement(
     override val ordre: Int,
     override val collection: String = "comptes_investissement",
     @SerializedName("details_investissement_json")
-    val detailsInvestissementJson: String? = null // Section 12 : JSON de DetailsInvestissement
+    val detailsInvestissementJson: String? = null, // Section 12 : JSON de DetailsInvestissement
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @SerializedName("archive_le")
+    override val archiveLe: String? = null,
+    @SerializedName("raison_archivage")
+    override val raisonArchivage: String? = null
 ) : Compte {
     /** Suivi simple ou détaillé (valeurs par défaut si rien n'est configuré). */
     val details: DetailsInvestissement get() = DetailsInvestissement.depuis(detailsInvestissementJson)

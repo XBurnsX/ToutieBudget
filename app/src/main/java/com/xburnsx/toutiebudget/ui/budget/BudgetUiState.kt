@@ -19,7 +19,9 @@ data class EnveloppeUi(
     val dateObjectif: String? = null, // Date choisie lors de la création de l'objectif
     val versementRecommande: Double = 0.0,
     val typeObjectif: TypeObjectif = TypeObjectif.Aucun, // Ajouter le type d'objectif
-    val estArchive: Boolean = false
+    val estArchive: Boolean = false,
+    /** GN3 : montant parti au mois suivant par le rollover (mois passé seulement, 0 sinon). */
+    val montantReporte: Double = 0.0
 )
 
 data class PretAPlacerUi(
@@ -42,7 +44,8 @@ data class BudgetUiState(
     val categoriesEnveloppes: List<CategorieEnveloppesUi> = emptyList(),
     val figerPretAPlacer: Boolean = false,
     val categoriesOuvertes: Map<String, Boolean> = emptyMap(), // État ouvert/fermé de chaque catégorie
-    val enveloppesFavorites: Set<String> = emptySet() // A4 : ids des enveloppes favorites
+    val enveloppesFavorites: Set<String> = emptySet(), // A4 : ids des enveloppes favorites
+    val montantDejaCouvertMois: Double = 0.0 // GA5 : déficits déjà couverts ce mois-ci (cet appareil)
 )
 
 /** Résultat d'une répartition vers plusieurs enveloppes (A2). */

@@ -32,5 +32,12 @@ data class CompteInvestissement(
 
     // Section 12 : suivi simple ou détaillé, valorisations, positions, mouvements (JSON de DetailsInvestissement)
     @ColumnInfo(name = "details_investissement_json")
-    val detailsInvestissementJson: String? = null
+    val detailsInvestissementJson: String? = null,
+
+    // ARA4 : date (yyyy-MM-dd) et raison facultative de l'archivage
+    @ColumnInfo(name = "archive_le")
+    val archiveLe: String? = null,
+
+    @ColumnInfo(name = "raison_archivage")
+    val raisonArchivage: String? = null
 )

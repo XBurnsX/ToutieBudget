@@ -6,9 +6,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -30,13 +34,28 @@ fun GererSoldeNegatifScreen(
     viewModel: BudgetViewModel,
     moisSelectionne: Date,
     onRetour: () -> Unit,
-    onVirementClick: (enveloppeId: String, montantNegatif: Double, mois: Date) -> Unit
+    onVirementClick: (enveloppeId: String, montant: Double, mois: Date, couvertureTotale: Boolean) -> Unit,
+    onVoirHistoriqueEnveloppe: (enveloppeId: String, nom: String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // GA1 : mois choisi sur la page, parti de celui du Budget. Le ViewModel est partagé :
+    // le Budget affichera ce même mois au retour.
+    var mois by remember(moisSelectionne.time) { mutableStateOf(moisSelectionne) }
     // GN1/GN2 : la page doit lire les allocations du mois envoyé par Budget,
     // non réutiliser par hasard celles du mois courant du ViewModel partagé.
-    LaunchedEffect(moisSelectionne.time) {
-        viewModel.chargerDonneesBudget(moisSelectionne)
+    LaunchedEffect(mois.time) {
+        viewModel.chargerDonneesBudget(mois)
+    }
+    // GN9/GA4 : montant personnalisé, validé au cent, jamais de virement à l'ouverture
+    var enveloppePersonnalisee by remember { mutableStateOf<EnveloppeUi?>(null) }
+    // GA3 : couverture de plusieurs enveloppes, confirmée explicitement, en une seule opération
+    var couvertureMultipleOuverte by remember { mutableStateOf(false) }
+    var messageCouverture by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        viewModel.resultatRepartition.collect { r ->
+            messageCouverture = r.erreur?.let { "Rien n'a été couvert : $it" }
+                ?: "Couvert : ${r.reussies.joinToString()}"
+        }
     }
     
     // Filtrer uniquement les enveloppes avec solde négatif
@@ -98,7 +117,10 @@ fun GererSoldeNegatifScreen(
                 )
             )
         }
-    ) { paddingValues ->
+    ) { paddingScaffold ->
+      Column(modifier = Modifier.fillMaxSize().padding(paddingScaffold)) {
+        SelecteurMoisDeficit(mois = mois, onChanger = { mois = it })
+        val paddingValues = PaddingValues(0.dp)
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -107,7 +129,7 @@ fun GererSoldeNegatifScreen(
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = "Impossible de charger les enveloppes : ${uiState.erreur}", color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { viewModel.chargerDonneesBudget(moisSelectionne) }) {
+                    TextButton(onClick = { viewModel.chargerDonneesBudget(mois) }) {
                         Text("Réessayer")
                     }
                 }
@@ -142,6 +164,15 @@ fun GererSoldeNegatifScreen(
                         color = Color.LightGray,
                         fontSize = 16.sp
                     )
+                    if (uiState.montantDejaCouvertMois > 0.0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Déjà couvert ce mois-ci : " +
+                                com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(uiState.montantDejaCouvertMois),
+                            color = Color(0xFF10B981),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         } else {
@@ -197,6 +228,30 @@ fun GererSoldeNegatifScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            // GA5 : ce qui a déjà été couvert ce mois-ci (virements notés sur cet appareil)
+                            Text(
+                                text = "Déjà couvert ce mois-ci : " +
+                                    com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(uiState.montantDejaCouvertMois),
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                            if (totalEnveloppes > 1) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(onClick = { couvertureMultipleOuverte = true }) {
+                                    Text("Couvrir plusieurs enveloppes", color = Color.White)
+                                }
+                            }
+                            // GA2 : Prêt à placer propre à chaque compte (aucune réserve globale)
+                            if (uiState.bandeauxPretAPlacer.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Prêt à placer disponible :", color = Color.White, fontSize = 14.sp)
+                                uiState.bandeauxPretAPlacer.forEach { p ->
+                                    Text(
+                                        "• ${p.nomCompte} : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(p.montant)}",
+                                        color = Color.White, fontSize = 14.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -246,18 +301,28 @@ fun GererSoldeNegatifScreen(
                         // Enveloppes (affichées seulement si la catégorie est ouverte)
                         if (estOuverte) {
                             categorie.enveloppes.forEach { enveloppe ->
+                                val deficit = -kotlin.math.round(enveloppe.solde * 100.0).toLong() / 100.0 // GN5 : montant positif au cent
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable {
-                                            onVirementClick(
-                                                enveloppe.id,
-                                                -kotlin.math.round(enveloppe.solde * 100.0).toLong() / 100.0, // GN5 : montant positif au cent
-                                                moisSelectionne
-                                            )
-                                        }
+                                        .clickable { onVirementClick(enveloppe.id, deficit, mois, true) }
                                 ) {
                                     EnveloppeItem(enveloppe = enveloppe)
+                                }
+                                // GA4 / GA6 : raccourcis explicites ; rien ne se fait sans appui
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(onClick = { onVoirHistoriqueEnveloppe(enveloppe.id, enveloppe.nom) }) {
+                                        Text("Historique", color = Color.LightGray)
+                                    }
+                                    TextButton(onClick = { enveloppePersonnalisee = enveloppe }) {
+                                        Text("Autre montant")
+                                    }
+                                    TextButton(onClick = { onVirementClick(enveloppe.id, deficit, mois, true) }) {
+                                        Text("Couvrir entièrement")
+                                    }
                                 }
                             }
                         }
@@ -269,6 +334,138 @@ fun GererSoldeNegatifScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
+        }
+      }
+    }
+
+    messageCouverture?.let { message ->
+        AlertDialog(
+            onDismissRequest = { messageCouverture = null },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { messageCouverture = null }) { Text("OK") } }
+        )
+    }
+
+    if (couvertureMultipleOuverte) {
+        val negatives = uiState.categoriesEnveloppes.flatMap { it.enveloppes }
+            .filter { kotlin.math.round(it.solde * 100.0).toLong() < 0L }
+        var choisies by remember { mutableStateOf(negatives.map { it.id }.toSet()) }
+        var compteId by remember { mutableStateOf(uiState.bandeauxPretAPlacer.firstOrNull()?.compteId) }
+        val montants = negatives.filter { it.id in choisies }
+            .associate { it.id to -kotlin.math.round(it.solde * 100.0).toLong() }
+        val totalCentimes = montants.values.sum()
+        val compte = uiState.bandeauxPretAPlacer.firstOrNull { it.compteId == compteId }
+        val fondsSuffisants = compte != null && kotlin.math.round(compte.montant * 100.0).toLong() >= totalCentimes
+        AlertDialog(
+            onDismissRequest = { couvertureMultipleOuverte = false },
+            title = { Text("Couvrir plusieurs enveloppes") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("Depuis le Prêt à placer de :", fontWeight = FontWeight.Bold)
+                    uiState.bandeauxPretAPlacer.forEach { p ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = compteId == p.compteId, onClick = { compteId = p.compteId })
+                            Text("${p.nomCompte} (${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(p.montant)})")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Écritures prévues :", fontWeight = FontWeight.Bold)
+                    negatives.forEach { env ->
+                        val centimes = -kotlin.math.round(env.solde * 100.0).toLong()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = env.id in choisies,
+                                onCheckedChange = { coche -> choisies = if (coche) choisies + env.id else choisies - env.id }
+                            )
+                            Text("${env.nom} : +${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(centimes / 100.0)}")
+                        }
+                    }
+                    Text(
+                        "Total : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(totalCentimes / 100.0)}",
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (compte != null && !fondsSuffisants) {
+                        Text("Prêt à placer insuffisant sur ${compte.nomCompte}.", color = MaterialTheme.colorScheme.error)
+                    }
+                    Text("Tout est fait en une seule opération : si une écriture échoue, rien n'est changé.",
+                        fontSize = 12.sp, color = Color.Gray)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = compteId != null && montants.isNotEmpty() && fondsSuffisants,
+                    onClick = {
+                        couvertureMultipleOuverte = false
+                        compteId?.let { viewModel.assignerAPlusieursEnveloppes(it, montants) }
+                    }
+                ) { Text("Confirmer") }
+            },
+            dismissButton = { TextButton(onClick = { couvertureMultipleOuverte = false }) { Text("Annuler") } }
+        )
+    }
+
+    enveloppePersonnalisee?.let { env ->
+        val deficit = -kotlin.math.round(env.solde * 100.0).toLong() / 100.0
+        var saisie by remember(env.id) { mutableStateOf("") }
+        val centimes = saisie.trim().replace(" ", "").replace(',', '.').toBigDecimalOrNull()
+            ?.takeIf { it.scale() <= 2 && it.signum() > 0 }
+            ?.movePointRight(2)?.toLong()
+        AlertDialog(
+            onDismissRequest = { enveloppePersonnalisee = null },
+            title = { Text("Couvrir une partie de « ${env.nom} »") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Déficit : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(deficit)}. " +
+                        "Le reste peut rester négatif.")
+                    OutlinedTextField(
+                        value = saisie,
+                        onValueChange = { saisie = it },
+                        label = { Text("Montant à couvrir") },
+                        singleLine = true,
+                        isError = saisie.isNotBlank() && centimes == null,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = centimes != null,
+                    onClick = {
+                        val montant = centimes ?: return@TextButton
+                        enveloppePersonnalisee = null
+                        onVirementClick(env.id, montant / 100.0, mois, false)
+                    }
+                ) { Text("Continuer") }
+            },
+            dismissButton = { TextButton(onClick = { enveloppePersonnalisee = null }) { Text("Annuler") } }
+        )
+    }
+}
+
+/** GA1 : changer de mois sans quitter la page. */
+@Composable
+private fun SelecteurMoisDeficit(mois: Date, onChanger: (Date) -> Unit) {
+    fun decaler(n: Int) = java.util.Calendar.getInstance().apply {
+        time = mois; set(java.util.Calendar.DAY_OF_MONTH, 1); add(java.util.Calendar.MONTH, n)
+    }.time
+    val libelle = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.CANADA_FRENCH).format(mois)
+        .replaceFirstChar { it.uppercase() }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = { onChanger(decaler(-1)) }) {
+            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Mois précédent", tint = Color.White)
+        }
+        Text(libelle, color = Color.White, fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
+        IconButton(onClick = { onChanger(decaler(1)) }) {
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Mois suivant", tint = Color.White)
         }
     }
 }

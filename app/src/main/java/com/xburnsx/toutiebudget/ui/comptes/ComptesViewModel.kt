@@ -268,11 +268,13 @@ class ComptesViewModel(
                     val aJour = compteRepository.getCompteById(compte.id, compte.collection)
                         ?: throw IllegalStateException("Compte introuvable.")
                     if (aJour.estArchive) return@executer null // ARC17 : déjà archivé, rien à refaire
+                    // ARA4 : la date est posée par le dépôt ; la raison vient du dialogue
+                    val raison = _uiState.value.raisonArchivage.trim().ifBlank { null }
                     val compteArchive = when (aJour) {
-                        is CompteCheque -> aJour.copy(estArchive = true)
-                        is CompteCredit -> aJour.copy(estArchive = true)
-                        is CompteDette -> aJour.copy(estArchive = true)
-                        is CompteInvestissement -> aJour.copy(estArchive = true)
+                        is CompteCheque -> aJour.copy(estArchive = true, raisonArchivage = raison)
+                        is CompteCredit -> aJour.copy(estArchive = true, raisonArchivage = raison)
+                        is CompteDette -> aJour.copy(estArchive = true, raisonArchivage = raison)
+                        is CompteInvestissement -> aJour.copy(estArchive = true, raisonArchivage = raison)
                     }
                     compteRepository.mettreAJourCompte(compteArchive).getOrThrow()
                     if (aJour is CompteDette) archiverEnveloppeDetteSiTerminee(aJour) else null
@@ -328,13 +330,19 @@ class ComptesViewModel(
         }
 
         // Archiver (jamais supprimer) : l'historique d'allocation et les références restent intacts
-        enveloppeRepository.mettreAJourEnveloppe(envDette.copy(estArchive = true)).getOrThrow()
+        enveloppeRepository.mettreAJourEnveloppe(envDette.copy(
+            estArchive = true, raisonArchivage = "Dette « ${dette.nom} » terminée et archivée"
+        )).getOrThrow()
         return null
     }
 
     /** CO7 : demander confirmation avant d'archiver. */
     fun onDemanderArchivage() {
-        _uiState.update { it.copy(isConfirmationArchivageVisible = true, isMenuContextuelVisible = false) }
+        _uiState.update { it.copy(isConfirmationArchivageVisible = true, isMenuContextuelVisible = false, raisonArchivage = "") }
+    }
+
+    fun onRaisonArchivageChange(raison: String) {
+        _uiState.update { it.copy(raisonArchivage = raison.take(500)) }
     }
 
     fun onAnnulerArchivage() {

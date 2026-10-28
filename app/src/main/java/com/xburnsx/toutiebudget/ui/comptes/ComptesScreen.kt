@@ -623,6 +623,14 @@ fun ComptesScreen(
                         )
                     }
                     Text("Les transactions et l'historique sont conservés.", fontSize = 13.sp, color = Color.LightGray)
+                    // ARA4 : raison facultative, gardée avec la date d'archivage
+                    OutlinedTextField(
+                        value = uiState.raisonArchivage,
+                        onValueChange = { viewModel.onRaisonArchivageChange(it) },
+                        label = { Text("Raison (facultatif)") },
+                        placeholder = { Text("Ex. : compte fermé à la banque") },
+                        singleLine = true
+                    )
                 }
             },
             confirmButton = { TextButton(onClick = { viewModel.onArchiverCompte() }) { Text("Archiver") } },
