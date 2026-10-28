@@ -160,7 +160,8 @@ fun HistoriqueEnveloppeScreen(
                 CircularProgressIndicator()
             } else if (uiState.transactionsGroupees.isEmpty() && uiState.erreur == null) {
                 Text(
-                    if (uiState.avertissement != null) "Historique partiel : certaines transactions sont impossibles à rattacher."\n                    else if (uiState.searchQuery.isNotBlank()) "Aucune transaction trouvée pour \"${uiState.searchQuery}\"" else "Aucune transaction pour cette enveloppe.",
+                    if (uiState.avertissement != null) "Historique partiel : certaines transactions sont impossibles à rattacher."
+                    else if (uiState.searchQuery.isNotBlank()) "Aucune transaction trouvée pour \"${uiState.searchQuery}\"" else "Aucune transaction pour cette enveloppe.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
