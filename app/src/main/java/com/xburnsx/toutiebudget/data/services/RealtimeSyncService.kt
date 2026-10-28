@@ -204,8 +204,8 @@ class RealtimeSyncService @Inject constructor() {
             addProperty("clientId", clientId)
             add("subscriptions", com.google.gson.JsonArray().apply {
                 PocketBaseMapper.collectionsSynchronisees.forEach { collection ->
-                    if (collection != "alias_bancaires" ||
-                        collectionAliasDisponible(urlBase, token)) add("$collection/*")
+                    if (collection !in setOf("alias_bancaires", "operations_bancaires_attente") ||
+                        collectionOptionnelleDisponible(collection, urlBase, token)) add("$collection/*")
                 }
             })
         }
@@ -255,7 +255,7 @@ class RealtimeSyncService @Inject constructor() {
                 _budgetUpdated.emit(Unit)
                 _comptesUpdated.emit(Unit)
             }
-            "tiers", "pret_personnel", "alias_bancaires" -> _comptesUpdated.emit(Unit)
+            "tiers", "pret_personnel", "alias_bancaires", "operations_bancaires_attente" -> _comptesUpdated.emit(Unit)
         }
     }
 
@@ -266,9 +266,9 @@ class RealtimeSyncService @Inject constructor() {
      * elle sera écrasée sur le serveur quand le SyncJob passera.
      */
     /** Optionnel : ne jamais bloquer les abonnements existants si le backend alias manque. */
-    private fun collectionAliasDisponible(urlBase: String, token: String): Boolean {
+    private fun collectionOptionnelleDisponible(collection: String, urlBase: String, token: String): Boolean {
         val request = Request.Builder()
-            .url("$urlBase/api/collections/alias_bancaires/records?perPage=1")
+            .url("$urlBase/api/collections/$collection/records?perPage=1")
             .addHeader("Authorization", "Bearer $token")
             .build()
         return try {
@@ -287,7 +287,8 @@ class RealtimeSyncService @Inject constructor() {
         val utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: return
         if (!item.utilisateur_id.isNullOrBlank() && item.utilisateur_id != utilisateurId) return
         // Une règle d'alias sans propriétaire n'est jamais importée.
-        if (collection == "alias_bancaires" && item.utilisateur_id != utilisateurId) return
+        if (collection in setOf("alias_bancaires", "operations_bancaires_attente") &&
+            item.utilisateur_id != utilisateurId) return
 
         if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) return
 
@@ -303,6 +304,7 @@ class RealtimeSyncService @Inject constructor() {
                 "transactions" -> db.transactionDao().deleteTransactionById(item.id)
                 "tiers" -> db.tiersDao().deleteTiersById(item.id)
                 "alias_bancaires" -> db.aliasBancaireDao().supprimer(item.id, utilisateurId)
+                "operations_bancaires_attente" -> db.operationBancaireEnAttenteDao().supprimerDepuisServeur(item.id, utilisateurId)
                 "pret_personnel" -> db.pretPersonnelDao().deletePretById(item.id)
             }
             return
@@ -349,6 +351,8 @@ class RealtimeSyncService @Inject constructor() {
             is com.xburnsx.toutiebudget.data.room.entities.Transaction -> db.transactionDao().insertTransaction(entite)
             is com.xburnsx.toutiebudget.data.room.entities.Tiers -> db.tiersDao().insertTiers(entite)
             is com.xburnsx.toutiebudget.data.room.entities.AliasBancaire -> db.aliasBancaireDao().enregistrer(entite)
+            is com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente ->
+                db.operationBancaireEnAttenteDao().enregistrerDepuisServeur(entite)
             is com.xburnsx.toutiebudget.data.room.entities.PretPersonnel -> db.pretPersonnelDao().insertPret(entite)
         }
     }
@@ -369,7 +373,7 @@ class RealtimeSyncService @Inject constructor() {
         for (collection in PocketBaseMapper.collectionsSynchronisees) {
             val cle = "dernier_updated_$collection"
             val depuis = prefs.getString(cle, null)
-            if (depuis == null && collection != "alias_bancaires") {
+            if (depuis == null && collection !in setOf("alias_bancaires", "operations_bancaires_attente")) {
                 prefs.edit().putString(cle, horodatageServeur(System.currentTimeMillis() - MARGE_PREMIER_LANCEMENT_MS)).apply()
                 continue
             }
