@@ -523,6 +523,13 @@ fun MainAppScaffold(
                 )
             }
 
+            // BANQ-03 : import bancaire dans une boîte de validation dédiée.
+            composable("operations_bancaires") {
+                com.xburnsx.toutiebudget.ui.settings.OperationsBancairesScreen(
+                    onBack = { bottomBarNavController.popBackStack() }
+                )
+            }
+
             // BANQ-02 : accès aux alias, uniquement depuis Paramètres.
             composable("alias_bancaires") {
                 com.xburnsx.toutiebudget.ui.settings.AliasBancairesScreen(
