@@ -558,4 +558,18 @@ class HistoriqueConsultationViewModelTest {
         assertEquals(1003, vm.uiState.value.transactionsGroupees.values.sumOf { it.size })
     }
 
+    @Test fun enveloppeArchiveeVideEstDifferenteDuneEnveloppeIntrouvable() = test {
+        b.enveloppe("archive", nom = "Ancienne épargne")
+        b.enveloppes["archive"] = b.enveloppes.getValue("archive").copy(estArchive = true)
+        val archive = app.historiqueEnveloppe("archive")
+        val disparue = app.historiqueEnveloppe("introuvable")
+        attendre()
+        assertTrue(archive.uiState.value.enveloppeArchivee)
+        assertEquals(false, archive.uiState.value.enveloppeIntrouvable)
+        assertTrue(disparue.uiState.value.enveloppeIntrouvable)
+        assertEquals(false, disparue.uiState.value.enveloppeArchivee)
+        assertTrue(archive.uiState.value.transactionsGroupees.isEmpty())
+        assertTrue(disparue.uiState.value.transactionsGroupees.isEmpty())
+    }
+
 }
