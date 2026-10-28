@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
@@ -301,7 +302,13 @@ class RealtimeSyncService @Inject constructor() {
         if (collection in setOf("alias_bancaires", "operations_bancaires_attente") &&
             item.utilisateur_id != utilisateurId) return
 
-        if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) return
+        // CE13 : la comparaison avec les SyncJobs et l'écriture Room
+        // doivent être atomiques. Sinon un événement serveur peut passer
+        // entre un changement local et son entrée dans la file d'envoi.
+        db.withTransaction {
+            if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) {
+                return@withTransaction
+            }
 
         if (action == "delete") {
             when (collection) {
@@ -318,7 +325,7 @@ class RealtimeSyncService @Inject constructor() {
                 "operations_bancaires_attente" -> db.operationBancaireEnAttenteDao().supprimerDepuisServeur(item.id, utilisateurId)
                 "pret_personnel" -> db.pretPersonnelDao().deletePretById(item.id)
             }
-            return
+            return@withTransaction
         }
 
         // create / update : les DAO insèrent en REPLACE, donc c'est un upsert.
@@ -365,6 +372,7 @@ class RealtimeSyncService @Inject constructor() {
             is com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente ->
                 db.operationBancaireEnAttenteDao().enregistrerDepuisServeur(entite)
             is com.xburnsx.toutiebudget.data.room.entities.PretPersonnel -> db.pretPersonnelDao().insertPret(entite)
+        }
         }
     }
 
