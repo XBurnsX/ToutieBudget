@@ -34,6 +34,7 @@ class InitialImportService(
     private val allocationMensuelleDao: AllocationMensuelleDao,
     private val tiersDao: TiersDao,
     private val aliasBancaireDao: AliasBancaireDao,
+    private val operationBancaireEnAttenteDao: OperationBancaireEnAttenteDao,
     private val pretPersonnelDao: PretPersonnelDao,
     private val syncJobDao: SyncJobDao
 ) {
@@ -113,6 +114,17 @@ class InitialImportService(
             } catch (e: ImportIncompletException) {
                 if (e.cause?.message != "HTTP 404") throw e
                 Log.w(logTag, "Collection alias_bancaires absente : configuration PocketBase requise")
+            }
+            try {
+                importer("operations_bancaires_attente", urlBase, token, utilisateurId) { fiches ->
+                    operationBancaireEnAttenteDao.enregistrerToutesDepuisServeur(
+                        fiches.filter { it.utilisateur_id == utilisateurId }
+                            .mapNotNull(PocketBaseMapper::versOperationBancaire)
+                    )
+                }
+            } catch (e: ImportIncompletException) {
+                if (e.cause?.message != "HTTP 404") throw e
+                Log.w(logTag, "Collection operations_bancaires_attente absente : migration serveur requise")
             }
             importer("pret_personnel", urlBase, token, utilisateurId) { pretPersonnelDao.insertAll(it.map(PocketBaseMapper::versPretPersonnel)) }
 
@@ -261,5 +273,13 @@ data class ItemPocketBase(
     val details_investissement_json: Any? = null, // Placements (section 12)
     val libelle_brut: String? = null,
     val tiers_id: String? = null,
-    val active: Boolean? = null
+    val active: Boolean? = null,
+    val source: String? = null,
+    val id_externe: String? = null,
+    val date_operation: String? = null,
+    val montant_centimes: String? = null,
+    val statut_bancaire: String? = null,
+    val decision: String? = null,
+    val verification_requise: Boolean? = null,
+    val montant_final_centimes: String? = null
 )
