@@ -245,8 +245,13 @@ class HistoriqueCompteViewModel(
                         TypeTransaction.RemboursementRecu -> "Remboursement reçu de : $nomTiers"
                         TypeTransaction.Emprunt -> "Dette contractée de : $nomTiers"
                         TypeTransaction.RemboursementDonne -> "Remboursement donné à : $nomTiers"
-                        TypeTransaction.Paiement -> "Paiement : $nomTiers" // Afficher "Paiement : [nom de la dette]"
-                        TypeTransaction.PaiementEffectue -> "Paiement effectue : $nomTiers" // Paiement effectué sur une dette/carte
+                        // Sur la carte, le paiement REÇU réduit ce qui est dû :
+                        // ne pas le libeller comme un débit du compte payeur.
+                        TypeTransaction.Paiement ->
+                            if (transaction.collectionCompte == "comptes_credits")
+                                "Paiement reçu : $nomTiers"
+                            else "Paiement : $nomTiers"
+                        TypeTransaction.PaiementEffectue -> "Paiement effectué : $nomTiers"
                         TypeTransaction.Depense -> nomTiers
                         TypeTransaction.Revenu -> nomTiers
                         else -> nomTiers
