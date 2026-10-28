@@ -164,6 +164,7 @@ import android.content.Context
             database.allocationMensuelleDao(),
             database.tiersDao(),
             database.aliasBancaireDao(),
+            database.operationBancaireEnAttenteDao(),
             database.pretPersonnelDao(),
             database.syncJobDao()
         )
