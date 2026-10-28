@@ -812,4 +812,41 @@ class EcransModifierSupprimerTest {
         assertTrue(vm.uiState.value.erreur.orEmpty().contains("déjà ce nom"))
     }
 
+    @Test
+    fun `previsualiser allocations futures avant archivage et refuser solde`() = test {
+        b.categorie("c1", "Maison")
+        val env = b.enveloppe("assurance", "Assurance", categorieId = "c1")
+        b.allocation(
+            "assurance",
+            Date.from(LocalDate.of(2028, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant()),
+            solde = 30.0
+        )
+        val vm = categories()
+        vm.onOuvrirConfirmationSuppressionEnveloppe(env)
+        attendre()
+        val apercu = assertNotNull(vm.uiState.value.apercuRetrait)
+        assertEquals(1, apercu.nombreAllocations)
+        assertEquals(1, apercu.periodesAvecSolde)
+        assertTrue(apercu.allocationsFutures >= 1)
+        assertEquals(30.0, apercu.soldeRestant, 0.000001)
+        vm.onConfirmerSuppressionEnveloppe()
+        attendre()
+        assertEquals(false, b.enveloppes.getValue("assurance").estArchive)
+    }
+
+    @Test
+    fun `nom archive refuse pour nouvelle enveloppe et reste restaurable`() = test {
+        b.categorie("c1", "Maison")
+        b.enveloppes["vieux"] = b.enveloppe("vieux", "Essence", categorieId = "c1")
+            .copy(estArchive = true)
+        val vm = categories()
+        vm.onOuvrirAjoutEnveloppeDialog("c1")
+        vm.onNomEnveloppeChange("Essence")
+        vm.onAjouterEnveloppe()
+        attendre()
+        assertEquals(1, b.enveloppes.size)
+        assertNotNull(vm.uiState.value.erreur)
+        assertEquals(false, vm.uiState.value.isAjoutEnveloppeDialogVisible == false)
+    }
+
 }
