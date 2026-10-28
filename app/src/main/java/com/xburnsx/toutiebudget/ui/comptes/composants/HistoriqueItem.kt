@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Info
 import com.xburnsx.toutiebudget.ui.historique.HistoriqueDetailDialog
+import com.xburnsx.toutiebudget.ui.historique.PortionsHistorique
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,25 +68,22 @@ fun HistoriqueItem(
         else -> transaction.tiersUtiliser
     }
 
-    // Parser les fractions si c'est une transaction fractionnée
-    val fractions = remember(transaction.sousItems) {
-        if (transaction.estFractionnee && !transaction.sousItems.isNullOrBlank()) {
-            try {
-                val jsonArray = JsonParser.parseString(transaction.sousItems).asJsonArray
-                jsonArray.mapNotNull { element ->
-                    val obj = element.asJsonObject
-                    val description = obj.get("description")?.asString ?: ""
-                    val montant = obj.get("montant")?.asDouble ?: 0.0
-                    val enveloppeId = (obj.get("enveloppe_id") ?: obj.get("enveloppeId"))?.takeIf { !it.isJsonNull }?.asString ?: ""
-                    Triple(description, montant, enveloppeId)
+    // Les montants de fractions sont lus par le même validateur strict que
+    // les ViewModels. Jamais "montant absent = 0 $" pour un vrai achat.
+    val fractions = remember(transaction.sousItems, transaction.estFractionnee) {
+        if (transaction.estFractionnee) {
+            runCatching {
+                val portions = PortionsHistorique.lire(transaction.sousItems)
+                val json = JsonParser.parseString(transaction.sousItems).asJsonArray
+                portions.mapIndexed { index, portion ->
+                    val description = json[index].asJsonObject.get("description")
+                        ?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+                    Triple(description, portion.montantCentimes / 100.0, portion.enveloppeId)
                 }
-            } catch (_: Exception) {
-                emptyList()
-            }
-        } else {
-            emptyList()
-        }
+            }.getOrDefault(emptyList())
+        } else emptyList()
     }
+    val fractionsIllisibles = transaction.estFractionnee && fractions.isEmpty()
 
     // AT10 : les notes de chaque fraction restent visibles dans l'historique,
     // même après un chargement Room/PocketBase ou une modification.
@@ -225,6 +223,14 @@ fun HistoriqueItem(
                     }
                 }
                 
+                // Ne jamais masquer une ventilation invalide ni afficher des montants fictifs.
+                if (fractionsIllisibles) {
+                    Text(
+                        "Répartition indisponible — données invalides",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
                 // 🎯 FRACTIONS pour transactions fractionnées
                 if (transaction.estFractionnee && fractions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
