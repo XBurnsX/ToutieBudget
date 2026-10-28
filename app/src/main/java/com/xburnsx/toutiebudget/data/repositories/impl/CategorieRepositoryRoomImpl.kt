@@ -156,6 +156,38 @@ class CategorieRepositoryRoomImpl(
         }
     }
 
+    override suspend fun modifierCategorieSiInchangee(
+        attendue: Categorie, nouvelle: Categorie
+    ): Result<Categorie> = withContext(Dispatchers.IO) {
+        runCatching {
+            operationAtomique.executer {
+                val utilisateur = client.obtenirUtilisateurConnecte()?.id
+                    ?: throw SecurityException("Connexion requise.")
+                require(attendue.id.isNotBlank() && attendue.id == nouvelle.id &&
+                    attendue.utilisateurId == utilisateur &&
+                    nouvelle.utilisateurId == utilisateur) {
+                    "Catégorie hors session ou identité différente."
+                }
+                val actuelle = categorieDao.getCategorieById(attendue.id)
+                    ?.toCategorieModel()
+                    ?: throw NoSuchElementException("Catégorie supprimée entretemps.")
+                require(actuelle == attendue) {
+                    "Conflit de synchronisation : catégorie modifiée sur un autre appareil."
+                }
+                val nom = nouvelle.nom.trim()
+                require(nom.isNotBlank()) { "Nom de catégorie requis." }
+                val existe = categorieDao.getCategoriesByUtilisateur(utilisateur)
+                    .first().any { autre ->
+                        autre.id != nouvelle.id &&
+                            autre.nom.trim().equals(nom, ignoreCase = true)
+                    }
+                require(!existe) { "Une catégorie porte déjà ce nom." }
+                if (actuelle == nouvelle) actuelle
+                else mettreAJourCategorie(nouvelle).getOrThrow()
+            }
+        }
+    }
+
     override suspend fun reorganiserCategories(
         avant: List<Categorie>, apres: List<Categorie>
     ): Result<Unit> = withContext(Dispatchers.IO) {
