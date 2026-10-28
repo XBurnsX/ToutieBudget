@@ -204,12 +204,15 @@ class HistoriqueEnveloppeViewModel(
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
                 // HE1 : chaque allocation est retrouvée directement par son ID, quelle que soit sa période.
-                var allocationsIndisponibles = 0
-                val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
-                    val allocation = enveloppeRepository.recupererAllocationParId(id).getOrNull()
-                    if (allocation == null) allocationsIndisponibles++
-                    allocation
-                }
+                val idsAllocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct()
+                var erreurLectureAllocations = false
+                val allocations = enveloppeRepository.recupererAllocationsParIds(idsAllocations)
+                    .getOrElse {
+                        erreurLectureAllocations = true
+                        emptyList()
+                    }
+                val allocationsIndisponibles = idsAllocations.size -
+                    allocations.map { it.id }.toSet().size
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
                 val enveloppeIdToNom = enveloppes.associateBy({ it.id }, { it.nom })
@@ -308,6 +311,8 @@ class HistoriqueEnveloppeViewModel(
                         transactionsGroupees = transactionsGroupees,
                         erreur = null,
                         avertissement = buildList {
+                            if (erreurLectureAllocations)
+                                add("Lecture des allocations impossible.")
                             if (allocationsIndisponibles > 0)
                                 add("$allocationsIndisponibles allocation(s) historique(s) introuvable(s).")
                             if (fractionsIllisibles > 0)
