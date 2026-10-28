@@ -12,5 +12,6 @@ data class HistoriqueEnveloppeUiState(
     val transactionsGroupees: Map<String, List<TransactionUi>> = emptyMap(),
     val scrollPosition: Int = 0,
     val scrollOffset: Int = 0,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val periode: PeriodeHistorique = PeriodeHistorique()
 )
