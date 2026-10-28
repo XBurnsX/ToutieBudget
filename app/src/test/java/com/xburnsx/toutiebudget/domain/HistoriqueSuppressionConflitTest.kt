@@ -2,6 +2,7 @@ package com.xburnsx.toutiebudget.domain
 
 import com.xburnsx.toutiebudget.data.modeles.Transaction
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
+import com.xburnsx.toutiebudget.data.repositories.TransactionRepository
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.fakes.BanqueEnMemoire
 import kotlinx.coroutines.test.runTest
@@ -70,4 +71,26 @@ class HistoriqueSuppressionConflitTest {
         assertTrue(supprimer.executer("achat", transactionAttendue = confirme).isFailure)
         assertEquals(soldeApres, b.soldeDe("cheque"), 0.000001)
     }
+    @Test fun profilDifferentAuMomentDuCommitRefuseSuppression() = runTest {
+        val (b, _) = banqueEtSuppression()
+        val confirme = achat()
+        b.transactions[confirme.id] = confirme
+        val depotSansProfil = object : TransactionRepository by b.depotTransactions {
+            override suspend fun recupererTransactionDeLaSession(
+                transactionId: String
+            ): Result<Transaction> =
+                Result.failure(SecurityException("Transaction hors session"))
+        }
+        val supprimer = SupprimerTransactionUseCase(
+            depotSansProfil, b.depotComptes, b.depotEnveloppes,
+            b.depotAllocations, operationAtomique = b.transaction()
+        )
+
+        val resultat = supprimer.executer("achat", transactionAttendue = confirme)
+
+        assertTrue(resultat.isFailure)
+        assertEquals(990.0, b.soldeDe("cheque"), 0.000001)
+        assertTrue(b.transactions.containsKey("achat"))
+    }
+
 }
