@@ -138,36 +138,16 @@ class HistoriqueEnveloppeViewModel(
      * Filtre les transactions selon la requête de recherche.
      */
     private fun filtrerTransactions() {
-        val query = _uiState.value.searchQuery.trim().lowercase()
-        val allTransactions = _uiState.value.transactions
-
-        if (query.isEmpty()) {
-            // Si la recherche est vide, afficher toutes les transactions
-            val transactionsGroupees = grouperTransactionsParDate(allTransactions)
-            _uiState.update { 
-                it.copy(transactionsGroupees = transactionsGroupees)
-            }
-        } else {
-            // Filtrer les transactions selon la requête
-            val transactionsFiltrees = allTransactions.filter { transaction ->
-                // Rechercher dans le tiers/utilisateur
-                transaction.tiersUtiliser.lowercase().contains(query) ||
-                // Rechercher dans la note
-                (transaction.note?.lowercase()?.contains(query) == true) ||
-                // Rechercher dans le nom de l'enveloppe
-                (transaction.nomEnveloppe?.lowercase()?.contains(query) == true) ||
-                // Rechercher dans les enveloppes fractionnées
-                transaction.nomsEnveloppesFractions.any { it.lowercase().contains(query) } ||
-                // Rechercher dans le montant (convertir en string)
-                transaction.montant.toString().contains(query) ||
-                // Rechercher dans le type de transaction
-                transaction.type.name.lowercase().contains(query)
-            }
-
-            val transactionsGroupees = grouperTransactionsParDate(transactionsFiltrees)
-            _uiState.update { 
-                it.copy(transactionsGroupees = transactionsGroupees)
-            }
+        // La liste source reste intacte; on réutilise le même filtre après un rechargement.
+        val source = _uiState.value
+        val filtrees = RechercheHistorique.filtrer(source.transactions, source.searchQuery)
+        val groupes = grouperTransactionsParDate(filtrees)
+        _uiState.update { etat ->
+            // Une recherche saisie pendant un chargement reste prioritaire.
+            if (etat.searchQuery == source.searchQuery && etat.transactions === source.transactions)
+                etat.copy(transactionsGroupees = groupes)
+            else etat.copy(transactionsGroupees =
+                grouperTransactionsParDate(RechercheHistorique.filtrer(etat.transactions, etat.searchQuery)))
         }
     }
 
