@@ -260,7 +260,6 @@ data class ItemPocketBase(
     val details_dette_json: Any? = null, // Dettes (section 11)
     val details_investissement_json: Any? = null, // Placements (section 12)
     val libelle_brut: String? = null,
-    val compte_id: String? = null,
     val tiers_id: String? = null,
     val active: Boolean? = null
 )
