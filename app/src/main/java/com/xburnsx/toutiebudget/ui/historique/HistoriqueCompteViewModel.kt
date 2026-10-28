@@ -256,9 +256,9 @@ class HistoriqueCompteViewModel(
                     val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
                         val allocation = allocationsMap[allocationId]
                         if (allocation != null) {
-                            enveloppesMap[allocation.enveloppeId]?.nom
+                            LibellesHistorique.enveloppe(allocation.enveloppeId, enveloppesMap)
                         } else {
-                            null
+                            LibellesHistorique.allocationIntrouvable(allocationId)
                         }
                     }
 
@@ -266,8 +266,7 @@ class HistoriqueCompteViewModel(
                     val nomsEnveloppesFractions = if (transaction.estFractionnee) {
                         try {
                             PortionsHistorique.lire(transaction.sousItems).map { portion ->
-                                enveloppesMap[portion.enveloppeId]?.nom
-                                    ?: com.xburnsx.toutiebudget.utils.LIBELLE_SANS_ENVELOPPE
+                                LibellesHistorique.enveloppe(portion.enveloppeId, enveloppesMap)
                             }
                         } catch (_: Exception) {
                             // Le mouvement complet garde son vrai montant; seules
