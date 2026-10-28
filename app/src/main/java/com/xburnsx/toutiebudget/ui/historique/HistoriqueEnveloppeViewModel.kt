@@ -10,6 +10,8 @@ import com.xburnsx.toutiebudget.data.repositories.TiersRepository
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.domain.usecases.SupprimerTransactionUseCase
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,8 @@ class HistoriqueEnveloppeViewModel(
 
     // AT14 : une seule exécution à la fois (double appui)
     private val verrouSuppression = com.xburnsx.toutiebudget.utils.VerrouOperation()
+    // HC20 : annule le chargement précédent avant d'en démarrer un nouveau.
+    private var chargementJob: Job? = null
 
     private val _uiState = MutableStateFlow(HistoriqueEnveloppeUiState())
     val uiState: StateFlow<HistoriqueEnveloppeUiState> = _uiState.asStateFlow()
@@ -191,7 +195,8 @@ class HistoriqueEnveloppeViewModel(
      * Charge les transactions pour une enveloppe spécifique.
      */
     private fun chargerTransactionsEnveloppe(enveloppeId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        chargementJob?.cancel()
+        chargementJob = viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
@@ -315,12 +320,12 @@ class HistoriqueEnveloppeViewModel(
                     filtrerTransactions()
                 }
 
+            } catch (annulation: CancellationException) {
+                throw annulation // ancien chargement : surtout ne pas écraser le plus récent
             } catch (e: Exception) {
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false,
-                        erreur = "Erreur lors du chargement: ${e.message}"
-                    )
+                _uiState.update {
+                    it.copy(isLoading = false,
+                        erreur = "Erreur lors du chargement: ${e.message ?: e.javaClass.simpleName}")
                 }
             }
         }
