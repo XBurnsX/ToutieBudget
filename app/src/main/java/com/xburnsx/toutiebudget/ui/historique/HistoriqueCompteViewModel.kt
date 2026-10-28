@@ -16,6 +16,7 @@ import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 // import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -304,6 +305,8 @@ class HistoriqueCompteViewModel(
 
                 // Utiliser la nouvelle méthode de groupement
 
+                // Un ancien chargement annulé ne doit jamais publier un résultat tardif.
+                coroutineContext.ensureActive()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
