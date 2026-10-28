@@ -69,6 +69,24 @@ interface EnveloppeRepository {
      * @return Result indiquant le succès ou l'échec
      */
     suspend fun supprimerEnveloppe(id: String): Result<Unit>
+
+    /**
+     * CE2/CE5 : archivage explicite, jamais un DELETE.
+     * Room surcharge et effectue la vérification des soldes et des paiements
+     * dans la même transaction que l'UPDATE et le SyncJob.
+     */
+    suspend fun archiverEnveloppeApresVerification(id: String): Result<Unit> =
+        runCatching {
+            val actuelle = recupererToutesLesEnveloppes().getOrThrow()
+                .firstOrNull { it.id == id }
+                ?: error("Enveloppe introuvable.")
+            val allocations = recupererAllocationsEnveloppe(id).getOrThrow()
+            com.xburnsx.toutiebudget.ui.categories.VerificationArchivageEnveloppe
+                .verifierSoldes(allocations.map { it.solde })
+            if (!actuelle.estArchive) {
+                mettreAJourEnveloppe(actuelle.copy(estArchive = true)).getOrThrow()
+            }
+        }
     
     // ===== NOUVELLES MÉTHODES POUR LES TRANSACTIONS =====
     
