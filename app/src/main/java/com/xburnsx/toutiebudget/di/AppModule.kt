@@ -11,6 +11,7 @@
 import com.xburnsx.toutiebudget.data.services.InitialImportService
  import com.xburnsx.toutiebudget.data.utils.ObjectifCalculator
  import com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase
+ import com.xburnsx.toutiebudget.data.banque.AliasBancaireRepository
  import com.xburnsx.toutiebudget.domain.services.*
  import com.xburnsx.toutiebudget.domain.services.Impl.ArgentServiceImpl
  import com.xburnsx.toutiebudget.domain.services.Impl.RolloverServiceImpl
@@ -120,6 +121,13 @@ import android.content.Context
             database.historiqueAllocationDao()
         )
     }
+
+     // BANQ-02 : règles d'alias rattachées aux tiers existants (pas de marchand parallèle).
+     private val aliasBancaireRepository: AliasBancaireRepository by lazy {
+         AliasBancaireRepository(database, database.aliasBancaireDao(),
+             database.tiersDao(), database.syncJobDao())
+     }
+     fun provideAliasBancaireRepository(): AliasBancaireRepository = aliasBancaireRepository
 
      // ===== SERVICES =====
      private val validationProvenanceService: ValidationProvenanceService by lazy {
