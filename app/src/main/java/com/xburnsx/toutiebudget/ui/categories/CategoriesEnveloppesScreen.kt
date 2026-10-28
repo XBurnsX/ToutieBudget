@@ -68,6 +68,10 @@ fun CategoriesEnveloppesScreen(
     var sauvegardeDemandee by remember { mutableStateOf(false) }
     var voirArchives by remember { mutableStateOf(false) }
 
+    LaunchedEffect(uiState.erreur) {
+        if (uiState.erreur != null) sauvegardeDemandee = false
+    }
+
     LaunchedEffect(uiState.categoriesParId, uiState.enveloppesGroupees, sauvegardeDemandee) {
         if (sauvegardeDemandee) {
             val categorieOK = categorieARenommer?.let {
@@ -250,7 +254,14 @@ fun CategoriesEnveloppesScreen(
             onDismissRequest = viewModel::onEffacerErreur,
             title = { Text("Action impossible") },
             text = { Text(erreur) },
-            confirmButton = { TextButton(onClick = viewModel::onEffacerErreur) { Text("OK") } }
+            confirmButton = { TextButton(onClick = viewModel::onEffacerErreur) { Text("OK") } },
+            dismissButton = {
+                if (erreur.contains("chargement", ignoreCase = true) ||
+                    erreur.contains("Classement", ignoreCase = true)
+                ) {
+                    TextButton(onClick = viewModel::chargerDonnees) { Text("Réessayer") }
+                }
+            }
         )
     }
 
@@ -372,13 +383,7 @@ fun CategoriesEnveloppesScreen(
             } else {
                 // Liste des catégories avec support de réorganisation
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { viewModel.onEffacerErreur() }
-                            )
-                        },
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
