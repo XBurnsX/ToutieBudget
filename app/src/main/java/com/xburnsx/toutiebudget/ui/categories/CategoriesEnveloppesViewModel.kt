@@ -678,6 +678,12 @@ class CategoriesEnveloppesViewModel(
                                 },
                                 allocationsFutures = futures,
                                 soldeRestant = allocations.sumOf { it.solde },
+                                soldeMoisCourant = allocations
+                                    .filter {
+                                        java.time.YearMonth.from(
+                                            it.mois.toInstant().atZone(java.time.ZoneId.systemDefault())
+                                        ) == aujourdHui
+                                    }.sumOf { it.solde },
                                 transactionsLiees = transactionsLiees?.size,
                                 paiementsTechniquesLies = techniques
                             )
