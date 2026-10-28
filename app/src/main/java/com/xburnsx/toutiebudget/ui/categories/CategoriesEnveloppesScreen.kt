@@ -58,6 +58,15 @@ fun CategoriesEnveloppesScreen(
     var nomDialogClavier by remember { mutableStateOf("") }
     var onMontantChangeCallback by remember { mutableStateOf<((Long) -> Unit)?>(null) }
 
+    // CE20 : si la fiche d'objectif est fermée ou remplacée, aucun clic
+    // restant du clavier global ne doit modifier une autre enveloppe.
+    LaunchedEffect(uiState.isObjectifDialogVisible, uiState.enveloppePourObjectif?.id) {
+        if (!uiState.isObjectifDialogVisible) {
+            showKeyboard = false
+            onMontantChangeCallback = null
+        }
+    }
+
     // CA1–CA4 : les dialogues gardent leur saisie tant que l'écriture Room
     // n'a pas réellement été reflétée dans l'état du ViewModel.
     var categorieARenommer by remember { mutableStateOf<com.xburnsx.toutiebudget.data.modeles.Categorie?>(null) }
@@ -214,7 +223,15 @@ fun CategoriesEnveloppesScreen(
             onOpenKeyboard = { montantActuel, onMontantChange ->
                 montantClavierInitial = montantActuel
                 nomDialogClavier = "Montant objectif"
-                onMontantChangeCallback = onMontantChange
+                val enveloppeIdCible = uiState.enveloppePourObjectif?.id
+                onMontantChangeCallback = { valeur ->
+                    if (uiState.isObjectifDialogVisible &&
+                        enveloppeIdCible != null &&
+                        uiState.enveloppePourObjectif?.id == enveloppeIdCible
+                    ) {
+                        onMontantChange(valeur)
+                    }
+                }
                 showKeyboard = true
             }
         )
