@@ -240,8 +240,11 @@ fun AppNavigation() {
                         navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
                     },
                     onReprendreTransaction = { transactionId ->
-                        AppModule.provideAjoutTransactionViewModel().reprendreTransaction(transactionId)
-                        navController.navigate("reprendre_transaction")
+                        // Le chargement doit se faire dans le ViewModel de la
+                        // destination, pas sur un ViewModel aussitôt abandonné.
+                        navController.navigate(
+                            "reprendre_transaction/" + android.net.Uri.encode(transactionId)
+                        )
                     }
                 )
             }
@@ -285,8 +288,11 @@ fun AppNavigation() {
                         navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
                     },
                     onReprendreTransaction = { transactionId ->
-                        AppModule.provideAjoutTransactionViewModel().reprendreTransaction(transactionId)
-                        navController.navigate("reprendre_transaction")
+                        // Le chargement doit se faire dans le ViewModel de la
+                        // destination, pas sur un ViewModel aussitôt abandonné.
+                        navController.navigate(
+                            "reprendre_transaction/" + android.net.Uri.encode(transactionId)
+                        )
                     }
                 )
             }
@@ -371,11 +377,24 @@ fun AppNavigation() {
                 )
             }
             
-            // AA4 : formulaire Ajouter rempli à partir d'une ancienne transaction (rien n'est enregistré d'office)
-            composable("reprendre_transaction") {
-                val budgetViewModel = AppModule.provideBudgetViewModel()
+            // AA4 / HC13 : une seule instance conserve le préremplissage;
+            // l'ID vient de la route, et aucune écriture n'est automatique.
+            composable(
+                route = "reprendre_transaction/{transactionId}",
+                arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getString("transactionId").orEmpty()
+                val ajoutViewModel = remember(backStackEntry.id) {
+                    AppModule.provideAjoutTransactionViewModel()
+                }
+                LaunchedEffect(backStackEntry.id, transactionId) {
+                    if (transactionId.isNotBlank()) ajoutViewModel.reprendreTransaction(transactionId)
+                }
+                val budgetViewModel = remember(backStackEntry.id) {
+                    AppModule.provideBudgetViewModel()
+                }
                 AjoutTransactionScreen(
-                    viewModel = AppModule.provideAjoutTransactionViewModel(),
+                    viewModel = ajoutViewModel,
                     onTransactionSuccess = { budgetViewModel.rafraichirDonnees() }
                 )
             }
