@@ -13,25 +13,20 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Info
+import com.xburnsx.toutiebudget.ui.historique.HistoriqueDetailDialog
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.IntOffset
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
 import com.xburnsx.toutiebudget.ui.historique.TransactionUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
@@ -48,11 +43,8 @@ fun HistoriqueItem(
     /** AA4 : remplir Ajouter transaction avec cette opération, sans l'enregistrer (null = option absente). */
     onReprendre: ((TransactionUi) -> Unit)? = null
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    var tapPosition by remember { mutableStateOf(Offset.Zero) }
-    var cardPosition by remember { mutableStateOf(Offset.Zero) }
-    val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
+    var showMenu by remember(transaction.id) { mutableStateOf(false) }
+    var showDetails by remember(transaction.id) { mutableStateOf(false) }
 
     val couleurMontant = when (transaction.type) {
         TypeTransaction.Depense -> Color.Red
@@ -131,16 +123,9 @@ fun HistoriqueItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
-                .onGloballyPositioned { coordinates ->
-                    cardPosition = Offset(
-                        coordinates.positionInWindow().x,
-                        coordinates.positionInWindow().y
-                    )
-                }
-                .pointerInput(Unit) {
+                .pointerInput(transaction.id) {
                     detectTapGestures(
-                        onLongPress = { offset -> 
-                            tapPosition = offset
+                        onLongPress = {
                             showMenu = true
                             onLongPress(transaction)
                         }
@@ -280,123 +265,64 @@ fun HistoriqueItem(
                         .wrapContentWidth(Alignment.End),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = MoneyFormatter.formatAmount(transaction.montant),
-                        fontSize = 16.sp,
-                        color = couleurMontant,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-    
-    // Menu contextuel en dehors du Box
-    if (showMenu) {
-        Popup(
-            onDismissRequest = { showMenu = false },
-            properties = PopupProperties(focusable = true),
-            offset = with(density) {
-                val screenWidth = configuration.screenWidthDp.dp.toPx()
-                val screenHeight = configuration.screenHeightDp.dp.toPx()
-                val menuWidth = 160.dp.toPx()
-                val menuHeight = 120.dp.toPx()
-
-                // Position exacte du tap avec décalage de -250dp vers le haut
-                val exactX = cardPosition.x + tapPosition.x
-                val exactY = cardPosition.y + tapPosition.y - 170.dp.toPx()
-
-                // Ajuster uniquement si le menu sort de l'écran
-                val adjustedX = when {
-                    exactX + menuWidth > screenWidth ->
-                        (exactX - menuWidth).coerceAtLeast(0f)
-                    else -> exactX
-                }
-
-                val adjustedY = when {
-                    exactY + menuHeight > screenHeight ->
-                        (exactY - menuHeight).coerceAtLeast(0f)
-                    exactY < 0f -> 0f
-                    else -> exactY
-                }
-
-                IntOffset(
-                    adjustedX.toInt(),
-                    adjustedY.toInt()
-                )
-            }
-        ) {
-            Card(
-                modifier = Modifier
-                    .width(160.dp)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(4.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .clickable {
-                                showMenu = false
-                                onModifier(transaction)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = MoneyFormatter.formatAmount(transaction.montant),
+                            fontSize = 16.sp,
+                            color = couleurMontant,
+                            fontWeight = FontWeight.Bold
                         )
-                        Text("Modifier", color = MaterialTheme.colorScheme.onSurface)
-                    }
-
-                    if (onReprendre != null) {
-                        Row(
-                            modifier = Modifier
-                                .clickable {
-                                    showMenu = false
-                                    onReprendre(transaction)
-                                }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text("Reprendre", color = MaterialTheme.colorScheme.onSurface)
+                        Row {
+                            IconButton(
+                                modifier = Modifier.size(38.dp),
+                                onClick = { showDetails = true }
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = "Voir les détails")
+                            }
+                            IconButton(
+                                modifier = Modifier.size(38.dp),
+                                onClick = { showMenu = true }
+                            ) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Actions sur la transaction")
+                            }
                         }
                     }
-
-                    Row(
-                        modifier = Modifier
-                            .clickable {
-                                showMenu = false
-                                onSupprimer(transaction)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text("Supprimer", color = MaterialTheme.colorScheme.onSurface)
-                    }
                 }
             }
         }
+
+    // Le menu est ancré à la carte et reste dans les limites de l'écran,
+    // même après rotation; pas de coordonnées écran calculées à la main.
+    DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = { showMenu = false },
+        modifier = Modifier.width(210.dp)
+    ) {
+        DropdownMenuItem(
+            text = { Text("Consulter les détails") },
+            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+            onClick = { showMenu = false; showDetails = true }
+        )
+        DropdownMenuItem(
+            text = { Text("Modifier") },
+            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+            onClick = { showMenu = false; onModifier(transaction) }
+        )
+        if (onReprendre != null) {
+            DropdownMenuItem(
+                text = { Text("Reprendre") },
+                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                onClick = { showMenu = false; onReprendre(transaction) }
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Supprimer") },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            onClick = { showMenu = false; onSupprimer(transaction) }
+        )
     }
+    } // fin Box
+    if (showDetails) HistoriqueDetailDialog(transaction, onFermer = { showDetails = false })
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF121212)
