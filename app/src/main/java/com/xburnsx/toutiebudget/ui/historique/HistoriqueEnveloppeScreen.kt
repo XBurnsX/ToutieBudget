@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
+import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.YearMonth
@@ -189,6 +190,45 @@ fun HistoriqueEnveloppeScreen(
                         scope.launch { listState.scrollToItem(0) }
                     }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Période suivante")
+                    }
+                }
+            }
+
+            // EA2/EA5 : chiffres de la période ET de la recherche visibles.
+            // Ne pas additionner le montant TOTAL d'un achat fractionné : le
+            // ViewModel fournit déjà uniquement la portion de cette enveloppe.
+            if (!uiState.isLoading || uiState.transactionsGroupees.isNotEmpty()) {
+                val resume = remember(uiState.transactionsGroupees) {
+                    runCatching {
+                        ResumeHistoriqueEnveloppe.calculer(
+                            uiState.transactionsGroupees.values.flatten()
+                        )
+                    }.getOrNull()
+                }
+                if (resume == null) {
+                    Text(
+                        "Résumé indisponible : montant historique invalide.",
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Text(
+                            "Mouvements affichés : " + resume.nombre +
+                                " · Dépenses : " + MoneyFormatter.formatAmount(resume.depensesCentimes / 100.0) +
+                                " · Revenus : " + MoneyFormatter.formatAmount(resume.revenusCentimes / 100.0),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "Net des dépenses et revenus : " +
+                                MoneyFormatter.formatAmount(resume.netCentimes / 100.0) +
+                                if (resume.autresOperations > 0)
+                                    " · " + resume.autresOperations + " opération(s) spéciale(s) exclue(s)"
+                                else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
