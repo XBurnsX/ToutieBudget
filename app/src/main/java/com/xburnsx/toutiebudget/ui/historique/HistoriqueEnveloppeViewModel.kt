@@ -189,20 +189,17 @@ class HistoriqueEnveloppeViewModel(
                 val deferredEnveloppes = async { 
                     enveloppeRepository.recupererToutesLesEnveloppes()
                 }
-                val deferredTiers = async {
-                    tiersRepository.recupererTousLesTiers()
-                }
+                // Un tiers n'est PAS nécessaire au rattachement des transactions.
+                // Une liste de tiers indisponible ne doit pas cacher l'historique.
 
                 // Attendre que tous les appels soient terminés
                 val resultTransactions = deferredTransactions.await()
                 val resultEnveloppes = deferredEnveloppes.await()
-                val resultTiers = deferredTiers.await()
 
                 // HE7/HE12 : aucun repository en échec ne doit être interprété
                 // comme une liste vide d'enveloppes ou de tiers.
                 resultTransactions.getOrThrow()
                 resultEnveloppes.getOrThrow()
-                resultTiers.getOrThrow()
                 
                 val transactions = resultTransactions.getOrNull() ?: emptyList()
                 val enveloppes = resultEnveloppes.getOrNull() ?: emptyList()
@@ -210,12 +207,10 @@ class HistoriqueEnveloppeViewModel(
                 val allocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct().mapNotNull { id ->
                     enveloppeRepository.recupererAllocationParId(id).getOrThrow()
                 }
-                val tiers = resultTiers.getOrNull() ?: emptyList()
 
                 // ✅ OPTIMISATION : Créer des maps pour un accès rapide
                 val enveloppeIdToNom = enveloppes.associateBy({ it.id }, { it.nom })
                 val allocationIdToEnveloppeId = allocations.associateBy({ it.id }, { it.enveloppeId })
-                val tiersIdToNom = tiers.associateBy({ it.id }, { it.nom })
 
                 // Filtrer les transactions pour cette enveloppe spécifique
                 val transactionsEnveloppe = transactions.filter { transaction ->
