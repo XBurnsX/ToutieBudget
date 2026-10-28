@@ -20,7 +20,7 @@ class CalendrierRenouvellementObjectifTest {
             id = "e1", utilisateurId = "u1", nom = "Épargne",
             categorieId = "c1", typeObjectif = type, objectifMontant = 100.0,
             dateDebutObjectif = date(debut), dateObjectif = date(fin),
-            resetApresEcheance = true
+            resetApresEcheance = true, estArchive = false, ordre = 0
         )
 
     @Test fun aucunRenouvellementAvantLeLendemainDeLaDateLimite() {

@@ -30,11 +30,11 @@ class RechercheArchivesTest {
     @Test fun rechercheParCategorieSansInventerLesCategoriesSupprimees() {
         val archives = listOf(
             Enveloppe(id = "a", utilisateurId = "u", nom = "Loyer",
-                categorieId = "c1", estArchive = true),
+                categorieId = "c1", estArchive = true, ordre = 0),
             Enveloppe(id = "b", utilisateurId = "u", nom = "Électricité",
-                categorieId = "c2", estArchive = true),
+                categorieId = "c2", estArchive = true, ordre = 0),
             Enveloppe(id = "c", utilisateurId = "u", nom = "Internet",
-                categorieId = "c1", estArchive = false)
+                categorieId = "c1", estArchive = false, ordre = 0)
         )
         val resultats = RechercheArchives.enveloppes(
             archives, "habitation", mapOf("c1" to "Habitation", "c2" to "Factures")
