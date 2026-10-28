@@ -152,6 +152,16 @@ fun HistoriqueCompteScreen(
                 )
             )
 
+            // HC10 : les transactions peuvent être disponibles même si leurs libellés
+            // d'enveloppes / allocations ne le sont pas. Ne jamais cacher l'incident.
+            uiState.avertissement?.let { texte ->
+                Text(
+                    text = texte,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // HC10/HC12 : une erreur ne supprime pas les mouvements déjà consultables.
             uiState.erreur?.let { erreur ->
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
