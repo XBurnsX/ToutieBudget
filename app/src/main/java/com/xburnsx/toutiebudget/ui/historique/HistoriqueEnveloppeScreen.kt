@@ -152,6 +152,13 @@ fun HistoriqueEnveloppeScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+            if (uiState.enveloppeArchivee) {
+                Text(
+                    "Enveloppe archivée — historique en lecture seulement.",
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             // EA1 : toutes les périodes, une année ou un mois. La sélection est
             // conservée par le ViewModel au retour de Modifier une transaction.
             Row(
@@ -365,6 +372,10 @@ fun HistoriqueEnveloppeScreen(
                         uiState.periode.vue != VuePeriodeHistorique.TOUTES ||
                             uiState.compteSourceFiltre != null ->
                             "Aucun mouvement pour ces filtres. Essaie un autre mois ou « Tous les comptes »."
+                        uiState.enveloppeIntrouvable ->
+                            "Enveloppe historique introuvable : son nom ou ses allocations ne peuvent plus être vérifiés."
+                        uiState.enveloppeArchivee ->
+                            "Aucune transaction enregistrée pour cette enveloppe archivée."
                         else -> "Aucune transaction pour cette enveloppe."
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
