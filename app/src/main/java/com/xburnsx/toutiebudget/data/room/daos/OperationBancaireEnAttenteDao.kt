@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OperationBancaireEnAttenteDao {
+    @Query("SELECT * FROM operations_bancaires_attente WHERE utilisateur_id = :utilisateurId ORDER BY date_operation DESC, id ASC")
+    fun observerToutes(utilisateurId: String): Flow<List<OperationBancaireEnAttente>>
+
     @Query("SELECT * FROM operations_bancaires_attente WHERE utilisateur_id = :utilisateurId AND decision = 'A_CONFIRMER' ORDER BY date_operation DESC, id ASC")
     fun observerAConfirmer(utilisateurId: String): Flow<List<OperationBancaireEnAttente>>
 
