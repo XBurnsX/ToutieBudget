@@ -19,6 +19,7 @@ object SyncCollections {
         "ENVELOPPE" -> "enveloppes"
         "CATEGORIE" -> "categories"
         "TIERS" -> "tiers"
+        "ALIAS_BANCAIRE" -> "alias_bancaires"
         else -> type.lowercase()
     }
 }
