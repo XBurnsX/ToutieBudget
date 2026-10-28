@@ -291,7 +291,10 @@ class HistoriqueEnveloppeViewModel(
                             } ?: emptyList(),
                         compteId = transaction.compteId,
                         collectionCompte = transaction.collectionCompte,
-                        montantTotalTransaction = if (transaction.estFractionnee) transaction.montant else null
+                        montantTotalTransaction = if (transaction.estFractionnee) transaction.montant else null,
+                        tiersBrut = transaction.tiersUtiliser,
+                        allocationMensuelleId = transaction.allocationMensuelleId,
+                        revisionTransaction = transaction.updated
                     )
                 }
 
