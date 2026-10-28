@@ -71,6 +71,13 @@ interface TransactionRepository {
      * par défaut compatible avec les dépôts de test et non-Room.
      * N'affecte pas les autres opérations existantes par ID.
      */
+    /**
+     * HC5/HC13 : jeton d'identité de lecture (null pour dépôts simulés).
+     * Vérifier ce jeton avant/après un chargement empêche d'afficher un
+     * ancien profil quand la session change pendant une requête Room.
+     */
+    fun identifiantSessionHistorique(): String? = null
+
     suspend fun recupererTransactionDeLaSession(transactionId: String): Result<Transaction> =
         runCatching {
             recupererToutesLesTransactions().getOrThrow()
