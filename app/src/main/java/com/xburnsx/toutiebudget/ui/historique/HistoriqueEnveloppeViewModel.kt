@@ -216,8 +216,24 @@ class HistoriqueEnveloppeViewModel(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // ✅ OPTIMISATION : Récupérer toutes les données en parallèle
-                val deferredTransactions = async { 
-                    transactionRepository.recupererToutesLesTransactions()
+                val deferredTransactions = async {
+                    // HE14 : pagination Room stable, au lieu de charger toutes
+                    // les transactions de tous les comptes et de tous les mois.
+                    // Le dépôt en mémoire possède le même contrat paginé.
+                    val resultat = mutableListOf<com.xburnsx.toutiebudget.data.modeles.Transaction>()
+                    var offset = 0
+                    val taillePage = 500
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val page = transactionRepository
+                            .recupererCandidatsHistoriqueEnveloppe(
+                                enveloppeId, taillePage, offset
+                            ).getOrThrow()
+                        resultat.addAll(page)
+                        if (page.size < taillePage) break
+                        offset += page.size
+                    }
+                    Result.success(resultat)
                 }
                 val deferredEnveloppes = async { 
                     enveloppeRepository.recupererToutesLesEnveloppes()
