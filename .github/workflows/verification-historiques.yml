@@ -9,6 +9,8 @@ on:
       - 'app/src/main/java/com/xburnsx/toutiebudget/data/repositories/impl/TransactionRepositoryRoomImpl.kt'
       - 'app/src/main/java/com/xburnsx/toutiebudget/data/room/daos/TransactionDao.kt'
       - 'app/src/test/java/com/xburnsx/toutiebudget/ui/historique/**'
+      - 'app/src/test/java/com/xburnsx/toutiebudget/domain/HistoriqueSuppressionConflitTest.kt'
+      - 'app/src/main/java/com/xburnsx/toutiebudget/domain/UseCases/SupprimerTransactionUseCase.kt'
       - 'app/src/main/java/com/xburnsx/toutiebudget/ui/navigation/Navigation.kt'
       - 'app/src/main/java/com/xburnsx/toutiebudget/ui/ajout_transaction/AjoutTransactionViewModel.kt'
       - 'app/src/test/java/com/xburnsx/toutiebudget/ui/EcransAjoutTransactionTest.kt'
@@ -38,10 +40,7 @@ jobs:
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
       - name: Tester les ViewModels, montants, dates et historiques
         run: |
-          ./gradlew :app:testDebugUnitTest \
-            --tests 'com.xburnsx.toutiebudget.ui.historique.*' \
-            --tests 'com.xburnsx.toutiebudget.ui.EcransAjoutTransactionTest' \
-            --no-daemon --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests 'com.xburnsx.toutiebudget.ui.historique.*' --tests 'com.xburnsx.toutiebudget.ui.EcransAjoutTransactionTest' --tests 'com.xburnsx.toutiebudget.domain.HistoriqueSuppressionConflitTest' --no-daemon --stacktrace
       - name: Conserver rapports de test
         if: always()
         uses: actions/upload-artifact@v4
