@@ -24,5 +24,7 @@ data class TransactionUi(
     /** Valeurs d'origine pour confirmer qu'une suppression vise bien la version consultée. */
     val tiersBrut: String? = null,
     val allocationMensuelleId: String? = null,
-    val revisionTransaction: Date? = null
+    val revisionTransaction: Date? = null,
+    /** EA6 : dates techniques connues, pas un statut de sync inventé. */
+    val dateCreationEnregistrement: Date? = null
 ) 
