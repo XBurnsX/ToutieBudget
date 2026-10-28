@@ -26,5 +26,6 @@ data class TransactionUi(
     val allocationMensuelleId: String? = null,
     val revisionTransaction: Date? = null,
     /** EA6 : dates techniques connues, pas un statut de sync inventé. */
-    val dateCreationEnregistrement: Date? = null
+    val dateCreationEnregistrement: Date? = null,
+    val statutSynchronisationLocale: String? = null
 ) 
