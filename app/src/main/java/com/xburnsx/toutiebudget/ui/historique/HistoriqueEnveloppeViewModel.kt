@@ -161,6 +161,26 @@ class HistoriqueEnveloppeViewModel(
     /**
      * Met à jour la requête de recherche et filtre les transactions.
      */
+    fun selectionnerCompteSource(source: CompteSourceHistorique?) {
+        _uiState.update { actuel ->
+            val nouvelEtat = actuel.copy(
+                compteSourceFiltre = source,
+                scrollPosition = 0, scrollOffset = 0
+            )
+            nouvelEtat.copy(transactionsGroupees = grouperTransactionsParDate(
+                FiltrageHistoriqueEnveloppe.appliquer(
+                    nouvelEtat.transactions, nouvelEtat.searchQuery,
+                    nouvelEtat.periode, nouvelEtat.compteSourceFiltre
+                )
+            ))
+        }
+    }
+
+    private fun transactionsFiltrees(etat: HistoriqueEnveloppeUiState): List<TransactionUi> =
+        FiltrageHistoriqueEnveloppe.appliquer(
+            etat.transactions, etat.searchQuery, etat.periode, etat.compteSourceFiltre
+        )
+
     fun selectionnerVuePeriode(vue: VuePeriodeHistorique) {
         _uiState.update { actuel ->
             val periode = actuel.periode.copy(vue = vue)
@@ -168,7 +188,9 @@ class HistoriqueEnveloppeViewModel(
                 periode = periode,
                 scrollPosition = 0, scrollOffset = 0,
                 transactionsGroupees = grouperTransactionsParDate(
-                    periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, actuel.searchQuery))
+                    FiltrageHistoriqueEnveloppe.appliquer(
+                        actuel.transactions, actuel.searchQuery, periode, actuel.compteSourceFiltre
+                    )
                 )
             )
         }
@@ -181,7 +203,9 @@ class HistoriqueEnveloppeViewModel(
                 periode = periode,
                 scrollPosition = 0, scrollOffset = 0,
                 transactionsGroupees = grouperTransactionsParDate(
-                    periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, actuel.searchQuery))
+                    FiltrageHistoriqueEnveloppe.appliquer(
+                        actuel.transactions, actuel.searchQuery, periode, actuel.compteSourceFiltre
+                    )
                 )
             )
         }
@@ -194,7 +218,9 @@ class HistoriqueEnveloppeViewModel(
             actuel.copy(
                 searchQuery = query,
                 transactionsGroupees = grouperTransactionsParDate(
-                    actuel.periode.filtrer(RechercheHistorique.filtrer(actuel.transactions, query))
+                    FiltrageHistoriqueEnveloppe.appliquer(
+                        actuel.transactions, query, actuel.periode, actuel.compteSourceFiltre
+                    )
                 )
             )
         }
@@ -382,7 +408,9 @@ class HistoriqueEnveloppeViewModel(
                         isLoading = false,
                         transactions = transactionsUi,
                         transactionsGroupees = grouperTransactionsParDate(
-                            it.periode.filtrer(RechercheHistorique.filtrer(transactionsUi, it.searchQuery))
+                            FiltrageHistoriqueEnveloppe.appliquer(
+                                transactionsUi, it.searchQuery, it.periode, it.compteSourceFiltre
+                            )
                         ),
                         erreur = null,
                         avertissement = buildList {
