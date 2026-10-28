@@ -522,6 +522,13 @@ fun MainAppScaffold(
                 )
             }
 
+            // BANQ-02 : accès aux alias, uniquement depuis Paramètres.
+            composable("alias_bancaires") {
+                com.xburnsx.toutiebudget.ui.settings.AliasBancairesScreen(
+                    onBack = { bottomBarNavController.popBackStack() }
+                )
+            }
+
             // Route pour la gestion de la base de données
             composable("database_manager") {
                 com.xburnsx.toutiebudget.ui.settings.DatabaseManagerScreen(
