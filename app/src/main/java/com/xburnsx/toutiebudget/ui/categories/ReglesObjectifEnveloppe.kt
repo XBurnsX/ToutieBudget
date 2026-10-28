@@ -43,7 +43,7 @@ object ReglesObjectifEnveloppe {
         when (type) {
             TypeObjectif.Aucun -> { debut = null; echeance = null; jour = null }
             TypeObjectif.Mensuel -> {
-                jour = formulaire.jour ?: if (memeType) existante.objectifJour else null
+                jour = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
                     ?: throw IllegalArgumentException("Choisis un jour du mois (1 à 31).")
                 require(jour in 1..31) { "Jour du mois invalide." }
                 val conserver = memeType && jour == existante.objectifJour &&
@@ -58,7 +58,7 @@ object ReglesObjectifEnveloppe {
                 echeance = if (conserver) existante.dateObjectif!!.jour(zone) else premiere
             }
             TypeObjectif.Bihebdomadaire -> {
-                jour = formulaire.jour ?: if (memeType) existante.objectifJour else null
+                jour = (formulaire.jour ?: (if (memeType) existante.objectifJour else null))
                     ?: throw IllegalArgumentException("Choisis un jour de semaine.")
                 require(jour in 1..7) { "Jour de semaine invalide." }
                 debut = (formulaire.date ?: if (memeType) existante.dateDebutObjectif else null)
