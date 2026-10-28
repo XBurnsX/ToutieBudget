@@ -217,6 +217,19 @@ class TransactionRepositoryRoomImpl(
         }
     }
 
+    // HC5 : lit seulement une transaction appartenant au profil actuellement
+    // connecté. Cette API est utilisée par les écrans d'historique.
+    override suspend fun recupererTransactionDeLaSession(transactionId: String): Result<Transaction> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                    ?: throw IllegalStateException("Connexion requise pour lire cette transaction.")
+                transactionDao.getTransactionHistoriqueDeLaSession(transactionId, utilisateurId)
+                    ?.toTransactionModel()
+                    ?: throw NoSuchElementException("Transaction absente de la session courante.")
+            }
+        }
+
     override suspend fun recupererTransactionParId(transactionId: String): Result<Transaction> = withContext(Dispatchers.IO) {
         try {
             // Récupérer depuis Room (PRIMARY)
