@@ -35,13 +35,15 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
     ) {
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
+                transactionId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.transactionId,
+                virementId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.virementId,
                 utilisateurId = allocation.utilisateurId,
                 compteId = compte.id,
                 collectionCompte = "compte_cheque",
                 enveloppeId = enveloppe.id,
                 enveloppeNom = enveloppe.nom,
                 typeAction = "CREATION",
-                description = "Allocation créée: ${String.format("%.2f", montant)}$ vers ${enveloppe.nom}",
+                description = "Allocation créée: ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(montant)} vers ${enveloppe.nom}",
                 montant = montant,
                 soldeAvant = soldeAvant,
                 soldeApres = soldeApres,
@@ -73,13 +75,15 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
     ) {
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
+                transactionId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.transactionId,
+                virementId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.virementId,
                 utilisateurId = allocationApres.utilisateurId,
                 compteId = compte.id,
                 collectionCompte = "compte_cheque",
                 enveloppeId = enveloppe.id,
                 enveloppeNom = enveloppe.nom,
                 typeAction = "MODIFICATION",
-                description = "Allocation modifiée: ${String.format("%.2f", montantModification)}$ vers ${enveloppe.nom}",
+                description = "Allocation modifiée: ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(montantModification)} vers ${enveloppe.nom}",
                 montant = montantModification,
                 soldeAvant = soldeAvant,
                 soldeApres = soldeApres,
@@ -105,13 +109,15 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
     ) {
         val historique = HistoriqueAllocation(
             id = IdGenerator.generateId(),
+            transactionId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.transactionId,
+            virementId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.virementId,
             utilisateurId = allocation.utilisateurId,
             compteId = compte.id,
             collectionCompte = "compte_cheque",
             enveloppeId = enveloppe.id,
             enveloppeNom = enveloppe.nom,
             typeAction = "SUPPRESSION",
-            description = "Allocation supprimée: ${String.format("%.2f", allocation.solde)}$ de ${enveloppe.nom}",
+            description = "Allocation supprimée: ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(allocation.solde)} de ${enveloppe.nom}",
             montant = -allocation.solde,
             soldeAvant = soldeAvant,
             soldeApres = soldeApres,
@@ -137,13 +143,15 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         note: String?
     ) {
             val description = if (enveloppe != null) {
-                "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ vers ${enveloppe.nom}"
+                "Transaction $typeTransaction: ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(montant)} vers ${enveloppe.nom}"
             } else {
-                "Transaction $typeTransaction: ${String.format("%.2f", montant)}$ ${note ?: ""}"
+                "Transaction $typeTransaction: ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(montant)} ${note ?: ""}"
             }
             
             val historique = HistoriqueAllocation(
                 id = IdGenerator.generateId(),
+                transactionId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.transactionId,
+                virementId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.virementId,
                 utilisateurId = compte.utilisateurId,
                 compteId = compte.id,
                 collectionCompte = "compte_cheque",
@@ -177,6 +185,8 @@ class HistoriqueAllocationServiceImpl @Inject constructor(
         historiqueAllocationRepository.insertHistorique(
             HistoriqueAllocation(
                 id = IdGenerator.generateId(),
+                transactionId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.transactionId,
+                virementId = com.xburnsx.toutiebudget.domain.services.origineJournalCourante()?.virementId,
                 utilisateurId = compte.utilisateurId,
                 compteId = compte.id,
                 collectionCompte = compte.collection,

@@ -157,7 +157,8 @@ import android.content.Context
     
     private val historiqueAllocationRepository: HistoriqueAllocationRepository by lazy { 
         HistoriqueAllocationRepositoryRoomImpl(
-            database.historiqueAllocationDao()
+            database.historiqueAllocationDao(),
+            database.syncJobDao()
         )
     }
 
@@ -388,6 +389,7 @@ import android.content.Context
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
      fun provideCompteRepository(): CompteRepository = compteRepository
      fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
+     fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
      fun provideCategorieRepository(): CategorieRepository = categorieRepository
      fun provideTiersRepository(): TiersRepository = tiersRepository
     fun provideTransactionRepository(): TransactionRepository = transactionRepository

@@ -7,6 +7,7 @@ import com.xburnsx.toutiebudget.data.modeles.*
 import com.xburnsx.toutiebudget.data.repositories.*
 import com.xburnsx.toutiebudget.ui.budget.BudgetEvents
 import com.xburnsx.toutiebudget.di.PocketBaseClient
+import com.xburnsx.toutiebudget.domain.services.avecOrigineJournal
 import com.xburnsx.toutiebudget.utils.toutOuRien
 import java.util.Calendar
 import java.util.Date
@@ -166,6 +167,7 @@ class EnregistrerTransactionUseCase(
                     sousItems = sousItems
                 )
 
+                var idTransactionJournal: String? = id?.takeIf { it.isNotBlank() }
                 if (remplacerEcritureExistante) {
                     // MT1/MT10 : la même écriture est réécrite (un seul UPDATE) ; sa date de création est gardée.
                     val existante = transactionRepository.recupererTransactionParId(
@@ -183,6 +185,7 @@ class EnregistrerTransactionUseCase(
                         throw resultTransaction.exceptionOrNull() ?: Exception("Erreur lors de la création de la transaction")
                     }
                     val idCree = resultTransaction.getOrThrow().id
+                    idTransactionJournal = idCree
                     // Room annule automatiquement; ne pas fabriquer de SyncJob inverse
                     // pendant une transaction qui va deja faire rollback.
                     if (operationAtomique !is OperationAtomiqueRoom) {
@@ -190,8 +193,8 @@ class EnregistrerTransactionUseCase(
                     }
                 }
 
-                // 📝 ENREGISTRER DANS L'HISTORIQUE
-                try {
+                // 📝 ENREGISTRER DANS L'HISTORIQUE (HG7 : chaque entrée garde l'ID de sa transaction)
+                avecOrigineJournal(transactionId = idTransactionJournal) { try {
                     val compte = compteRepository.getCompteById(compteId, collectionCompte)
                     val enveloppe = if (!allocationMensuelleId.isNullOrBlank()) {
                         enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
@@ -281,7 +284,7 @@ class EnregistrerTransactionUseCase(
                     android.util.Log.e("ToutieBudget", "❌ ENREGISTRER_TRANSACTION_USE_CASE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
                     // AT15 : aucun succès si l'historique obligatoire échoue.
                     throw e
-                }
+                } }
 
                 // 3. Mettre à jour les soldes, l'un après l'autre pour pouvoir défaire le premier si le second échoue
                 mettreAJourSoldeCompte(compteId, collectionCompte, typeTransaction, montant).getOrThrow()

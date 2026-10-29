@@ -76,7 +76,8 @@ class ArgentServiceImpl @Inject constructor(
         // 3.6. Enregistrer dans l'historique
         if (compteSource is CompteCheque) {
             android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour allocation")
-            try {
+            // HG3 : une erreur de journal fait échouer l'opération (jamais de faux succès)
+            run {
                 historiqueAllocationService.enregistrerModificationAllocation(
                     allocationAvant = allocation,
                     allocationApres = allocationMiseAJour,
@@ -89,10 +90,8 @@ class ArgentServiceImpl @Inject constructor(
                     pretAPlacerApres = compteSource.pretAPlacer // Le prêt à placer ne change pas pour une allocation directe
                 )
                 android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi")
-            } catch (e: Exception) {
-                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique: ${e.message}")
             }
-        } else {
+                    } else {
             android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte source n'est pas un CompteCheque, pas d'enregistrement dans l'historique")
         }
 
@@ -116,7 +115,8 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transaction)
         
         // 📝 ENREGISTRER DANS L'HISTORIQUE
-        try {
+        // HG3 : une erreur de journal fait échouer l'opération (jamais de faux succès)
+        run {
             val compte = compteRepository.getCompteById(compteSourceId, collectionCompteSource)
             val enveloppe = enveloppeRepository.recupererToutesLesEnveloppes().getOrNull()?.find { it.id == enveloppeId }
             
@@ -136,10 +136,8 @@ class ArgentServiceImpl @Inject constructor(
             } else {
                 android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte ou enveloppe non trouvé, pas d'enregistrement dans l'historique (allocation argent enveloppe)")
             }
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (allocation argent enveloppe): ${e.message}")
         }
-    }
+            }
     }
 
     /**
@@ -184,7 +182,8 @@ class ArgentServiceImpl @Inject constructor(
         // 3.6. Enregistrer dans l'historique
         if (compteSource is CompteCheque) {
             android.util.Log.d("ToutieBudget", "🔄 ARGENT_SERVICE : Tentative d'enregistrement dans l'historique pour allocation sans transaction")
-            try {
+            // HG3 : une erreur de journal fait échouer l'opération (jamais de faux succès)
+            run {
                 historiqueAllocationService.enregistrerModificationAllocation(
                     allocationAvant = allocation,
                     allocationApres = allocationMiseAJour,
@@ -197,10 +196,8 @@ class ArgentServiceImpl @Inject constructor(
                     pretAPlacerApres = compteSource.pretAPlacer // Le prêt à placer ne change pas pour une allocation directe
                 )
                 android.util.Log.d("ToutieBudget", "✅ ARGENT_SERVICE : Enregistrement dans l'historique réussi (sans transaction)")
-            } catch (e: Exception) {
-                android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (sans transaction): ${e.message}")
             }
-        } else {
+                    } else {
             android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte source n'est pas un CompteCheque, pas d'enregistrement dans l'historique (sans transaction)")
         }
 
@@ -307,7 +304,8 @@ class ArgentServiceImpl @Inject constructor(
         transactionRepository.creerTransaction(transaction)
         
         // 📝 ENREGISTRER DANS L'HISTORIQUE
-        try {
+        // HG3 : une erreur de journal fait échouer l'opération (jamais de faux succès)
+        run {
             val compte = compteRepository.getCompteById(compteId, collectionCompte)
             
             if (compte is CompteCheque) {
@@ -330,10 +328,8 @@ class ArgentServiceImpl @Inject constructor(
             } else {
                 android.util.Log.d("ToutieBudget", "ℹ️ ARGENT_SERVICE : Compte n'est pas un CompteCheque, pas d'enregistrement dans l'historique (transaction ${typeTransaction})")
             }
-        } catch (e: Exception) {
-            android.util.Log.e("ToutieBudget", "❌ ARGENT_SERVICE : Erreur lors de l'enregistrement dans l'historique (transaction ${typeTransaction}): ${e.message}")
         }
-    }
+            }
     }
     
     /**
@@ -549,7 +545,10 @@ class ArgentServiceImpl @Inject constructor(
         enveloppeId: String,
         montant: Double
     ): Result<Unit> {
-        return virementUseCase.effectuerVirementPretAPlacerVersEnveloppe(compteId, enveloppeId, montant)
+        // HG3 : virement et journal ensemble, ou rien
+        return runCatching { operationAtomique.executer {
+            virementUseCase.effectuerVirementPretAPlacerVersEnveloppe(compteId, enveloppeId, montant).getOrThrow()
+        } }
     }
 
     override suspend fun effectuerVirementEnveloppeVersPretAPlacer(
@@ -557,7 +556,10 @@ class ArgentServiceImpl @Inject constructor(
         compteId: String,
         montant: Double
     ): Result<Unit> {
-        return virementUseCase.effectuerVirementEnveloppeVersPretAPlacer(enveloppeId, compteId, montant)
+        // HG3 : virement et journal ensemble, ou rien
+        return runCatching { operationAtomique.executer {
+            virementUseCase.effectuerVirementEnveloppeVersPretAPlacer(enveloppeId, compteId, montant).getOrThrow()
+        } }
     }
 
     /**

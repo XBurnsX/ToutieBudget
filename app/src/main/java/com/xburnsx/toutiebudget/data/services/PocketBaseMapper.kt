@@ -27,8 +27,12 @@ object PocketBaseMapper {
         "tiers",
         "alias_bancaires",
         "operations_bancaires_attente",
-        "pret_personnel"
+        "pret_personnel",
+        "historique_allocation"
     )
+
+    /** Collections ajoutées après coup : leur absence sur le serveur n'est pas une erreur. */
+    val collectionsFacultatives = setOf("alias_bancaires", "operations_bancaires_attente", "historique_allocation")
 
     /** Entité Room pour une fiche d'une collection donnée, ou null si la collection n'est pas suivie. */
     fun versEntite(collection: String, item: ItemPocketBase): Any? = when (collection) {
@@ -44,7 +48,35 @@ object PocketBaseMapper {
         "alias_bancaires" -> versAliasBancaire(item)
         "operations_bancaires_attente" -> versOperationBancaire(item)
         "pret_personnel" -> versPretPersonnel(item)
+        "historique_allocation" -> versHistoriqueAllocation(item)
         else -> null
+    }
+
+    /** HG4 : événement immuable du journal ; ignoré s'il est incomplet ou sans propriétaire. */
+    fun versHistoriqueAllocation(item: ItemPocketBase): HistoriqueAllocation? {
+        val utilisateurId = item.utilisateur_id?.takeIf { it.isNotBlank() } ?: return null
+        val date = item.date_action?.takeIf { it.isNotBlank() } ?: return null
+        if (item.id.isBlank()) return null
+        return HistoriqueAllocation(
+            id = item.id,
+            utilisateurId = utilisateurId,
+            compteId = item.compte_id.orEmpty(),
+            collectionCompte = item.collection_compte.orEmpty(),
+            enveloppeId = item.enveloppe_id.orEmpty(),
+            enveloppeNom = item.enveloppe_nom.orEmpty(),
+            typeAction = item.type_action.orEmpty(),
+            description = item.description.orEmpty(),
+            montant = item.montant?.toDoubleOrNull() ?: 0.0,
+            soldeAvant = item.solde_avant?.toDoubleOrNull() ?: 0.0,
+            soldeApres = item.solde_apres?.toDoubleOrNull() ?: 0.0,
+            pretAPlacerAvant = item.pret_a_placer_avant?.toDoubleOrNull() ?: 0.0,
+            pretAPlacerApres = item.pret_a_placer_apres?.toDoubleOrNull() ?: 0.0,
+            dateAction = date,
+            allocationId = item.allocation_id.orEmpty(),
+            transactionId = item.transaction_id?.takeIf { it.isNotBlank() },
+            virementId = item.virement_id?.takeIf { it.isNotBlank() },
+            details = item.details
+        )
     }
 
     /** Ignorer une fiche d'alias invalide, jamais l'attribuer à un autre utilisateur. */

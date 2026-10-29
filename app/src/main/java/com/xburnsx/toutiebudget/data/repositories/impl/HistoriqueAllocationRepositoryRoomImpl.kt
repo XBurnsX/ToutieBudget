@@ -10,8 +10,15 @@ import kotlinx.coroutines.flow.Flow
  * Utilise Room comme source de données principale.
  */
 class HistoriqueAllocationRepositoryRoomImpl(
-    private val historiqueAllocationDao: HistoriqueAllocationDao
+    private val historiqueAllocationDao: HistoriqueAllocationDao,
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null
 ) : HistoriqueAllocationRepository {
+
+    override suspend fun page(compteId: String?, limite: Int, decalage: Int): List<HistoriqueAllocation> {
+        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+            ?: throw IllegalStateException("Connexion requise pour lire le journal.")
+        return historiqueAllocationDao.page(utilisateurId, compteId, limite, decalage)
+    }
     
     override fun getHistoriqueByCompte(compteId: String): Flow<List<HistoriqueAllocation>> {
         return historiqueAllocationDao.getHistoriqueByCompte(compteId)
@@ -33,6 +40,16 @@ class HistoriqueAllocationRepositoryRoomImpl(
         ids.distinct().chunked(400).flatMap { historiqueAllocationDao.parAllocations(it) }
 
     override suspend fun insertHistorique(historique: HistoriqueAllocation) {
+        // HG13 : le même événement n'est jamais journalisé deux fois
+        if (historiqueAllocationDao.compterIdentiques(
+                historique.utilisateurId, historique.compteId, historique.allocationId, historique.typeAction,
+                historique.montant, historique.dateAction, historique.enveloppeId
+            ) > 0
+        ) return
+        // HG4 : conservé sur le serveur pour les autres appareils (événement immuable, même ID partout)
+        syncJobDao?.let {
+            com.xburnsx.toutiebudget.data.services.SyncPayloads.enregistrer(it, "CREATE", historique, historique.id)
+        }
         // HG3 : Room remonte ses exceptions à l'appelant. Ne jamais annoncer
         // un succès avant l'écriture, ni journaliser montants et noms privés.
         historiqueAllocationDao.insertHistorique(historique)

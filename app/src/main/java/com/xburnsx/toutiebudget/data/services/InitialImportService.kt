@@ -127,6 +127,18 @@ class InitialImportService(
                 Log.w(logTag, "Collection operations_bancaires_attente absente : migration serveur requise")
             }
             importer("pret_personnel", urlBase, token, utilisateurId) { pretPersonnelDao.insertAll(it.map(PocketBaseMapper::versPretPersonnel)) }
+            // HG4 : journal des mouvements du budget, facultatif sur un ancien serveur
+            try {
+                importer("historique_allocation", urlBase, token, utilisateurId) { fiches ->
+                    val dao = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()!!).historiqueAllocationDao()
+                    dao.insertAllHistorique(
+                        fiches.filter { it.utilisateur_id == utilisateurId }.mapNotNull(PocketBaseMapper::versHistoriqueAllocation)
+                    )
+                }
+            } catch (e: ImportIncompletException) {
+                if (e.cause?.message != "HTTP 404") throw e
+                Log.w(logTag, "Collection historique_allocation absente : migration serveur requise")
+            }
 
             onProgressUpdate?.invoke(3, "Import des transactions et enveloppes...")
             importer("enveloppes", urlBase, token, utilisateurId) { enveloppeDao.insertAll(it.map(PocketBaseMapper::versEnveloppe)) }
@@ -233,6 +245,19 @@ data class ItemPocketBase(
     val archive_le: String? = null,
     // GN3 : montant reporté au mois suivant (absent sur un ancien serveur)
     val montant_reporte: String? = null,
+    // HG4 : journal des mouvements du budget synchronisé (absent sur un ancien serveur)
+    val enveloppe_nom: String? = null,
+    val type_action: String? = null,
+    val description: String? = null,
+    val solde_avant: String? = null,
+    val solde_apres: String? = null,
+    val pret_a_placer_avant: String? = null,
+    val pret_a_placer_apres: String? = null,
+    val date_action: String? = null,
+    val allocation_id: String? = null,
+    val transaction_id: String? = null,
+    val virement_id: String? = null,
+    val details: String? = null,
     val raison_archivage: String? = null,
     val ordre: Int?,
     val limite_credit: String?,

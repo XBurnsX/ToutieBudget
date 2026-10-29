@@ -562,8 +562,8 @@ fun SettingsScreen(
                 SettingsCard {
                     RowParam(
                         icone = Icons.Default.Archive,
-                        titre = "Journal des allocations",
-                        description = "Voir les allocations et ajustements journalisés (distinct de l'historique des transactions)",
+                        titre = "Historique général",
+                        description = "Transactions de tous les comptes et mouvements du budget, filtres, recherche et export CSV",
                         onClick = onNavigateToHistory,
                         trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
                     )

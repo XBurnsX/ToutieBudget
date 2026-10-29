@@ -21,6 +21,7 @@ object SyncCollections {
         "TIERS" -> "tiers"
         "ALIAS_BANCAIRE" -> "alias_bancaires"
         "OPERATION_BANCAIRE" -> "operations_bancaires_attente"
+        "HISTORIQUE_ALLOCATION" -> "historique_allocation"
         else -> type.lowercase()
     }
 }

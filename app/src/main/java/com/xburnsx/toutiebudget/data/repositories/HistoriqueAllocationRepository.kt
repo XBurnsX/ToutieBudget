@@ -36,6 +36,9 @@ interface HistoriqueAllocationRepository {
 
     /** GA5 : historique des allocations données ; vide par défaut (dépôts sans historique). */
     suspend fun parAllocations(ids: List<String>): List<HistoriqueAllocation> = emptyList()
+
+    /** HG5/HG17 : une page du journal de l'utilisateur connecté (compte facultatif). */
+    suspend fun page(compteId: String?, limite: Int, decalage: Int): List<HistoriqueAllocation> = emptyList()
     
     /**
      * Insère plusieurs enregistrements d'historique.

@@ -211,7 +211,7 @@ class RealtimeSyncService @Inject constructor() {
             addProperty("clientId", clientId)
             add("subscriptions", com.google.gson.JsonArray().apply {
                 PocketBaseMapper.collectionsSynchronisees.forEach { collection ->
-                    if (collection !in setOf("alias_bancaires", "operations_bancaires_attente") ||
+                    if (collection !in PocketBaseMapper.collectionsFacultatives ||
                         collectionOptionnelleDisponible(collection, urlBase, token)) add("$collection/*")
                 }
             })
@@ -309,7 +309,7 @@ class RealtimeSyncService @Inject constructor() {
         val utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: return
         if (!item.utilisateur_id.isNullOrBlank() && item.utilisateur_id != utilisateurId) return
         // Une règle d'alias sans propriétaire n'est jamais importée.
-        if (collection in setOf("alias_bancaires", "operations_bancaires_attente") &&
+        if (collection in PocketBaseMapper.collectionsFacultatives &&
             item.utilisateur_id != utilisateurId) return
 
         // CE13 : la comparaison avec les SyncJobs et l'écriture Room
@@ -334,6 +334,7 @@ class RealtimeSyncService @Inject constructor() {
                 "alias_bancaires" -> db.aliasBancaireDao().supprimer(item.id, utilisateurId)
                 "operations_bancaires_attente" -> db.operationBancaireEnAttenteDao().supprimerDepuisServeur(item.id, utilisateurId)
                 "pret_personnel" -> db.pretPersonnelDao().deletePretById(item.id)
+                "historique_allocation" -> db.historiqueAllocationDao().supprimer(item.id, utilisateurId)
             }
             return@withTransaction
         }
@@ -408,6 +409,9 @@ class RealtimeSyncService @Inject constructor() {
             is com.xburnsx.toutiebudget.data.room.entities.OperationBancaireEnAttente ->
                 db.operationBancaireEnAttenteDao().enregistrerDepuisServeur(entite)
             is com.xburnsx.toutiebudget.data.room.entities.PretPersonnel -> db.pretPersonnelDao().insertPret(entite)
+            // HG4 : événement venu d'un autre appareil (même ID = jamais en double)
+            is com.xburnsx.toutiebudget.data.room.entities.HistoriqueAllocation ->
+                db.historiqueAllocationDao().insertHistorique(entite)
         }
         }
     }
@@ -428,7 +432,7 @@ class RealtimeSyncService @Inject constructor() {
         for (collection in PocketBaseMapper.collectionsSynchronisees) {
             val cle = "dernier_updated_$collection"
             val depuis = prefs.getString(cle, null)
-            if (depuis == null && collection !in setOf("alias_bancaires", "operations_bancaires_attente")) {
+            if (depuis == null && collection !in PocketBaseMapper.collectionsFacultatives) {
                 prefs.edit().putString(cle, horodatageServeur(System.currentTimeMillis() - MARGE_PREMIER_LANCEMENT_MS)).apply()
                 continue
             }
@@ -647,13 +651,13 @@ class RealtimeSyncService @Inject constructor() {
         val filtre = "utilisateur_id = '$userId'"
         // Ordre enfants -> parents pour respecter d'éventuelles contraintes de relation.
         val collections = buildList {
-            addAll(listOf("operations_bancaires_attente", "alias_bancaires",
+            addAll(listOf("historique_allocation", "operations_bancaires_attente", "alias_bancaires",
                 "transactions", "allocations_mensuelles", "pret_personnel", "tiers", "enveloppes", "categories",
                 "comptes_investissement", "comptes_dettes", "comptes_credits", "comptes_cheques"))
             if (!garderPreferences) add("user_preferences")
         }
         // Collections facultatives : absentes sur un ancien serveur, ce n'est pas une erreur
-        val facultatives = setOf("operations_bancaires_attente", "alias_bancaires", "user_preferences")
+        val facultatives = PocketBaseMapper.collectionsFacultatives + "user_preferences"
 
         // PR4 : serveur joignable AVANT toute action
         try {

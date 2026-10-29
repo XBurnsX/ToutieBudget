@@ -12,6 +12,34 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HistoriqueAllocationDao {
 
+    /**
+     * HG5/HG17 : une page du journal de l'utilisateur connecté SEULEMENT (compte facultatif),
+     * trié du plus récent au plus ancien, avec un départage stable par ID.
+     */
+    @Query("""
+        SELECT * FROM historique_allocation
+        WHERE utilisateurId = :utilisateurId AND (:compteId IS NULL OR compteId = :compteId)
+        ORDER BY dateAction DESC, id DESC
+        LIMIT :limite OFFSET :decalage
+    """)
+    suspend fun page(utilisateurId: String, compteId: String?, limite: Int, decalage: Int): List<HistoriqueAllocation>
+
+    /** HG13 : même événement déjà journalisé (même seconde, même effet) ? */
+    @Query("""
+        SELECT COUNT(*) FROM historique_allocation
+        WHERE utilisateurId = :utilisateurId AND compteId = :compteId AND allocationId = :allocationId
+          AND typeAction = :typeAction AND montant = :montant AND dateAction = :dateAction
+          AND enveloppeId = :enveloppeId
+    """)
+    suspend fun compterIdentiques(
+        utilisateurId: String, compteId: String, allocationId: String, typeAction: String,
+        montant: Double, dateAction: String, enveloppeId: String
+    ): Int
+
+    /** HG4/HG5 : suppression venue du serveur, jamais pour un autre utilisateur. */
+    @Query("DELETE FROM historique_allocation WHERE id = :id AND utilisateurId = :utilisateurId")
+    suspend fun supprimer(id: String, utilisateurId: String)
+
     /** GA5 : entrées d'historique des allocations données (un mois du budget). */
     @Query("SELECT * FROM historique_allocation WHERE allocationId IN (:ids)")
     suspend fun parAllocations(ids: List<String>): List<HistoriqueAllocation>

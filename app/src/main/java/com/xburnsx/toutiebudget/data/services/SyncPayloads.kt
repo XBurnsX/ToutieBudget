@@ -45,6 +45,7 @@ object SyncPayloads {
         is CategorieEntity -> "CATEGORIE"
         is TiersEntity -> "TIERS"
         is PretPersonnelEntity -> "PRET_PERSONNEL"
+        is com.xburnsx.toutiebudget.data.room.entities.HistoriqueAllocation -> "HISTORIQUE_ALLOCATION"
         else -> throw IllegalArgumentException("Entité non synchronisable: ${entite::class.simpleName}")
     }
 
@@ -146,7 +147,8 @@ object SyncPayloads {
             "created" to entite.created,
             "updated" to entite.updated
         ))
-        is TransactionEntity, is AllocationMensuelleEntity, is CategorieEntity, is TiersEntity ->
+        is TransactionEntity, is AllocationMensuelleEntity, is CategorieEntity, is TiersEntity,
+        is com.xburnsx.toutiebudget.data.room.entities.HistoriqueAllocation ->
             gsonSnakeCase.toJson(entite)
         else -> throw IllegalArgumentException("Entité non synchronisable: ${entite::class.simpleName}")
     }
