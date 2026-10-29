@@ -116,6 +116,7 @@ class SyncWorker(
                 val maintenant = System.currentTimeMillis()
                 if (resultat.ok) {
                     syncJobDao.enregistrerEssai(tache.id, "COMPLETED", null, resultat.code, maintenant, false)
+                    com.xburnsx.toutiebudget.utils.DiagnosticDonnees.noterEchangeReussi(applicationContext, maintenant)
                     continue
                 }
 

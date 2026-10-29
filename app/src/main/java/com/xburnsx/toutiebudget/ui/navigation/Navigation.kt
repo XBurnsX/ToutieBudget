@@ -140,30 +140,10 @@ fun AppNavigation() {
                     onLoginSuccess = {
                         scope.launch {
                             try {
+                                // PR8 : les préférences changées ici et pas encore envoyées ne sont pas écrasées
                                 val prefs = AppModule.provideRealtimeSyncService().recupererPreferencesUtilisateur()
-                                when (prefs["theme"] as? String) {
-                                    "RED" -> {
-                                        couleurTheme = CouleurTheme.RED
-                                        ThemePreferences.sauvegarderCouleurTheme(context, CouleurTheme.RED)
-                                    }
-                                    "PINK" -> {
-                                        couleurTheme = CouleurTheme.PINK
-                                        ThemePreferences.sauvegarderCouleurTheme(context, CouleurTheme.PINK)
-                                    }
-                                }
-                                (prefs["figer_pret_a_placer"] as? Boolean)?.let { value ->
-                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setFigerPretAPlacer(context, value)
-                                    AppModule.provideBudgetViewModel().setFigerPretAPlacer(value)
-                                }
-                                (prefs["notifications_enabled"] as? Boolean)?.let { value ->
-                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(context, value)
-                                }
-                                (prefs["notif_obj_jours_avant"] as? Int)?.let { value ->
-                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(context, value)
-                                }
-                                (prefs["notif_enveloppe_negatif"] as? Boolean)?.let { value ->
-                                    com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifEnveloppeNegative(context, value)
-                                }
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.appliquerServeur(context, prefs)
+                                    ?.let { couleurTheme = it }
                             } catch (_: Exception) {
                                 // ignorer en cas d'absence de record
                             }
@@ -473,32 +453,10 @@ fun MainAppScaffold(
             com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setShowArchived(showArchived)
 
             // 2) Charger les distantes si connecté et les persister localement
+            // PR8 : une préférence modifiée ici et pas encore envoyée garde sa valeur locale
             val prefs = com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService().recupererPreferencesUtilisateur()
-            // Thème
-            when (prefs["theme"] as? String) {
-                "RED" -> {
-                    onCouleurThemeChange(com.xburnsx.toutiebudget.ui.theme.CouleurTheme.RED)
-                    ThemePreferences.sauvegarderCouleurTheme(ctx, com.xburnsx.toutiebudget.ui.theme.CouleurTheme.RED)
-                }
-                "PINK" -> {
-                    onCouleurThemeChange(com.xburnsx.toutiebudget.ui.theme.CouleurTheme.PINK)
-                    ThemePreferences.sauvegarderCouleurTheme(ctx, com.xburnsx.toutiebudget.ui.theme.CouleurTheme.PINK)
-                }
-            }
-            // Switches
-            (prefs["figer_pret_a_placer"] as? Boolean)?.let { value ->
-                com.xburnsx.toutiebudget.utils.PreferencesManager.setFigerPretAPlacer(ctx, value)
-                com.xburnsx.toutiebudget.di.AppModule.provideBudgetViewModel().setFigerPretAPlacer(value)
-            }
-            (prefs["notifications_enabled"] as? Boolean)?.let { value ->
-                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotificationsEnabled(ctx, value)
-            }
-            (prefs["notif_obj_jours_avant"] as? Int)?.let { value ->
-                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifObjJoursAvant(ctx, value)
-            }
-            (prefs["notif_enveloppe_negatif"] as? Boolean)?.let { value ->
-                com.xburnsx.toutiebudget.utils.PreferencesManager.setNotifEnveloppeNegative(ctx, value)
-            }
+            com.xburnsx.toutiebudget.utils.PreferencesSync.appliquerServeur(ctx, prefs)
+                ?.let { onCouleurThemeChange(it) }
         } catch (_: Exception) {
             // Silencieux si non connecté / pas de record
         }
@@ -582,6 +540,12 @@ fun MainAppScaffold(
                     onLogout = {
                         // Redirige immédiatement vers l'écran de login
                         mainNavController.navigate("login_flow") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    // PR1 : nouveau budget vide ou restauration -> redémarrage complet, toujours connecté
+                    onNouveauBudget = {
+                        mainNavController.navigate("post_login_startup") {
                             popUpTo(0) { inclusive = true }
                         }
                     },

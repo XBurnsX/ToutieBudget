@@ -161,11 +161,18 @@ class StartupViewModel : ViewModel() {
      */
     private fun planifierWorkerRappels(context: Context) {
         try {
+            // Chaque soir vers 18 h : le rappel « paiement planifié pour demain » arrive la veille, à une heure utile
+            val maintenant = java.time.LocalDateTime.now()
+            var prochain = maintenant.toLocalDate().atTime(18, 0)
+            if (!prochain.isAfter(maintenant)) prochain = prochain.plusDays(1)
+            val delaiMinutes = java.time.Duration.between(maintenant, prochain).toMinutes()
             val work = androidx.work.PeriodicWorkRequestBuilder<com.xburnsx.toutiebudget.utils.notifications.RappelsWorker>(
                 24, java.util.concurrent.TimeUnit.HOURS
-            ).build()
-            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "rappelsBudget", androidx.work.ExistingPeriodicWorkPolicy.UPDATE, work
+            ).setInitialDelay(delaiMinutes, java.util.concurrent.TimeUnit.MINUTES).build()
+            val workManager = androidx.work.WorkManager.getInstance(context)
+            workManager.cancelUniqueWork("rappelsBudget") // ancien horaire au hasard de la journée
+            workManager.enqueueUniquePeriodicWork(
+                "rappelsBudgetSoir", androidx.work.ExistingPeriodicWorkPolicy.KEEP, work
             )
             // ✅ Worker de rappels planifié
         } catch (e: Exception) {

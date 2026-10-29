@@ -119,18 +119,15 @@ fun SettingsScreen(
     onNavigateToDatabaseManager: () -> Unit = {},
     onNavigateToAliasBancaires: () -> Unit = {},
     onNavigateToOperationsBancaires: () -> Unit = {},
-    onNavigateToHistory: () -> Unit = {}
+    onNavigateToHistory: () -> Unit = {},
+    /** PR1 : repartir de l'écran de démarrage, toujours connecté (nouveau budget vide ou restauration). */
+    onNouveauBudget: () -> Unit = onLogout
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
-    var showResetConfirmDialog by remember { mutableStateOf(false) }
-    var showLocalResetDialog by remember { mutableStateOf(false) }
-    var isResetting by remember { mutableStateOf(false) }
-    var resetError by remember { mutableStateOf<String?>(null) }
     var showPlanReset by remember { mutableStateOf(false) }
 
     if (showPlanReset) {
@@ -139,8 +136,8 @@ fun SettingsScreen(
 
 
 
-    // Service pour la réinitialisation
-    val realtimeSyncService = remember { com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService() }
+    // PR18 : état réel de la synchronisation des préférences
+    LaunchedEffect(Unit) { com.xburnsx.toutiebudget.utils.PreferencesSync.rafraichirStatut(context) }
 
     Scaffold(
         containerColor = Color(0xFF0F0F0F),
@@ -155,24 +152,20 @@ fun SettingsScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        val ctx = context
-                        val payload = mapOf(
-                            "theme" to (if (couleurTheme == CouleurTheme.RED) "RED" else "PINK"),
-                            "figer_pret_a_placer" to com.xburnsx.toutiebudget.utils.PreferencesManager.getFigerPretAPlacer(ctx),
-                            "notifications_enabled" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotificationsEnabled(ctx),
-                            "notif_obj_jours_avant" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifObjJoursAvant(ctx),
-                            "notif_enveloppe_negatif" to com.xburnsx.toutiebudget.utils.PreferencesManager.getNotifEnveloppeNegative(ctx)
-                        )
-                        // SAVE click, payload=${payload}
                         scope.launch {
-                            try {
-                                // appel service → mettreAJourPreferencesUtilisateur
-                                com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService().mettreAJourPreferencesUtilisateur(payload)
-                                snack.showSnackbar("Préférences enregistrées")
-                            } catch (e: Exception) {
-                                // SAVE error
-                                snack.showSnackbar("Échec de l'enregistrement")
-                            }
+                            // PR7/PR18 : tout est déjà enregistré sur l'appareil ; ceci force l'envoi au serveur
+                            listOf(
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.THEME,
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.FIGER,
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.NOTIFS,
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.JOURS_AVANT,
+                                com.xburnsx.toutiebudget.utils.PreferencesSync.ENV_NEGATIF
+                            ).forEach { com.xburnsx.toutiebudget.utils.PreferencesSync.marquerModifiee(context, it) }
+                            val ok = com.xburnsx.toutiebudget.utils.PreferencesSync.envoyer(context)
+                            snack.showSnackbar(
+                                if (ok) "Préférences synchronisées avec le serveur"
+                                else com.xburnsx.toutiebudget.utils.PreferencesSync.statut.value.etat.libelle
+                            )
                         }
                     }) {
                         Icon(Icons.Default.Save, contentDescription = "Enregistrer", tint = Color.White)
@@ -206,14 +199,20 @@ fun SettingsScreen(
                         couleur = ToutiePink,
                         nom = "Rose",
                         isSelected = couleurTheme == CouleurTheme.PINK,
-                        onSelect = { onCouleurThemeChange(CouleurTheme.PINK) }
+                        onSelect = {
+                            onCouleurThemeChange(CouleurTheme.PINK)
+                            com.xburnsx.toutiebudget.utils.PreferencesSync.marquerModifiee(context, com.xburnsx.toutiebudget.utils.PreferencesSync.THEME)
+                        }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     SelecteurCouleur(
                         couleur = ToutieRed,
                         nom = "Rouge",
                         isSelected = couleurTheme == CouleurTheme.RED,
-                        onSelect = { onCouleurThemeChange(CouleurTheme.RED) }
+                        onSelect = {
+                            onCouleurThemeChange(CouleurTheme.RED)
+                            com.xburnsx.toutiebudget.utils.PreferencesSync.marquerModifiee(context, com.xburnsx.toutiebudget.utils.PreferencesSync.THEME)
+                        }
                     )
                 }
             }
@@ -334,7 +333,19 @@ fun SettingsScreen(
                     RowParam(
                         icone = Icons.Default.Notifications,
                         titre = "Activer les notifications",
-                        description = "Recevoir des alertes et rappels",
+                        // PR15 : la préférence ne suffit pas, l'autorisation Android doit aussi être donnée
+                        description = if (notifEnabled && !androidx.core.app.NotificationManagerCompat.from(contextLocal).areNotificationsEnabled())
+                            "Bloquées par Android : touche ici pour ouvrir les réglages de notifications"
+                        else "Recevoir des alertes et rappels",
+                        onClick = if (notifEnabled && !androidx.core.app.NotificationManagerCompat.from(contextLocal).areNotificationsEnabled()) {
+                            {
+                                contextLocal.startActivity(
+                                    android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, contextLocal.packageName)
+                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        } else null,
                         trailing = {
                             Switch(
                                 checked = notifEnabled,
@@ -492,6 +503,7 @@ fun SettingsScreen(
 
             // Section Synchronisation
             item { SectionHeader(titre = "Synchronisation", icone = Icons.Default.Sync) }
+            item { SettingsCard { EtatDonneesCarte() } }
             item {
                 SettingsCard {
                     RowParam(
@@ -568,27 +580,13 @@ fun SettingsScreen(
                     )
                 }
             }
+            // PR1/PA3/PA4/PA6 : sauvegarde, affichage et trois effacements distincts
             item {
-                SettingsCard(backgroundColor = Color(0xFF252525)) {
-                    RowParam(
-                        icone = Icons.Default.Delete,
-                        titre = "Effacer les données locales",
-                        description = "Effacer seulement cet appareil; les données distantes restent intactes",
-                        couleurTexte = Color(0xFFFFB74D),
-                        onClick = { showLocalResetDialog = true },
-                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFFFFB74D)) }
-                    )
-                }
-            }
-            item {
-                SettingsCard(backgroundColor = Color(0xFF2A1F1F)) {
-                    RowParam(
-                        icone = Icons.Default.Delete,
-                        titre = "Supprimer définitivement mon budget",
-                        description = "Supprimer mes données PocketBase et locales sur cet appareil",
-                        couleurTexte = Color.Red,
-                        onClick = { showResetDialog = true },
-                        trailing = { Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Red) }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SectionDonneesEtSauvegarde(
+                        onSessionFermee = onLogout,
+                        onNouveauBudget = onNouveauBudget,
+                        onPreferencesAffichageReinitialisees = { onCouleurThemeChange(CouleurTheme.PINK) }
                     )
                 }
             }
@@ -600,7 +598,11 @@ fun SettingsScreen(
                     RowParam(
                         icone = Icons.Default.Info,
                         titre = "Version de l'application",
-                        description = "ToutieBudget v${com.xburnsx.toutiebudget.BuildConfig.VERSION_NAME} (build ${com.xburnsx.toutiebudget.BuildConfig.VERSION_CODE})"
+                        description = "ToutieBudget v${com.xburnsx.toutiebudget.BuildConfig.VERSION_NAME} (build ${com.xburnsx.toutiebudget.BuildConfig.VERSION_CODE})\n" +
+                            "Dernier échange réussi avec le serveur : " +
+                            com.xburnsx.toutiebudget.utils.DiagnosticDonnees.formater(
+                                com.xburnsx.toutiebudget.utils.DiagnosticDonnees.dernierEchange(context)
+                            )
                     )
                 }
             }
@@ -643,93 +645,6 @@ fun SettingsScreen(
         )
     }
 
-    // Dialogs — Réinitialisation (double confirmation)
-    if (showLocalResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocalResetDialog = false },
-            title = { Text("Effacer les données locales de cet appareil ?") },
-            text = { Text("Les données PocketBase ne seront pas supprimées. La file de synchronisation locale sera aussi effacée et la session sera fermée.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLocalResetDialog = false
-                    scope.launch {
-                        com.xburnsx.toutiebudget.di.AppModule.effacerToutesLesDonneesLocales()
-                        PocketBaseClient.deconnecter(context)
-                        onLogout()
-                    }
-                }) { Text("Effacer cet appareil", color = Color.Red) }
-            },
-            dismissButton = { TextButton(onClick = { showLocalResetDialog = false }) { Text("Annuler") } }
-        )
-    }
-
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text(text = "Supprimer définitivement mon budget", fontWeight = FontWeight.Bold) },
-            text = { Text("Cette action supprime vos comptes, investissements, dettes, prêts, transactions, enveloppes, allocations et catégories dans PocketBase, puis efface cet appareil. Elle est irréversible.") },
-            confirmButton = { TextButton(onClick = { showResetDialog = false; showResetConfirmDialog = true }) { Text("Réinitialiser", color = Color.Red) } },
-            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Annuler") } },
-            containerColor = Color(0xFF2C2C2E),
-            textContentColor = Color.White
-        )
-    }
-
-    if (showResetConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetConfirmDialog = false },
-            title = { Text(text = "Dernière confirmation", fontWeight = FontWeight.Bold) },
-            text = { if (isResetting) Text("Suppression et vérification en cours...") else Text("Supprimer définitivement toutes vos données distantes et locales ? Un échec partiel sera signalé et ne sera jamais présenté comme un succès.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (!isResetting) {
-                            isResetting = true
-                            resetError = null
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                try {
-                                    realtimeSyncService.supprimerToutesLesDonnees().getOrThrow()
-                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        showResetConfirmDialog = false
-                                        isResetting = false
-                                        PocketBaseClient.deconnecter(context)
-                                        onLogout()
-                                    }
-                                } catch (e: Exception) {
-                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        isResetting = false
-                                        resetError = "Erreur lors de la réinitialisation: ${e.message}"
-                                        showResetConfirmDialog = false
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    enabled = !isResetting
-                ) {
-                    if (isResetting) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Red) else Text("Oui, réinitialiser", color = Color.Red)
-                }
-            },
-            dismissButton = { TextButton(onClick = { showResetConfirmDialog = false }) { Text("Annuler") } },
-            containerColor = Color(0xFF2C2C2E),
-            textContentColor = Color.White
-        )
-    }
-
-    if (resetError != null) {
-        LaunchedEffect(resetError) {
-            kotlinx.coroutines.delay(2500)
-            resetError = null
-        }
-        AlertDialog(
-            onDismissRequest = { resetError = null },
-            title = { Text(text = "Erreur", fontWeight = FontWeight.Bold) },
-            text = { Text(resetError ?: "Une erreur inconnue est survenue.") },
-            confirmButton = { TextButton(onClick = { resetError = null }) { Text("OK") } },
-            containerColor = Color(0xFF2C2C2E),
-            textContentColor = Color.White
-        )
-    }
 }
 
 // ==============================

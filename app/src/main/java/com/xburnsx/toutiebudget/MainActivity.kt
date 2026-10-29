@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
             runCatching { AppModule.provideActualisationCours().actualiserTout() }
         }
         archiverComptesSoldesSiDemande()
+        // PR7 : préférences changées hors ligne -> envoyées au retour dans l'app
+        com.xburnsx.toutiebudget.utils.PreferencesSync.envoyerEnArrierePlan(this)
     }
 
     /** ARA6 : seulement si activé dans Paramètres, une fois par jour ; on dit ce qui a été archivé. */

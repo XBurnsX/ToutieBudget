@@ -316,6 +316,9 @@ object PocketBaseClient {
      * Déconnecte l'utilisateur
      */
     fun deconnecter(context: Context) {
+        // PR6 : vider les écrans partagés, les rappels montrés et l'état de synchro des préférences
+        AppModule.terminerSession()
+        com.xburnsx.toutiebudget.utils.notifications.RappelsDejaEnvoyes.effacer(context)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
             remove(KEY_TOKEN)

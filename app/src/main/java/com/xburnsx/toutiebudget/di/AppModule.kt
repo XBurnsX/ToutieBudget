@@ -36,6 +36,8 @@ import com.xburnsx.toutiebudget.ui.statistiques.StatistiquesViewModel
 import com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelViewModel
 import com.xburnsx.toutiebudget.ui.settings.SyncJobViewModel
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.cancel
 import android.content.Context
 
  /**
@@ -46,6 +48,29 @@ import android.content.Context
   */
  object AppModule {
      
+    // ===== PR6 : ViewModels liés à la session de l'utilisateur =====
+    /**
+     * Comme `lazy`, mais vidé à la déconnexion : les écrans partagés ne gardent jamais en mémoire
+     * les soldes, l'historique ou le Prêt à placer du compte précédent.
+     */
+    private class ParSession<T : Any>(private val creer: () -> T) : kotlin.properties.ReadOnlyProperty<Any?, T> {
+        @Volatile private var valeur: T? = null
+        override fun getValue(thisRef: Any?, property: kotlin.reflect.KProperty<*>): T =
+            valeur ?: synchronized(this) { valeur ?: creer().also { valeur = it } }
+        fun vider() {
+            val ancienne = synchronized(this) { valeur.also { valeur = null } }
+            // Arrêter ses chargements et écoutes en cours
+            (ancienne as? androidx.lifecycle.ViewModel)?.viewModelScope?.cancel()
+        }
+    }
+    private val objetsDeSession = java.util.concurrent.CopyOnWriteArrayList<ParSession<*>>()
+    private fun <T : Any> parSession(creer: () -> T): ParSession<T> = ParSession(creer).also { objetsDeSession += it }
+
+    /** PR6 : appelé à la déconnexion ou à l'effacement, avant toute autre session. */
+    fun terminerSession() {
+        objetsDeSession.forEach { it.vider() }
+    }
+
     // ===== BASE DE DONNÉES ROOM =====
      private lateinit var database: ToutieBudgetDatabase
      private lateinit var appContext: Context
@@ -58,6 +83,14 @@ import android.content.Context
          }
          if (!::database.isInitialized) {
              database = ToutieBudgetDatabase.getDatabase(context)
+         }
+     }
+
+     /** PR4 : arrêter la synchro et vider la file AVANT d'effacer le serveur. */
+     suspend fun arreterEtViderSynchronisation() {
+         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+             if (::appContext.isInitialized) com.xburnsx.toutiebudget.workers.SyncWorkManager.arreterSynchronisation(appContext)
+             if (::database.isInitialized) database.syncJobDao().supprimerToutesLesTaches()
          }
      }
 
@@ -194,7 +227,7 @@ import android.content.Context
      }
  
      // ===== VIEWMODELS =====
-     private val budgetViewModel: BudgetViewModel by lazy {
+     private val budgetViewModel: BudgetViewModel by parSession {
                  BudgetViewModel(
             compteRepository = compteRepository,
             enveloppeRepository = enveloppeRepository,
@@ -210,7 +243,7 @@ import android.content.Context
         )
      }
      
-     private val comptesViewModel: ComptesViewModel by lazy {
+     private val comptesViewModel: ComptesViewModel by parSession {
          ComptesViewModel(
              compteRepository = compteRepository,
              realtimeSyncService = realtimeSyncService,
@@ -226,11 +259,11 @@ import android.content.Context
              CarteCreditRepositoryImpl(compteRepository, transactionRepository)
          }
          
-         private val cartesCreditViewModel: CartesCreditViewModel by lazy {
+         private val cartesCreditViewModel: CartesCreditViewModel by parSession {
         CartesCreditViewModel(cartesCreditRepository, realtimeSyncService, historiqueAllocationService, operationAtomique)
     }
 
-     private val ajoutTransactionViewModel: AjoutTransactionViewModel by lazy {
+     private val ajoutTransactionViewModel: AjoutTransactionViewModel by parSession {
          AjoutTransactionViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
@@ -248,7 +281,7 @@ import android.content.Context
          )
      }
      
-     private val modifierTransactionViewModel: ModifierTransactionViewModel by lazy { 
+     private val modifierTransactionViewModel: ModifierTransactionViewModel by parSession { 
          ModifierTransactionViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
@@ -266,7 +299,7 @@ import android.content.Context
          )
      }
      
-     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by lazy {
+     private val categoriesEnveloppesViewModel: CategoriesEnveloppesViewModel by parSession {
          CategoriesEnveloppesViewModel(
              enveloppeRepository = enveloppeRepository,
              categorieRepository = categorieRepository,
@@ -275,7 +308,7 @@ import android.content.Context
          )
      }
 
-     private val virerArgentViewModel: VirerArgentViewModel by lazy {
+     private val virerArgentViewModel: VirerArgentViewModel by parSession {
          VirerArgentViewModel(
              compteRepository = compteRepository,
              enveloppeRepository = enveloppeRepository,
@@ -291,7 +324,7 @@ import android.content.Context
          )
      }
      
-     private val detteViewModel: DetteViewModel by lazy {
+     private val detteViewModel: DetteViewModel by parSession {
          DetteViewModel(
              compteRepository = compteRepository,
              transactionRepository = transactionRepository,
@@ -320,7 +353,7 @@ import android.content.Context
           return statistiquesViewModel!!
       }
 
-      private val pretPersonnelViewModel: PretPersonnelViewModel by lazy {
+      private val pretPersonnelViewModel: PretPersonnelViewModel by parSession {
           PretPersonnelViewModel(
               pretPersonnelRepository = pretPersonnelRepository,
               transactionRepository = transactionRepository,
@@ -328,7 +361,7 @@ import android.content.Context
           )
       }
       
-      private val syncJobViewModel: SyncJobViewModel by lazy {
+      private val syncJobViewModel: SyncJobViewModel by parSession {
           SyncJobViewModel(database.syncJobDao())
       }
  
@@ -354,6 +387,8 @@ import android.content.Context
      fun provideStartupViewModel(): StartupViewModel = StartupViewModel()
      fun provideBudgetViewModel(): BudgetViewModel = budgetViewModel
      fun provideCompteRepository(): CompteRepository = compteRepository
+     fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
+     fun provideCategorieRepository(): CategorieRepository = categorieRepository
      fun provideTiersRepository(): TiersRepository = tiersRepository
     fun provideTransactionRepository(): TransactionRepository = transactionRepository
     fun provideComptesViewModel(): ComptesViewModel = comptesViewModel
@@ -363,7 +398,10 @@ import android.content.Context
      fun provideCategoriesEnveloppesViewModel(): CategoriesEnveloppesViewModel = categoriesEnveloppesViewModel
      fun provideVirerArgentViewModel(): VirerArgentViewModel = virerArgentViewModel
      fun provideDetteViewModel(): DetteViewModel = detteViewModel
-     private val investissementViewModel by lazy {
+     /** PA3 : sauvegarde protégée du budget (lecture/écriture Room de l'utilisateur connecté). */
+     fun provideSauvegardeBudget(): com.xburnsx.toutiebudget.data.services.SauvegardeBudget =
+         com.xburnsx.toutiebudget.data.services.SauvegardeBudget(database)
+     private val investissementViewModel by parSession {
          com.xburnsx.toutiebudget.ui.investissement.InvestissementViewModel(
              compteRepository, transactionRepository, historiqueAllocationService, realtimeSyncService,
              operationAtomique = operationAtomique,

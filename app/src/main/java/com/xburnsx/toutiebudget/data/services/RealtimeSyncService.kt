@@ -632,36 +632,66 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
-    suspend fun supprimerToutesLesDonnees(): Result<Unit> = runCatching {
+    /** PR5 : ce qui a vraiment été fait, pour un message exact (jamais un faux succès). */
+    data class RapportSuppression(val collectionsVidees: List<String>, val collectionsAbsentes: List<String>)
+
+    /**
+     * PR1–PR5 : supprime les données PocketBase de l'utilisateur connecté SEULEMENT, puis cet appareil.
+     * - Le serveur doit répondre avant que quoi que ce soit soit touché (hors ligne = rien ne change).
+     * - La file SyncJobs est arrêtée et vidée d'abord : aucune ancienne tâche ne peut recréer des données.
+     * - Chaque collection est vidée page par page (pas de limite à 500), puis VÉRIFIÉE vide.
+     * - [garderPreferences] : « nouveau budget vide » garde thème et réglages ; l'effacement définitif non.
+     */
+    suspend fun supprimerToutesLesDonnees(garderPreferences: Boolean = false): Result<RapportSuppression> = runCatching {
         val userId = client.obtenirUtilisateurConnecte()?.id ?: throw Exception("Utilisateur non connecté")
-        // PR2/PR3 : noms canoniques seulement, toutes les collections utilisateur connues.
+        val filtre = "utilisateur_id = '$userId'"
         // Ordre enfants -> parents pour respecter d'éventuelles contraintes de relation.
-        val collections = listOf(
-            "transactions", "allocations_mensuelles", "pret_personnel", "tiers", "enveloppes", "categories",
-            "comptes_investissement", "comptes_dettes", "comptes_credits", "comptes_cheques"
-        )
+        val collections = buildList {
+            addAll(listOf("operations_bancaires_attente", "alias_bancaires",
+                "transactions", "allocations_mensuelles", "pret_personnel", "tiers", "enveloppes", "categories",
+                "comptes_investissement", "comptes_dettes", "comptes_credits", "comptes_cheques"))
+            if (!garderPreferences) add("user_preferences")
+        }
+        // Collections facultatives : absentes sur un ancien serveur, ce n'est pas une erreur
+        val facultatives = setOf("operations_bancaires_attente", "alias_bancaires", "user_preferences")
+
+        // PR4 : serveur joignable AVANT toute action
+        try {
+            client.effectuerRequeteGet("/api/collections/comptes_cheques/records", mapOf("perPage" to "1", "filter" to filtre))
+        } catch (e: Exception) {
+            throw Exception("Serveur injoignable : rien n'a été supprimé (${e.message})")
+        }
+        com.xburnsx.toutiebudget.di.AppModule.arreterEtViderSynchronisation()
+
         val erreurs = mutableListOf<String>()
+        val absentes = mutableListOf<String>()
+        val videes = mutableListOf<String>()
+        fun estAbsente(e: Exception) = e.message?.contains("HTTP 404") == true
+
         for (collection in collections) {
-            val page = 1 // toujours la première : les suppressions font remonter la page suivante
             var itemsCount: Int
             var suppressionEchouee = false
+            var absente = false
             do {
                 val json = try {
                     gson.fromJson(
                         client.effectuerRequeteGet(
                             "/api/collections/$collection/records",
-                            mapOf("page" to page.toString(), "perPage" to "200", "filter" to "utilisateur_id = '$userId'")
+                            // toujours la page 1 : les suppressions font remonter la suite
+                            mapOf("page" to "1", "perPage" to "200", "filter" to filtre)
                         ),
                         JsonObject::class.java
                     )
                 } catch (e: Exception) {
-                    erreurs += "$collection (lecture page $page : ${e.message})"
+                    if (collection in facultatives && estAbsente(e)) absente = true
+                    else erreurs += "$collection (lecture : ${e.message})"
                     break
                 }
                 val items = json.getAsJsonArray("items") ?: com.google.gson.JsonArray()
                 itemsCount = items.size()
                 for (item in items) {
                     val obj = item.asJsonObject
+                    // PR3 : jamais une fiche d'un autre utilisateur, même si le filtre serveur échouait
                     if (obj.get("utilisateur_id")?.asString != userId) {
                         erreurs += "$collection/${obj.get("id")?.asString} (propriétaire inattendu)"
                         suppressionEchouee = true
@@ -676,12 +706,31 @@ class RealtimeSyncService @Inject constructor() {
                     }
                 }
             } while (itemsCount > 0 && !suppressionEchouee)
+            if (absente) {
+                absentes += collection
+                continue
+            }
+
+            // PR4/PR5 : vérification finale, la collection doit être réellement vide pour cet utilisateur
+            try {
+                val reste = gson.fromJson(
+                    client.effectuerRequeteGet("/api/collections/$collection/records", mapOf("perPage" to "1", "filter" to filtre)),
+                    JsonObject::class.java
+                ).get("totalItems")?.asInt ?: 0
+                if (reste > 0) erreurs += "$collection ($reste fiche(s) restante(s))" else videes += collection
+            } catch (e: Exception) {
+                erreurs += "$collection (vérification : ${e.message})"
+            }
         }
         if (erreurs.isNotEmpty()) {
-            throw Exception("Suppression incomplète : ${erreurs.take(8).joinToString()}")
+            throw Exception(
+                "Suppression INCOMPLÈTE sur le serveur (${erreurs.size} problème(s)) : ${erreurs.take(6).joinToString()}" +
+                    (if (erreurs.size > 6) "…" else "") + ". Cet appareil n'a pas été effacé ; la synchro est en pause."
+            )
         }
 
-        // PR4/PR5 : aucune ancienne tâche ne doit recréer les données supprimées.
+        // PR4/PR5 : seulement après un serveur vérifié vide
         com.xburnsx.toutiebudget.di.AppModule.effacerToutesLesDonneesLocales()
+        RapportSuppression(videes, absentes)
     }
 }

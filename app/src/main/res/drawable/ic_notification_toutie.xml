@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de notification ToutieBudget : tête du chat Toutie (une seule couleur, exigence Android). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Tête et oreilles ; yeux, nez et col de chemise découpés -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M3.2,2.2 L8.6,6.9 Q12,5.9 15.4,6.9 L20.8,2.2 L21.1,10.6 Q21.6,16.6 17.2,19.2 L12,22.4 L6.8,19.2 Q2.4,16.6 2.9,10.6 Z
+            M7.2,12.6 a1.9,2.3 0 1,0 3.8,0 a1.9,2.3 0 1,0 -3.8,0 Z
+            M13,12.6 a1.9,2.3 0 1,0 3.8,0 a1.9,2.3 0 1,0 -3.8,0 Z
+            M10.8,16.1 L13.2,16.1 L12,17.5 Z
+            M9.2,19.6 L12,21.2 L14.8,19.6 L12,18.7 Z" />
+</vector>

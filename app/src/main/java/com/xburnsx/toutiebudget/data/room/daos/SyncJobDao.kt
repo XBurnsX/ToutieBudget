@@ -141,6 +141,10 @@ interface SyncJobDao {
     /**
      * Supprime toutes les tâches terminées (COMPLETED ET FAILED)
      */
+    /** PR4 : vider toute la file avant un effacement complet (aucune résurrection de données). */
+    @Query("DELETE FROM sync_jobs")
+    suspend fun supprimerToutesLesTaches()
+
     @Query("DELETE FROM sync_jobs WHERE status IN ('COMPLETED', 'FAILED')")
     suspend fun deleteAllCompletedAndFailedJobs()
     
