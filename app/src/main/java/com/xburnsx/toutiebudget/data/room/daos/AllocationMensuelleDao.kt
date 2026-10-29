@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AllocationMensuelleDao {
+
+    /** BD19 : page stable des allocations de l'utilisateur pour le gestionnaire de base. */
+    @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId ORDER BY mois DESC, id DESC LIMIT :limite OFFSET :decalage")
+    suspend fun pageUtilisateur(utilisateurId: String, limite: Int, decalage: Int): List<AllocationMensuelle>
     
     @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId ORDER BY mois DESC")
     fun getAllocationsByUtilisateur(utilisateurId: String): Flow<List<AllocationMensuelle>>

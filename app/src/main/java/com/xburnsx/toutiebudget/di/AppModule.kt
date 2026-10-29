@@ -390,6 +390,9 @@ import android.content.Context
      fun provideCompteRepository(): CompteRepository = compteRepository
      fun provideEnveloppeRepository(): EnveloppeRepository = enveloppeRepository
      fun provideAllocationMensuelleRepository(): AllocationMensuelleRepository = allocationMensuelleRepository
+     fun provideSupprimerTransactionUseCase(): SupprimerTransactionUseCase = supprimerTransactionUseCase
+     /** Gestionnaire de base (section 23) : lecture Room seulement, les écritures passent par les moteurs métier. */
+     fun provideBaseDeDonnees(): ToutieBudgetDatabase = database
      fun provideCategorieRepository(): CategorieRepository = categorieRepository
      fun provideTiersRepository(): TiersRepository = tiersRepository
     fun provideTransactionRepository(): TransactionRepository = transactionRepository

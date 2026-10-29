@@ -5,6 +5,17 @@ import com.xburnsx.toutiebudget.data.room.entities.Transaction
 import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
+
+    /** BD19 : page stable des transactions de l'utilisateur (toutes dates) pour le gestionnaire de base. */
+    @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId ORDER BY date DESC, id DESC LIMIT :limite OFFSET :decalage")
+    suspend fun pageUtilisateur(utilisateurId: String, limite: Int, decalage: Int): List<Transaction>
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE utilisateur_id = :utilisateurId")
+    suspend fun compterUtilisateur(utilisateurId: String): Int
+
+    /** Nombre d'opérations qui utilisent ce tiers (par son nom, comme elles l'enregistrent). */
+    @Query("SELECT COUNT(*) FROM transactions WHERE utilisateur_id = :utilisateurId AND LOWER(TRIM(tiers_utiliser)) = LOWER(TRIM(:nom))")
+    suspend fun compterParTiers(utilisateurId: String, nom: String): Int
     
     @Query("SELECT * FROM transactions WHERE utilisateur_id = :utilisateurId ORDER BY date DESC")
     fun getTransactionsByUtilisateur(utilisateurId: String): Flow<List<Transaction>>

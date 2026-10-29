@@ -363,7 +363,7 @@ fun SectionDonneesEtSauvegarde(
 }
 
 @Composable
-private fun DialogueMotDePasse(
+internal fun DialogueMotDePasse(
     titre: String,
     confirmer: Boolean,
     onAnnuler: () -> Unit,
