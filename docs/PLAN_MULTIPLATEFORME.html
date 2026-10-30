@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan multiplateforme Toutie Budget</title>
+<style>
+  :root {
+    --fond: #f7f7f5; --carte: #ffffff; --texte: #1d1d1b; --doux: #5b5b57; --bord: #deddd8;
+    --accent: #a3127f; --ok: #1f7a4a; --alerte: #b42318; --info: #1d4f91; --code: #f0efea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fond: #121212; --carte: #1c1c1e; --texte: #ececea; --doux: #a3a29d; --bord: #333331;
+      --accent: #e06ac4; --ok: #5cc98c; --alerte: #ff7a6e; --info: #7fb0ff; --code: #26262a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fond: #121212; --carte: #1c1c1e; --texte: #ececea; --doux: #a3a29d; --bord: #333331;
+    --accent: #e06ac4; --ok: #5cc98c; --alerte: #ff7a6e; --info: #7fb0ff; --code: #26262a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .page { max-width: 1060px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 22px; margin: 40px 0 12px; padding-top: 8px; border-top: 2px solid var(--bord); }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  h4 { font-size: 15px; margin: 16px 0 6px; color: var(--doux); text-transform: uppercase; letter-spacing: .04em; }
+  p, li { max-width: 92ch; }
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code); padding: 12px 14px; border-radius: 8px; overflow-x: auto; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 14px; }
+  th, td { border: 1px solid var(--bord); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--code); }
+  .tableau { overflow-x: auto; }
+  .etape { background: var(--carte); border: 1px solid var(--bord); border-radius: 12px; padding: 4px 20px 16px; margin: 20px 0; }
+  .etape > h2 { border-top: none; margin-top: 16px; }
+  .note { border-left: 4px solid var(--info); padding: 8px 12px; background: var(--carte); margin: 12px 0; }
+  .danger { border-left: 4px solid var(--alerte); padding: 8px 12px; background: var(--carte); margin: 12px 0; }
+  .fin { border-left: 4px solid var(--ok); padding: 8px 12px; background: var(--carte); margin: 12px 0; }
+  .meta { color: var(--doux); font-size: 13px; }
+  nav ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav li { break-inside: avoid; }
+  a { color: var(--accent); }
+  .statut { font-weight: 600; }
+  @media (max-width: 640px) { nav ol { columns: 1; } .etape { padding: 4px 12px 12px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Plan multiplateforme Toutie Budget</h1>
+<p class="meta">Document de référence partagé par Claude et Codex. Créé le 2026-10-30 sur la base du commit <code>f3fd254</code> (branche <code>main</code>, remote <code>ToutieBudget</code>).
+Ce fichier fait foi : en cas de contradiction avec une conversation, c'est ce fichier qui s'applique. Il ne se modifie que par une décision explicite de l'utilisateur (voir « Règles 0.5 »).</p>
+
+<nav>
+<h3>Sommaire</h3>
+<ol>
+  <li><a href="#regles">0. Règles pour les IA</a></li>
+  <li><a href="#etat">1. État de départ (constaté)</a></li>
+  <li><a href="#architecture">2. Architecture cible</a></li>
+  <li><a href="#conventions">3. Conventions obligatoires</a></li>
+  <li><a href="#decisions">4. Registre des décisions</a></li>
+  <li><a href="#avancement">5. Tableau d'avancement</a></li>
+  <li><a href="#e0">Étape 0 — Monter Kotlin</a></li>
+  <li><a href="#e1">Étape 1 — Module shared vide</a></li>
+  <li><a href="#e2">Étape 2 — Primitives communes</a></li>
+  <li><a href="#e3">Étape 3 — Tests de référence</a></li>
+  <li><a href="#e4">Étape 4 — ObjectifCalculator</a></li>
+  <li><a href="#e5">Étape 5 — Dates et arrondis des moteurs</a></li>
+  <li><a href="#e6">Étape 6 — Cartes, dettes, placements</a></li>
+  <li><a href="#e6b">Étape 6b — Journal, registres, coupure</a></li>
+  <li><a href="#e7">Étape 7 — Commandes et invariants</a></li>
+  <li><a href="#e8">Étape 8 — Hooks PocketBase</a></li>
+  <li><a href="#e9">Étape 9 — Android optimiste et rebase</a></li>
+  <li><a href="#e10">Étape 10 — Web en lecture</a></li>
+  <li><a href="#e11">Étape 11 — Écritures web</a></li>
+  <li><a href="#e12">Étape 12 — Fin et nettoyage</a></li>
+</ol>
+</nav>
+
+<!-- ===================================================================== -->
+<h2 id="regles">0. Règles pour les IA (Claude et Codex)</h2>
+
+<h3>0.1 Une étape à la fois</h3>
+<ol>
+  <li>Ne travailler que sur la <strong>première étape non terminée</strong> du tableau d'avancement (section 5). Ne jamais commencer l'étape N+1 avant que l'étape N soit marquée « Fait » avec son commit.</li>
+  <li>Avant de toucher un fichier, relire la section de l'étape en entier, puis l'état réel du dépôt (<code>git status</code>, <code>git log -5</code>). Si l'état réel ne correspond pas à ce que l'étape suppose, <strong>s'arrêter et le dire à l'utilisateur</strong>.</li>
+  <li>Ne faire que ce que l'étape décrit. Aucun « tant qu'à y être » : pas de renommage, pas de nettoyage, pas de refonte hors liste.</li>
+  <li>Si une instruction est ambiguë, impossible ou contredite par le code, <strong>s'arrêter et poser la question</strong>. Ne jamais déduire une règle financière.</li>
+</ol>
+
+<h3>0.2 Règles financières non négociables</h3>
+<ol>
+  <li>Aucun argent ne doit apparaître ou disparaître. Toute opération respecte les invariants de l'étape 7.</li>
+  <li>Une refonte qui change un résultat de calcul existant (même d'un cent) est un échec : on s'arrête, on ne corrige jamais un test de référence pour le faire passer, sauf si l'utilisateur l'a demandé par écrit.</li>
+  <li>Aucune valeur inventée : un taux, une durée, une date absente donne « indisponible », jamais une valeur par défaut.</li>
+</ol>
+
+<h3>0.3 Règles du dépôt (déjà en vigueur, à respecter strictement)</h3>
+<ul>
+  <li>Pousser seulement sur <code>main</code>, remote <code>ToutieBudget</code> : <code>git push ToutieBudget HEAD:main</code>. Pousser <strong>seulement</strong> quand l'utilisateur dit de pousser.</li>
+  <li>Ajouter les fichiers <strong>un par un, par chemin explicite</strong> (<code>git add chemin1 chemin2</code>). Jamais <code>git add .</code>, <code>-A</code> ou un joker.</li>
+  <li>Ne jamais commiter : le changement de <code>versionCode</code>/<code>versionName</code> dans <code>app/build.gradle.kts</code> (sauf à l'étape 0 où on ne touche pas ces lignes), <code>qa/</code>, <code>ToutieBudget-AutoTester/</code>, <code>.idea/deploymentTargetSelector.xml</code>, <code>*.apk</code>, <code>pb_import/</code>, <code>tests-en-direct.ps1</code>, <code>keystore.properties</code>, <code>*.jks</code>, <code>local.properties</code>.</li>
+  <li>Avant chaque commit, vérifier qu'aucun changement d'une autre personne n'est mélangé (<code>git diff --stat</code>) ; ne jamais commiter un fichier modifié par l'utilisateur sans son accord.</li>
+  <li>Ne jamais construire d'APK (<code>assembleRelease</code>/<code>assembleDebug</code>) sans demande explicite de l'utilisateur.</li>
+  <li>Ne jamais lancer d'émulateur ni installer sur un téléphone sans demande explicite. Les vérifications « sur l'appareil » sont faites <strong>par l'utilisateur</strong> (il lance l'app depuis Android Studio).</li>
+  <li>Ne jamais saisir de mot de passe, de jeton ou d'identifiant. Les actions sur le serveur PocketBase (admin, Docker) sont faites par l'utilisateur ; l'IA fournit les commandes exactes.</li>
+  <li>Avant toute étape qui touche le serveur (6b, 8, 9d, 11) : l'utilisateur confirme qu'une <strong>sauvegarde de PocketBase</strong> vient d'être faite. Sans cette confirmation, on n'avance pas.</li>
+</ul>
+
+<h3>0.4 Commandes de vérification standard (Windows, Git Bash)</h3>
+<pre><code>cd "/d/Toutie Budget"
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+./gradlew :app:compileReleaseKotlin :app:compileDebugUnitTestKotlin -q      # compilation Android
+./gradlew :app:testDebugUnitTest -q                                          # tests JVM Android
+./gradlew :shared:jvmTest -q                                                 # tests communs (à partir de l'étape 1)
+./gradlew :shared:allTests -q                                                # tests communs, toutes cibles (à partir de l'étape 2)</code></pre>
+<p>Résultats des tests : lire <code>app/build/test-results/testDebugUnitTest/*.xml</code> et <code>shared/build/test-results/**/*.xml</code>. Un seul échec connu et accepté au départ : <code>EcransArgentTest › creer une dette aux deux semaines calcule les echeances et objectif bihebdomadaire</code> (dépend de la date du jour, échoue depuis le 2026-10-29). Il est corrigé à l'étape 3 ; après l'étape 3, <strong>zéro échec</strong> est exigé.</p>
+
+<h3>0.5 Mise à jour de ce document</h3>
+<ul>
+  <li>À la fin de chaque étape : remplir sa ligne du tableau d'avancement (statut « Fait », date AAAA-MM-JJ, IA, hash du commit) <strong>dans le même commit</strong> que l'étape.</li>
+  <li>Une décision prise pendant une étape (version, nom de domaine…) s'inscrit dans le registre des décisions (section 4) avec sa source.</li>
+  <li>Toute autre modification du plan (ajout, retrait, changement de règle) exige l'accord écrit de l'utilisateur et se fait dans un commit séparé : <code>docs(plan): …</code>.</li>
+</ul>
+
+<h3>0.6 Format des commits</h3>
+<pre><code>&lt;type&gt;(etape-N): &lt;résumé en français, sans accent si possible&gt;
+
+- détail 1
+- détail 2
+
+Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
+<p>Types : <code>build</code> (Gradle), <code>feat</code>, <code>refactor</code>, <code>test</code>, <code>docs</code>, <code>server</code> (PocketBase). Un commit par sous-étape quand la sous-étape le précise.</p>
+
+<!-- ===================================================================== -->
+<h2 id="etat">1. État de départ (constaté au commit f3fd254)</h2>
+
+<h3>1.1 Projet Android</h3>
+<div class="tableau"><table>
+<tr><th>Élément</th><th>Valeur</th></tr>
+<tr><td>Dossier</td><td><code>D:\Toutie Budget</code> (un seul module Gradle : <code>:app</code>)</td></tr>
+<tr><td>Package</td><td><code>com.xburnsx.toutiebudget</code></td></tr>
+<tr><td>Versions (fichier <code>gradle/libs.versions.toml</code>)</td><td>AGP 8.10.1, Kotlin 2.0.21, Gradle 8.11.1 (<code>gradle/wrapper/gradle-wrapper.properties</code>)</td></tr>
+<tr><td>Plugins de <code>app/build.gradle.kts</code></td><td><code>com.android.application</code>, <code>kotlin-android</code>, <code>kotlin-kapt</code>, <code>com.google.gms.google-services</code>, <code>org.jetbrains.kotlin.plugin.compose</code></td></tr>
+<tr><td>SDK</td><td>compileSdk 36, minSdk 26, targetSdk 36, Java/JVM 17</td></tr>
+<tr><td>Dépendances clés</td><td>Compose BOM 2024.06.00, Room 2.6.1 (kapt), WorkManager 2.9.0, OkHttp 4.11.0, Gson 2.10.1, javax.inject 1, play-services-auth 20.7.0, coroutines-test 1.7.3 (tests)</td></tr>
+<tr><td>Room</td><td><code>data/room/ToutieBudgetDatabase.kt</code>, version 10, <code>exportSchema = false</code></td></tr>
+<tr><td>Écriture atomique</td><td><code>utils/OperationAtomique.kt</code> (<code>OperationAtomiqueRoom</code> = <code>withTransaction</code>)</td></tr>
+<tr><td>File d'envoi actuelle</td><td>Entité <code>data/room/entities/SyncJob.kt</code>, <code>workers/SyncWorker.kt</code>, <code>data/services/SyncPayloads.kt</code> : envoie des <strong>copies complètes</strong> des fiches (soldes absolus)</td></tr>
+<tr><td>Réception</td><td><code>data/services/RealtimeSyncService.kt</code> (SSE + rattrapage + mise à jour complète deux sens), <code>data/services/InitialImportService.kt</code>, <code>data/services/PocketBaseMapper.kt</code></td></tr>
+<tr><td>Identifiants</td><td><code>utils/IdGenerator.kt</code> : 15 caractères <code>[0-9a-f]</code> (UUID tronqué)</td></tr>
+<tr><td>Argent</td><td>Stocké en <code>Double</code> (dollars), arrondi par <code>utils/MoneyFormatter.roundAmount</code> et <code>MoteurCarteCredit.arrondi</code> (BigDecimal HALF_UP)</td></tr>
+</table></div>
+
+<h3>1.2 Moteurs et leurs dépendances JVM (à retirer pour <code>commonMain</code>)</h3>
+<div class="tableau"><table>
+<tr><th>Fichier (sous <code>app/src/main/java/com/xburnsx/toutiebudget/</code>)</th><th>Lignes</th><th>Dépendances non communes</th><th>Dépend de</th></tr>
+<tr><td><code>data/utils/ObjectifCalculator.kt</code></td><td>164</td><td><code>java.time.*</code>, <code>java.util.Date</code></td><td>modèles <code>AllocationMensuelle</code>, <code>Enveloppe</code>, <code>TypeObjectif</code></td></tr>
+<tr><td><code>data/services/CalendrierRenouvellementObjectif.kt</code></td><td>78</td><td><code>java.time.*</code>, <code>java.util.Date</code></td><td><code>Enveloppe</code>, <code>TypeObjectif</code></td></tr>
+<tr><td><code>domain/services/MoteurCarteCredit.kt</code></td><td>637</td><td><code>BigDecimal</code>, <code>SimpleDateFormat</code>, <code>Calendar</code>, <code>Date</code>, <code>Locale</code>, <code>TimeUnit</code></td><td><code>CompteCredit</code>, <code>ReleveCarte</code>, <code>NatureMouvementCarte</code>, <code>Transaction</code>, <code>TypeFrais</code>, <code>TypeTransaction</code></td></tr>
+<tr><td><code>domain/services/MoteurDette.kt</code></td><td>436</td><td><code>Calendar</code>, <code>Date</code>, <code>java.time</code> (joursEntre)</td><td><code>MoteurCarteCredit.arrondi/lireDate/ecrireDate</code>, <code>CompteDette</code>, <code>DetailsDette</code>, <code>Transaction</code></td></tr>
+<tr><td><code>domain/services/MoteurInvestissement.kt</code></td><td>249</td><td><code>Date</code></td><td><code>CompteInvestissement</code>, <code>Transaction</code></td></tr>
+<tr><td><code>domain/services/Portefeuille.kt</code></td><td>203</td><td>aucune</td><td><code>DetailsInvestissement</code> et ses types</td></tr>
+<tr><td><code>domain/services/SousItemsFractions.kt</code></td><td>60</td><td>Gson</td><td>—</td></tr>
+<tr><td><code>domain/services/CouvertureDeficit.kt</code></td><td>34</td><td>aucune</td><td>entité Room <code>HistoriqueAllocation</code> (à remplacer)</td></tr>
+<tr><td><code>utils/MoneyFormatter.kt</code></td><td>77</td><td><code>BigDecimal</code>, <code>NumberFormat</code>, <code>Locale</code></td><td>—</td></tr>
+</table></div>
+<p>Modèles (<code>data/modeles/</code>) : <code>Compte.kt</code> (CompteCheque, CompteCredit, CompteDette, CompteInvestissement, FraisMensuel, TypeFrais), <code>DetailsCarte.kt</code>, <code>DetailsDette.kt</code>, <code>DetailsInvestissement.kt</code> (Gson pour le JSON), <code>Enveloppe.kt</code>, <code>AllocationMensuelle.kt</code>, <code>Transaction.kt</code> (<code>java.util.Date</code>), <code>Categorie.kt</code>, <code>Tiers.kt</code>, <code>PretPersonnel.kt</code>, <code>TypeObjectif.kt</code>, <code>TypeTransaction.kt</code>. Annotations Gson <code>@SerializedName</code> dans <code>Compte.kt</code>, <code>Enveloppe.kt</code>, <code>PretPersonnel.kt</code>.</p>
+
+<h3>1.3 Écritures financières actuelles (toutes côté client, soldes absolus)</h3>
+<ul>
+  <li>Assignation : <code>ui/budget/BudgetViewModel.kt</code> (<code>assignerArgentAEnveloppe</code>, <code>assignerAPlusieursEnveloppes</code>, <code>executerAssignation</code>)</li>
+  <li>Virements d'enveloppes / prêt à placer : <code>domain/services/VirementBudgetService.kt</code>, <code>domain/UseCases/VirementUseCase.kt</code>, <code>ui/virement/VirerArgentViewModel.kt</code></li>
+  <li>Transactions : <code>domain/UseCases/EnregistrerTransactionUseCase.kt</code>, <code>ModifierTransactionUseCase.kt</code>, <code>ModifierOperationLieeUseCase.kt</code>, <code>SupprimerTransactionUseCase.kt</code></li>
+  <li>Paiements carte et dette, virements de comptes : <code>domain/services/Impl/ArgentServiceImpl.kt</code></li>
+  <li>Report de fin de mois : <code>domain/services/Impl/RolloverServiceImpl.kt</code></li>
+  <li>Réconciliation, modification et archivage de compte : <code>ui/comptes/ComptesViewModel.kt</code></li>
+  <li>Dettes : <code>ui/dette/DetteViewModel.kt</code> ; cartes : <code>ui/cartes_credit/CartesCreditViewModel.kt</code> ; placements : <code>ui/investissement/*ViewModel.kt</code> ; prêts personnels : <code>ui/pret_personnel/*</code></li>
+  <li>Journal : <code>domain/services/Impl/HistoriqueAllocationServiceImpl.kt</code> (collection <code>historique_allocation</code>, partielle : existe sur le serveur depuis le 2026-10-30)</li>
+</ul>
+<div class="note">Cette liste est un point de départ. L'étape 9.1 exige un inventaire <strong>exhaustif</strong> par recherche dans le code avant toute conversion.</div>
+
+<h3>1.4 Serveur PocketBase</h3>
+<div class="tableau"><table>
+<tr><th>Élément</th><th>Valeur</th></tr>
+<tr><td>URL</td><td><code>https://pocketbase.toutieserver.com</code></td></tr>
+<tr><td>Hébergement</td><td>Conteneur Docker nommé <code>pocketbase</code> sur l'hôte <code>Cloud</code></td></tr>
+<tr><td>Données</td><td>Hôte <code>/home/xburnsx/configs/pocketbase</code> monté sur <code>/pb_data</code> dans le conteneur</td></tr>
+<tr><td>Migrations</td><td>Lues dans <code>/pb_migrations</code> du conteneur (<strong>non monté</strong> : copié avec <code>docker cp</code> le 2026-10-30)</td></tr>
+<tr><td>Hooks</td><td>Aucun (dossier <code>/pb_hooks</code> non monté)</td></tr>
+<tr><td>Version PocketBase</td><td>≥ 0.23 (API realtime SSE + <code>new Collection({fields})</code> utilisée par les migrations). Version exacte à relever à l'étape 6b (décision D-6b.1).</td></tr>
+<tr><td>Migrations du dépôt</td><td><code>pb_migrations/</code> : 1793188800 à 1793188804 seulement. Les collections de base (comptes, enveloppes, allocations, transactions, tiers, catégories, prêts, user_preferences) ont été créées à la main : <strong>aucune migration de base</strong>.</td></tr>
+<tr><td>Collections synchronisées par l'app</td><td>comptes_cheques, comptes_credits, comptes_dettes, comptes_investissement, categories, enveloppes, allocations_mensuelles, transactions, tiers, alias_bancaires, operations_bancaires_attente, pret_personnel, historique_allocation (+ user_preferences)</td></tr>
+<tr><td>Propriétaire</td><td>Champ <code>utilisateur_id</code> (relation vers <code>users</code>) ; règles « chacun ses fiches » (migration 1793188803)</td></tr>
+<tr><td>Script existant</td><td><code>migrer-pocketbase.ps1</code> (ajout de champs par l'API admin)</td></tr>
+</table></div>
+
+<h3>1.5 Utilisateurs</h3>
+<p>Deux comptes réels : l'utilisateur (XBurnsX Qc) et sa conjointe. Chacun son budget (aucun partage de fiches). Les deux utilisent Android. Le web s'ajoutera comme troisième client.</p>
+
+<!-- ===================================================================== -->
+<h2 id="architecture">2. Architecture cible</h2>
+<pre><code>D:\Toutie Budget\
+├── app\                    Android (Kotlin, Compose, Room, WorkManager) — adaptation Android
+├── shared\                 Kotlin Multiplatform (cibles jvm + wasmJs) — règles communes, PURES
+│   └── src\
+│       ├── commonMain\kotlin\com\xburnsx\toutiebudget\shared\
+│       │   ├── argent\         Montant (cents), Taux, ArrondiMonetaire
+│       │   ├── dates\          DatesBudget, MoisBudgetaire, DateFinanciere, Horloge
+│       │   ├── json\           JsonCommun (kotlinx.serialization)
+│       │   ├── ids\            Identifiants (15 car. [a-z0-9])
+│       │   ├── modeles\        modèles purs utilisés par les moteurs
+│       │   ├── moteurs\
+│       │   │   ├── objectifs\  ObjectifCalculator, CalendrierRenouvellementObjectif
+│       │   │   ├── carte\      MoteurCarteCredit
+│       │   │   ├── dette\      MoteurDette
+│       │   │   ├── placement\  MoteurInvestissement, Portefeuille
+│       │   │   └── sommaire\   SommaireMensuel (étape 10)
+│       │   ├── journal\        Operation, Variation, Registre, Ouverture (étape 6b)
+│       │   └── commandes\      Commande, intentions, calcul des variations, invariants (étape 7)
+│       ├── commonTest\kotlin\...   tests financiers partagés
+│       ├── jvmMain\kotlin\...      adaptateurs JVM minimes (si nécessaire)
+│       └── wasmJsMain\kotlin\...   adaptateurs web minimes (si nécessaire)
+├── webApp\                 Compose Multiplatform (cible wasmJs) — adaptation navigateur
+├── pocketbase\
+│   ├── pb_migrations\      (déplacé depuis pb_migrations\ à l'étape 6b)
+│   ├── pb_hooks\           commandes financières transactionnelles (étape 8)
+│   └── tests\              tests d'intégration du serveur (étape 8)
+├── docs\PLAN_MULTIPLATEFORME.html   (ce fichier)
+├── settings.gradle.kts     include(":app"), include(":shared"), include(":webApp")
+└── build.gradle.kts</code></pre>
+<div class="tableau"><table>
+<tr><th>Module</th><th>Responsabilité</th><th>Interdit</th></tr>
+<tr><td><code>shared</code></td><td>Décider comment l'argent fonctionne : calculs, règles, commandes, invariants</td><td>Android, Room, OkHttp, Gson, <code>java.*</code> dans <code>commonMain</code>, toute E/S réseau ou disque</td></tr>
+<tr><td><code>app</code></td><td>Afficher et stocker sur Android (Room = cache hors ligne + file de commandes)</td><td>Recalculer une règle financière ailleurs que dans <code>shared</code> (à partir de l'étape où elle y est migrée)</td></tr>
+<tr><td><code>webApp</code></td><td>Afficher et stocker dans le navigateur</td><td>Écrire un solde directement ; toute écriture passe par une commande</td></tr>
+<tr><td>PocketBase + <code>pb_hooks</code></td><td>Synchroniser ; appliquer les commandes dans une transaction serveur en vérifiant les invariants</td><td>Contenir un calcul d'objectif, de dette, d'échéancier ou de carte</td></tr>
+</table></div>
+<p>Principe des soldes : <strong>journal = source de vérité ; soldes enregistrés = projection reconstruisible</strong>. Deux registres séparés : <strong>bancaire</strong> (soldes des comptes, dettes, cartes, placements) et <strong>budgétaire</strong> (prêt à placer, enveloppes, allocations mensuelles).</p>
+
+<!-- ===================================================================== -->
+<h2 id="conventions">3. Conventions obligatoires</h2>
+
+<h3>3.1 Langue et noms</h3>
+<ul>
+  <li>Noms de classes, fonctions, variables et commentaires en <strong>français</strong>, comme le code existant (<code>MoteurDette</code>, <code>soldeActuel</code>…).</li>
+  <li>Package racine du module commun : <code>com.xburnsx.toutiebudget.shared</code>.</li>
+</ul>
+
+<h3>3.2 Argent</h3>
+<ul>
+  <li>Tout montant <strong>stocké, transmis ou comparé</strong> dans <code>shared</code> est un <code>Montant</code> en <strong>cents (<code>Long</code>)</strong>.</li>
+  <li>Les calculs d'intérêts et de pourcentages peuvent utiliser <code>Double</code> en intermédiaire, puis passent <strong>obligatoirement</strong> par <code>ArrondiMonetaire.versCents(valeurDollars: Double): Long</code> (demi vers le haut, identique à <code>BigDecimal.valueOf(v).setScale(2, RoundingMode.HALF_UP)</code>) aux <strong>mêmes endroits</strong> que le code actuel arrondit au cent.</li>
+  <li>Arrondi « au cent supérieur » (minimum de carte) : <code>ArrondiMonetaire.versCentsSuperieur</code>, identique à <code>RoundingMode.CEILING</code>.</li>
+  <li>Le serveur et Room gardent pour l'instant leurs champs en dollars (<code>Double</code>) : conversion <code>cents = versCents(dollars)</code>, <code>dollars = cents / 100.0</code> seulement aux frontières (adaptateurs).</li>
+</ul>
+
+<h3>3.3 Taux</h3>
+<p><code>Taux</code> = pourcentage annuel en <code>Double</code> (ex. 14.99 pour 14,99 %). Toujours validé <code>0.0..100.0</code> et fini.</p>
+
+<h3>3.4 Dates</h3>
+<ul>
+  <li><code>kotlinx-datetime</code> uniquement dans <code>shared</code> (<code>Instant</code>, <code>LocalDate</code>, <code>TimeZone</code>).</li>
+  <li>Mois budgétaire : type propre <code>MoisBudgetaire(annee: Int, mois: Int)</code> (1..12), format texte <code>AAAA-MM</code>. Ne pas utiliser un <code>YearMonth</code> de bibliothèque.</li>
+  <li>Format texte des dates : <code>AAAA-MM-JJ</code> (comme <code>MoteurCarteCredit.lireDate/ecrireDate</code>).</li>
+  <li>Fuseau par défaut : <code>America/Toronto</code>. Le mois d'une opération se calcule <strong>toujours</strong> avec le fuseau de l'utilisateur, jamais avec celui du serveur (UTC).</li>
+  <li>Le temps courant vient d'une <code>Horloge</code> injectée (tests déterministes).</li>
+</ul>
+
+<h3>3.5 JSON</h3>
+<p><code>kotlinx.serialization</code> dans <code>shared</code>. Les noms de champs JSON envoyés au serveur sont en <code>snake_case</code>, comme aujourd'hui (<code>@SerialName("solde_dette")</code>). Les champs JSON existants des détails (<code>details_carte_json</code>, <code>details_dette_json</code>, <code>details_investissement_json</code>) gardent <strong>exactement</strong> leurs noms de clés actuels (camelCase produit par Gson aujourd'hui) : vérifier par un test qui relit un JSON produit par le code Gson actuel.</p>
+
+<h3>3.6 Identifiants</h3>
+<p>Nouveaux identifiants : 15 caractères <code>[a-z0-9]</code> (compatibles PocketBase). <code>operationId</code> d'une commande : même format. Ouvertures : identifiant déterministe décrit à l'étape 6b.</p>
+
+<h3>3.7 Tests</h3>
+<ul>
+  <li>Chaque moteur migré garde ses tests JVM dans <code>app</code> <strong>et</strong> reçoit une copie dans <code>shared/src/commonTest</code> avec les mêmes valeurs attendues.</li>
+  <li>Tests de date : jamais dépendre du jour réel ; toujours une <code>Horloge</code> fixe ou des dates explicites.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2 id="decisions">4. Registre des décisions</h2>
+<p>À remplir pendant les étapes indiquées. Une décision remplie est figée ; la changer exige l'accord de l'utilisateur.</p>
+<div class="tableau"><table>
+<tr><th>Id</th><th>Question</th><th>Règle pour décider</th><th>Valeur retenue</th><th>Source / date</th></tr>
+<tr><td>D-0.1</td><td>Version de Kotlin</td><td>La dernière version <strong>stable</strong> de Kotlin 2.x compatible à la fois avec l'AGP du projet et avec une version stable de Compose Multiplatform qui supporte la cible <code>wasmJs</code>. Sources : <a href="https://kotlinlang.org/docs/releases.html">kotlinlang.org/docs/releases.html</a>, <a href="https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html">compatibilité Compose Multiplatform</a>, <a href="https://developer.android.com/build/kotlin-support">compatibilité AGP/Kotlin</a>.</td><td>—</td><td>—</td></tr>
+<tr><td>D-0.2</td><td>Version d'AGP</td><td>Garder 8.10.1 si compatible avec D-0.1 ; sinon la plus petite version stable compatible.</td><td>—</td><td>—</td></tr>
+<tr><td>D-0.3</td><td>Version de Compose Multiplatform (plugin <code>org.jetbrains.compose</code>)</td><td>La version stable compatible avec D-0.1 (utilisée seulement à partir de l'étape 10).</td><td>—</td><td>—</td></tr>
+<tr><td>D-2.1</td><td>Versions <code>kotlinx-datetime</code>, <code>kotlinx-serialization-json</code>, <code>kotlinx-coroutines-core</code></td><td>Dernières stables compatibles avec D-0.1 et avec la cible wasmJs.</td><td>—</td><td>—</td></tr>
+<tr><td>D-6b.1</td><td>Version exacte de PocketBase</td><td>Relevée par l'utilisateur : <code>docker exec pocketbase ls /</code> puis la commande de version du binaire trouvé (ex. <code>docker exec pocketbase /pb/pocketbase --version</code>).</td><td>—</td><td>—</td></tr>
+<tr><td>D-6b.2</td><td>Mode de lancement du conteneur</td><td>Fichier <code>docker-compose.yml</code> ou commande <code>docker run</code> fournie par l'utilisateur.</td><td>—</td><td>—</td></tr>
+<tr><td>D-6b.3</td><td>Date de coupure (<code>cutoverAt</code>) par utilisateur</td><td>Choisie par l'utilisateur à l'étape 9.6, un 1er du mois à 00:00 America/Toronto.</td><td>—</td><td>—</td></tr>
+<tr><td>D-10.1</td><td>Domaine du site web</td><td>Choisi par l'utilisateur (ex. <code>budget.toutieserver.com</code>).</td><td>—</td><td>—</td></tr>
+<tr><td>D-10.2</td><td>Hébergement du web</td><td>Conteneur nginx sur l'hôte <code>Cloud</code> servant les fichiers statiques (proposition), confirmé par l'utilisateur.</td><td>—</td><td>—</td></tr>
+</table></div>
+
+<!-- ===================================================================== -->
+<h2 id="avancement">5. Tableau d'avancement</h2>
+<div class="tableau"><table>
+<tr><th>Étape</th><th>Titre</th><th>Statut</th><th>Date</th><th>IA</th><th>Commit(s)</th></tr>
+<tr><td>Base</td><td>Point de départ</td><td class="statut">Fait</td><td>2026-10-30</td><td>Claude</td><td><code>f3fd254</code></td></tr>
+<tr><td>0</td><td>Monter Kotlin</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>1</td><td>Module shared vide</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>2</td><td>Primitives communes</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>3</td><td>Tests de référence</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>4</td><td>ObjectifCalculator</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>5</td><td>Dates et arrondis des moteurs</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>6.1</td><td>MoteurCarteCredit</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>6.2</td><td>MoteurDette</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>6.3</td><td>Placements</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>6b</td><td>Journal, registres, coupure</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>7</td><td>Commandes et invariants</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>8</td><td>Hooks PocketBase</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>9</td><td>Android optimiste et rebase</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>10</td><td>Web en lecture</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>11</td><td>Écritures web</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+<tr><td>12</td><td>Fin et nettoyage</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
+</table></div>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e0">Étape 0 — Monter Kotlin et stabiliser Android</h2>
+<h4>Objectif</h4>
+<p>Passer Kotlin de 2.0.21 à la version D-0.1, sans aucun changement métier, et prouver qu'Android fonctionne à l'identique.</p>
+<h4>Préalables</h4>
+<ul><li>Tableau d'avancement : « Base » = Fait. <code>git status</code> sans fichier à moi non commité (les exclusions de 0.3 peuvent être présentes).</li></ul>
+<h4>Interdit</h4>
+<ul>
+  <li>Toucher au code Kotlin de <code>app/src</code> (sauf correction de compilation strictement imposée par la nouvelle version, à signaler une par une).</li>
+  <li>Passer de kapt à KSP, changer Room, Compose BOM, WorkManager ou toute autre bibliothèque <strong>sauf</strong> si la compilation l'exige (alors : la plus petite montée possible, notée dans le commit).</li>
+  <li>Toucher <code>versionCode</code>/<code>versionName</code>.</li>
+</ul>
+<h4>Procédure</h4>
+<ol>
+  <li>Remplir D-0.1 et D-0.2 dans le registre (valeur + lien source + date).</li>
+  <li><code>gradle/libs.versions.toml</code> : <code>kotlin = "&lt;D-0.1&gt;"</code> ; si D-0.2 ≠ 8.10.1 : <code>agp = "&lt;D-0.2&gt;"</code>.</li>
+  <li><code>app/build.gradle.kts</code> : <code>testImplementation("org.jetbrains.kotlin:kotlin-test:2.0.21")</code> → version D-0.1.</li>
+  <li>Si D-0.2 l'exige : <code>gradle/wrapper/gradle-wrapper.properties</code> → version de Gradle minimale exigée par AGP.</li>
+  <li>Si la compilation signale <code>kotlinOptions</code> obsolète : remplacer dans <code>app/build.gradle.kts</code> le bloc <code>kotlinOptions { jvmTarget = "17" }</code> par
+<pre><code>kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}</code></pre> (et rien d'autre).</li>
+</ol>
+<h4>Vérification</h4>
+<pre><code>./gradlew --stop
+./gradlew :app:clean -q
+./gradlew :app:compileReleaseKotlin :app:compileDebugUnitTestKotlin -q
+./gradlew :app:testDebugUnitTest -q</code></pre>
+<ul>
+  <li>Tests : mêmes résultats qu'au départ (seul l'échec connu de 0.4 toléré).</li>
+  <li><strong>Vérification par l'utilisateur</strong> (Android Studio, son téléphone) : démarrage, connexion Google, page Budget, ajout d'une transaction, écran Synchronisation sans tâche bloquée. L'IA attend sa confirmation écrite.</li>
+</ul>
+<h4>Critères de fin</h4>
+<ul><li>Compilation et tests OK ; confirmation de l'utilisateur ; D-0.1/D-0.2 remplies.</li></ul>
+<h4>Commit</h4>
+<pre><code>build(etape-0): Kotlin &lt;D-0.1&gt; sans changement metier</code></pre>
+<p>Fichiers : <code>gradle/libs.versions.toml</code>, <code>app/build.gradle.kts</code> (lignes Kotlin seulement), éventuellement <code>gradle/wrapper/gradle-wrapper.properties</code>, <code>docs/PLAN_MULTIPLATEFORME.html</code>.</p>
+<h4>Retour arrière</h4>
+<p><code>git revert &lt;hash&gt;</code>.</p>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e1">Étape 1 — Créer le module <code>shared</code> vide</h2>
+<h4>Objectif</h4>
+<p>Un module Kotlin Multiplatform <code>:shared</code> avec les cibles <code>jvm</code> et <code>wasmJs</code>, dont <code>app</code> dépend, sans aucun code métier.</p>
+<h4>Fichiers</h4>
+<div class="tableau"><table>
+<tr><th>Action</th><th>Chemin</th><th>Contenu exact</th></tr>
+<tr><td>Modifier</td><td><code>gradle/libs.versions.toml</code></td><td>Ajouter sous <code>[plugins]</code> : <code>kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }</code></td></tr>
+<tr><td>Modifier</td><td><code>build.gradle.kts</code> (racine)</td><td>Ajouter <code>alias(libs.plugins.kotlin.multiplatform) apply false</code> dans le bloc <code>plugins</code></td></tr>
+<tr><td>Modifier</td><td><code>settings.gradle.kts</code></td><td>Ajouter <code>include(":shared")</code> après <code>include(":app")</code></td></tr>
+<tr><td>Créer</td><td><code>shared/build.gradle.kts</code></td><td>Voir bloc ci-dessous</td></tr>
+<tr><td>Créer</td><td><code>shared/src/commonMain/kotlin/com/xburnsx/toutiebudget/shared/VersionShared.kt</code></td><td><code>package com.xburnsx.toutiebudget.shared</code> + <code>object VersionShared { const val NOM = "shared" }</code></td></tr>
+<tr><td>Créer</td><td><code>shared/src/commonTest/kotlin/com/xburnsx/toutiebudget/shared/VersionSharedTest.kt</code></td><td>Un test <code>kotlin.test</code> qui vérifie <code>VersionShared.NOM == "shared"</code></td></tr>
+<tr><td>Modifier</td><td><code>app/build.gradle.kts</code></td><td>Dans <code>dependencies</code> : <code>implementation(project(":shared"))</code></td></tr>
+<tr><td>Créer (temporaire, test)</td><td><code>app/src/test/java/com/xburnsx/toutiebudget/SharedBrancheTest.kt</code></td><td>Un test JVM qui lit <code>VersionShared.NOM</code> (prouve qu'<code>app</code> voit <code>shared</code>). Reste dans le dépôt.</td></tr>
+</table></div>
+<pre><code>// shared/build.gradle.kts
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+}
+
+kotlin {
+    jvm {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    }
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs { browser() }
+
+    sourceSets {
+        commonMain.dependencies { }
+        commonTest.dependencies { implementation(kotlin("test")) }
+    }
+}</code></pre>
+<div class="note">Si Gradle refuse qu'<code>app</code> (Android) consomme la cible <code>jvm</code> de <code>shared</code> : <strong>s'arrêter</strong> et proposer à l'utilisateur l'alternative <code>androidTarget()</code> avec le plugin <code>com.android.kotlin.multiplatform.library</code>. Ne pas l'appliquer sans accord.</div>
+<h4>Vérification</h4>
+<pre><code>./gradlew :shared:jvmTest :shared:wasmJsTest -q
+./gradlew :app:compileReleaseKotlin :app:compileDebugUnitTestKotlin -q
+./gradlew :app:testDebugUnitTest -q</code></pre>
+<p><code>:shared:wasmJsTest</code> peut demander un navigateur ; s'il n'y en a pas, noter l'erreur et utiliser <code>:shared:compileKotlinWasmJs</code> à la place (la compilation suffit à cette étape).</p>
+<h4>Critères de fin</h4>
+<ul><li>Tout compile ; <code>SharedBrancheTest</code> passe ; aucun autre test ne change.</li></ul>
+<h4>Commit</h4>
+<pre><code>build(etape-1): module shared Kotlin Multiplatform (jvm, wasmJs) branche sur app</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e2">Étape 2 — Primitives communes</h2>
+<h4>Objectif</h4>
+<p>Créer les briques que tous les moteurs utiliseront : argent, taux, dates, horloge, JSON, identifiants. Aucun moteur n'est déplacé ici.</p>
+<h4>Dépendances</h4>
+<p>Remplir D-2.1. Ajouter dans <code>gradle/libs.versions.toml</code> (sections <code>[versions]</code>/<code>[libraries]</code>/<code>[plugins]</code>) : <code>kotlinx-datetime</code>, <code>kotlinx-serialization-json</code>, <code>kotlinx-coroutines-core</code>, plugin <code>org.jetbrains.kotlin.plugin.serialization</code> (version.ref = kotlin). Dans <code>shared/build.gradle.kts</code> : plugin serialization + ces trois bibliothèques en <code>commonMain</code>.</p>
+<h4>Fichiers à créer (sous <code>shared/src/commonMain/kotlin/com/xburnsx/toutiebudget/shared/</code>)</h4>
+<div class="tableau"><table>
+<tr><th>Fichier</th><th>API exacte</th></tr>
+<tr><td><code>argent/Montant.kt</code></td><td><pre><code>@JvmInline @Serializable
+value class Montant(val cents: Long) : Comparable&lt;Montant&gt; {
+    operator fun plus(o: Montant): Montant      // Math.addExact équivalent : lève ArithmeticException sur débordement
+    operator fun minus(o: Montant): Montant
+    operator fun unaryMinus(): Montant
+    override fun compareTo(other: Montant): Int
+    val estNul: Boolean; val estPositif: Boolean; val estNegatif: Boolean
+    fun enDollars(): Double                    // cents / 100.0
+    companion object {
+        val ZERO: Montant
+        fun depuisDollars(dollars: Double): Montant   // ArrondiMonetaire.versCents ; lève IllegalArgumentException si non fini
+    }
+}</code></pre>Note : <code>@JvmInline</code> vient de <code>kotlin.jvm.JvmInline</code>, disponible en commun.</td></tr>
+<tr><td><code>argent/ArrondiMonetaire.kt</code></td><td><pre><code>object ArrondiMonetaire {
+    fun versCents(dollars: Double): Long            // demi vers le haut, = BigDecimal.valueOf(d).setScale(2, HALF_UP)
+    fun versCentsSuperieur(dollars: Double): Long   // = BigDecimal.valueOf(d).setScale(2, CEILING)
+    fun arrondiDollars(dollars: Double): Double     // versCents(d) / 100.0 (remplacera MoteurCarteCredit.arrondi)
+}</code></pre>Implémentation : à partir de la représentation décimale la plus courte de <code>dollars.toString()</code> (comme <code>BigDecimal.valueOf</code>), sans <code>Double</code> intermédiaire pour l'arrondi. Gérer la notation exponentielle (<code>1.0E7</code>, <code>1.0E-5</code>) et le signe.</td></tr>
+<tr><td><code>argent/Taux.kt</code></td><td><code>@JvmInline value class Taux(val pourcentAnnuel: Double)</code> avec <code>init { require(pourcentAnnuel.isFinite() &amp;&amp; pourcentAnnuel in 0.0..100.0) }</code></td></tr>
+<tr><td><code>dates/MoisBudgetaire.kt</code></td><td><code>@Serializable(with=…) data class MoisBudgetaire(val annee: Int, val mois: Int) : Comparable</code> ; <code>plus(n: Int)</code>, <code>moins(n)</code>, <code>premierJour(): LocalDate</code>, <code>dernierJour(): LocalDate</code>, <code>nombreDeJours(): Int</code>, <code>toString() = "AAAA-MM"</code>, <code>companion: lire("AAAA-MM")</code>, <code>de(date: LocalDate)</code>, <code>moisEntre(a, b): Int</code> (= <code>ChronoUnit.MONTHS.between</code> sur YearMonth)</td></tr>
+<tr><td><code>dates/DatesBudget.kt</code></td><td><code>object DatesBudget</code> : <code>FUSEAU_DEFAUT = TimeZone.of("America/Toronto")</code> ; <code>lireDate(texte: String?): LocalDate?</code> (exactement <code>AAAA-MM-JJ</code>, refuse le reste, comme <code>MoteurCarteCredit.lireDate</code>) ; <code>ecrireDate(d: LocalDate): String</code> ; <code>joursEntre(a: LocalDate, b: LocalDate): Long</code> ; <code>dateLocale(instant: Instant, fuseau: TimeZone): LocalDate</code> ; <code>moisBudgetaire(instant, fuseau): MoisBudgetaire</code></td></tr>
+<tr><td><code>dates/DateFinanciere.kt</code></td><td><code>@Serializable data class DateFinanciere(val instant: Instant, val dateLocale: LocalDate, val moisBudgetaire: MoisBudgetaire, val fuseau: String)</code> + <code>companion fun depuis(instant, fuseau: TimeZone)</code> et <code>fun depuisDateSeule(date: LocalDate, fuseau: TimeZone)</code> (instant = début de journée locale)</td></tr>
+<tr><td><code>dates/Horloge.kt</code></td><td><code>fun interface Horloge { fun maintenant(): Instant }</code> ; <code>object HorlogeSysteme : Horloge</code> (Clock.System) ; <code>class HorlogeFixe(val instant: Instant) : Horloge</code></td></tr>
+<tr><td><code>json/JsonCommun.kt</code></td><td><code>val JsonCommun = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }</code></td></tr>
+<tr><td><code>ids/Identifiants.kt</code></td><td><code>object Identifiants { fun nouveau(): String /* 15 car. [a-z0-9] via kotlin.random.Random */ ; fun estValide(id: String): Boolean }</code></td></tr>
+</table></div>
+<h4>Tests à créer (<code>shared/src/commonTest/...</code>, mêmes sous-dossiers)</h4>
+<ul>
+  <li><code>argent/ArrondiMonetaireTest.kt</code> : au minimum 0.005→1 ¢, 0.015→2 ¢, 2.675→268 ¢ (BigDecimal.valueOf donne 2.675), −0.005→−1 ¢ (HALF_UP s'éloigne de zéro), 1.0E7, 183.621→18363 (supérieur), 0.0, valeurs négatives.</li>
+  <li><code>argent/MontantTest.kt</code> : opérations, débordement qui lève, <code>depuisDollars</code>.</li>
+  <li><code>dates/MoisBudgetaireTest.kt</code>, <code>dates/DatesBudgetTest.kt</code> : fin de mois, février bissextile (2028-02-29), <code>lireDate("2026-2-3") == null</code>, dernier soir du mois en America/Toronto (2026-11-01T03:59:59Z → 2026-10-31, mois 2026-10), changement d'heure de mars (2027-03-14) et de novembre (2026-11-01).</li>
+</ul>
+<h4>Test de parité JVM (obligatoire)</h4>
+<p>Créer <code>shared/src/jvmTest/kotlin/com/xburnsx/toutiebudget/shared/argent/ArrondiParityJvmTest.kt</code> : pour 200 000 valeurs <code>Double</code> pseudo-aléatoires (graine fixe 42, plages −1e7..1e7 et −10..10 avec 0 à 6 décimales), <code>versCents</code> doit égaler <code>BigDecimal.valueOf(v).setScale(2, HALF_UP).movePointRight(2).longValueExact()</code>, et <code>versCentsSuperieur</code> le même avec <code>CEILING</code>.</p>
+<h4>Vérification</h4>
+<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinWasmJs -q
+./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q</code></pre>
+<h4>Commit</h4>
+<pre><code>feat(etape-2): primitives communes (Montant, ArrondiMonetaire, Taux, dates, horloge, JSON, ids)</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e3">Étape 3 — Tests de référence (« golden ») des moteurs actuels</h2>
+<h4>Objectif</h4>
+<p>Figer les résultats actuels, au cent près, avant toute migration. Ces tests resteront dans <code>app</code> et devront passer à l'identique après chaque étape suivante.</p>
+<h4>Procédure</h4>
+<ol>
+  <li>Corriger le test dépendant de la date : dans <code>app/src/test/java/com/xburnsx/toutiebudget/ui/EcransArgentTest.kt</code>, test <code>creer une dette aux deux semaines…</code>. La cause : le nombre de paiements écoulés dépend du jour réel. Correction autorisée : rendre la date du jour injectable dans <code>ComptesViewModel.creerNouveauCompte</code> <strong>uniquement</strong> si une horloge y existe déjà ; sinon, changer la date de début du test en une date fixe relative au jour réel calculée dans le test (ex. <code>aujourd'hui − 28 jours</code>) et calculer l'attendu avec la même règle (paiements à début + 14 j × n). Ne pas changer le code de production pour ce point. Valeur attendue documentée en commentaire.</li>
+  <li>Créer <code>app/src/test/java/com/xburnsx/toutiebudget/reference/</code> avec :
+    <ul>
+      <li><code>ReferenceObjectifsTest.kt</code> : <code>ObjectifCalculator.calculerVersementRecommande</code> pour une grille : 4 types (Mensuel, Annuel, Echeance, Bihebdomadaire) × 6 situations d'allocations (vide, reports, versement partiel, déficit, mois futur, mois passé) × 3 mois consultés. Valeurs attendues = sorties actuelles, écrites en dur.</li>
+      <li><code>ReferenceCarteTest.kt</code> : <code>minimumEstime</code>, <code>minimumAPayer</code> (avec date fixe), <code>simuler</code> (MINIMUM, FIXE 100 $, POURCENTAGE 5 %) sur 3 cartes (taux 12.90, 19.99, avec promo) : on fige <code>nombreMois</code>, <code>totalInterets</code>, <code>totalPaye</code> et les 3 premières lignes.</li>
+      <li><code>ReferenceDetteTest.kt</code> : <code>situationContrat</code> pour (mensuel 10 %, 36 mois), (aux deux semaines 14.99 %, 59 mois, avec et sans premier paiement 2023-03-17), (hebdomadaire 7 %, 12 mois) ; <code>echeancier</code> sur une dette donnée : nombre de périodes, total des intérêts, 3 premières périodes.</li>
+      <li><code>ReferencePlacementTest.kt</code> : principales fonctions publiques de <code>MoteurInvestissement</code> et <code>Portefeuille</code> sur 2 portefeuilles fixes.</li>
+    </ul>
+  </li>
+  <li>Méthode pour obtenir les valeurs : écrire d'abord chaque test avec <code>println</code> du résultat, lancer, recopier les valeurs exactes comme attendues, retirer les <code>println</code>. <strong>Aucune</strong> valeur calculée à la main.</li>
+  <li>Toutes les dates d'entrée sont explicites ; tout « aujourd'hui » passe par le paramètre existant (<code>aujourdHui</code>) des fonctions.</li>
+</ol>
+<h4>Vérification</h4>
+<pre><code>./gradlew :app:testDebugUnitTest -q</code></pre>
+<div class="fin">À partir de maintenant : <strong>zéro test en échec</strong>.</div>
+<h4>Commit</h4>
+<pre><code>test(etape-3): resultats de reference des moteurs (objectifs, carte, dette, placements)</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e4">Étape 4 — Migrer <code>ObjectifCalculator</code></h2>
+<h4>Objectif</h4>
+<p>Le calcul du montant suggéré vit dans <code>shared</code> ; <code>app</code> l'appelle via un adaptateur, avec des résultats identiques.</p>
+<h4>Fichiers</h4>
+<div class="tableau"><table>
+<tr><th>Action</th><th>Chemin</th><th>Contenu</th></tr>
+<tr><td>Créer</td><td><code>shared/.../modeles/ObjectifEnveloppe.kt</code></td><td><code>enum class TypeObjectif { Aucun, Mensuel, Bihebdomadaire, Echeance, Annuel }</code> (mêmes noms que <code>data/modeles/TypeObjectif.kt</code>) ; <code>data class ObjectifEnveloppe(val id: String, val type: TypeObjectif, val objectif: Montant, val dateObjectif: LocalDate?, val dateDebutObjectif: LocalDate?)</code></td></tr>
+<tr><td>Créer</td><td><code>shared/.../modeles/LigneAllocation.kt</code></td><td><code>data class LigneAllocation(val enveloppeId: String, val mois: MoisBudgetaire, val solde: Montant, val alloue: Montant, val depense: Montant, val reporte: Montant)</code></td></tr>
+<tr><td>Créer</td><td><code>shared/.../moteurs/objectifs/ObjectifCalculator.kt</code></td><td>Même algorithme que <code>app/.../data/utils/ObjectifCalculator.kt</code> au commit de départ, réécrit sur ces types. Signature : <code>fun calculerVersementRecommande(enveloppe: ObjectifEnveloppe, progresMois: Montant, mois: MoisBudgetaire, lignes: List&lt;LigneAllocation&gt;): Montant</code>. Constante <code>PREMIER_REPORT_NOTE = MoisBudgetaire(2026, 10)</code> conservée.</td></tr>
+<tr><td>Créer</td><td><code>shared/.../moteurs/objectifs/CalendrierRenouvellementObjectif.kt</code></td><td>Port de <code>app/.../data/services/CalendrierRenouvellementObjectif.kt</code> sur <code>LocalDate</code> ; retourne les nouvelles dates (début, échéance) ou null.</td></tr>
+<tr><td>Modifier</td><td><code>app/.../data/utils/ObjectifCalculator.kt</code></td><td>Devient un <strong>adaptateur</strong> : garde sa signature publique actuelle (<code>Enveloppe</code>, <code>Double</code>, <code>Date</code>, <code>List&lt;AllocationMensuelle&gt;</code>), convertit (dates en <code>LocalDate</code> avec le fuseau du système comme aujourd'hui, montants avec <code>Montant.depuisDollars</code>), appelle le moteur commun, renvoie <code>Double</code> (<code>enDollars()</code>).</td></tr>
+<tr><td>Modifier</td><td><code>app/.../data/services/CalendrierRenouvellementObjectif.kt</code></td><td>Adaptateur vers le moteur commun, même signature publique.</td></tr>
+<tr><td>Créer</td><td><code>shared/src/commonTest/.../moteurs/objectifs/ObjectifCalculatorTest.kt</code></td><td>Copie des cas de <code>app/src/test/.../data/utils/ObjectifCalculatorTest.kt</code> (mêmes attendus) sur les types communs.</td></tr>
+<tr><td>Créer</td><td><code>shared/src/commonTest/.../moteurs/objectifs/CalendrierRenouvellementObjectifTest.kt</code></td><td>Copie des cas de <code>CalendrierRenouvellementObjectifTest.kt</code> d'<code>app</code>.</td></tr>
+</table></div>
+<h4>Interdit</h4><ul><li>Modifier les appelants d'<code>app</code> (BudgetViewModel, etc.) : seul l'adaptateur change.</li></ul>
+<h4>Vérification</h4>
+<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinWasmJs -q
+./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q    # ReferenceObjectifsTest, ObjectifCalculatorTest, BudgetViewModelTest inchangés et verts</code></pre>
+<h4>Commit</h4>
+<pre><code>refactor(etape-4): ObjectifCalculator et calendrier des objectifs dans shared (app = adaptateur)</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e5">Étape 5 — Extraire dates et arrondis des moteurs</h2>
+<h4>Objectif</h4>
+<p>Couper le lien <code>MoteurDette → MoteurCarteCredit</code> et le lien de tous les moteurs vers <code>BigDecimal</code>/<code>SimpleDateFormat</code>, en faisant passer arrondis et dates par <code>shared</code>.</p>
+<h4>Changements exacts</h4>
+<ol>
+  <li><code>app/.../domain/services/MoteurCarteCredit.kt</code> :
+    <ul>
+      <li><code>fun arrondi(montant: Double)</code> → corps : <code>ArrondiMonetaire.arrondiDollars(montant)</code>.</li>
+      <li><code>private fun arrondiHaut(montant: Double)</code> → <code>ArrondiMonetaire.versCentsSuperieur(montant) / 100.0</code>.</li>
+      <li><code>lireDate</code>/<code>ecrireDate</code> gardent leur signature <code>Date</code> mais délèguent à <code>DatesBudget.lireDate/ecrireDate</code> avec conversion <code>LocalDate ↔ Date</code> (début de journée, fuseau système), dans un nouveau fichier <code>app/.../domain/services/ConversionDates.kt</code> (<code>fun LocalDate.versDate(): Date</code>, <code>fun Date.versLocalDate(): LocalDate</code>).</li>
+    </ul>
+  </li>
+  <li><code>app/.../utils/MoneyFormatter.kt</code> : <code>roundAmount</code> délègue à <code>ArrondiMonetaire.arrondiDollars</code>. Le <strong>formatage d'affichage</strong> (<code>formatAmount</code>, <code>NumberFormat</code>) reste dans <code>app</code>.</li>
+  <li><code>MoteurDette.kt</code> : remplacer les appels <code>MoteurCarteCredit.arrondi/lireDate/ecrireDate</code> par <code>ArrondiMonetaire</code>/<code>DatesBudget</code> via <code>ConversionDates.kt</code>.</li>
+</ol>
+<h4>Vérification</h4>
+<pre><code>./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q   # tous les tests, dont reference/*, verts sans changement d'attendu</code></pre>
+<h4>Commit</h4>
+<pre><code>refactor(etape-5): arrondis et dates des moteurs via shared</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e6">Étape 6 — Migrer cartes, dettes et placements</h2>
+<p>Trois sous-étapes, trois commits, dans cet ordre. Même méthode qu'à l'étape 4 : modèles purs dans <code>shared</code>, moteur porté à l'identique, ancien fichier d'<code>app</code> = adaptateur, tests copiés dans <code>commonTest</code>, tests de référence d'<code>app</code> verts sans changement.</p>
+
+<h3>6.1 MoteurCarteCredit</h3>
+<ul>
+  <li>Créer <code>shared/.../modeles/carte/</code> : <code>EtatCarte.kt</code> (solde signé en <code>Montant</code>, limite, taux achats/avances/transferts/promo, dates promo, jour de clôture, délai d'échéance, % et plancher du minimum, minimum saisi, frais), <code>ReleveCarte.kt</code>, <code>NatureMouvementCarte.kt</code>, <code>VentilationSoldeCarte.kt</code>, <code>FraisCarte.kt</code> (MENSUEL, ANNUEL, PONCTUEL), <code>MouvementCompte.kt</code> (id, type de transaction, montant, <code>LocalDate</code>) partagé avec 6.2/6.3.</li>
+  <li>Créer <code>shared/.../modeles/TypeTransaction.kt</code> : mêmes valeurs que <code>app/.../data/modeles/TypeTransaction.kt</code> (sans les libellés d'affichage si ce sont des ressources Android).</li>
+  <li>Créer <code>shared/.../moteurs/carte/MoteurCarteCredit.kt</code> : toutes les fonctions publiques actuelles, même noms.</li>
+  <li><code>app/.../domain/services/MoteurCarteCredit.kt</code> : adaptateur (conversion <code>CompteCredit</code> → <code>EtatCarte</code>, <code>Transaction</code> → <code>MouvementCompte</code>).</li>
+  <li>Le JSON <code>details_carte_json</code> : créer <code>shared/.../modeles/carte/DetailsCarteJson.kt</code> (<code>@Serializable</code>, mêmes clés que Gson aujourd'hui) + test de compatibilité qui relit 3 JSON réels produits par <code>DetailsCarte.versJson()</code> actuel (copiés en dur dans le test) et les réécrit sans perte. <strong>Ne pas encore remplacer Gson dans <code>app</code>.</strong></li>
+  <li>Commit : <code>refactor(etape-6.1): MoteurCarteCredit dans shared</code></li>
+</ul>
+
+<h3>6.2 MoteurDette</h3>
+<ul>
+  <li>Créer <code>shared/.../modeles/dette/</code> : <code>ContratDette.kt</code> (solde, montant initial, prix total, taux, durée, versement, paiements effectués, dates début/premier paiement/fin, jour de versement, fréquence, mode, taux variable + changements), <code>FrequencePaiementDette.kt</code>, <code>ModeDette.kt</code>, <code>AjustementDette.kt</code>, <code>DetailsDetteJson.kt</code> (+ test de compatibilité JSON comme 6.1).</li>
+  <li>Créer <code>shared/.../moteurs/dette/MoteurDette.kt</code> : port à l'identique (intérêts au jour près pour hebdomadaire/aux deux semaines, ÷12 pour mensuel ; premier paiement).</li>
+  <li><code>app/.../domain/services/MoteurDette.kt</code> : adaptateur.</li>
+  <li>Commit : <code>refactor(etape-6.2): MoteurDette dans shared</code></li>
+</ul>
+
+<h3>6.3 Placements</h3>
+<ul>
+  <li>Créer <code>shared/.../modeles/placement/</code> (positions, mouvements, valorisations, types) + <code>DetailsInvestissementJson.kt</code> (+ test de compatibilité JSON).</li>
+  <li>Créer <code>shared/.../moteurs/placement/MoteurInvestissement.kt</code> et <code>Portefeuille.kt</code>.</li>
+  <li>Adaptateurs dans <code>app</code> pour les deux fichiers.</li>
+  <li>Port aussi de <code>domain/services/SousItemsFractions.kt</code> vers <code>shared/.../modeles/SousItemsFractions.kt</code> (kotlinx.serialization ; test de compatibilité avec le JSON actuel des <code>sous_items</code>).</li>
+  <li>Commit : <code>refactor(etape-6.3): placements et fractions dans shared</code></li>
+</ul>
+<h4>Vérification (après chaque sous-étape)</h4>
+<pre><code>./gradlew :shared:allTests -q
+./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q</code></pre>
+<p>Après 6.3 : <strong>vérification par l'utilisateur</strong> sur son téléphone : pages Comptes, Carte, Dette, Placements identiques à avant (mêmes chiffres).</p>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e6b">Étape 6b — Journal, registres, coupure et ouvertures</h2>
+<div class="danger">Point de non-retour de la conception. Rien n'est écrit sur le serveur de production dans cette étape sans sauvegarde confirmée par l'utilisateur. Les nouvelles collections sont <strong>ajoutées</strong> ; aucune collection existante n'est modifiée ni supprimée.</div>
+
+<h3>6b.1 Préparer le serveur (fait par l'utilisateur, commandes fournies par l'IA)</h3>
+<ol>
+  <li>Relever D-6b.1 (version PocketBase) et D-6b.2 (mode de lancement Docker).</li>
+  <li>Rendre persistants les dossiers de migrations et de hooks. Sur l'hôte : <code>mkdir -p /home/xburnsx/configs/pb_migrations /home/xburnsx/configs/pb_hooks</code>. Puis ajouter au lancement du conteneur les volumes <code>/home/xburnsx/configs/pb_migrations:/pb_migrations</code> et <code>/home/xburnsx/configs/pb_hooks:/pb_hooks</code> (dans <code>docker-compose.yml</code> sous <code>volumes:</code>, ou en options <code>-v</code> de <code>docker run</code> selon D-6b.2), puis recréer le conteneur. L'IA écrit les lignes exactes une fois D-6b.2 connue.</li>
+  <li>Copier les 5 migrations existantes dans <code>/home/xburnsx/configs/pb_migrations</code> (elles sont déjà appliquées : PocketBase ne les rejoue pas).</li>
+</ol>
+
+<h3>6b.2 Schéma de base dans le dépôt</h3>
+<ol>
+  <li><code>git mv pb_migrations pocketbase/pb_migrations</code>.</li>
+  <li>L'utilisateur exporte le schéma : admin PocketBase → Settings → Export collections → copie du JSON. L'IA l'enregistre tel quel dans <code>pocketbase/schema/schema_2026-xx-xx.json</code> (référence en lecture, pas une migration).</li>
+</ol>
+
+<h3>6b.3 Nouvelles collections (migration <code>pocketbase/pb_migrations/1793188900_journal.js</code>)</h3>
+<p>Règles d'accès de toutes ces collections : <code>listRule</code>/<code>viewRule</code> = <code>@request.auth.id != "" &amp;&amp; utilisateur_id = @request.auth.id</code> ; <code>createRule</code>, <code>updateRule</code>, <code>deleteRule</code> = <code>null</code> (verrouillé : seules les routes de l'étape 8 écrivent). La migration vérifie l'existence avant de créer (comme les migrations actuelles).</p>
+<div class="tableau"><table>
+<tr><th>Collection</th><th>Champs (type)</th><th>Index</th></tr>
+<tr><td><code>journal_operations</code></td><td><code>utilisateur_id</code> (relation users, requis) ; <code>operation_id</code> (text 15, requis) ; <code>type</code> (text, requis, valeurs de l'étape 7) ; <code>instant</code> (date, requis) ; <code>date_locale</code> (text <code>AAAA-MM-JJ</code>, requis) ; <code>mois_budgetaire</code> (text <code>AAAA-MM</code>, requis) ; <code>fuseau</code> (text, requis) ; <code>intention</code> (json, requis) ; <code>client</code> (text : <code>android</code>|<code>web</code>|<code>migration</code>) ; <code>version_app</code> (text) ; <code>created</code>/<code>updated</code> (autodate)</td><td>UNIQUE (<code>utilisateur_id</code>, <code>operation_id</code>) ; (<code>utilisateur_id</code>, <code>mois_budgetaire</code>)</td></tr>
+<tr><td><code>journal_lignes</code></td><td><code>utilisateur_id</code> (relation) ; <code>operation</code> (relation <code>journal_operations</code>, requis) ; <code>registre</code> (text : <code>BANCAIRE</code>|<code>BUDGETAIRE</code>) ; <code>cible_collection</code> (text) ; <code>cible_id</code> (text 15) ; <code>champ</code> (text, liste fermée en 6b.4) ; <code>variation_cents</code> (number, entier, requis) ; <code>revision_avant</code> (number) ; <code>revision_apres</code> (number)</td><td>(<code>utilisateur_id</code>, <code>cible_collection</code>, <code>cible_id</code>)</td></tr>
+<tr><td><code>etat_journal</code></td><td><code>utilisateur_id</code> (relation, requis, unique) ; <code>journal_schema_version</code> (number : 0 = ancien chemin, 1 = journal) ; <code>cutover_at</code> (date) ; <code>date_coupure</code> (text) ; <code>fuseau</code> (text, défaut <code>America/Toronto</code>)</td><td>UNIQUE (<code>utilisateur_id</code>)</td></tr>
+</table></div>
+<p>Champ ajouté (même migration) à <code>comptes_cheques</code>, <code>comptes_credits</code>, <code>comptes_dettes</code>, <code>comptes_investissement</code>, <code>allocations_mensuelles</code> : <code>revision</code> (number, défaut 0). Rien d'autre n'est modifié.</p>
+
+<h3>6b.4 Champs projetés et registres (liste fermée)</h3>
+<div class="tableau"><table>
+<tr><th>Collection</th><th>Champ</th><th>Registre</th></tr>
+<tr><td><code>comptes_cheques</code></td><td><code>solde</code></td><td>BANCAIRE</td></tr>
+<tr><td><code>comptes_cheques</code></td><td><code>pret_a_placer</code></td><td>BUDGETAIRE</td></tr>
+<tr><td><code>comptes_credits</code></td><td><code>solde_utilise</code></td><td>BANCAIRE</td></tr>
+<tr><td><code>comptes_dettes</code></td><td><code>solde_dette</code>, <code>paiement_effectue</code> (compteur, pas de l'argent)</td><td>BANCAIRE</td></tr>
+<tr><td><code>comptes_investissement</code></td><td><code>solde</code></td><td>BANCAIRE</td></tr>
+<tr><td><code>allocations_mensuelles</code></td><td><code>solde</code>, <code>alloue</code>, <code>depense</code>, <code>montant_reporte</code></td><td>BUDGETAIRE</td></tr>
+</table></div>
+<p>Valeur projetée = somme des <code>variation_cents</code> de ses lignes, convertie en dollars (<code>/100</code>, 2 décimales). Une fiche projetée n'est jamais écrite ailleurs que par une commande après la coupure.</p>
+
+<h3>6b.5 Modèles communs du journal (<code>shared/.../journal/</code>)</h3>
+<ul>
+  <li><code>Registre.kt</code> : <code>enum class Registre { BANCAIRE, BUDGETAIRE }</code></li>
+  <li><code>ChampProjete.kt</code> : enum des couples (collection, champ) de 6b.4, avec leur registre.</li>
+  <li><code>Variation.kt</code> : <code>data class Variation(val cibleCollection: String, val cibleId: String, val champ: ChampProjete, val delta: Montant)</code></li>
+  <li><code>OperationJournal.kt</code> : <code>operationId</code>, <code>type</code>, <code>DateFinanciere</code>, <code>intention</code> (JSON), <code>variations: List&lt;Variation&gt;</code></li>
+  <li><code>Ouverture.kt</code> : création des ouvertures (6b.6).</li>
+  <li>Tests : sérialisation aller-retour ; une ouverture d'un compte à 1234,56 $ donne une variation de 123456 ¢.</li>
+</ul>
+
+<h3>6b.6 Ouvertures (définition ; exécution à l'étape 9.6)</h3>
+<ul>
+  <li>Une opération <code>OUVERTURE</code> par fiche projetée, d'identifiant déterministe : <code>operation_id = "ouv" + premiers 12 caractères de sha256(utilisateur_id + ":" + collection + ":" + fiche_id + ":" + date_coupure)</code> en hexadécimal minuscule (15 caractères au total).</li>
+  <li>Ses lignes : une variation par champ projeté, égale à la valeur actuelle de la fiche au moment de la coupure.</li>
+  <li>Les transactions antérieures restent consultables mais ne produisent aucune ligne de journal.</li>
+  <li>Relancer la création des ouvertures ne crée rien de plus (unicité <code>operation_id</code>).</li>
+</ul>
+<h4>Commits</h4>
+<pre><code>server(etape-6b): collections journal_operations, journal_lignes, etat_journal et champ revision
+feat(etape-6b): modeles communs du journal et des ouvertures</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e7">Étape 7 — Commandes et invariants (dans <code>shared</code>)</h2>
+<h4>Objectif</h4>
+<p>Chaque écriture financière devient une <strong>commande</strong> : une intention (ce que l'utilisateur veut faire) dont <code>shared</code> calcule les variations. Le même code sert à Android (optimiste), au web et aux tests des hooks.</p>
+<h4>Fichiers (<code>shared/.../commandes/</code>)</h4>
+<ul>
+  <li><code>Intention.kt</code> : <code>@Serializable sealed interface Intention</code> avec une classe par type de 7.1.</li>
+  <li><code>Projection.kt</code> : vue minimale des fiches nécessaires (comptes, allocations du mois, leurs <code>revision</code>).</li>
+  <li><code>CalculCommande.kt</code> : <code>fun calculer(intention: Intention, projection: Projection, date: DateFinanciere): ResultatCalcul</code> → <code>Acceptee(variations, revisionsAttendues)</code> ou <code>Refusee(raison)</code>.</li>
+  <li><code>Invariants.kt</code> : <code>fun verifier(type, variations): List&lt;Violation&gt;</code>. Même table que les hooks (7.2), utilisée dans les tests.</li>
+  <li><code>Commande.kt</code> : <code>operationId</code>, <code>intention</code>, <code>DateFinanciere</code>, <code>variations</code>, <code>revisionsAttendues: Map&lt;String /*collection/id*/, Long&gt;</code>.</li>
+</ul>
+
+<h3>7.1 Types de commande (liste fermée)</h3>
+<p>Chaque ligne doit être <strong>vérifiée contre le code actuel</strong> indiqué avant implémentation. Si le comportement actuel diffère de la colonne « Variations », l'IA s'arrête et le montre à l'utilisateur.</p>
+<div class="tableau"><table>
+<tr><th>Type</th><th>Intention</th><th>Variations attendues (X &gt; 0 en cents)</th><th>Code actuel à lire</th></tr>
+<tr><td><code>ASSIGNATION</code></td><td>compte chèque, enveloppe, mois, X</td><td>compte.pret_a_placer −X ; allocation(env, mois).solde +X ; allocation.alloue +X</td><td><code>BudgetViewModel.executerAssignation</code></td></tr>
+<tr><td><code>REPARTITION</code></td><td>compte, liste (enveloppe, X)</td><td>somme des ASSIGNATION, en une seule opération</td><td><code>BudgetViewModel.assignerAPlusieursEnveloppes</code></td></tr>
+<tr><td><code>VIREMENT_ENVELOPPES</code></td><td>enveloppe source, enveloppe cible, mois, X</td><td>à relever dans le code</td><td><code>VirementBudgetService</code>, <code>VirementUseCase</code></td></tr>
+<tr><td><code>RETOUR_PRET_A_PLACER</code></td><td>enveloppe, compte, mois, X</td><td>allocation.solde −X ; compte.pret_a_placer +X ; effet sur allocation.alloue : à relever</td><td><code>VirementBudgetService</code></td></tr>
+<tr><td><code>DEPENSE</code></td><td>compte, enveloppe(s) ou fractions, X, tiers, date</td><td>compte.solde −X (registre bancaire) ; pour chaque fraction : allocation.solde −xᵢ, allocation.depense +xᵢ ; Σxᵢ = X. Dépense sans enveloppe et dépense sur carte de crédit : à relever</td><td><code>EnregistrerTransactionUseCase</code></td></tr>
+<tr><td><code>REVENU</code></td><td>compte, X</td><td>compte.solde +X ; compte.pret_a_placer +X (à confirmer dans le code, y compris un revenu vers une enveloppe)</td><td><code>EnregistrerTransactionUseCase</code></td></tr>
+<tr><td><code>VIREMENT_COMPTES</code></td><td>compte A, compte B, X</td><td>à relever (solde et prêt à placer des deux comptes)</td><td><code>ArgentServiceImpl</code></td></tr>
+<tr><td><code>PAIEMENT_CARTE</code></td><td>compte payeur, carte, enveloppe de la carte, X</td><td>à relever</td><td><code>ArgentServiceImpl</code> (paiement carte)</td></tr>
+<tr><td><code>PAIEMENT_DETTE</code></td><td>compte payeur, dette, enveloppe de la dette, X</td><td>à relever (inclut <code>paiement_effectue</code>)</td><td><code>ArgentServiceImpl</code> (paiement dette)</td></tr>
+<tr><td><code>MODIFICATION_TRANSACTION</code>, <code>SUPPRESSION_TRANSACTION</code></td><td>transaction, nouvelles valeurs</td><td>annulation exacte des variations d'origine + nouvelles variations</td><td><code>ModifierTransactionUseCase</code>, <code>SupprimerTransactionUseCase</code>, <code>ModifierOperationLieeUseCase</code></td></tr>
+<tr><td><code>REPORT_MOIS</code></td><td>mois source, mois cible</td><td>par allocation de solde s ≠ 0 : source.solde −s, source.alloue −s (l'alloué du mois fini redevient ses dépenses), source.montant_reporte +s ; nouvelle allocation du mois cible : solde +s, alloue +s</td><td><code>RolloverServiceImpl</code></td></tr>
+<tr><td><code>RECONCILIATION</code></td><td>compte, solde réel</td><td>compte.solde +écart ; compte chèque : pret_a_placer +écart</td><td><code>ComptesViewModel.onReconcilierCompte</code></td></tr>
+<tr><td><code>AJUSTEMENT_DETTE</code>, <code>INTERETS_CARTE</code>, <code>FRAIS</code>, <code>VALORISATION_PLACEMENT</code>, <code>PRET_PERSONNEL</code></td><td>selon l'écran</td><td>à relever</td><td><code>DetteViewModel</code>, <code>CartesCreditViewModel</code>, ViewModels de placements, prêts personnels</td></tr>
+<tr><td><code>OUVERTURE</code></td><td>fiche, valeurs</td><td>valeurs actuelles (6b.6)</td><td>—</td></tr>
+</table></div>
+<p>Les lignes « à relever » sont complétées dans ce document <strong>avant</strong> leur implémentation (commit <code>docs(plan): variations de &lt;TYPE&gt;</code>, avec l'accord de l'utilisateur).</p>
+
+<h3>7.2 Invariants (vérifiés par <code>shared</code> ET par les hooks)</h3>
+<ol>
+  <li>Propriétaire : toutes les fiches ciblées appartiennent à l'utilisateur authentifié.</li>
+  <li>Idempotence : <code>operation_id</code> jamais appliqué pour cet utilisateur ; s'il l'est déjà, réponse « déjà appliquée » avec le résultat d'origine (pas d'erreur, pas de double).</li>
+  <li>Révisions : chaque fiche ciblée a la <code>revision</code> attendue ; sinon <code>CONFLICT</code> avec les fiches canoniques.</li>
+  <li>Champs autorisés : un type ne peut toucher que les couples (collection, champ) de sa ligne 7.1.</li>
+  <li>Conservation budgétaire : pour ASSIGNATION, REPARTITION, VIREMENT_ENVELOPPES, RETOUR_PRET_A_PLACER, REPORT_MOIS : Σ des variations de <code>pret_a_placer</code> + Σ des variations de <code>allocations.solde</code> = 0. (Pour REPORT_MOIS, les variations de <code>montant_reporte</code> et d'<code>alloue</code> ne comptent pas dans cette somme : ce sont des traces, pas de l'argent.)</li>
+  <li>Conservation bancaire : VIREMENT_COMPTES : Σ des variations de soldes bancaires = 0.</li>
+  <li>Cohérence dépense : DEPENSE : −Δcompte.solde = Σ Δallocation.depense = −Σ Δallocation.solde.</li>
+  <li>Dépassement : <code>pret_a_placer</code> après opération ≥ 0 pour ASSIGNATION/REPARTITION (comme aujourd'hui) ; aucun montant en dehors de ±10¹¹ cents.</li>
+  <li>Date : <code>mois_budgetaire</code> = <code>DatesBudget.moisBudgetaire(instant, fuseau)</code> ; une allocation ciblée a le même mois.</li>
+  <li>Utilisateur passé au journal (<code>etat_journal.journal_schema_version = 1</code>) : toute modification directe (hors route de commande) d'un champ projeté est refusée.</li>
+</ol>
+<h4>Tests</h4>
+<p><code>shared/src/commonTest/.../commandes/</code> : pour chaque type, un cas accepté, un cas refusé par chaque invariant applicable, et la vérification que <code>calculer</code> produit exactement les mêmes variations que le code Android actuel sur 3 scénarios (valeurs relevées dans <code>app</code> par des tests d'écran existants comme <code>EcransArgentTest</code>).</p>
+<h4>Commit</h4>
+<pre><code>feat(etape-7): commandes financieres, calcul des variations et invariants communs</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e8">Étape 8 — Hooks PocketBase transactionnels minimaux</h2>
+<h4>Objectif</h4>
+<p>Une seule route serveur reçoit les commandes, vérifie les invariants 7.2 et écrit tout dans une transaction. Aucun calcul financier métier dans le JavaScript.</p>
+<h4>Fichiers</h4>
+<div class="tableau"><table>
+<tr><th>Chemin</th><th>Contenu</th></tr>
+<tr><td><code>pocketbase/pb_hooks/toutie_commandes.pb.js</code></td><td><code>routerAdd("POST", "/api/toutie/commande", handler)</code> avec authentification requise. Corps : <code>{ operation_id, type, instant, date_locale, mois_budgetaire, fuseau, intention, variations: [{cible_collection, cible_id, champ, variation_cents}], revisions_attendues: {"collection/id": n}, client, version_app }</code>. Traitement dans <code>$app.runInTransaction((txApp) =&gt; { … })</code> : (1) idempotence, (2) propriétaires, (3) révisions, (4) champs autorisés et invariants de 7.2 (table JS générée depuis 7.1/7.2, pas de calcul métier), (5) création <code>journal_operations</code> + <code>journal_lignes</code>, (6) application des variations aux fiches (dollars = (cents actuels + variation) / 100) et <code>revision + 1</code>, (7) réponse <code>{statut: "CONFIRMED", revisions: {...}}</code>. Réponses d'erreur : <code>409 {statut:"CONFLICT", fiches:[…canoniques…]}</code>, <code>422 {statut:"REJECTED", raison}</code>, <code>200 {statut:"ALREADY_APPLIED", ...}</code>.</td></tr>
+<tr><td><code>pocketbase/pb_hooks/toutie_verrou.pb.js</code></td><td>Hooks <code>onRecordUpdateRequest</code> sur les 5 collections projetées : si <code>etat_journal.journal_schema_version = 1</code> pour le propriétaire et qu'un champ de 6b.4 change hors route de commande → refus 403 « modification directe interdite ».</td></tr>
+<tr><td><code>pocketbase/tests/</code></td><td>Tests d'intégration : un module Gradle JVM <strong>ou</strong> des tests <code>shared/src/jvmTest</code> marqués, exécutés seulement si la variable <code>POCKETBASE_TEST_URL</code> est définie, contre un PocketBase de test lancé en local (<code>docker run</code> de la même version D-6b.1, avec <code>pb_migrations</code> et <code>pb_hooks</code> du dépôt). Jamais contre la production.</td></tr>
+</table></div>
+<h4>Tests d'intégration obligatoires</h4>
+<ol>
+  <li>Chaque type de 7.1 : appliqué une fois → soldes attendus ; renvoyé avec le même <code>operation_id</code> → <code>ALREADY_APPLIED</code>, soldes inchangés.</li>
+  <li>Révision périmée → 409 avec fiches canoniques ; rien d'écrit.</li>
+  <li>Variation sur un champ non autorisé → 422 ; rien d'écrit.</li>
+  <li>Invariant de conservation violé → 422 ; rien d'écrit.</li>
+  <li>Fiche d'un autre utilisateur → refus ; rien d'écrit.</li>
+  <li>Erreur au milieu (forcée) → aucune écriture partielle.</li>
+  <li>Utilisateur en version 1 : PATCH direct d'un solde → 403.</li>
+  <li>Concurrence : 20 commandes simultanées sur la même allocation → somme exacte, aucune perte.</li>
+</ol>
+<h4>Déploiement (utilisateur)</h4>
+<p>Après tests verts et sauvegarde confirmée : copier <code>pocketbase/pb_hooks/*.js</code> dans <code>/home/xburnsx/configs/pb_hooks/</code>, <code>docker restart pocketbase</code>, vérifier <code>docker logs pocketbase --tail 30</code>. Les hooks ne changent rien tant qu'aucun utilisateur n'est en version 1.</p>
+<h4>Commit</h4>
+<pre><code>server(etape-8): route /api/toutie/commande transactionnelle et verrou des soldes</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e9">Étape 9 — Android : commandes, optimiste, rebase, coupure</h2>
+
+<h3>9.1 Inventaire exhaustif des écritures (commit doc seulement)</h3>
+<p>Rechercher dans <code>app/src/main</code> tous les appels à : <code>mettreAJourCompte</code>, <code>mettreAJourSolde</code>, <code>mettreAJourSoldeAvecVariation</code>, <code>mettreAJourSoldeAvecVariationEtPretAPlacer</code>, <code>mettreAJourPretAPlacerSeulement</code>, <code>mettreAJourAllocation</code>, <code>creerNouvelleAllocation</code>, <code>recupererOuCreerAllocation</code>, <code>ajouterDepenseAllocation</code>, <code>annulerDepenseAllocation</code>, <code>creerTransaction</code>, <code>mettreAJourTransaction</code>, <code>supprimerTransaction</code>. Ajouter dans ce document une table « appel → fichier → fonction → type de commande 7.1 ». Tout appel sans type correspondant : s'arrêter et demander.</p>
+
+<h3>9.2 Room : file de commandes (migration 10 → 11)</h3>
+<ul>
+  <li>Entité <code>app/.../data/room/entities/CommandeFinanciere.kt</code>, table <code>commandes_financieres</code> : <code>id</code> (PK, = operation_id), <code>utilisateurId</code>, <code>type</code>, <code>intentionJson</code>, <code>dateFinanciereJson</code>, <code>variationsJson</code>, <code>revisionsAttenduesJson</code>, <code>statut</code> (<code>LOCAL_PENDING</code>, <code>SENDING</code>, <code>CONFIRMED</code>, <code>REJECTED</code>, <code>CONFLICT</code>), <code>raison</code>, <code>ordre</code> (Long croissant), <code>creeLe</code>, <code>envoyeLe</code>, <code>tentatives</code>.</li>
+  <li>DAO <code>CommandeFinanciereDao.kt</code> ; <code>MIGRATION_10_11</code> dans <code>ToutieBudgetDatabase.kt</code> ; version 11.</li>
+  <li>Champ <code>revision</code> (Long, défaut 0) ajouté aux entités Room des 5 collections projetées, et lu/écrit par <code>PocketBaseMapper</code>.</li>
+</ul>
+
+<h3>9.3 Application locale (optimiste)</h3>
+<ul>
+  <li><code>app/.../domain/commandes/ExecuteurCommandes.kt</code> : <code>suspend fun executer(intention)</code> : dans <code>OperationAtomique</code> : (1) lire la projection Room, (2) <code>shared.CalculCommande.calculer</code>, (3) si refusée → erreur à l'écran, rien d'écrit, (4) appliquer les variations à Room, (5) insérer la <code>CommandeFinanciere</code> en <code>LOCAL_PENDING</code> avec intention, variations et révisions attendues.</li>
+  <li>Les variations sont <strong>stockées</strong> mais toujours <strong>recalculables</strong> depuis l'intention (utilisé par le rebase).</li>
+</ul>
+
+<h3>9.4 Envoi : <code>app/.../workers/CommandeWorker.kt</code></h3>
+<ul>
+  <li>Une commande à la fois, dans l'ordre <code>ordre</code>, pour l'utilisateur connecté. <code>SENDING</code> pendant l'appel.</li>
+  <li>200 <code>CONFIRMED</code>/<code>ALREADY_APPLIED</code> → <code>CONFIRMED</code> ; mettre à jour les <code>revision</code> locales.</li>
+  <li>Réseau indisponible/5xx → retour en <code>LOCAL_PENDING</code>, nouvel essai plus tard (même politique que <code>SyncWorker</code>).</li>
+  <li>409/422 → rebase (9.5).</li>
+</ul>
+
+<h3>9.5 Rebase (jamais un simple rollback)</h3>
+<ol>
+  <li>Télécharger la version canonique des fiches touchées (réponse 409, ou lecture serveur).</li>
+  <li>Dans une transaction Room : remplacer leurs projections par la version canonique.</li>
+  <li>Marquer la commande en tête <code>REJECTED</code> (422) ou <code>CONFLICT</code> (409) avec la raison.</li>
+  <li>Pour chaque commande suivante encore <code>LOCAL_PENDING</code>, dans l'ordre : recalculer avec <code>shared</code> depuis son intention sur la projection courante ; si acceptée → réappliquer et mettre à jour variations/révisions stockées ; si refusée → <code>REJECTED</code> avec raison.</li>
+  <li>Afficher à l'utilisateur la liste des commandes refusées et leur raison (écran Synchronisation + notification).</li>
+</ol>
+
+<h3>9.6 Coupure, par utilisateur (procédure exacte)</h3>
+<ol>
+  <li>Sauvegarde PocketBase confirmée. Date de coupure D-6b.3 choisie.</li>
+  <li>Sur chaque appareil de cet utilisateur : file <code>SyncJob</code> vide (écran Synchronisation : 0 en attente, 0 en échec) ; « Mettre à jour depuis le serveur » ; « Comparer avec le serveur » = tout cohérent.</li>
+  <li>Script de coupure (<code>pocketbase/coupure/creer_ouvertures.pb.js</code>, route admin <code>POST /api/toutie/admin/coupure</code>, superuser seulement) : crée les ouvertures de 6b.6 et met <code>etat_journal.journal_schema_version = 1</code> dans une seule transaction. Idempotent.</li>
+  <li>L'app lit <code>etat_journal</code> à la connexion : version 1 → toutes les écritures passent par <code>ExecuteurCommandes</code> ; l'ancien chemin <code>SyncJob</code> n'envoie plus aucun champ projeté (il continue pour les fiches non financières : noms, couleurs, catégories, tiers…).</li>
+  <li>Ordre : l'utilisateur principal d'abord, une semaine d'utilisation, puis sa conjointe.</li>
+</ol>
+
+<h3>9.7 Conversion des écrans</h3>
+<p>Remplacer chaque appel de la table 9.1 par <code>ExecuteurCommandes.executer(intention)</code>, <strong>un type de commande par commit</strong> (<code>feat(etape-9.7): ASSIGNATION par commande</code>, etc.), dans l'ordre de la table 7.1. Les tests d'écran existants (<code>EcransArgentTest</code>, <code>BudgetViewModelTest</code>, <code>EcransAjoutTransactionTest</code>, <code>EcransModifierSupprimerTest</code>) doivent rester verts.</p>
+
+<h4>Vérification de l'étape 9</h4>
+<ul>
+  <li>Tests JVM : rebase (B dépend de A refusée), hors ligne (10 commandes puis envoi), idempotence (renvoi après coupure réseau), coupure (ouvertures = soldes avant coupure).</li>
+  <li><strong>Utilisateur</strong>, après coupure de son compte : une semaine d'usage normal, comparaison serveur cohérente chaque jour.</li>
+</ul>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e10">Étape 10 — Web Kotlin en lecture seule</h2>
+<h4>Préalables</h4><ul><li>Étape 9 terminée pour au moins un utilisateur. D-0.3, D-10.1, D-10.2 remplies.</li></ul>
+<h4>Module <code>webApp</code></h4>
+<ul>
+  <li><code>settings.gradle.kts</code> : <code>include(":webApp")</code>. <code>webApp/build.gradle.kts</code> : plugins <code>kotlin-multiplatform</code>, <code>org.jetbrains.compose</code> (D-0.3), <code>kotlin-compose</code> ; cible <code>wasmJs { browser { commonWebpackConfig { outputFileName = "toutiebudget.js" } }; binaries.executable() }</code> ; dépendance <code>project(":shared")</code>.</li>
+  <li>Structure : <code>webApp/src/wasmJsMain/kotlin/com/xburnsx/toutiebudget/web/</code> : <code>Main.kt</code>, <code>auth/</code>, <code>data/PocketBaseWeb.kt</code> (client HTTP fetch), <code>data/ProjectionWeb.kt</code>, <code>ui/ColonneComptes.kt</code>, <code>ui/TableauEnveloppes.kt</code>, <code>ui/SommaireMensuel.kt</code>, <code>ui/Theme.kt</code> ; <code>webApp/src/wasmJsMain/resources/index.html</code>.</li>
+</ul>
+<h4>Authentification Google (flux OAuth2 PocketBase par redirection)</h4>
+<ol>
+  <li><code>GET /api/collections/users/auth-methods</code> → fournisseur <code>google</code> : <code>authURL</code>, <code>codeVerifier</code>, <code>state</code>. Garder <code>codeVerifier</code> et <code>state</code> en <code>sessionStorage</code>.</li>
+  <li>Rediriger vers <code>authURL + "https://&lt;D-10.1&gt;/auth/callback"</code>.</li>
+  <li>Page <code>/auth/callback</code> : vérifier <code>state</code>, puis <code>POST /api/collections/users/auth-with-oauth2</code> <code>{provider:"google", code, codeVerifier, redirectURL}</code> → jeton.</li>
+  <li>L'utilisateur ajoute <code>https://&lt;D-10.1&gt;/auth/callback</code> aux URI de redirection autorisées du client OAuth Google <strong>Web</strong> dans Google Cloud, et le même client dans PocketBase (admin → Settings → Auth providers → Google). L'IA ne touche jamais à ces consoles.</li>
+  <li>Jeton gardé en <code>localStorage</code> (clé <code>toutie_auth</code>) ; déconnexion = suppression.</li>
+</ol>
+<h4>Écran à trois colonnes</h4>
+<ul>
+  <li><strong>Gauche</strong> : comptes groupés (chèques, cartes, dettes, placements) avec soldes et prêt à placer.</li>
+  <li><strong>Centre</strong> : enveloppes par catégorie du mois choisi : solde (bulle couleur du compte), alloué, dépensé, objectif, suggestion (<code>shared ObjectifCalculator</code>).</li>
+  <li><strong>Droite</strong> : sommaire mensuel calculé par un nouveau moteur commun <code>shared/.../moteurs/sommaire/SommaireMensuel.kt</code> : revenus du mois, dépenses du mois, total assigné, prêt à placer total, nombre et total des enveloppes négatives, total suggéré restant. Tests communs obligatoires.</li>
+  <li>Sélecteur de mois en haut. Lecture seule : aucun bouton d'écriture.</li>
+</ul>
+<h4>Déploiement (utilisateur)</h4>
+<pre><code>./gradlew :webApp:wasmJsBrowserDistribution
+# fichiers : webApp/build/dist/wasmJs/productionExecutable/</code></pre>
+<p>Servis par un conteneur nginx (D-10.2). Le serveur nginx doit servir <code>.wasm</code> en <code>application/wasm</code> et rediriger les routes inconnues vers <code>index.html</code> (pour <code>/auth/callback</code>). L'IA fournit le fichier de configuration nginx exact une fois D-10.1/D-10.2 remplies.</p>
+<h4>Critères de fin</h4>
+<ul><li>Pour un même mois, chaque nombre affiché sur le web = celui d'Android (vérification par l'utilisateur sur 3 mois).</li></ul>
+<h4>Commits</h4>
+<pre><code>feat(etape-10): webApp Kotlin wasm en lecture (comptes, enveloppes, sommaire)
+feat(etape-10): SommaireMensuel commun</code></pre>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e11">Étape 11 — Activer les écritures web, progressivement</h2>
+<ul>
+  <li>Le web écrit <strong>seulement</strong> par <code>POST /api/toutie/commande</code>, avec <code>shared.CalculCommande</code> sur la projection lue du serveur et <code>revisions_attendues</code>. Jamais de PATCH de solde.</li>
+  <li>Pas de file hors ligne sur le web au début : si la commande échoue (réseau), message clair et rien d'appliqué localement ; si 409, relire et proposer de recommencer.</li>
+  <li>Ordre d'activation, un type par commit, chacun validé par l'utilisateur avant le suivant : ASSIGNATION → REPARTITION → VIREMENT_ENVELOPPES → RETOUR_PRET_A_PLACER → DEPENSE → REVENU → VIREMENT_COMPTES → PAIEMENT_CARTE → PAIEMENT_DETTE → MODIFICATION/SUPPRESSION_TRANSACTION → RECONCILIATION → autres.</li>
+  <li>Fiches non financières (noms, catégories, couleurs, tiers, objectifs d'enveloppe) : écriture directe PocketBase avec contrôle de version (même logique que <code>SyncWorker</code> SJ6).</li>
+</ul>
+<h4>Vérification</h4>
+<p>Pour chaque type : opération faite sur le web, visible sur Android en temps réel avec les mêmes soldes ; opération faite hors ligne sur Android pendant une opération web sur la même enveloppe → aucune perte (rebase ou rejet expliqué).</p>
+</section>
+
+<!-- ===================================================================== -->
+<section class="etape">
+<h2 id="e12">Étape 12 — Fin et nettoyage</h2>
+<h4>Critères « 100 % fonctionnel »</h4>
+<ol>
+  <li>Les deux utilisateurs sont en <code>journal_schema_version = 1</code>.</li>
+  <li>Toutes les écritures financières Android et web passent par les commandes ; aucun PATCH de champ projeté n'est accepté par le serveur.</li>
+  <li>Une tâche serveur (route admin) recalcule chaque projection depuis le journal et ne trouve <strong>aucun écart</strong>.</li>
+  <li>Tous les moteurs financiers sont dans <code>shared</code> ; <code>app</code> et <code>webApp</code> ne contiennent aucun calcul financier.</li>
+  <li>Tous les tests (<code>:app:testDebugUnitTest</code>, <code>:shared:allTests</code>, intégration PocketBase) verts.</li>
+</ol>
+<h4>Nettoyage (un commit par point, accord de l'utilisateur pour chacun)</h4>
+<ul>
+  <li>Retirer les adaptateurs d'<code>app</code> devenus inutiles en remplaçant leurs appels par <code>shared</code>.</li>
+  <li>Retirer l'envoi des champs projetés du chemin <code>SyncJob</code>/<code>SyncPayloads</code>.</li>
+  <li>Remplacer Gson par <code>kotlinx.serialization</code> dans <code>app</code> (fichiers <code>Details*.kt</code>, <code>PocketBaseMapper</code>, <code>SyncPayloads</code>).</li>
+  <li>Éventuellement renommer <code>app</code> en <code>androidApp</code> (seulement sur demande).</li>
+  <li>Mettre ce document à jour : tableau d'avancement complet, section « État final ».</li>
+</ul>
+</section>
+
+<p class="meta">Fin du plan. Toute IA qui reprend le travail : lire la section 0, puis la section 5, puis l'étape en cours, puis l'état réel du dépôt. En cas de doute : demander à l'utilisateur.</p>
+</div>
+</body>
+</html>
