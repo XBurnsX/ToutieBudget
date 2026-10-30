@@ -46,6 +46,14 @@
   nav li { break-inside: avoid; }
   a { color: var(--accent); }
   .statut { font-weight: 600; }
+  /* Étape finalisée : section et ligne d'avancement en vert (voir règle 0.5) */
+  .etape.fait { border-color: var(--ok); border-width: 2px; }
+  .etape.fait, .etape.fait h2, .etape.fait h3, .etape.fait h4, .etape.fait li, .etape.fait p,
+  .etape.fait td, .etape.fait th, .etape.fait code, .etape.fait a { color: var(--ok); }
+  .etape.fait > h2::after { content: "  ✓ Fait"; font-size: 15px; }
+  tr.fait td { color: var(--ok); font-weight: 600; }
+  nav li.fait, nav li.fait a { color: var(--ok); }
+  nav li.fait a::after { content: " ✓"; }
   @media (max-width: 640px) { nav ol { columns: 1; } .etape { padding: 4px 12px 12px; } }
 </style>
 </head>
@@ -124,6 +132,13 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 <h3>0.5 Mise à jour de ce document</h3>
 <ul>
   <li>À la fin de chaque étape : remplir sa ligne du tableau d'avancement (statut « Fait », date AAAA-MM-JJ, IA, hash du commit) <strong>dans le même commit</strong> que l'étape.</li>
+  <li>Dans ce même commit, mettre l'étape <strong>en vert</strong> en ajoutant la classe <code>fait</code> à trois endroits, sans rien changer d'autre :
+    <ol>
+      <li>sa section : <code>&lt;section class="etape"&gt;</code> → <code>&lt;section class="etape fait"&gt;</code> ;</li>
+      <li>sa ligne du tableau d'avancement : <code>&lt;tr&gt;</code> → <code>&lt;tr class="fait"&gt;</code> ;</li>
+      <li>son entrée du sommaire : <code>&lt;li&gt;</code> → <code>&lt;li class="fait"&gt;</code>.</li>
+    </ol>
+    Une sous-étape (ex. 6.1) ne met en vert que sa ligne du tableau ; la section 6 passe en vert quand 6.1, 6.2 et 6.3 sont toutes faites.</li>
   <li>Une décision prise pendant une étape (version, nom de domaine…) s'inscrit dans le registre des décisions (section 4) avec sa source.</li>
   <li>Toute autre modification du plan (ajout, retrait, changement de règle) exige l'accord écrit de l'utilisateur et se fait dans un commit séparé : <code>docs(plan): …</code>.</li>
 </ul>
@@ -304,7 +319,7 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 <h2 id="avancement">5. Tableau d'avancement</h2>
 <div class="tableau"><table>
 <tr><th>Étape</th><th>Titre</th><th>Statut</th><th>Date</th><th>IA</th><th>Commit(s)</th></tr>
-<tr><td>Base</td><td>Point de départ</td><td class="statut">Fait</td><td>2026-10-30</td><td>Claude</td><td><code>f3fd254</code></td></tr>
+<tr class="fait"><td>Base</td><td>Point de départ</td><td class="statut">Fait</td><td>2026-10-30</td><td>Claude</td><td><code>f3fd254</code></td></tr>
 <tr><td>0</td><td>Monter Kotlin</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
 <tr><td>1</td><td>Module shared vide</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
 <tr><td>2</td><td>Primitives communes</td><td class="statut">À faire</td><td></td><td></td><td></td></tr>
