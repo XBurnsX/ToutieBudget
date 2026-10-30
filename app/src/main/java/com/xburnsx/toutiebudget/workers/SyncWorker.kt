@@ -50,7 +50,8 @@ class SyncWorker(
         .create()
 
     /** Résultat d'un envoi. [code] = code HTTP, null si erreur réseau. */
-    private data class Resultat(val ok: Boolean, val code: Int?, val message: String?)
+    /** [version] : champ « updated » renvoyé par PocketBase après une écriture réussie (SJ6). */
+    private data class Resultat(val ok: Boolean, val code: Int?, val message: String?, val version: String? = null)
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         verrou.withLock {
@@ -100,6 +101,12 @@ class SyncWorker(
 
                 syncJobDao.updateSyncJobStatus(tache.id, "IN_PROGRESS")
 
+                if (tache.action != "DELETE" && syncJobDao.compterSuppressionsEnAttente(tache.recordId.ifBlank { idDepuisJson(tache.dataJson) ?: "" }, tache.id) > 0) {
+                    // SJ8 : la fiche a été supprimée ensuite ; ne pas la recréer ni la modifier sur le serveur
+                    syncJobDao.enregistrerEssai(tache.id, "COMPLETED", "Remplacée par une suppression", null, System.currentTimeMillis(), false)
+                    continue
+                }
+
                 val resultat = try {
                     when (tache.action) {
                         "CREATE" -> traiterCreation(tache, urlBase, token)
@@ -115,6 +122,11 @@ class SyncWorker(
 
                 val maintenant = System.currentTimeMillis()
                 if (resultat.ok) {
+                    val collectionOk = SyncCollections.collectionPourType(tache.type)
+                    val idOk = tache.recordId.ifBlank { idDepuisJson(tache.dataJson) ?: "" }
+                    if (tache.action == "DELETE") EtatFichesSync.noterSuppression(applicationContext, collectionOk, idOk)
+                    else EtatFichesSync.noterVersion(applicationContext, collectionOk, idOk, resultat.version)
+                    EtatFichesSync.oublierTache(applicationContext, tache.id)
                     syncJobDao.enregistrerEssai(tache.id, "COMPLETED", null, resultat.code, maintenant, false)
                     com.xburnsx.toutiebudget.utils.DiagnosticDonnees.noterEchangeReussi(applicationContext, maintenant)
                     continue
@@ -203,12 +215,41 @@ class SyncWorker(
             syncJob.dataJson
         }
 
+        // SJ6 : ne jamais écraser une version plus récente faite ailleurs après ce changement local
+        if (!EtatFichesSync.estForcee(applicationContext, syncJob.id)) {
+            val distante = lireVersionDistante(urlBase, collection, recordId, token)
+            val dateDistante = EtatFichesSync.millisPocketBase(distante)
+            if (distante != null && dateDistante != null &&
+                dateDistante > syncJob.createdAt + MARGE_HORLOGE_MS &&
+                distante != EtatFichesSync.versionConnue(applicationContext, collection, recordId)
+            ) {
+                return Resultat(false, 409, "Conflit : cette fiche a été modifiée sur un autre appareil après ce changement")
+            }
+        }
+
         val request = Request.Builder()
             .url("$urlBase/api/collections/$collection/records/$recordId")
             .patch(corps.toRequestBody(JSON))
             .addHeader("Authorization", "Bearer $token")
             .build()
         return executer(request)
+    }
+
+    /** Champ « updated » actuel de la fiche sur le serveur, ou null si absente ou illisible. */
+    private fun lireVersionDistante(urlBase: String, collection: String, recordId: String, token: String): String? {
+        val request = Request.Builder()
+            .url("$urlBase/api/collections/$collection/records/$recordId")
+            .get()
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        return try {
+            httpClient.newCall(request).execute().use { r ->
+                if (!r.isSuccessful) null
+                else (gson.fromJson(r.body?.string(), Map::class.java)?.get("updated") as? String)
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -233,7 +274,12 @@ class SyncWorker(
     private fun executer(request: Request): Resultat =
         httpClient.newCall(request).execute().use { reponse ->
             if (reponse.isSuccessful) {
-                Resultat(true, reponse.code, null)
+                val version = try {
+                    gson.fromJson(reponse.body?.string(), Map::class.java)?.get("updated") as? String
+                } catch (_: Exception) {
+                    null
+                }
+                Resultat(true, reponse.code, null, version)
             } else {
                 val message = try {
                     gson.fromJson(reponse.body?.string(), Map::class.java)?.get("message") as? String
@@ -282,6 +328,8 @@ class SyncWorker(
     companion object {
         private const val TAG = "SyncWorker"
         private val JSON = "application/json".toMediaType()
+        /** Tolérance d'horloge entre le téléphone et le serveur pour reconnaître un conflit (SJ6). */
+        private const val MARGE_HORLOGE_MS = 5_000L
 
         /** Un seul envoi de la file à la fois dans tout le processus, quel que soit le déclencheur. */
         private val verrou = Mutex()

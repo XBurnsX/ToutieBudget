@@ -102,6 +102,10 @@ object SyncWorkManager {
     /**
      * Vérifie si une synchronisation est en cours
      */
+    /** SJ20 : état du worker observé (Flow), sans .get() bloquant ni sondage. */
+    fun etatSynchronisation(context: Context): kotlinx.coroutines.flow.Flow<List<WorkInfo>> =
+        WorkManager.getInstance(context).getWorkInfosByTagFlow(SYNC_WORK_TAG)
+
     fun estSynchronisationEnCours(context: Context): Boolean {
         val workInfo = WorkManager.getInstance(context)
             .getWorkInfosByTag(SYNC_WORK_TAG)

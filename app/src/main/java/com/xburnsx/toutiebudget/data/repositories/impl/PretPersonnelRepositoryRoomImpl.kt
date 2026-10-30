@@ -28,7 +28,8 @@ import kotlinx.coroutines.withContext
  */
 class PretPersonnelRepositoryRoomImpl(
     private val pretPersonnelDao: PretPersonnelDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique = com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : PretPersonnelRepository {
     private val client = PocketBaseClient
 
@@ -56,7 +57,7 @@ class PretPersonnelRepositoryRoomImpl(
     }
 
     override suspend fun creer(pret: PretPersonnel): Result<PretPersonnel> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Convertir le modèle en entité Room
             val pretEntity = PretPersonnelEntity(
                 id = pret.id.ifBlank { IdGenerator.generateId() },
@@ -94,13 +95,14 @@ class PretPersonnelRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(pret.copy(id = pretEntity.id))
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     override suspend fun mettreAJour(pret: PretPersonnel): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Convertir le modèle en entité Room
             val pretEntity = PretPersonnelEntity(
                 id = pret.id,
@@ -136,13 +138,14 @@ class PretPersonnelRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     override suspend fun supprimer(id: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Supprimer de Room (PRIMARY)
             pretPersonnelDao.deletePretById(id)
             
@@ -164,6 +167,7 @@ class PretPersonnelRepositoryRoomImpl(
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -141,6 +141,14 @@ interface SyncJobDao {
     /**
      * Supprime toutes les tâches terminées (COMPLETED ET FAILED)
      */
+    /** SJ8 : une suppression de cette fiche attend encore (autre que la tâche [saufId]) ? */
+    @Query("SELECT COUNT(*) FROM sync_jobs WHERE recordId = :recordId AND recordId != '' AND action = 'DELETE' AND status IN ('PENDING', 'FAILED', 'IN_PROGRESS') AND id != :saufId")
+    suspend fun compterSuppressionsEnAttente(recordId: String, saufId: String): Int
+
+    /** SJ6 : « garder la version du serveur » abandonne la tâche locale en conflit. */
+    @Query("DELETE FROM sync_jobs WHERE id = :id")
+    suspend fun supprimerTache(id: String)
+
     /** PR4 : vider toute la file avant un effacement complet (aucune résurrection de données). */
     @Query("DELETE FROM sync_jobs")
     suspend fun supprimerToutesLesTaches()

@@ -28,7 +28,8 @@ import kotlinx.coroutines.withContext
  */
 class TiersRepositoryRoomImpl(
     private val tiersDao: TiersDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique = com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : TiersRepository {
     
     private val client = PocketBaseClient
@@ -57,7 +58,7 @@ class TiersRepositoryRoomImpl(
     }
 
     override suspend fun creerTiers(tiers: Tiers): Result<Tiers> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // AT18 : dedoublonnage au niveau du repository et pas uniquement
             // du dropdown Compose (qui peut avoir un cache perime).
             val utilisateurId = tiers.utilisateur_id.ifBlank {
@@ -70,7 +71,7 @@ class TiersRepositoryRoomImpl(
                 .firstOrNull { entite ->
                     entite.nom.trim().replace(Regex("\\s+"), " ").lowercase() == nomNormalise
                 }
-            if (existant != null) return@withContext Result.success(existant.toTiersModel())
+            if (existant != null) return@executer Result.success(existant.toTiersModel())
 
             // 1. Convertir le modèle en entité Room
             val tiersEntity = TiersEntity(
@@ -104,6 +105,7 @@ class TiersRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(tiers.copy(id = tiersEntity.id))
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -129,7 +131,7 @@ class TiersRepositoryRoomImpl(
     }
 
     override suspend fun mettreAJourTiers(tiers: Tiers): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Convertir le modèle en entité Room
             val tiersEntity = TiersEntity(
                 id = tiers.id,
@@ -161,13 +163,14 @@ class TiersRepositoryRoomImpl(
             // 4. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     override suspend fun supprimerTiers(tiersId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Supprimer de Room (PRIMARY)
             tiersDao.deleteTiersById(tiersId)
             
@@ -188,6 +191,7 @@ class TiersRepositoryRoomImpl(
             // 3. Retourner le succès immédiatement (offline-first)
             Result.success(Unit)
             
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }

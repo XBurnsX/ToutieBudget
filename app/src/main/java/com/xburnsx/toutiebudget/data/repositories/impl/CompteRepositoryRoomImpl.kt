@@ -28,7 +28,8 @@ class CompteRepositoryRoomImpl(
     private val compteCreditDao: CompteCreditDao,
     private val compteDetteDao: CompteDetteDao,
     private val compteInvestissementDao: CompteInvestissementDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique = com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : CompteRepository {
 
     private val client = PocketBaseClient
@@ -65,9 +66,9 @@ class CompteRepositoryRoomImpl(
     }
 
     override suspend fun creerCompte(compte: Compte): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+                ?: return@executer Result.failure(Exception("ID utilisateur non trouvé."))
 
             // Générer un ID unique à 15 caractères si nécessaire
             val compteAvecId = if (compte.id.isBlank()) {
@@ -162,6 +163,7 @@ class CompteRepositoryRoomImpl(
             SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -212,9 +214,9 @@ class CompteRepositoryRoomImpl(
     }
 
     override suspend fun mettreAJourCompte(compte: Compte): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
-                ?: return@withContext Result.failure(Exception("ID utilisateur non trouvé."))
+                ?: return@executer Result.failure(Exception("ID utilisateur non trouvé."))
 
             val compteAvecUtilisateurId = when (compte) {
                 is CompteCheque -> compte.copy(utilisateurId = utilisateurId)
@@ -298,20 +300,21 @@ class CompteRepositoryRoomImpl(
             SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     override suspend fun supprimerCompte(compteId: String, collection: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // Supprimer de Room selon la collection
             when (collection) {
                 "comptes_cheques" -> compteChequeDao.deleteCompteById(compteId)
                 "comptes_credits" -> compteCreditDao.deleteCompteById(compteId)
                 "comptes_dettes" -> compteDetteDao.deleteCompteById(compteId)
                 "comptes_investissement" -> compteInvestissementDao.deleteCompteById(compteId)
-                else -> return@withContext Result.failure(Exception("Collection inconnue: $collection"))
+                else -> return@executer Result.failure(Exception("Collection inconnue: $collection"))
             }
 
             // Créer un SyncJob pour la synchronisation
@@ -339,6 +342,7 @@ class CompteRepositoryRoomImpl(
             SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
 
             Result.success(Unit)
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -462,7 +466,7 @@ class CompteRepositoryRoomImpl(
         compteId: String,
         variationPretAPlacer: Double
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // Chercher dans toutes les collections pour trouver le compte
             val collections = listOf("comptes_cheques", "comptes_credits", "comptes_dettes", "comptes_investissement")
             
@@ -475,13 +479,13 @@ class CompteRepositoryRoomImpl(
                     // ✅ 1. Mettre à jour Room SANS créer de SyncJob automatique
                     val resultRoom = mettreAJourCompteSansSyncJob(compteMisAJour)
                     if (resultRoom.isFailure) {
-                        return@withContext resultRoom
+                        return@executer resultRoom
                     }
                     
                     // ✅ 2. RÉCUPÉRER LE COMPTE MIS À JOUR POUR AVOIR LE BON PRÊT À PLACER
                     val compteMisAJourRecupere = getCompteById(compteId, collection)
                     if (compteMisAJourRecupere == null) {
-                        return@withContext Result.failure(Exception("Impossible de récupérer le compte mis à jour"))
+                        return@executer Result.failure(Exception("Impossible de récupérer le compte mis à jour"))
                     }
                     
                     // ✅ 3. CRÉER UN SYNCJOB POUR POCKETBASE AVEC LE BON PRÊT À PLACER
@@ -521,12 +525,13 @@ class CompteRepositoryRoomImpl(
                         // 🚀 DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION !
                         SyncJobAutoTriggerService.declencherSynchronisationArrierePlan()
                         
-                        return@withContext Result.success(Unit)
+                        return@executer Result.success(Unit)
                     }
                 }
             }
             
             Result.failure(Exception("Compte chèque non trouvé avec l'ID $compteId"))
+        }
         } catch (e: Exception) {
             Result.failure(e)
         }

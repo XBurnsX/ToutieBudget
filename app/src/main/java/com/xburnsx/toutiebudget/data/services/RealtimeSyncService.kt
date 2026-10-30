@@ -300,6 +300,34 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
+    /**
+     * SJ6 : « Garder la version du serveur » pour une tâche en conflit. La tâche locale doit déjà être retirée ;
+     * la fiche actuelle du serveur remplace alors la version de l'appareil (ou la supprime si elle n'existe plus).
+     */
+    suspend fun reappliquerDepuisServeur(collection: String, recordId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val token = client.obtenirToken() ?: throw IllegalStateException("Connexion requise.")
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val request = Request.Builder()
+                .url("$urlBase/api/collections/$collection/records/$recordId")
+                .addHeader("Authorization", "Bearer $token")
+                .get().build()
+            httpClient.newCall(request).execute().use { r ->
+                when {
+                    r.isSuccessful -> appliquerFicheDansRoom(collection, "update",
+                        gson.fromJson(r.body?.string(), JsonObject::class.java))
+                    r.code == 404 -> appliquerFicheDansRoom(collection, "delete",
+                        JsonObject().apply { addProperty("id", recordId) })
+                    else -> throw IllegalStateException("Serveur : HTTP ${r.code}")
+                }
+            }
+            when (collection) {
+                "allocations_mensuelles", "enveloppes", "categories" -> _budgetUpdated.emit(Unit)
+                else -> _comptesUpdated.emit(Unit)
+            }
+        }
+    }
+
     private suspend fun appliquerFicheDansRoom(collection: String, action: String, record: JsonObject) {
         val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance() ?: return
         val db = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(context)
@@ -308,6 +336,8 @@ class RealtimeSyncService @Inject constructor() {
         // Ne garder que les fiches de l'utilisateur connecté
         val utilisateurId = client.obtenirUtilisateurConnecte()?.id ?: return
         if (!item.utilisateur_id.isNullOrBlank() && item.utilisateur_id != utilisateurId) return
+        // SJ8 : une fiche supprimée sur cet appareil ne réapparaît pas par un ancien événement serveur
+        if (action != "delete" && com.xburnsx.toutiebudget.workers.EtatFichesSync.estSupprimee(context, collection, item.id)) return
         // Une règle d'alias sans propriétaire n'est jamais importée.
         if (collection in PocketBaseMapper.collectionsFacultatives &&
             item.utilisateur_id != utilisateurId) return

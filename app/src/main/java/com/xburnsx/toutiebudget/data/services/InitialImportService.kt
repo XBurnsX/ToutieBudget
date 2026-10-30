@@ -177,6 +177,11 @@ class InitialImportService(
         val aEcrire = items
             .filter { it.utilisateur_id.isNullOrBlank() || it.utilisateur_id == utilisateurId }
             .filter { syncJobDao.compterTachesEnAttentePourFiche(it.id) == 0 }
+            // SJ8 : une fiche supprimée ici ne revient pas par l'import
+            .filter { fiche ->
+                val ctx = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
+                ctx == null || !com.xburnsx.toutiebudget.workers.EtatFichesSync.estSupprimee(ctx, collection, fiche.id)
+            }
         if (aEcrire.isNotEmpty()) ecrire(aEcrire)
         Log.d(logTag, "✅ $collection : ${items.size} fiches (${items.size - aEcrire.size} gardées en local)")
     }

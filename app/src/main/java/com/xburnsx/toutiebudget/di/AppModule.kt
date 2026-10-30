@@ -108,7 +108,8 @@ import android.content.Context
              database.compteCreditDao(),
              database.compteDetteDao(),
              database.compteInvestissementDao(),
-             database.syncJobDao()
+             database.syncJobDao(),
+             operationAtomique = operationAtomique
          )
      }
      private val enveloppeRepository: EnveloppeRepository by lazy { 
@@ -139,19 +140,22 @@ import android.content.Context
      private val allocationMensuelleRepository: AllocationMensuelleRepository by lazy { 
          AllocationMensuelleRepositoryRoomImpl(
              database.allocationMensuelleDao(),
-             database.syncJobDao()
+             database.syncJobDao(),
+             operationAtomique = operationAtomique
          )
      }
      private val tiersRepository: TiersRepository by lazy { 
          TiersRepositoryRoomImpl(
              database.tiersDao(),
-             database.syncJobDao()
+             database.syncJobDao(),
+             operationAtomique = operationAtomique
          )
      }
          private val pretPersonnelRepository: PretPersonnelRepository by lazy { 
         PretPersonnelRepositoryRoomImpl(
             database.pretPersonnelDao(),
-            database.syncJobDao()
+            database.syncJobDao(),
+            operationAtomique = operationAtomique
         )
     }
     

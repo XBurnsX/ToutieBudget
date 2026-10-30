@@ -31,7 +31,8 @@ import com.google.gson.GsonBuilder
  */
 class AllocationMensuelleRepositoryRoomImpl(
     private val allocationMensuelleDao: AllocationMensuelleDao,
-    private val syncJobDao: SyncJobDao
+    private val syncJobDao: SyncJobDao,
+    private val operationAtomique: com.xburnsx.toutiebudget.utils.OperationAtomique = com.xburnsx.toutiebudget.utils.OperationAtomiqueDirecte
 ) : AllocationMensuelleRepository {
     private val client = PocketBaseClient
     private val gson: Gson = GsonBuilder()
@@ -59,7 +60,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         nouveauSolde: Double,
         nouvelleDepense: Double
     ): Unit = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)
                 ?: throw IllegalStateException("Allocation mensuelle introuvable pour la mise à jour : $id")
@@ -84,6 +85,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+        }
         } catch (e: Exception) {
             // AT4/AT15 : ne jamais valider une dépense ou une provenance
             // si l'allocation Room ou son SyncJob n'a pas été enregistré.
@@ -92,7 +94,7 @@ class AllocationMensuelleRepositoryRoomImpl(
     }
 
     override suspend fun recupererOuCreerAllocation(enveloppeId: String, mois: Date): AllocationMensuelle = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             val utilisateurId = client.obtenirUtilisateurConnecte()?.id
                 ?: throw Exception("Utilisateur non connecté")
 
@@ -242,7 +244,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                                 // Les anciennes lignes à solde nul/négatif restent
                                 // intactes. L'assignation décidera si elle doit créer
                                 // une nouvelle ligne pour un autre compte source.
-                                return@withContext actives.first().toAllocationMensuelleModel()
+                                return@executer actives.first().toAllocationMensuelleModel()
                             }
                             val comptes = financements.map { it.compteSourceId }.distinct()
                             if (comptes.size != 1 || comptes.singleOrNull().isNullOrBlank()) {
@@ -256,13 +258,14 @@ class AllocationMensuelleRepositoryRoomImpl(
                     }
                 }
             }
+        }
         } catch (e: Exception) {
             throw e
         }
     }
 
     override suspend fun mettreAJourAllocation(allocation: AllocationMensuelle): Unit = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Convertir le modèle en entité Room
             val allocationEntity = AllocationMensuelleEntity(
                 id = allocation.id,
@@ -291,6 +294,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+        }
         } catch (e: Exception) {
             throw e
         }
@@ -301,7 +305,7 @@ class AllocationMensuelleRepositoryRoomImpl(
         compteSourceId: String,
         collectionCompteSource: String
     ): Unit = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Récupérer l'allocation existante
             val allocationEntity = allocationMensuelleDao.getAllocationById(id)
                 ?: throw IllegalStateException("Allocation mensuelle introuvable pour la mise à jour : $id")
@@ -326,6 +330,7 @@ class AllocationMensuelleRepositoryRoomImpl(
                 status = "PENDING"
             )
             syncJobDao.insertSyncJob(syncJob)
+        }
         } catch (e: Exception) {
             // AT4/AT15 : ne jamais valider une dépense ou une provenance
             // si l'allocation Room ou son SyncJob n'a pas été enregistré.
@@ -334,7 +339,7 @@ class AllocationMensuelleRepositoryRoomImpl(
     }
 
     override suspend fun creerNouvelleAllocation(allocation: AllocationMensuelle): AllocationMensuelle = withContext(Dispatchers.IO) {
-        try {
+        try { operationAtomique.executer {  // SJ4 : effet local et SyncJob ensemble, ou rien
             // 1. Convertir le modèle en entité Room
             val allocationEntity = AllocationMensuelleEntity(
                 id = allocation.id.ifBlank { IdGenerator.generateId() },
@@ -368,6 +373,7 @@ class AllocationMensuelleRepositoryRoomImpl(
 
             // 4. Retourner l'allocation créée
             allocation.copy(id = allocationEntity.id)
+        }
         } catch (e: Exception) {
             throw e
         }

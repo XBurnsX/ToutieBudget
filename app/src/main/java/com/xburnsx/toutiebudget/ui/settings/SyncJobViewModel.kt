@@ -131,6 +131,59 @@ class SyncJobViewModel(
         }
     }
     
+    /** SJA5 : résultat de la comparaison Room ↔ PocketBase (lecture seule). */
+    private val _comparaison = MutableStateFlow<String?>(null)
+    val comparaison: StateFlow<String?> = _comparaison.asStateFlow()
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+    fun effacerMessage() { _message.value = null }
+
+    /** SJA1 : relance la file sans annuler le worker en cours (APPEND_OR_REPLACE). */
+    fun synchroniserMaintenant(context: android.content.Context) {
+        com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
+        _message.value = if (com.xburnsx.toutiebudget.utils.DiagnosticDonnees.estEnLigne(context))
+            "Synchronisation demandée." else "Hors ligne : elle partira au retour d'Internet."
+    }
+
+    /** SJ6 : conflit — envoyer quand même la version de cet appareil. */
+    fun utiliserMaVersion(context: android.content.Context, job: SyncJob) {
+        viewModelScope.launch {
+            com.xburnsx.toutiebudget.workers.EtatFichesSync.forcerTache(context, job.id)
+            syncJobDao.reactiver(job.id)
+            com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
+            _message.value = "Ta version va remplacer celle du serveur."
+        }
+    }
+
+    /** SJ6 : conflit — abandonner le changement local et reprendre la fiche du serveur. */
+    fun garderVersionServeur(context: android.content.Context, job: SyncJob) {
+        viewModelScope.launch {
+            val collection = com.xburnsx.toutiebudget.workers.SyncCollections.collectionPourType(job.type)
+            syncJobDao.supprimerTache(job.id)
+            com.xburnsx.toutiebudget.workers.EtatFichesSync.oublierTache(context, job.id)
+            _message.value = com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+                .reappliquerDepuisServeur(collection, job.recordId)
+                .fold({ "La version du serveur est maintenant sur cet appareil." },
+                    { "Changement local abandonné, mais la fiche du serveur n'a pas pu être relue : ${it.message}" })
+        }
+    }
+
+    private companion object { const val SAUT = "\n" }
+
+    fun comparerAvecServeur(context: android.content.Context) {
+        _comparaison.value = "Comparaison en cours…"
+        viewModelScope.launch {
+            _comparaison.value = com.xburnsx.toutiebudget.data.services.ComparaisonServeur.comparer(context).fold({ lignes ->
+                lignes.joinToString(SAUT) { l ->
+                    (if (l.coherente) "✓ " else "⚠ ") + "${l.collection} : ${l.ici} ici, ${l.serveur} serveur" +
+                        (if (l.enAttente > 0) ", ${l.enAttente} en attente d'envoi" else "") +
+                        (if (l.absentesDuServeur > 0) ", ${l.absentesDuServeur} absente(s) du serveur" else "") +
+                        (if (l.absentesIci > 0) ", ${l.absentesIci} absente(s) de cet appareil" else "")
+                } + SAUT + "Rien n'a été modifié."
+            }, { "Comparaison impossible : ${it.message}" })
+        }
+    }
+
     fun formatDate(timestamp: Long): String {
         return dateFormatter.format(Date(timestamp))
     }
@@ -173,6 +226,13 @@ class SyncJobViewModel(
             "TIERS" -> "Tiers"
             "PRET_PERSONNEL" -> "Prêt personnel"
             "ALLOCATION_MENSUELLE" -> "Allocation mensuelle"
+            "COMPTE_CHEQUE" -> "Compte chèque"
+            "COMPTE_CREDIT" -> "Carte de crédit"
+            "COMPTE_DETTE" -> "Dette"
+            "COMPTE_INVESTISSEMENT" -> "Placement"
+            "HISTORIQUE_ALLOCATION" -> "Journal du budget"
+            "ALIAS_BANCAIRE" -> "Alias bancaire"
+            "OPERATION_BANCAIRE" -> "Opération bancaire"
             else -> type
         }
     }

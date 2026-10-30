@@ -40,9 +40,12 @@ fun SyncJobScreen(
     
     val snackbarHostState = remember { SnackbarHostState() }
     
-    // État de la synchronisation
-    var isSyncRunning by remember { mutableStateOf(false) }
-    var lastSyncStatus by remember { mutableStateOf<String?>(null) }
+    // SJ20 : état du worker observé (Flow WorkManager), sans .get() bloquant ni sondage
+    val infosWorker by remember { SyncWorkManager.etatSynchronisation(context) }.collectAsState(initial = emptyList())
+    val isSyncRunning = infosWorker.any { it.state == androidx.work.WorkInfo.State.RUNNING }
+    val comparaison by syncJobViewModel.comparaison.collectAsState()
+    val message by syncJobViewModel.message.collectAsState()
+    val enLigne = remember(syncJobs, isSyncRunning) { com.xburnsx.toutiebudget.utils.DiagnosticDonnees.estEnLigne(context) }
     
     // 🆕 État de filtrage - par défaut afficher seulement les tâches en attente
     var selectedFilter by remember { mutableStateOf("PENDING") }
@@ -50,43 +53,21 @@ fun SyncJobScreen(
     // 🆕 Liste filtrée des SyncJob
     val filteredSyncJobs = remember(syncJobs, selectedFilter) {
         when (selectedFilter) {
-            "PENDING" -> syncJobs.filter { it.status == "PENDING" }
+            "PENDING" -> syncJobs.filter { it.status == "PENDING" || it.status == "IN_PROGRESS" }
             "COMPLETED" -> syncJobs.filter { it.status == "COMPLETED" }
             "FAILED" -> syncJobs.filter { it.status == "FAILED" }
             else -> syncJobs // "ALL" - toutes les tâches
         }
     }
     
-    // Vérifier le statut de la synchronisation toutes les 2 secondes
-    LaunchedEffect(Unit) {
-        while (true) {
-            isSyncRunning = SyncWorkManager.estSynchronisationEnCours(context)
-            lastSyncStatus = SyncWorkManager.getStatutDerniereSynchronisation(context)?.name
-            delay(2000)
-        }
-    }
-    
-    // 🚀 ÉCOUTEUR AUTOMATIQUE : Détecter les nouveaux SyncJob et déclencher la synchronisation immédiatement
-    LaunchedEffect(syncJobs) {
-        val pendingJobs = syncJobs.filter { it.status == "PENDING" }
-        if (pendingJobs.isNotEmpty()) {
-            // 🚨 ${pendingJobs.size} SyncJob en attente détectés - DÉCLENCHEMENT IMMÉDIAT de la synchronisation
-            
-            // DÉCLENCHER IMMÉDIATEMENT LA SYNCHRONISATION
-            try {
-                com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
-                // ✅ Synchronisation déclenchée avec succès
-            } catch (e: Exception) {
-                // ❌ Erreur lors du déclenchement de la synchronisation
-            }
-        }
-    }
-    
-    // Afficher les erreurs
+    // Afficher les erreurs et les résultats d'action
     LaunchedEffect(error) {
         error?.let { errorMessage ->
             snackbarHostState.showSnackbar(message = errorMessage)
         }
+    }
+    LaunchedEffect(message) {
+        message?.let { snackbarHostState.showSnackbar(it); syncJobViewModel.effacerMessage() }
     }
     
     Scaffold(
@@ -199,52 +180,55 @@ fun SyncJobScreen(
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         
-                        // Indicateur de statut de synchronisation
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val echouees = syncJobs.count { it.status == "FAILED" }
-                            val enAttente = syncJobs.count { it.status == "PENDING" }
-                            val statut = when {
-                                isSyncRunning -> "Synchronisation en cours..."
-                                echouees > 0 -> "$echouees tâche(s) bloquée(s)"
-                                enAttente > 0 -> "$enAttente tâche(s) en attente"
-                                else -> "Synchronisation à jour"
-                            }
-                            val couleurStatut = when {
-                                echouees > 0 && !isSyncRunning -> Color(0xFFF44336)
-                                isSyncRunning || enAttente > 0 -> Color(0xFFFFA500)
-                                else -> Color(0xFF4CAF50)
-                            }
-                            Icon(
-                                Icons.Default.Sync,
-                                contentDescription = null,
-                                tint = couleurStatut,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = statut,
-                                color = couleurStatut,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                        // SJ17 : statut véridique — hors ligne, en cours, bloqué, partiel, en attente ou à jour
+                        val bloquees = syncJobs.count { it.status == "FAILED" && it.bloque }
+                        val aReessayer = syncJobs.count { it.status == "FAILED" && !it.bloque }
+                        val enAttente = syncJobs.count { it.status == "PENDING" || it.status == "IN_PROGRESS" }
+                        val (statut, couleurStatut) = when {
+                            isSyncRunning -> "Synchronisation en cours…" to Color(0xFF2196F3)
+                            bloquees > 0 -> "Bloquée : $bloquees tâche(s) demandent ton intervention" to Color(0xFFF44336)
+                            !enLigne && (enAttente + aReessayer) > 0 -> "Hors ligne : ${enAttente + aReessayer} tâche(s) partiront au retour d'Internet" to Color(0xFFFFA500)
+                            aReessayer > 0 -> "Partielle : $aReessayer tâche(s) seront réessayées automatiquement" to Color(0xFFFFA500)
+                            enAttente > 0 -> "$enAttente tâche(s) en attente d'envoi" to Color(0xFFFFA500)
+                            !enLigne -> "Hors ligne — rien en attente" to Color.Gray
+                            else -> "À jour : tout est sur le serveur" to Color(0xFF4CAF50)
                         }
-                        
-                        // Statut de la dernière synchronisation
-                        lastSyncStatus?.let { status ->
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Dernière sync: $status",
-                                color = Color.Gray,
-                                fontSize = 12.sp
-                            )
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Sync, contentDescription = null, tint = couleurStatut, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = statut, color = couleurStatut, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        // SJA3 : diagnostic de progression, sans aucune donnée financière
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Dernier envoi réussi : " + com.xburnsx.toutiebudget.utils.DiagnosticDonnees.formater(
+                                com.xburnsx.toutiebudget.utils.DiagnosticDonnees.dernierEchange(context)
+                            ),
+                            color = Color.Gray, fontSize = 12.sp
+                        )
+                        Text(
+                            "En attente : $enAttente • à réessayer : $aReessayer • bloquées : $bloquees",
+                            color = Color.Gray, fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // SJA1 : n'annule jamais un envoi en cours
+                            OutlinedButton(onClick = { syncJobViewModel.synchroniserMaintenant(context) }) {
+                                Text("Synchroniser maintenant", color = Color.White)
+                            }
+                            OutlinedButton(onClick = { syncJobViewModel.comparerAvecServeur(context) }) {
+                                Text("Comparer avec le serveur", color = Color.White)
+                            }
+                        }
+                        // SJA5 : comparaison Room ↔ PocketBase, lecture seule
+                        comparaison?.let {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(it, color = Color.LightGray, fontSize = 12.sp)
                         }
                     }
                 }
             }
-            
+
             if (isLoading) {
                 item {
                     Box(
@@ -297,7 +281,7 @@ fun SyncJobScreen(
                     }
                 }
             } else {
-                items(filteredSyncJobs) { syncJob ->
+                items(filteredSyncJobs, key = { it.id }) { syncJob ->
                     SyncJobCard(
                         syncJob = syncJob,
                         syncJobViewModel = syncJobViewModel
@@ -430,6 +414,22 @@ fun SyncJobCard(
                     color = if (syncJob.bloque) Color(0xFFF44336) else Color(0xFFFFA500),
                     fontSize = 12.sp
                 )
+            }
+            if (syncJob.status == "FAILED") {
+                val context = LocalContext.current
+                Spacer(modifier = Modifier.height(6.dp))
+                if (syncJob.derniereErreur?.startsWith("Conflit") == true) {
+                    Text("Ce changement a été fait ici pendant qu'une autre version arrivait sur le serveur. Choisis laquelle garder :",
+                        color = Color.LightGray, fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { syncJobViewModel.utiliserMaVersion(context, syncJob) }) { Text("Utiliser ma version") }
+                        TextButton(onClick = { syncJobViewModel.garderVersionServeur(context, syncJob) }) { Text("Garder celle du serveur") }
+                    }
+                } else {
+                    TextButton(onClick = { syncJobViewModel.retrySingleFailedJob(syncJob.id) }) {
+                        Text(if (syncJob.bloque) "Réessayer (une fois la cause corrigée)" else "Réessayer maintenant")
+                    }
+                }
             }
         }
     }
