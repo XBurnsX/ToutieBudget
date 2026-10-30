@@ -53,7 +53,9 @@ class LoginViewModel : ViewModel() {
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
-                        messageChargement = ""
+                        messageChargement = "",
+                        // LD6 : expliquer pourquoi on revient à la connexion
+                        erreur = com.xburnsx.toutiebudget.ui.startup.MotifReconnexion.consommer()
                     )
                 }
             } catch (e: Exception) {
@@ -82,6 +84,8 @@ class LoginViewModel : ViewModel() {
         idToken: String? = null,
         context: Context
     ) {
+        // LD14/LD20 : une seule connexion à la fois (double appui, retour d'activité Google, rotation)
+        if (_etatUi.value.estEnChargement && _etatUi.value.messageChargement.isNotBlank()) return
         viewModelScope.launch {
             Log.d("LoginViewModel", "🔐 Début de la gestion de connexion Google")
             Log.d("LoginViewModel", "🔑 Code autorisation: ${if (codeAutorisation.isNullOrBlank()) "VIDE" else "PRÉSENT"}")
@@ -169,12 +173,15 @@ class LoginViewModel : ViewModel() {
                     it.copy(messageChargement = "Connexion avec ID Token...")
                 }
 
-                // TODO: Implémenter la connexion avec ID Token si nécessaire
+                // LD11 : PocketBase vérifie la connexion Google avec un code d'autorisation à usage unique.
+                // Un ID Token seul ne peut pas être vérifié côté serveur ici : refus honnête, jamais de faux succès.
                 _etatUi.update {
                     it.copy(
                         estEnChargement = false,
                         connexionReussie = false,
-                        erreur = "Google n'a pas fourni le code d'autorisation requis. Recommencez la connexion Google et vérifiez la configuration OAuth.",
+                        erreur = "Google a répondu sans le code de connexion dont ToutieBudget a besoin. " +
+                            "Appuie de nouveau sur « Se connecter avec Google » ; si ça se répète, retire puis rajoute " +
+                            "ton compte Google sur le téléphone.",
                         messageChargement = ""
                     )
                 }
@@ -215,7 +222,8 @@ class LoginViewModel : ViewModel() {
                     "9. Relancez l'application\n\n" +
                     "💡 Pour release : utilisez 'obtenir-sha1-release.bat'"
                 }
-                12501 -> "Connexion annulée par l'utilisateur."
+                12501 -> "Connexion annulée. Tu peux réessayer quand tu veux."
+                16 -> "Connexion Google interrompue (consentement non terminé). Réessaie."
                 7 -> "Erreur réseau. Vérifiez votre connexion internet."
                 8 -> "Erreur interne. Réessayez plus tard."
                 else -> {

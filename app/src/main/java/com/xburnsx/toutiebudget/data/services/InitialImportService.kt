@@ -56,6 +56,9 @@ class InitialImportService(
     // Callback pour la progression
     var onProgressUpdate: ((step: Int, message: String) -> Unit)? = null
 
+    /** LD18 : étape réellement terminée — collection, fiches reçues du serveur, fiches gardées de l'appareil. */
+    var onCollectionImportee: ((collection: String, recues: Int, gardeesIci: Int) -> Unit)? = null
+
     private fun prefs() = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance()
         ?.getSharedPreferences(PREFS_IMPORT, Context.MODE_PRIVATE)
 
@@ -183,6 +186,7 @@ class InitialImportService(
                 ctx == null || !com.xburnsx.toutiebudget.workers.EtatFichesSync.estSupprimee(ctx, collection, fiche.id)
             }
         if (aEcrire.isNotEmpty()) ecrire(aEcrire)
+        onCollectionImportee?.invoke(collection, aEcrire.size, items.size - aEcrire.size)
         Log.d(logTag, "✅ $collection : ${items.size} fiches (${items.size - aEcrire.size} gardées en local)")
     }
 

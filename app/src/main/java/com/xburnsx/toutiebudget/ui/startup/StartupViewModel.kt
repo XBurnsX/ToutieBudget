@@ -32,11 +32,19 @@ class StartupViewModel : ViewModel() {
     private val _state = MutableStateFlow<StartupState>(StartupState.Loading)
     val state: StateFlow<StartupState> = _state.asStateFlow()
 
+    /** LD13/LDA2 : serveur, session et synchronisation, montrés séparément. */
+    private val _diagnostic = MutableStateFlow<DiagnosticDemarrage?>(null)
+    val diagnostic: StateFlow<DiagnosticDemarrage?> = _diagnostic.asStateFlow()
+    @Volatile private var verificationEnCours = false
+
     /**
      * Lance la vérification des conditions de démarrage avec le contexte Android
      * 🆕 MODE HORS LIGNE : L'app s'ouvre même sans connexion serveur
      */
     fun checkStartupConditions(context: Context) {
+        // LD14 : une seule vérification à la fois (rotation, retour, double appui)
+        if (verificationEnCours) return
+        verificationEnCours = true
         viewModelScope.launch {
             try {
                 // 🚀 Vérification des conditions de démarrage...
@@ -62,6 +70,21 @@ class StartupViewModel : ViewModel() {
                     serverHealthy = false
                 }
                 
+                // LD6 : un jeton sauvegardé n'est pas une session valide ; le serveur la confirme
+                val etatSession = when {
+                    !isUserAuthenticated -> PocketBaseClient.EtatSession.ABSENTE
+                    serverHealthy -> PocketBaseClient.verifierSession(context)
+                    else -> PocketBaseClient.EtatSession.INVERIFIABLE
+                }
+                _diagnostic.value = runCatching {
+                    DiagnosticDemarrage.construire(context, serverHealthy, etatSession)
+                }.getOrNull()
+                if (etatSession == PocketBaseClient.EtatSession.EXPIREE) {
+                    MotifReconnexion.definir("Ta session a expiré. Reconnecte-toi : tes données sur l'appareil sont conservées.")
+                    _state.value = StartupState.UserNotAuthenticated
+                    return@launch
+                }
+
                 // 4. Logique de décision avec support hors ligne
                 when {
                     // 🎯 CAS 1 : Serveur accessible + utilisateur connecté
@@ -110,6 +133,8 @@ class StartupViewModel : ViewModel() {
                 } catch (_: Exception) {
                     _state.value = StartupState.ServerError
                 }
+            } finally {
+                verificationEnCours = false
             }
         }
     }

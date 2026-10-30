@@ -101,7 +101,8 @@ fun AppNavigation() {
         ) {
             // Écran de vérification du serveur au démarrage
             composable("startup_check") {
-                val startupViewModel = AppModule.provideStartupViewModel()
+                // LD20 : le même ViewModel survit à la rotation et au retour (pas de double vérification)
+                val startupViewModel = composeViewModel { AppModule.provideStartupViewModel() }
                 StartupScreen(
                     viewModel = startupViewModel,
                     onNavigateToLogin = {
@@ -133,7 +134,8 @@ fun AppNavigation() {
             }
 
             composable("login_flow") {
-                val loginViewModel = AppModule.provideLoginViewModel()
+                // LD20 : la connexion en cours survit à la rotation et au retour de l'activité Google
+                val loginViewModel = composeViewModel { AppModule.provideLoginViewModel() }
                 val scope = rememberCoroutineScope()
                 LoginScreen(
                     viewModel = loginViewModel,

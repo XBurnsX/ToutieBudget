@@ -56,6 +56,10 @@ fun EtatDonneesCarte() {
 
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("État des données", color = Color.White, fontWeight = FontWeight.Bold)
+        // LDA1 : quel compte ToutieBudget est ouvert (appareil partagé)
+        com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.email?.let {
+            Text("Compte ouvert : $it", color = Color.LightGray, fontSize = 13.sp)
+        }
         Text(
             if (enLigne) "Mode : en ligne" else "Mode : hors ligne (tout est gardé sur l'appareil)",
             color = if (enLigne) Color(0xFF81C784) else Color(0xFFFFB74D), fontSize = 13.sp

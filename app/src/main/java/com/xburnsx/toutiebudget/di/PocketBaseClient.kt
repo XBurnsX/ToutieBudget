@@ -188,8 +188,7 @@ object PocketBaseClient {
                 } else {
                     // Analyse détaillée de l'erreur
                     val messageErreur = analyserErreurServeur(reponse.code, corpsReponse)
-                    Log.e("PocketBaseClient", "❌ Erreur serveur - Code: ${reponse.code}, Message: $messageErreur")
-                    Log.e("PocketBaseClient", "❌ Réponse complète: $corpsReponse")
+                    Log.e("PocketBaseClient", "Échec d'authentification PocketBase (HTTP ${reponse.code})")
                     
                     Result.failure(Exception(messageErreur))
                 }
@@ -217,9 +216,7 @@ object PocketBaseClient {
                 UrlResolver.invaliderCache()
                 Result.failure(Exception("Connexion refusée par le serveur. Vérifiez que PocketBase est démarré."))
             } catch (e: IOException) {
-                Log.e("PocketBaseClient", "❌ Erreur IO: ${e.message}", e)
-                Log.e("PocketBaseClient", "❌ Type d'exception: ${e.javaClass.simpleName}")
-                Log.e("PocketBaseClient", "❌ Stack trace: ${e.stackTraceToString()}")
+                Log.e("PocketBaseClient", "Erreur réseau pendant l'authentification (${e.javaClass.simpleName})")
                 UrlResolver.invaliderCache()
                 
                 val messageErreur = when {
@@ -231,15 +228,13 @@ object PocketBaseClient {
                         "Connexion refusée par le serveur. Vérifiez que PocketBase est démarré."
                     e.message?.contains("SSL", ignoreCase = true) == true ->
                         "Erreur de certificat SSL. Vérifiez que le certificat du serveur est valide."
-                    else -> "Erreur réseau. Le serveur est-il accessible à ${UrlResolver.obtenirUrlActuelle()}? Message: ${e.message}"
+                    else -> "Erreur réseau : le serveur ToutieBudget est injoignable pour le moment."
                 }
                 
                 Result.failure(Exception(messageErreur))
             } catch (e: Exception) {
-                Log.e("PocketBaseClient", "❌ Erreur inattendue: ${e.message}", e)
-                Log.e("PocketBaseClient", "❌ Type d'exception: ${e.javaClass.simpleName}")
-                Log.e("PocketBaseClient", "❌ Stack trace: ${e.stackTraceToString()}")
-                Result.failure(Exception("Erreur inattendue: ${e.message}"))
+                Log.e("PocketBaseClient", "Erreur inattendue pendant l'authentification (${e.javaClass.simpleName})")
+                Result.failure(Exception("Connexion impossible pour une raison inattendue. Réessaie dans un instant."))
             }
         }
 
@@ -265,7 +260,48 @@ object PocketBaseClient {
             403 -> "Accès refusé. Vérifiez les permissions de votre compte Google."
             404 -> "Endpoint OAuth2 introuvable. Vérifiez la configuration PocketBase."
             500 -> "Erreur serveur interne. Contactez l'administrateur."
-            else -> "Erreur serveur (code $code): $corpsReponse"
+            // LD17 : jamais le contenu brut de la réponse (peut contenir des détails internes)
+            else -> "Le serveur a refusé la connexion (code $code). Réessaie dans un instant."
+        }
+    }
+
+    /** LD6/LD13 : état réel de la session, distinct de l'accessibilité du serveur. */
+    enum class EtatSession { VALIDE, EXPIREE, INVERIFIABLE, ABSENTE }
+
+    /**
+     * LD6 : un jeton sauvegardé n'est pas une session valide. On demande au serveur de le renouveler :
+     * 200 = session valide (jeton rafraîchi et sauvegardé), 401/403 = expirée ou révoquée (jeton effacé,
+     * données de l'appareil conservées), réseau = invérifiable (le mode hors ligne reste permis).
+     */
+    suspend fun verifierSession(context: Context): EtatSession = withContext(Dispatchers.IO) {
+        val jeton = tokenAuthentification ?: return@withContext EtatSession.ABSENTE
+        try {
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val requete = Request.Builder()
+                .url("${urlBase.trimEnd('/')}/api/collections/users/auth-refresh")
+                .post(ByteArray(0).toRequestBody(null))
+                .addHeader("Authorization", "Bearer $jeton")
+                .build()
+            client.newCall(requete).execute().use { r ->
+                when {
+                    r.isSuccessful -> {
+                        runCatching {
+                            val reponse = gson.fromJson(r.body?.string(), ReponseAuthentification::class.java)
+                            reponse?.token?.takeIf { it.isNotBlank() }?.let { sauvegarderToken(context, it) }
+                        }
+                        EtatSession.VALIDE
+                    }
+                    r.code == 401 || r.code == 403 -> {
+                        // Seul le jeton est oublié : Room, la file de synchro et les préférences restent
+                        tokenAuthentification = null
+                        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_TOKEN_CHIFFRE).remove(KEY_TOKEN).apply()
+                        EtatSession.EXPIREE
+                    }
+                    else -> EtatSession.INVERIFIABLE
+                }
+            }
+        } catch (_: Exception) {
+            EtatSession.INVERIFIABLE
         }
     }
 

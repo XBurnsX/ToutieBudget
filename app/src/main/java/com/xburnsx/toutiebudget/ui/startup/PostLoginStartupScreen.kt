@@ -85,6 +85,8 @@ fun PostLoginStartupScreen(
     var donneesLocalesDisponibles by remember { mutableStateOf(false) }
     var tentativeImport by remember { mutableIntStateOf(0) }
     var navigationFaite by remember { mutableStateOf(false) }
+    // LD18 : étapes réellement terminées, avec ce qui vient du serveur et ce qui reste de l'appareil
+    var etapesFaites by remember { mutableStateOf(listOf<String>()) }
     val terminer = {
         // Un seul parcours de navigation, même en cas de double appui (LD14)
         if (!navigationFaite) {
@@ -114,6 +116,18 @@ fun PostLoginStartupScreen(
             }
 
             importService.onProgressUpdate = { step, _ -> currentStepState.value = step }
+            etapesFaites = emptyList()
+            importService.onCollectionImportee = { collection, recues, gardees ->
+                val nom = when (collection) {
+                    "comptes_cheques" -> "Comptes chèques"; "comptes_credits" -> "Cartes"; "comptes_dettes" -> "Dettes"
+                    "comptes_investissement" -> "Placements"; "categories" -> "Catégories"; "tiers" -> "Tiers"
+                    "pret_personnel" -> "Prêts"; "enveloppes" -> "Enveloppes"; "allocations_mensuelles" -> "Allocations"
+                    "transactions" -> "Transactions"; "historique_allocation" -> "Journal du budget"
+                    "alias_bancaires" -> "Alias bancaires"; "operations_bancaires_attente" -> "Opérations bancaires"
+                    else -> collection
+                }
+                etapesFaites = etapesFaites + ("✓ $nom : $recues du serveur" + if (gardees > 0) ", $gardees gardées de l'appareil" else "")
+            }
             val result = importService.importerDonneesInitiales()
 
             if (result.isSuccess) {
@@ -202,6 +216,9 @@ fun PostLoginStartupScreen(
                     color = Color.White.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center
                 )
+                etapesFaites.takeLast(6).forEach { etape ->
+                    Text(etape, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), textAlign = TextAlign.Center)
+                }
             } else {
                 Text(
                     text = erreur,

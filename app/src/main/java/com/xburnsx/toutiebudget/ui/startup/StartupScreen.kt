@@ -59,6 +59,7 @@ fun StartupScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
+    val diagnostic by viewModel.diagnostic.collectAsState()
 
     // Lancer la vérification au premier affichage
     LaunchedEffect(Unit) {
@@ -78,8 +79,7 @@ fun StartupScreen(
                 onShowServerError()
             }
             is StartupState.OfflineMode -> {
-                // 🆕 NOUVEAU : Navigation vers le mode hors ligne
-                onNavigateToOfflineMode()
+                // LD12 : l'utilisateur confirme « Continuer avec les données locales » (bouton ci-dessous)
             }
             is StartupState.Loading -> {
                 // Rester sur l'écran de chargement
@@ -213,6 +213,7 @@ fun StartupScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 32.dp)
                     )
+                    diagnostic?.let { DiagnosticCompact(it) }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -267,12 +268,14 @@ fun StartupScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Vos données locales sont disponibles. La synchronisation se fera automatiquement quand internet reviendra.",
+                        text = "Tu travailles sur les données de cet appareil. Tes changements sont gardés ici et " +
+                            "partiront automatiquement au retour d'Internet ; rien n'est encore confirmé par le serveur.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 32.dp)
                     )
+                    diagnostic?.let { DiagnosticCompact(it) }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -288,7 +291,7 @@ fun StartupScreen(
                         modifier = Modifier.padding(horizontal = 48.dp)
                     ) {
                         Text(
-                            text = "Continuer hors ligne",
+                            text = "Continuer avec les données locales",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = Color.White
@@ -334,6 +337,24 @@ fun StartupScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/** LDA1/LDA2/LDA4/LDA5 : état compact — compte ouvert, serveur, session, synchro et problèmes réels. */
+@Composable
+private fun DiagnosticCompact(d: DiagnosticDemarrage) {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        d.compte?.let {
+            Text("Compte ouvert : $it", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+        }
+        Text("${d.serveur} • ${d.session}", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+        Text(d.synchro, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+        d.problemes.forEach {
+            Text("• $it", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB74D), textAlign = TextAlign.Center)
         }
     }
 }
