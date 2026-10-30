@@ -220,6 +220,17 @@ fun SyncJobScreen(
                                 Text("Comparer avec le serveur", color = Color.White)
                             }
                         }
+                        // « Synchroniser maintenant » saute les tâches bloquées : une fois la cause
+                        // corrigée (ex. collection créée sur le serveur), les relancer toutes d'un coup.
+                        if (bloquees + aReessayer > 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { syncJobViewModel.retryFailedJobs() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Réessayer les ${bloquees + aReessayer} tâche(s) en échec")
+                            }
+                        }
                         // SJA5 : comparaison Room ↔ PocketBase, lecture seule
                         comparaison?.let {
                             Spacer(modifier = Modifier.height(8.dp))

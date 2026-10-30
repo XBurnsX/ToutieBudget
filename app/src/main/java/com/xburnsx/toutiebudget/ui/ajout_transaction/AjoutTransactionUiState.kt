@@ -33,6 +33,8 @@ data class AjoutTransactionUiState(
     val messageConfirmation: String? = null,
     /** AA5 : état réel des SyncJobs créés pendant la dernière écriture. */
     val statutSynchronisation: StatutSynchronisationEcriture? = null,
+    /** Tâche en échec et erreur renvoyée par PocketBase (jamais les données envoyées). */
+    val detailSynchronisation: String? = null,
     val detteSoldee: Boolean = false,
     
     // --- Modes et types de transaction ---

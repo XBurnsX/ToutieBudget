@@ -65,6 +65,9 @@ class AjoutTransactionViewModel(
     private var allEnveloppes: List<Enveloppe> = emptyList()
     private var allAllocations: List<AllocationMensuelle> = emptyList()
     private var generationEnveloppes = 0L
+    // Rechargement complet (celui qui affiche la roue) : son propre compteur, pour qu'un
+    // rechargement des enveloppes seules ne l'annule jamais en laissant la roue tourner.
+    private var generationComplete = 0L
     private var allCategories: List<Categorie> = emptyList()
     private var allTiers: List<Tiers> = emptyList()
     /** AT21 : allocations du mois impossibles à lire (différent de « 0 $ »). */
@@ -114,7 +117,7 @@ class AjoutTransactionViewModel(
      * Charge toutes les données nécessaires au démarrage de l'écran.
      */
     private fun chargerDonneesInitiales() {
-        val generation = ++generationEnveloppes
+        val generation = ++generationComplete
         val dateDemandee = _uiState.value.dateTransaction
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, messageErreur = null) }
@@ -128,8 +131,14 @@ class AjoutTransactionViewModel(
 
                 // AT6 : les allocations du mois de la date choisie (pas toujours le mois courant)
                 val resultAllocations = enveloppeRepository.recupererAllocationsParMois(premierJourDuMois(dateDemandee))
-                if (generation != generationEnveloppes || _uiState.value.dateTransaction != dateDemandee) return@launch
-                
+                // Un rechargement complet plus récent prend la relève (il enlèvera la roue)
+                if (generation != generationComplete) return@launch
+                // Date changée pendant la lecture : relire pour le bon mois, sans laisser la roue en plan
+                if (_uiState.value.dateTransaction != dateDemandee) {
+                    chargerDonneesInitiales()
+                    return@launch
+                }
+
                 // Vérifier les erreurs
                 if (resultComptes.isFailure) {
                     throw Exception("Erreur lors du chargement des comptes: ${resultComptes.exceptionOrNull()?.message}")
@@ -189,10 +198,10 @@ class AjoutTransactionViewModel(
                 }
                 
             } catch (e: Exception) {
-                if (generation != generationEnveloppes) return@launch
+                if (generation != generationComplete) return@launch
                 allocationsIndisponibles = true
                 val messageErreur = when {
-                    e.message?.contains("failed to connect", ignoreCase = true) == true -> 
+                    e.message?.contains("failed to connect", ignoreCase = true) == true ->
                         "Impossible de se connecter au serveur. Vérifiez votre connexion réseau et que PocketBase est démarré."
                     e.message?.contains("timeout", ignoreCase = true) == true -> 
                         "Délai d'attente dépassé. Le serveur ne répond pas dans les délais."
@@ -1581,13 +1590,18 @@ class AjoutTransactionViewModel(
         val jobsSuivis = jobs.filter { it.id in ids }
         val statut = if (ids.isEmpty()) StatutSynchronisationEcriture.ENREGISTREE_LOCALEMENT
             else determinerStatutSynchronisation(jobsSuivis, 0L)
+        val enEchec = jobsSuivis.filter { it.status == "FAILED" || it.bloque }
+        val detail = enEchec.takeIf { it.isNotEmpty() }?.joinToString(" · ") { job ->
+            "${job.type} ${job.action} : ${job.derniereErreur ?: "erreur inconnue"}"
+        }
         _uiState.update { courant ->
             // Un COMPLETED observé reste une preuve si PocketBase nettoie
             // ensuite ses tâches. Les autres jobs ne changent jamais ce statut.
             val confirmeAvant = courant.statutSynchronisation == StatutSynchronisationEcriture.SYNCHRONISEE
             courant.copy(
                 statutSynchronisation = if (confirmeAvant && jobsSuivis.isEmpty())
-                    StatutSynchronisationEcriture.SYNCHRONISEE else statut
+                    StatutSynchronisationEcriture.SYNCHRONISEE else statut,
+                detailSynchronisation = detail
             )
         }
     }

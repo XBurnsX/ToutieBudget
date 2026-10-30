@@ -712,6 +712,14 @@ fun AjoutTransactionScreen(
                                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
                                     )
                                 }
+                                // Quelle tâche a échoué et pourquoi (message de PocketBase)
+                                uiState.detailSynchronisation?.let { detail ->
+                                    Text(
+                                        text = detail,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                                    )
+                                }
                             }
                         }
                     }

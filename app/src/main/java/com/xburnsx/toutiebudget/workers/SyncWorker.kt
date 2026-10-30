@@ -134,6 +134,9 @@ class SyncWorker(
 
                 if (fiche != null) fichesEnAttente += fiche
                 val bloquee = estErreurPermanente(resultat.code, tache.action)
+                // Diagnostic : type, action, code et message de PocketBase seulement (jamais les données)
+                Log.w(TAG, "Tâche refusée ${tache.type} ${tache.action} (${tache.recordId.ifBlank { "?" }}) : " +
+                    "${resultat.message ?: "erreur inconnue"}" + if (bloquee) " [bloquée]" else " [réessai prévu]")
                 syncJobDao.enregistrerEssai(
                     tache.id, "FAILED", resultat.message ?: "Erreur inconnue", resultat.code, maintenant, bloquee
                 )
