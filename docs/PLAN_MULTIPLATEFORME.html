@@ -205,13 +205,13 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 <div class="tableau"><table>
 <tr><th>Élément</th><th>Valeur</th></tr>
 <tr><td>URL</td><td><code>https://pocketbase.toutieserver.com</code></td></tr>
-<tr><td>Hébergement</td><td><strong>À confirmer</strong> : conteneur Docker nommé <code>pocketbase</code> sur l'hôte appelé <code>Cloud</code> (adresse locale <code>192.168.50.24</code>). Valeurs rapportées par l'utilisateur, pas encore inspectées par une IA.</td></tr>
-<tr><td>Données</td><td><strong>À confirmer</strong> : hôte <code>/home/xburnsx/configs/pocketbase</code> monté sur <code>/pb_data</code> (sortie de <code>docker inspect</code> collée par l'utilisateur le 2026-10-30)</td></tr>
-<tr><td>Migrations</td><td><strong>À confirmer</strong> : lues dans <code>/pb_migrations</code> du conteneur (non monté ; copiées avec <code>docker cp</code> le 2026-10-30)</td></tr>
-<tr><td>Hooks</td><td><strong>À confirmer</strong> : aucun (dossier <code>/pb_hooks</code> non monté)</td></tr>
-<tr><td>Règle</td><td>Tout chemin, nom d'hôte ou nom de conteneur de cette table reste « à confirmer » tant que l'accès SSH à <code>192.168.50.24</code> n'a pas permis d'inspecter réellement le conteneur (décision D-6b.0). Aucune commande serveur ne s'appuie sur ces valeurs avant.</td></tr>
-<tr><td>Version PocketBase</td><td>≥ 0.23 (API realtime SSE + <code>new Collection({fields})</code> utilisée par les migrations). Version exacte à relever à l'étape 6b (décision D-6b.1).</td></tr>
-<tr><td>Migrations du dépôt</td><td><code>pb_migrations/</code> : 1793188800 à 1793188804 seulement. Les collections de base (comptes, enveloppes, allocations, transactions, tiers, catégories, prêts, user_preferences) ont été créées à la main : <strong>aucune migration de base</strong>.</td></tr>
+<tr><td>Hôte</td><td><code>192.168.50.24</code> (nom <code>Cloud</code>), accès SSH. <em>Inspecté par Codex le 2026-10-30.</em></td></tr>
+<tr><td>Conteneur</td><td><code>pocketbase</code>, image <code>ghcr.io/muchobien/pocketbase:latest</code> (non figée : à figer, voir D-6b.1), lancé par Docker Compose depuis <code>/home/xburnsx/Cloud.yml</code>.</td></tr>
+<tr><td>Données</td><td>Seul montage persistant : <code>/home/xburnsx/configs/pocketbase:/pb_data</code>.</td></tr>
+<tr><td>Migrations</td><td><code>/pb_migrations</code> est <strong>interne</strong> au conteneur (non monté : perdu si le conteneur est recréé). Il contient <strong>19 migrations</strong>.</td></tr>
+<tr><td>Hooks</td><td><code>/pb_hooks</code> n'existe pas.</td></tr>
+<tr><td>Version PocketBase</td><td><code>0.36.1</code> (D-6b.1).</td></tr>
+<tr><td>Migrations du dépôt</td><td><code>pb_migrations/</code> : seulement 5 (1793188800 à 1793188804). Le serveur en a 19 : <strong>le dépôt ne reproduit pas la production</strong> tant que les 19 n'y sont pas (étape 6b.2).</td></tr>
 <tr><td>Collections synchronisées par l'app</td><td>comptes_cheques, comptes_credits, comptes_dettes, comptes_investissement, categories, enveloppes, allocations_mensuelles, transactions, tiers, alias_bancaires, operations_bancaires_attente, pret_personnel, historique_allocation (+ user_preferences)</td></tr>
 <tr><td>Propriétaire</td><td>Champ <code>utilisateur_id</code> (relation vers <code>users</code>) ; règles « chacun ses fiches » (migration 1793188803)</td></tr>
 <tr><td>Script existant</td><td><code>migrer-pocketbase.ps1</code> (ajout de champs par l'API admin)</td></tr>
@@ -226,7 +226,7 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 ├── app\                    Android (Kotlin, Compose, Room, WorkManager) — adaptation Android
 ├── contrat\
 │   └── command_contract.json   Contrat des commandes, source unique lue par Kotlin ET par les hooks (étape 7)
-├── shared\                 Kotlin Multiplatform (cibles android + jvm + wasmJs) — règles communes, PURES
+├── shared\                 Kotlin Multiplatform (cibles android + jvm + js + wasmJs) — règles communes, PURES
 │   └── src\
 │       ├── commonMain\kotlin\com\xburnsx\toutiebudget\shared\
 │       │   ├── argent\         Montant (cents), Taux, ArrondiMonetaire
@@ -245,8 +245,8 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 │       ├── commonTest\kotlin\...   tests financiers partagés
 │       ├── androidMain\kotlin\...  adaptateurs Android minimes (si nécessaire)
 │       ├── jvmMain\kotlin\...      adaptateurs JVM minimes (tests rapides seulement)
-│       └── wasmJsMain\kotlin\...   adaptateurs web minimes (si nécessaire)
-├── webApp\                 Compose Multiplatform (cible wasmJs) — adaptation navigateur
+│       └── webMain\kotlin\...      adaptateurs web minimes communs à js et wasmJs (si nécessaire)
+├── webApp\                 Compose Multiplatform (cibles js + wasmJs) — adaptation navigateur
 ├── pocketbase\
 │   ├── pb_migrations\      (déplacé depuis pb_migrations\ à l'étape 6b)
 │   ├── pb_hooks\           commandes financières transactionnelles (étape 8)
@@ -316,17 +316,18 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 <p>À remplir pendant les étapes indiquées. Une décision remplie est figée ; la changer exige l'accord de l'utilisateur.</p>
 <div class="tableau"><table>
 <tr><th>Id</th><th>Question</th><th>Règle pour décider</th><th>Valeur retenue</th><th>Source / date</th></tr>
-<tr><td>D-0.1</td><td>Version de Kotlin</td><td>La dernière version <strong>stable</strong> de Kotlin 2.x compatible à la fois avec l'AGP du projet et avec une version stable de Compose Multiplatform qui supporte la cible <code>wasmJs</code>. Sources : <a href="https://kotlinlang.org/docs/releases.html">kotlinlang.org/docs/releases.html</a>, <a href="https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html">compatibilité Compose Multiplatform</a>, <a href="https://developer.android.com/build/kotlin-support">compatibilité AGP/Kotlin</a>.</td><td>—</td><td>—</td></tr>
+<tr><td>D-0.1</td><td>Version de Kotlin</td><td>La dernière version <strong>stable</strong> de Kotlin 2.x compatible à la fois avec l'AGP du projet et avec une version stable de Compose Multiplatform qui supporte les cibles <code>js</code> et <code>wasmJs</code> et la tâche <code>composeCompatibilityBrowserDistribution</code>. Sources : <a href="https://kotlinlang.org/docs/releases.html">kotlinlang.org/docs/releases.html</a>, <a href="https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html">compatibilité Compose Multiplatform</a>, <a href="https://developer.android.com/build/kotlin-support">compatibilité AGP/Kotlin</a>.</td><td>—</td><td>—</td></tr>
 <tr><td>D-0.2</td><td>Version d'AGP</td><td>Garder 8.10.1 si compatible avec D-0.1 ; sinon la plus petite version stable compatible.</td><td>—</td><td>—</td></tr>
 <tr><td>D-0.3</td><td>Version de Compose Multiplatform (plugin <code>org.jetbrains.compose</code>)</td><td>La version stable compatible avec D-0.1 (utilisée seulement à partir de l'étape 10).</td><td>—</td><td>—</td></tr>
-<tr><td>D-1.1</td><td>Version d'AGP pour le plugin <code>com.android.kotlin.multiplatform.library</code></td><td>Version minimale exigée par la <a href="https://developer.android.com/kotlin/multiplatform/plugin">documentation officielle du plugin</a>. Si elle dépasse D-0.2, monter AGP <strong>à l'étape 0</strong> (jamais à l'étape 1) et le noter ici.</td><td>—</td><td>—</td></tr>
-<tr><td>D-2.1</td><td>Versions <code>kotlinx-datetime</code>, <code>kotlinx-serialization-json</code>, <code>kotlinx-coroutines-core</code></td><td>Dernières stables compatibles avec D-0.1 et avec la cible wasmJs.</td><td>—</td><td>—</td></tr>
-<tr><td>D-6b.0</td><td>Accès au serveur et valeurs réelles de la section 1.4</td><td>Accès SSH à <code>192.168.50.24</code> fonctionnel ; l'utilisateur (ou l'IA, s'il l'autorise) lance <code>docker ps</code>, <code>docker inspect pocketbase</code> et note le nom réel du conteneur, les montages et l'image. La section 1.4 est alors corrigée et ses « à confirmer » retirés.</td><td>—</td><td>—</td></tr>
-<tr><td>D-6b.1</td><td>Version exacte de PocketBase</td><td>Relevée par l'utilisateur : <code>docker exec pocketbase ls /</code> puis la commande de version du binaire trouvé (ex. <code>docker exec pocketbase /pb/pocketbase --version</code>).</td><td>—</td><td>—</td></tr>
-<tr><td>D-6b.2</td><td>Mode de lancement du conteneur</td><td>Fichier <code>docker-compose.yml</code> ou commande <code>docker run</code> fournie par l'utilisateur.</td><td>—</td><td>—</td></tr>
+<tr><td>D-1.1</td><td>Version d'AGP pour le plugin <code>com.android.kotlin.multiplatform.library</code></td><td>Version minimale exigée par la <a href="https://developer.android.com/kotlin/multiplatform/plugin">documentation officielle du plugin</a>. Si elle dépasse D-0.2, monter AGP <strong>à l'étape 0</strong> (jamais à l'étape 1) et le noter ici.</td><td>AGP 8.10.1 (actuel) suffit : aucune montée requise pour ce plugin</td><td>Revue Codex, documentation Android, 2026-10-30</td></tr>
+<tr><td>D-2.1</td><td>Versions <code>kotlinx-datetime</code>, <code>kotlinx-serialization-json</code>, <code>kotlinx-coroutines-core</code></td><td>Dernières stables compatibles avec D-0.1 et avec les cibles js et wasmJs.</td><td>—</td><td>—</td></tr>
+<tr><td>D-6b.0</td><td>Accès au serveur et valeurs réelles de la section 1.4</td><td>Inspection réelle du conteneur par SSH.</td><td>Fait : valeurs de la section 1.4</td><td>Inspection Codex, 2026-10-30</td></tr>
+<tr><td>D-6b.1</td><td>Version exacte de PocketBase (et de l'image à figer)</td><td>Version en production au moment de l'inspection.</td><td><code>0.36.1</code> ; image à figer : <code>ghcr.io/muchobien/pocketbase:0.36.1</code> (au lieu de <code>:latest</code>)</td><td>Inspection Codex, 2026-10-30</td></tr>
+<tr><td>D-6b.2</td><td>Mode de lancement du conteneur</td><td>Fichier de lancement réel.</td><td>Docker Compose : <code>/home/xburnsx/Cloud.yml</code></td><td>Inspection Codex, 2026-10-30</td></tr>
 <tr><td>D-6b.3</td><td>Date de coupure (<code>cutoverAt</code>) par utilisateur</td><td>Choisie par l'utilisateur à l'étape 9.6, un 1er du mois à 00:00 America/Toronto.</td><td>—</td><td>—</td></tr>
 <tr><td>D-7.1</td><td>Version du contrat des commandes</td><td>Entier, commence à 1 ; +1 à chaque changement de <code>contrat/command_contract.json</code>.</td><td>1 (à la création)</td><td>—</td></tr>
 <tr><td>D-10.1</td><td>Domaine du site web</td><td>Choisi par l'utilisateur (ex. <code>budget.toutieserver.com</code>).</td><td>—</td><td>—</td></tr>
+<tr><td>D-10.3</td><td>Dossier de sortie de <code>composeCompatibilityBrowserDistribution</code></td><td>Celui affiché par la tâche lors du premier build.</td><td>—</td><td>—</td></tr>
 <tr><td>D-10.2</td><td>Hébergement du web</td><td>Conteneur nginx sur l'hôte <code>Cloud</code> servant les fichiers statiques (proposition), confirmé par l'utilisateur.</td><td>—</td><td>—</td></tr>
 </table></div>
 
@@ -399,7 +400,7 @@ Co-Authored-By: &lt;ligne d'attribution de l'IA qui commite&gt;</code></pre>
 <section class="etape">
 <h2 id="e1">Étape 1 — Créer le module <code>shared</code> vide</h2>
 <h4>Objectif</h4>
-<p>Un module Kotlin Multiplatform <code>:shared</code> avec trois cibles : <strong>Android</strong> (consommée par <code>app</code>), <code>jvm</code> (tests rapides seulement) et <code>wasmJs</code> (web), sans aucun code métier. <code>app</code> consomme la <strong>variante Android</strong> de <code>shared</code>, jamais la variante JVM.</p>
+<p>Un module Kotlin Multiplatform <code>:shared</code> avec quatre cibles : <strong>Android</strong> (consommée par <code>app</code>), <code>jvm</code> (tests rapides seulement), <code>js</code> et <code>wasmJs</code> (web : <code>wasmJs</code> pour les navigateurs récents, <code>js</code> en repli pour les autres, car Compose pour le web en Wasm est encore en bêta), sans aucun code métier. <code>app</code> consomme la <strong>variante Android</strong> de <code>shared</code>, jamais la variante JVM.</p>
 <h4>Préalable</h4>
 <ul><li>D-1.1 remplie et satisfaite par l'AGP en place après l'étape 0.</li></ul>
 <h4>Fichiers</h4>
@@ -430,6 +431,7 @@ kotlin {
     jvm {
         compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
     }
+    js { browser() }
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
@@ -440,16 +442,16 @@ kotlin {
 }</code></pre>
 <div class="note">Le nom exact du bloc (<code>androidLibrary</code>) et de ses propriétés suit la <a href="https://developer.android.com/kotlin/multiplatform/plugin">documentation officielle du plugin</a> pour l'AGP retenu (D-1.1). Si la documentation de cette version donne un autre nom, utiliser celui de la documentation et le noter dans le commit. Ne pas revenir à une consommation de la variante <code>jvm</code> par <code>app</code>.</div>
 <h4>Vérification</h4>
-<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinWasmJs -q
+<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinJs :shared:compileKotlinWasmJs -q
 ./gradlew :shared:assemble -q                      # produit aussi la variante Android
 ./gradlew :app:compileReleaseKotlin :app:compileDebugUnitTestKotlin -q
 ./gradlew :app:testDebugUnitTest -q
 ./gradlew :app:dependencies --configuration releaseRuntimeClasspath | grep -i shared   # doit montrer project :shared (variante Android)</code></pre>
-<p>Les tests communs s'exécutent sur la cible <code>jvm</code> (rapide, sans appareil). La cible <code>wasmJs</code> doit au minimum <strong>compiler</strong> ; ses tests navigateur ne sont pas exigés à cette étape.</p>
+<p>Les tests communs s'exécutent sur la cible <code>jvm</code> (rapide, sans appareil). Les cibles <code>js</code> et <code>wasmJs</code> doivent au minimum <strong>compiler</strong> ; leurs tests navigateur ne sont pas exigés à cette étape.</p>
 <h4>Critères de fin</h4>
 <ul><li>Tout compile sur les trois cibles ; <code>SharedBrancheTest</code> passe ; <code>app</code> consomme la variante Android ; aucun autre test ne change.</li></ul>
 <h4>Commit</h4>
-<pre><code>build(etape-1): module shared Kotlin Multiplatform (android, jvm, wasmJs) branche sur app</code></pre>
+<pre><code>build(etape-1): module shared Kotlin Multiplatform (android, jvm, js, wasmJs) branche sur app</code></pre>
 </section>
 
 <!-- ===================================================================== -->
@@ -497,7 +499,7 @@ value class Montant(val cents: Long) : Comparable&lt;Montant&gt; {
 <h4>Test de parité JVM (obligatoire)</h4>
 <p>Créer <code>shared/src/jvmTest/kotlin/com/xburnsx/toutiebudget/shared/argent/ArrondiParityJvmTest.kt</code> : pour 200 000 valeurs <code>Double</code> pseudo-aléatoires (graine fixe 42, plages −1e7..1e7 et −10..10 avec 0 à 6 décimales), <code>versCents</code> doit égaler <code>BigDecimal.valueOf(v).setScale(2, HALF_UP).movePointRight(2).longValueExact()</code>, et <code>versCentsSuperieur</code> le même avec <code>CEILING</code>.</p>
 <h4>Vérification</h4>
-<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinWasmJs -q
+<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinJs :shared:compileKotlinWasmJs -q
 ./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q</code></pre>
 <h4>Commit</h4>
 <pre><code>feat(etape-2): primitives communes (Montant, ArrondiMonetaire, Taux, dates, horloge, JSON, ids)</code></pre>
@@ -548,7 +550,7 @@ value class Montant(val cents: Long) : Comparable&lt;Montant&gt; {
 </table></div>
 <h4>Interdit</h4><ul><li>Modifier les appelants d'<code>app</code> (BudgetViewModel, etc.) : seul l'adaptateur change.</li></ul>
 <h4>Vérification</h4>
-<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinWasmJs -q
+<pre><code>./gradlew :shared:jvmTest :shared:compileKotlinJs :shared:compileKotlinWasmJs -q
 ./gradlew :app:compileReleaseKotlin :app:testDebugUnitTest -q    # ReferenceObjectifsTest, ObjectifCalculatorTest, BudgetViewModelTest inchangés et verts</code></pre>
 <h4>Commit</h4>
 <pre><code>refactor(etape-4): ObjectifCalculator et calendrier des objectifs dans shared (app = adaptateur)</code></pre>
@@ -621,14 +623,25 @@ value class Montant(val cents: Long) : Comparable&lt;Montant&gt; {
 
 <h3>6b.1 Préparer le serveur (fait par l'utilisateur, commandes fournies par l'IA)</h3>
 <ol>
-  <li>D-6b.0 : accès SSH à <code>192.168.50.24</code> et inspection réelle du conteneur ; corriger la section 1.4 avec les valeurs réelles.</li>
-  <li>Relever D-6b.1 (version PocketBase) et D-6b.2 (mode de lancement Docker).</li>
-  <li>Rendre persistants les dossiers de migrations et de hooks : créer sur l'hôte deux dossiers à côté du dossier de données réel trouvé en D-6b.0 (proposition : <code>…/configs/pb_migrations</code> et <code>…/configs/pb_hooks</code>), puis les monter sur <code>/pb_migrations</code> et <code>/pb_hooks</code> du conteneur (dans <code>docker-compose.yml</code> sous <code>volumes:</code>, ou en options <code>-v</code> de <code>docker run</code> selon D-6b.2), puis recréer le conteneur. L'IA écrit les lignes exactes une fois D-6b.0 et D-6b.2 connues ; jamais avant.</li>
-  <li>Copier les 5 migrations existantes dans le dossier de migrations monté (elles sont déjà appliquées : PocketBase ne les rejoue pas).</li>
+  <li>Sauvegarde de <code>/home/xburnsx/configs/pocketbase</code> confirmée par l'utilisateur.</li>
+  <li><strong>Récupérer d'abord les 19 migrations réelles</strong> (elles sont dans le conteneur et seraient perdues en le recréant) :
+<pre><code>mkdir -p /home/xburnsx/configs/pb_migrations /home/xburnsx/configs/pb_hooks
+docker cp pocketbase:/pb_migrations/. /home/xburnsx/configs/pb_migrations/
+ls /home/xburnsx/configs/pb_migrations | wc -l      # doit afficher 19</code></pre>
+    Si le compte n'est pas 19 : s'arrêter.</li>
+  <li>Dans <code>/home/xburnsx/Cloud.yml</code>, service <code>pocketbase</code> uniquement :
+    <ul>
+      <li>image : <code>ghcr.io/muchobien/pocketbase:latest</code> → <code>ghcr.io/muchobien/pocketbase:0.36.1</code> (D-6b.1) ;</li>
+      <li>sous <code>volumes:</code>, ajouter sans toucher la ligne existante <code>/home/xburnsx/configs/pocketbase:/pb_data</code> :<br><code>- /home/xburnsx/configs/pb_migrations:/pb_migrations</code><br><code>- /home/xburnsx/configs/pb_hooks:/pb_hooks</code></li>
+    </ul>
+    Montrer à l'IA le bloc du service avant et après la modification ; aucune autre ligne de <code>Cloud.yml</code> ne change.</li>
+  <li>Recréer seulement ce service : <code>docker compose -f /home/xburnsx/Cloud.yml up -d pocketbase</code>.</li>
+  <li>Vérifier : <code>docker inspect pocketbase</code> montre l'image <code>0.36.1</code> et les trois montages ; <code>docker logs pocketbase --tail 30</code> sans erreur ; l'app Android fonctionne (connexion, page Budget, une transaction) ; aucune migration n'a été rejouée (les 19 sont déjà notées dans <code>data.db</code>).</li>
 </ol>
 
 <h3>6b.2 Schéma de base dans le dépôt</h3>
 <ol>
+  <li>Copier les <strong>19</strong> fichiers de <code>/home/xburnsx/configs/pb_migrations</code> vers le dépôt (l'utilisateur les transfère ; l'IA vérifie le compte), en remplaçant le dossier actuel : le dépôt doit contenir exactement les 19 migrations de la production. Les 5 fichiers déjà présents dans le dépôt doivent être identiques à leur version serveur ; s'ils diffèrent, s'arrêter et montrer la différence.</li>
   <li><code>git mv pb_migrations pocketbase/pb_migrations</code>.</li>
   <li>L'utilisateur exporte le schéma : admin PocketBase → Settings → Export collections → copie du JSON. L'IA l'enregistre tel quel dans <code>pocketbase/schema/schema_2026-xx-xx.json</code> (référence en lecture, pas une migration).</li>
 </ol>
@@ -637,7 +650,7 @@ value class Montant(val cents: Long) : Comparable&lt;Montant&gt; {
 <p>Règles d'accès de toutes ces collections : <code>listRule</code>/<code>viewRule</code> = <code>@request.auth.id != "" &amp;&amp; utilisateur_id = @request.auth.id</code> ; <code>createRule</code>, <code>updateRule</code>, <code>deleteRule</code> = <code>null</code> (verrouillé : seules les routes de l'étape 8 écrivent). La migration vérifie l'existence avant de créer (comme les migrations actuelles).</p>
 <div class="tableau"><table>
 <tr><th>Collection</th><th>Champs (type)</th><th>Index</th></tr>
-<tr><td><code>journal_operations</code></td><td><code>utilisateur_id</code> (relation users, requis) ; <code>operation_id</code> (text 15, requis) ; <code>type</code> (text, requis, valeurs du contrat, étape 7) ; <code>contract_version</code> (number, requis) ; <code>enregistre_le</code> (autodate onCreate : instant UTC du serveur) ; <code>date_locale</code> (text <code>AAAA-MM-JJ</code>, requis, date financière choisie par l'utilisateur) ; <code>mois_budgetaire</code> (text <code>AAAA-MM</code>, requis, = mois de <code>date_locale</code>) ; <code>fuseau</code> (text, requis) ; <code>intention</code> (json, requis) ; <code>client</code> (text : <code>android</code>|<code>web</code>|<code>migration</code>) ; <code>version_app</code> (text) ; <code>updated</code> (autodate)</td><td>UNIQUE (<code>utilisateur_id</code>, <code>operation_id</code>) ; (<code>utilisateur_id</code>, <code>mois_budgetaire</code>)</td></tr>
+<tr><td><code>journal_operations</code></td><td><code>utilisateur_id</code> (relation users, requis) ; <code>operation_id</code> (text 15, requis) ; <code>type</code> (text, requis, valeurs du contrat, étape 7) ; <code>contract_version</code> (number, requis) ; <code>enregistre_le</code> (autodate onCreate : instant UTC du serveur) ; <code>date_locale</code> (text <code>AAAA-MM-JJ</code>, requis, date financière choisie par l'utilisateur) ; <code>mois_budgetaire</code> (text <code>AAAA-MM</code>, requis, = mois de <code>date_locale</code>) ; <code>fuseau</code> (text, requis) ; <code>intention</code> (json, requis) ; <code>client</code> (text : <code>android</code>|<code>web</code>|<code>migration</code>) ; <code>version_app</code> (text). Ne <strong>pas</strong> déclarer <code>created</code> ni <code>updated</code> : ce sont des champs fournis par PocketBase. Vérification sur le PocketBase de test 0.36.1 après la migration : la collection a bien <code>created</code> et <code>updated</code> ; s'ils manquaient, s'arrêter et le signaler (ne pas les ajouter sans accord).</td><td>UNIQUE (<code>utilisateur_id</code>, <code>operation_id</code>) ; (<code>utilisateur_id</code>, <code>mois_budgetaire</code>)</td></tr>
 <tr><td><code>journal_lignes</code></td><td><code>utilisateur_id</code> (relation) ; <code>operation</code> (relation <code>journal_operations</code>, requis) ; <code>registre</code> (text : <code>BANCAIRE</code>|<code>BUDGETAIRE</code>|<code>AUCUN</code>) ; <code>cible_collection</code> (text) ; <code>cible_id</code> (text 15) ; <code>champ</code> (text, liste fermée en 6b.4) ; <code>variation</code> (number, <strong>entier</strong>, requis) ; <code>unite</code> (text : <code>CENTS</code>|<code>COMPTEUR</code>, requis, doit être l'unité de ce champ en 6b.4) ; <code>revision_avant</code> (number) ; <code>revision_apres</code> (number)</td><td>(<code>utilisateur_id</code>, <code>cible_collection</code>, <code>cible_id</code>)</td></tr>
 <tr><td><code>etat_journal</code></td><td><code>utilisateur_id</code> (relation, requis, unique) ; <code>journal_schema_version</code> (number : 0 = ancien chemin, 1 = journal) ; <code>ecritures_bloquees</code> (bool, défaut false : fenêtre de maintenance, étape 9.6) ; <code>raison_blocage</code> (text) ; <code>cutover_at</code> (date) ; <code>date_coupure</code> (text) ; <code>fuseau</code> (text, défaut <code>America/Toronto</code>)</td><td>UNIQUE (<code>utilisateur_id</code>)</td></tr>
 </table></div>
@@ -877,12 +890,12 @@ Et pour tout utilisateur avec <code>ecritures_bloquees = true</code> : toute cr�
 <p>Route serveur : <code>pocketbase/pb_hooks/toutie_coupure.pb.js</code>, <code>POST /api/toutie/admin/coupure</code>, superuser seulement, avec trois actions : <code>bloquer</code>, <code>ouvrir</code>, <code>debloquer</code>. Écrite et testée (tests d'intégration de l'étape 8 étendus) avant la première coupure.</p>
 <ol>
   <li><strong>Version compatible partout</strong> : la version Android qui sait lire <code>etat_journal</code> et utiliser <code>ExecuteurCommandes</code> est installée sur <strong>tous</strong> les appareils de cet utilisateur (vérifié par l'utilisateur).</li>
+  <li><strong>Vider et comparer (écritures encore ouvertes)</strong> : sur chaque appareil, ouvrir l'app en ligne et attendre que la file <code>SyncJob</code> soit à 0 en attente et 0 en échec ; « Mettre à jour depuis le serveur » ; « Comparer avec le serveur » = tout cohérent. Puis l'utilisateur <strong>n'utilise plus l'app</strong> sur aucun appareil jusqu'à la fin de la procédure.</li>
   <li><strong>Bloquer</strong> : <code>action: "bloquer"</code> → <code>etat_journal.ecritures_bloquees = true</code>, raison « coupure ». Dès lors, aucune écriture de cet utilisateur n'est acceptée (423), par aucun chemin.</li>
-  <li><strong>Vider et comparer</strong> : sur chaque appareil, file <code>SyncJob</code> à 0 en attente et 0 en échec (une tâche refusée en 423 pendant le blocage est relancée après le déblocage, pas perdue) ; « Mettre à jour depuis le serveur » ; « Comparer avec le serveur » = tout cohérent.</li>
-  <li><strong>Sauvegarde et test de restauration</strong> : sauvegarde complète de PocketBase par l'utilisateur, puis restauration de cette sauvegarde dans un conteneur PocketBase de <strong>test</strong> et vérification qu'elle s'ouvre et contient les données. Sans ce test réussi, on débloque et on s'arrête.</li>
+  <li><strong>Vérification finale</strong> : sur chaque appareil, la file <code>SyncJob</code> est toujours à 0 (aucune tâche n'est arrivée entre l'étape 2 et le blocage) et « Comparer avec le serveur » est toujours cohérent. Si un seul appareil a une tâche en attente ou en échec (y compris refusée en 423) : <code>action: "debloquer"</code>, retour à l'étape 2. On ne crée jamais d'ouvertures avec une file non vide.</li>
+  <li><strong>Sauvegarde et test de restauration</strong> : sauvegarde complète de PocketBase par l'utilisateur, puis restauration de cette sauvegarde dans un conteneur PocketBase de <strong>test</strong> (même image <code>0.36.1</code>) et vérification qu'elle s'ouvre et contient les données. Sans ce test réussi : on débloque et on s'arrête.</li>
   <li><strong>Ouvrir</strong> : <code>action: "ouvrir"</code> → dans <strong>une seule transaction</strong> : création de toutes les ouvertures (6b.6) et passage à <code>journal_schema_version = 1</code> (le blocage reste actif). Idempotent : relancer ne crée rien de plus.</li>
-  <li><strong>Auditer</strong> : <code>/api/toutie/admin/audit</code> en <code>dry-run</code> → <strong>zéro écart</strong> exigé (ouvertures = projections). En cas d'écart : on ne débloque pas, on restaure la sauvegarde et on analyse.</li>
-  <li><strong>Vérifier la version</strong> : <code>etat_journal.journal_schema_version = 1</code> confirmé.</li>
+  <li><strong>Auditer</strong> : <code>/api/toutie/admin/audit</code> en <code>dry-run</code> → <strong>zéro écart</strong> exigé (ouvertures = projections) et <code>journal_schema_version = 1</code> confirmé. En cas d'écart : on ne débloque pas, on restaure la sauvegarde et on analyse.</li>
   <li><strong>Débloquer</strong> : <code>action: "debloquer"</code> → <code>ecritures_bloquees = false</code>. L'app lit <code>etat_journal</code> à la connexion : version 1 → toutes les écritures financières passent par <code>ExecuteurCommandes</code> ; l'ancien chemin <code>SyncJob</code> n'envoie plus aucun champ projeté ni aucune fiche projetée (il continue pour les champs non financiers : noms, couleurs, catégories, tiers…).</li>
 </ol>
 <p>Ordre : l'utilisateur principal d'abord, une semaine d'utilisation avec un audit <code>dry-run</code> par jour sans écart, puis sa conjointe.</p>
@@ -903,8 +916,8 @@ Et pour tout utilisateur avec <code>ecritures_bloquees = true</code> : toute cr�
 <h4>Préalables</h4><ul><li>Étape 9 terminée pour au moins un utilisateur. D-0.3, D-10.1, D-10.2 remplies.</li></ul>
 <h4>Module <code>webApp</code></h4>
 <ul>
-  <li><code>settings.gradle.kts</code> : <code>include(":webApp")</code>. <code>webApp/build.gradle.kts</code> : plugins <code>kotlin-multiplatform</code>, <code>org.jetbrains.compose</code> (D-0.3), <code>kotlin-compose</code> ; cible <code>wasmJs { browser { commonWebpackConfig { outputFileName = "toutiebudget.js" } }; binaries.executable() }</code> ; dépendance <code>project(":shared")</code>.</li>
-  <li>Structure : <code>webApp/src/wasmJsMain/kotlin/com/xburnsx/toutiebudget/web/</code> : <code>Main.kt</code>, <code>auth/</code>, <code>data/PocketBaseWeb.kt</code> (client HTTP fetch), <code>data/ProjectionWeb.kt</code>, <code>ui/ColonneComptes.kt</code>, <code>ui/TableauEnveloppes.kt</code>, <code>ui/SommaireMensuel.kt</code>, <code>ui/Theme.kt</code> ; <code>webApp/src/wasmJsMain/resources/index.html</code>.</li>
+  <li><code>settings.gradle.kts</code> : <code>include(":webApp")</code>. <code>webApp/build.gradle.kts</code> : plugins <code>kotlin-multiplatform</code>, <code>org.jetbrains.compose</code> (D-0.3), <code>kotlin-compose</code> ; cibles <code>js { browser(); binaries.executable() }</code> et <code>wasmJs { browser(); binaries.executable() }</code> ; dépendance <code>project(":shared")</code>. Le code de l'interface est dans un ensemble de sources commun aux deux cibles web (<code>webMain</code>), pas dans <code>wasmJsMain</code> seul.</li>
+  <li>Structure : <code>webApp/src/webMain/kotlin/com/xburnsx/toutiebudget/web/</code> : <code>Main.kt</code>, <code>auth/</code>, <code>data/PocketBaseWeb.kt</code> (client HTTP fetch), <code>data/ProjectionWeb.kt</code>, <code>ui/ColonneComptes.kt</code>, <code>ui/TableauEnveloppes.kt</code>, <code>ui/SommaireMensuel.kt</code>, <code>ui/Theme.kt</code> ; <code>webApp/src/webMain/resources/index.html</code>. Le nom exact de l'ensemble de sources commun aux cibles web suit la documentation de la version Kotlin D-0.1 ; s'il diffère de <code>webMain</code>, utiliser celui de la documentation et le noter dans le commit.</li>
 </ul>
 <h4>Authentification Google (flux OAuth2 PocketBase par redirection)</h4>
 <ol>
@@ -924,13 +937,14 @@ Et pour tout utilisateur avec <code>ecritures_bloquees = true</code> : toute cr�
   <li>Sélecteur de mois en haut. Lecture seule : aucun bouton d'écriture.</li>
 </ul>
 <h4>Déploiement (utilisateur)</h4>
-<pre><code>./gradlew :webApp:wasmJsBrowserDistribution
-# fichiers : webApp/build/dist/wasmJs/productionExecutable/</code></pre>
-<p>Servis par un conteneur nginx (D-10.2). Le serveur nginx doit servir <code>.wasm</code> en <code>application/wasm</code> et rediriger les routes inconnues vers <code>index.html</code> (pour <code>/auth/callback</code>). L'IA fournit le fichier de configuration nginx exact une fois D-10.1/D-10.2 remplies.</p>
+<pre><code>./gradlew :webApp:composeCompatibilityBrowserDistribution
+# un seul paquet : Wasm pour les navigateurs qui le gèrent, JS sinon (choix automatique au chargement)
+# dossier de sortie : celui affiché par la tâche ; le noter dans le registre (D-10.3)</code></pre>
+<p>Référence : <a href="https://kotlinlang.org/docs/multiplatform/build-and-run-kmp.html">documentation Kotlin Multiplatform, compilation et exécution</a>. Servis par un conteneur nginx (D-10.2). nginx doit servir <code>.wasm</code> en <code>application/wasm</code> et rediriger les routes inconnues vers <code>index.html</code> (pour <code>/auth/callback</code>). L'IA fournit le fichier de configuration nginx exact une fois D-10.1/D-10.2 remplies. Vérification par l'utilisateur : l'application s'ouvre dans un navigateur récent (Wasm) et dans un navigateur sans Wasm GC (repli JS).</p>
 <h4>Critères de fin</h4>
 <ul><li>Pour un même mois, chaque nombre affiché sur le web = celui d'Android (vérification par l'utilisateur sur 3 mois).</li></ul>
 <h4>Commits</h4>
-<pre><code>feat(etape-10): webApp Kotlin wasm en lecture (comptes, enveloppes, sommaire)
+<pre><code>feat(etape-10): webApp Kotlin (js + wasmJs) en lecture (comptes, enveloppes, sommaire)
 feat(etape-10): SommaireMensuel commun</code></pre>
 </section>
 
@@ -982,6 +996,14 @@ feat(etape-10): SommaireMensuel commun</code></pre>
   (7) Coupure = fenêtre de maintenance en 8 étapes avec <code>ecritures_bloquees</code>, test de restauration, ouvertures + version dans une transaction.
   (8) Route d'audit <code>dry-run</code>/<code>rebuild</code> créée et testée à l'étape 8, exigée avant toute coupure.
   Mineurs : contradiction « aucune collection modifiée » corrigée ; valeurs Docker/hôte marquées « à confirmer » (D-6b.0) ; jeton web : rafraîchissement, CSP stricte, aucune injection HTML.
+</td></tr>
+<tr><td>2026-10-30</td><td>3</td><td>Claude, d'après l'inspection du dépôt et du serveur par Codex</td><td>
+  (1) Section 1.4 remplie avec les valeurs réelles (hôte 192.168.50.24, image <code>ghcr.io/muchobien/pocketbase:latest</code>, lancement par <code>/home/xburnsx/Cloud.yml</code>, seul <code>/pb_data</code> persistant, <code>/pb_migrations</code> interne, pas de <code>/pb_hooks</code>, 19 migrations sur le serveur) ; D-6b.0, D-6b.1 (0.36.1), D-6b.2 remplies.
+  (2) 6b.1 : récupérer les 19 migrations du conteneur <strong>avant</strong> de le recréer ; figer l'image à <code>0.36.1</code> ; montages exacts dans <code>Cloud.yml</code>. 6b.2 : le dépôt reçoit les 19 migrations de la production.
+  (3) Coupure réordonnée : vider et comparer, puis bloquer, vérification finale, sauvegarde et restauration testée, ouvertures, audit, déblocage.
+  (4) <code>journal_operations</code> ne redéclare plus <code>updated</code> (champs système de PocketBase).
+  (5) Web : cibles <code>js</code> + <code>wasmJs</code> (Compose web en Wasm encore en bêta) et <code>composeCompatibilityBrowserDistribution</code> ; <code>shared</code> ajoute la cible <code>js</code> ; D-10.3 ajoutée.
+  (6) D-1.1 : AGP 8.10.1 suffit pour <code>com.android.kotlin.multiplatform.library</code>.
 </td></tr>
 </table></div>
 
