@@ -356,7 +356,7 @@ class TransactionRepositoryRoomImpl(
             note = note,
             compteId = compteId,
             collectionCompte = collectionCompte,
-            allocationMensuelleId = allocationMensuelleId,
+            allocationMensuelleId = allocationMensuelleId?.trim()?.takeIf { it.isNotEmpty() },
             estFractionnee = estFractionnee,
             sousItems = sousItems,
             tiersUtiliser = tiersUtiliser,

@@ -652,11 +652,16 @@ class EnveloppeRepositoryRoomImpl(
                     ?: throw IllegalStateException("Utilisateur connecté requis.")
                 // SQLite limite le nombre de paramètres; 400 permet également
                 // de traiter des historiques de plusieurs milliers de lignes.
-                ids.filter { it.isNotBlank() }.distinct().chunked(400)
+                val demandes = ids.filter { it.isNotBlank() }.distinct()
+                val trouvees = demandes.chunked(400)
                     .flatMap { lot ->
                         allocationMensuelleDao.getAllocationsParIds(utilisateurId, lot)
                     }
-                    .map { it.toAllocationMensuelleModel() }
+                // Anciennes allocations sans propriétaire (jamais un autre utilisateur) : sinon leur
+                // enveloppe s'affichait « introuvable » alors que l'allocation existe bien
+                val manquantes = demandes - trouvees.map { it.id }.toSet()
+                val sansProprietaire = manquantes.chunked(400).flatMap { allocationMensuelleDao.sansProprietaireParIds(it) }
+                (trouvees + sansProprietaire).map { it.toAllocationMensuelleModel() }
             }
         }
 

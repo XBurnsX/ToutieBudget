@@ -56,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xburnsx.toutiebudget.ui.comptes.composants.HistoriqueItem
 import com.xburnsx.toutiebudget.data.modeles.TypeTransaction
-import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -150,7 +149,7 @@ fun HistoriqueCompteScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Rechercher dans les transactions...") },
+                placeholder = { Text("Tiers, enveloppe, >50, 12/03…") },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = "Rechercher")
                 },
@@ -256,56 +255,6 @@ fun HistoriqueCompteScreen(
                         Icon(Icons.Default.ChevronRight, contentDescription = "Période suivante")
                     }
                 }
-            }
-
-            // HA3 : uniquement les mouvements visibles après recherche, période
-            // et type. Le total d'un achat fractionné compte une seule fois.
-            if (!uiState.isLoading || uiState.transactionsGroupees.isNotEmpty()) {
-                val resume = remember(uiState.transactionsGroupees) {
-                    runCatching {
-                        ResumeFluxHistoriqueCompte.calculer(
-                            uiState.transactionsGroupees.values.flatten()
-                        )
-                    }.getOrNull()
-                }
-                if (resume == null) {
-                    Text(
-                        "Totaux indisponibles : certains montants dépassent les limites du calcul.",
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text(
-                            "Mouvements affichés : " + resume.mouvements +
-                                " · Entrées : " + MoneyFormatter.formatAmountFromCents(resume.entreesCentimes) +
-                                " · Sorties : " + MoneyFormatter.formatAmountFromCents(resume.sortiesCentimes),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "Flux net affiché : " +
-                                MoneyFormatter.formatAmountFromCents(resume.netCentimes) +
-                                if (resume.montantsExclus > 0 || resume.typesNonClasses > 0)
-                                    " · Résumé partiel : " + resume.montantsExclus +
-                                        " montant(s) invalide(s), " + resume.typesNonClasses +
-                                        " type(s) non classé(s)"
-                                else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // HC10 : les transactions peuvent être disponibles même si leurs libellés
-            // d'enveloppes / allocations ne le sont pas. Ne jamais cacher l'incident.
-            uiState.avertissement?.let { texte ->
-                Text(
-                    text = texte,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             // HC10/HC12 : une erreur ne supprime pas les mouvements déjà consultables.

@@ -209,7 +209,7 @@ object PocketBaseMapper {
         note = item.note,
         compteId = item.compte_id ?: "",
         collectionCompte = item.collection_compte ?: "",
-        allocationMensuelleId = item.allocation_mensuelle_id ?: "",
+        allocationMensuelleId = item.allocation_mensuelle_id?.trim()?.takeIf { it.isNotEmpty() },
         estFractionnee = item.est_fractionnee ?: false,
         sousItems = item.sous_items?.let { gson.toJson(it) },
         tiersUtiliser = item.tiers_utiliser,

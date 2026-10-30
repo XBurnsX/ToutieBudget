@@ -27,5 +27,7 @@ data class TransactionUi(
     val revisionTransaction: Date? = null,
     /** EA6 : dates techniques connues, pas un statut de sync inventé. */
     val dateCreationEnregistrement: Date? = null,
-    val statutSynchronisationLocale: String? = null
+    val statutSynchronisationLocale: String? = null,
+    /** HA5 : provenance connue avec certitude (jamais devinée). */
+    val provenance: String? = null
 ) 

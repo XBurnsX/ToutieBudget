@@ -365,16 +365,38 @@ class HistoriqueConsultationViewModelTest {
             collectionCompte = "comptes_cheques", tiersUtiliser = "Marché",
             allocationMensuelleId = "alloc-supprimee"
         )
+        b.transactions["sans-enveloppe"] = Transaction(
+            id = "sans-enveloppe", utilisateurId = "u", type = TypeTransaction.Depense,
+            montant = 3.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Café",
+            allocationMensuelleId = " "
+        )
         val vm = app.historiqueCompte("chq")
         attendre()
         assertNull(vm.uiState.value.erreur)
         val mouvements = vm.uiState.value.transactions.associateBy { it.id }
         assertEquals("Essence auto (archivée)", mouvements.getValue("archive").nomEnveloppe)
-        assertEquals(
-            "Allocation historique introuvable (ID : alloc-supprimee)",
-            mouvements.getValue("orpheline").nomEnveloppe
+        assertNull(mouvements.getValue("orpheline").nomEnveloppe)
+        assertNull(mouvements.getValue("sans-enveloppe").nomEnveloppe)
+        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("1 ancienne"))
+    }
+
+    @Test fun `transfert entre comptes ignore toute ancienne reference allocation`() = test {
+        b.cheque("chq", 1000.0, 0.0)
+        b.transactions["virement"] = Transaction(
+            id = "virement", utilisateurId = "u", type = TypeTransaction.TransfertSortant,
+            montant = 100.0, date = Date(), compteId = "chq",
+            collectionCompte = "comptes_cheques", tiersUtiliser = "Épargne",
+            allocationMensuelleId = "ancienne-reference-invalide"
         )
-        assertTrue(vm.uiState.value.avertissement.orEmpty().contains("allocations"))
+
+        val vm = app.historiqueCompte("chq")
+        attendre()
+
+        assertNull(vm.uiState.value.erreur)
+        assertNull(vm.uiState.value.avertissement)
+        assertNull(vm.uiState.value.transactions.single().nomEnveloppe)
+        assertNull(vm.uiState.value.transactions.single().allocationMensuelleId)
     }
 
     @Test fun ancienneFractionGardeSaReferenceMemeSiEnveloppeSupprimee() = test {

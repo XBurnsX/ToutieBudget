@@ -180,6 +180,18 @@ fun HistoriqueItem(
                         )
                     }
 
+                // HA5 : signal discret tant que l'envoi local n'est pas terminé
+                transaction.statutSynchronisationLocale
+                    ?.takeIf { it.startsWith("En attente") || it.startsWith("En cours") || it.startsWith("Échec") }
+                    ?.let { statut ->
+                        Text(
+                            text = "⟳ $statut",
+                            fontSize = 12.sp,
+                            color = if (statut.startsWith("Échec")) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                 // 📝 NOTE sur ligne séparée avec icône
                 if (!transaction.note.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))

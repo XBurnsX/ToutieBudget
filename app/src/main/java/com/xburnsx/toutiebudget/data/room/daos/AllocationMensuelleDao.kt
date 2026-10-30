@@ -21,6 +21,13 @@ interface AllocationMensuelleDao {
     // Appelée par tranches de 400 ID au maximum (limite des paramètres SQLite).
     @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId AND id IN (:ids)")
     suspend fun getAllocationsParIds(utilisateurId: String, ids: List<String>): List<AllocationMensuelle>
+
+    /** Anciennes allocations enregistrées sans propriétaire : jamais celles d'un autre utilisateur. */
+    @Query("SELECT * FROM allocation_mensuelle WHERE (utilisateur_id = '' OR utilisateur_id IS NULL) AND id IN (:ids)")
+    suspend fun sansProprietaireParIds(ids: List<String>): List<AllocationMensuelle>
+
+    @Query("SELECT COUNT(*) FROM allocation_mensuelle WHERE utilisateur_id = '' OR utilisateur_id IS NULL")
+    suspend fun compterSansProprietaire(): Int
     
     @Query("SELECT * FROM allocation_mensuelle WHERE utilisateur_id = :utilisateurId ORDER BY mois DESC")
     fun getAllocationsActivesByUtilisateur(utilisateurId: String): Flow<List<AllocationMensuelle>>

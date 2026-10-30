@@ -49,6 +49,7 @@ fun HistoriqueDetailDialog(transaction: TransactionUi, onFermer: () -> Unit) {
                 if (!transaction.collectionCompte.isNullOrBlank()) {
                     Text("Collection du compte : " + transaction.collectionCompte)
                 }
+                transaction.provenance?.let { Text("Provenance : " + it) }
                 transaction.statutSynchronisationLocale?.let { statut ->
                     Text("Synchronisation locale : " + statut)
                 }

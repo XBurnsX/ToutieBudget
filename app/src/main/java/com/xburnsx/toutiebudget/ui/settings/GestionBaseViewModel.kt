@@ -218,6 +218,7 @@ class GestionBaseViewModel(private val contexte: android.content.Context) : View
                         "Enveloppes : ${db.enveloppeDao().getEnveloppesByUtilisateur(u).first().size}",
                     "Tiers : ${db.tiersDao().getTiersByUtilisateur(u).first().size} • " +
                         "Prêts : ${db.pretPersonnelDao().getPretsByUtilisateur(u).first().size}",
+                    "Allocations sans propriétaire (anciennes) : ${db.allocationMensuelleDao().compterSansProprietaire()}",
                     "Synchro : ${jobs.count { it.status == "PENDING" || it.status == "IN_PROGRESS" }} en attente, " +
                         "${jobs.count { it.status == "FAILED" }} en échec",
                     "Dernier échange réussi avec le serveur : ${DiagnosticDonnees.formater(DiagnosticDonnees.dernierEchange(contexte))}"

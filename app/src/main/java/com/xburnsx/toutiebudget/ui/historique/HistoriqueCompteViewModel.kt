@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -39,7 +40,8 @@ class HistoriqueCompteViewModel(
     private val enveloppeRepository: EnveloppeRepository,
     private val tiersRepository: TiersRepository,
     private val supprimerTransactionUseCase: SupprimerTransactionUseCase,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val syncJobDao: com.xburnsx.toutiebudget.data.room.daos.SyncJobDao? = null
 ) : ViewModel() {
 
     // AT14 : une seule exécution à la fois (double appui)
@@ -239,6 +241,17 @@ class HistoriqueCompteViewModel(
         RegroupementHistorique.grouper(transactions)
 
     /**
+     * Une allocation n'est pertinente que lorsqu'une transaction consomme réellement
+     * l'argent d'une enveloppe. Les revenus, prêts et transferts entre comptes n'en ont pas.
+     */
+    private fun allocationAffichable(transaction: com.xburnsx.toutiebudget.data.modeles.Transaction): String? =
+        if (transaction.type == TypeTransaction.Depense ||
+            transaction.type == TypeTransaction.PaiementEffectue
+        ) {
+            transaction.allocationMensuelleId?.trim()?.takeIf(String::isNotEmpty)
+        } else null
+
+    /**
      * Charge les transactions pour un compte spécifique.
      */
     private fun chargerTransactions(compteId: String, collectionCompte: String) {
@@ -262,6 +275,10 @@ class HistoriqueCompteViewModel(
                 // Les enveloppes/allocations ne servent qu'à enrichir les libellés et ne doivent
                 // jamais empêcher l'affichage des mouvements financiers.
                 val transactions = resultTransactions.getOrThrow()
+                // HA5 : état observé dans la file locale, jamais supposé
+                val tachesSync = syncJobDao?.let { dao ->
+                    runCatching { dao.getAllSyncJobs().first() }.getOrNull()
+                }
                 val avertissements = mutableListOf<String>()
                 val montantsInvalides = transactions.count { !it.montant.isFinite() }
                 if (montantsInvalides > 0) {
@@ -272,14 +289,28 @@ class HistoriqueCompteViewModel(
                     avertissements += "Certaines informations d'enveloppes n'ont pas pu être chargées."
                     emptyList()
                 }
-                val idsAllocations = transactions.mapNotNull { it.allocationMensuelleId }.distinct()
+                // PocketBase et certaines anciennes lignes Room utilisent parfois "" au lieu de null.
+                // Une valeur vide signifie « aucune enveloppe », pas une allocation historique perdue.
+                val idsAllocations = transactions.mapNotNull(::allocationAffichable).distinct()
                 val allocations = enveloppeRepository.recupererAllocationsParIds(idsAllocations)
                     .getOrElse {
                         avertissements += "Certaines allocations historiques sont indisponibles."
                         emptyList()
                     }
-                if (allocations.map { it.id }.toSet().size < idsAllocations.size) {
-                    avertissements += "Certaines allocations historiques sont introuvables."
+                // Allocation vraiment supprimée (ex. ancien nettoyage de doublons sur le serveur) :
+                // le journal des allocations garde souvent le nom et l'ID de son enveloppe.
+                val idsManquants = idsAllocations - allocations.map { it.id }.toSet()
+                val enveloppeDuJournal: Map<String, Pair<String, String>> = if (idsManquants.isEmpty()) emptyMap() else runCatching {
+                    val uid = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                    com.xburnsx.toutiebudget.di.AppModule.provideHistoriqueAllocationRepository()
+                        .parAllocations(idsManquants)
+                        .filter { it.utilisateurId == uid && it.enveloppeId.isNotBlank() }
+                        .associate { it.allocationId to (it.enveloppeId to it.enveloppeNom) }
+                }.getOrDefault(emptyMap())
+                val vraimentIntrouvables = idsManquants.count { it !in enveloppeDuJournal }
+                if (vraimentIntrouvables > 0) {
+                    avertissements += "$vraimentIntrouvables ancienne(s) transaction(s) ne permettent plus " +
+                        "d'identifier leur enveloppe liée. Les transactions et leurs montants restent affichés."
                 }
 
                 // 🔍 LOGS DEBUG : Vérifier les résultats
@@ -319,12 +350,17 @@ class HistoriqueCompteViewModel(
                     }
 
                     // ✅ OPTIMISATION : Utiliser les maps pour un accès rapide
-                    val nomEnveloppe = transaction.allocationMensuelleId?.let { allocationId ->
+                    val allocationId = allocationAffichable(transaction)
+                    val nomEnveloppe = allocationId?.let {
                         val allocation = allocationsMap[allocationId]
                         if (allocation != null) {
                             LibellesHistorique.enveloppe(allocation.enveloppeId, enveloppesMap)
                         } else {
-                            LibellesHistorique.allocationIntrouvable(allocationId)
+                            enveloppeDuJournal[allocationId]?.let { (idEnveloppe, nomJournal) ->
+                                val env = enveloppesMap[idEnveloppe]
+                                (env?.let { LibellesHistorique.enveloppe(it.id, enveloppesMap) } ?: nomJournal) +
+                                    " (allocation d'origine supprimée)"
+                            }
                         }
                     }
 
@@ -361,8 +397,16 @@ class HistoriqueCompteViewModel(
                         nomCompte = _uiState.value.nomCompte,
                         collectionCompte = transaction.collectionCompte,
                         tiersBrut = transaction.tiersUtiliser,
-                        allocationMensuelleId = transaction.allocationMensuelleId,
-                        revisionTransaction = transaction.updated
+                        allocationMensuelleId = allocationId,
+                        revisionTransaction = transaction.updated,
+                        dateCreationEnregistrement = transaction.created,
+                        statutSynchronisationLocale = if (tachesSync == null)
+                            "Non vérifié (file locale indisponible)"
+                        else StatutSyncHistorique.libelle(
+                            transaction.id, transaction.utilisateurId, tachesSync
+                        ),
+                        // Aucun import bancaire ne crée de transaction : toutes sont saisies dans l'app.
+                        provenance = "Saisie manuelle dans l'app"
                     )
                 }.sortedByDescending { it.date }
                 val doublons = RegroupementHistorique.nombreDoublons(transactionsUi)
