@@ -449,7 +449,7 @@ kotlin {
 ./gradlew :app:dependencies --configuration releaseRuntimeClasspath | grep -i shared   # doit montrer project :shared (variante Android)</code></pre>
 <p>Les tests communs s'exécutent sur la cible <code>jvm</code> (rapide, sans appareil). Les cibles <code>js</code> et <code>wasmJs</code> doivent au minimum <strong>compiler</strong> ; leurs tests navigateur ne sont pas exigés à cette étape.</p>
 <h4>Critères de fin</h4>
-<ul><li>Tout compile sur les trois cibles ; <code>SharedBrancheTest</code> passe ; <code>app</code> consomme la variante Android ; aucun autre test ne change.</li></ul>
+<ul><li>Tout compile sur les quatre cibles (Android, JVM, JS, WasmJS) ; <code>SharedBrancheTest</code> passe ; <code>app</code> consomme la variante Android ; aucun autre test ne change.</li></ul>
 <h4>Commit</h4>
 <pre><code>build(etape-1): module shared Kotlin Multiplatform (android, jvm, js, wasmJs) branche sur app</code></pre>
 </section>
