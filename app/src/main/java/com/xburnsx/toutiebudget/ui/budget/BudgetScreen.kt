@@ -115,7 +115,8 @@ fun BudgetScreen(
     onVoirHistoriqueEnveloppe: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var moisSelectionne by remember { mutableStateOf(Date()) }
+    // Le ViewModel est la seule référence du mois : le titre ne peut plus diverger des données
+    val moisSelectionne = uiState.moisAffiche
 
     // 🆕 ÉTATS POUR LE CLAVIER ENVELOPPE
     var enveloppeSelectionnee by remember { mutableStateOf<EnveloppeUi?>(null) }
@@ -215,10 +216,7 @@ fun BudgetScreen(
                 title = {
                     SelecteurMoisAnnee(
                         moisSelectionne = moisSelectionne,
-                        onMoisChange = {
-                            moisSelectionne = it
-                            viewModel.chargerDonneesBudget(it)
-                        }
+                        onMoisChange = { viewModel.chargerDonneesBudget(it) }
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -409,6 +407,40 @@ fun BudgetScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // Report de mois ou remise à zéro en échec : reste visible jusqu'à fermeture
+            uiState.alertePersistante?.let { alerte ->
+                item(key = "alerte_persistante") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clickable { viewModel.fermerAlertePersistante() }
+                    ) {
+                        Text(
+                            text = "$alerte\n(Touche pour fermer)",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+
+            // Argent du mois resté dans des enveloppes archivées ou supprimées
+            if (kotlin.math.round(uiState.argentNonAffiche * 100.0).toLong() != 0L && !filtreActif) {
+                item(key = "argent_non_affiche") {
+                    Text(
+                        text = "${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(uiState.argentNonAffiche)} " +
+                            "ce mois-ci dans des enveloppes archivées ou supprimées (non affichées ici).",
+                        color = Color(0xFFFFB74D),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
                 }
             }
 

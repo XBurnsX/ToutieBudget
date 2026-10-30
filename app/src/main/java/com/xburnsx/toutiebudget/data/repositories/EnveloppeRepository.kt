@@ -157,7 +157,16 @@ interface EnveloppeRepository {
      * @return Result contenant la liste des allocations
      */
     suspend fun recupererAllocationsEnveloppe(enveloppeId: String): Result<List<AllocationMensuelle>>
-    
+
+    /**
+     * Toutes les allocations de l'utilisateur, groupées par enveloppe, en UNE lecture.
+     * Implémentation par défaut compatible avec les simulateurs.
+     */
+    suspend fun recupererAllocationsParEnveloppe(enveloppeIds: Collection<String>): Result<Map<String, List<AllocationMensuelle>>> =
+        runCatching {
+            enveloppeIds.distinct().associateWith { recupererAllocationsEnveloppe(it).getOrThrow() }
+        }
+
     /**
      * Récupère une allocation mensuelle par son ID.
      * @param id ID de l'allocation mensuelle

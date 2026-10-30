@@ -64,11 +64,6 @@ class BudgetViewModel(
     // Service de reset automatique des objectifs bihebdomadaires
     private val objectifResetService = com.xburnsx.toutiebudget.data.services.ObjectifResetService(enveloppeRepository, allocationMensuelleRepository)
 
-    // --- Cache en mémoire pour éviter les écrans de chargement ---
-    private var cacheComptes: List<Compte> = emptyList()
-    private var cacheEnveloppes: List<Enveloppe> = emptyList()
-    private var cacheAllocations: List<AllocationMensuelle> = emptyList()
-    private var cacheCategories: List<Categorie> = emptyList()
     @Volatile private var generationChargementBudget = 0L
     
     // Garder en mémoire le mois sélectionné pour les rafraîchissements automatiques
@@ -84,40 +79,27 @@ class BudgetViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true, messageChargement = "Vérification du budget...") }
 
-            // Charger la préférence locale pour figer les bandeaux
-            try {
-                val appContext = com.xburnsx.toutiebudget.di.AppModule::class.java
-                // On n'a pas de contexte global ici; laisser au Settings de l'écrire dans l'UI state via setFigerPretAPlacer()
-            } catch (_: Exception) {}
+            // Remises à zéro automatiques des objectifs : un échec n'est plus silencieux
+            val problemes = mutableListOf<String>()
+            objectifResetService.verifierEtResetterObjectifsBihebdomadaires()
+                .onFailure { problemes += "remise à zéro des objectifs aux 2 semaines (${it.message})" }
+            objectifResetService.verifierEtResetterObjectifsAnnuels()
+                .onFailure { problemes += "remise à zéro des objectifs annuels (${it.message})" }
+            objectifResetService.verifierEtResetterObjectifsEcheance()
+                .onFailure { problemes += "remise à zéro des objectifs à échéance (${it.message})" }
 
-            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS BIHEBDOMADAIRES
-            objectifResetService.verifierEtResetterObjectifsBihebdomadaires().onSuccess { enveloppesResetees ->
-                // Reset bihebdomadaire effectué
-            }.onFailure { e ->
-                // Erreur silencieuse
-            }
+            // 🔄 ROLLOVER AUTOMATIQUE : à chaque ouverture dans un nouveau mois
+            verifierEtExecuterRolloverUseCase()
+                .onFailure { problemes.add(0, "report du mois précédent (${it.message})") }
 
-            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS ANNUELS
-            objectifResetService.verifierEtResetterObjectifsAnnuels().onSuccess { enveloppesResetees ->
-                // Reset annuel effectué
-            }.onFailure { e ->
-                // Erreur silencieuse
+            // Gardée à part de « erreur » : le chargement qui suit ne peut plus l'effacer
+            if (problemes.isNotEmpty()) {
+                _uiState.update {
+                    it.copy(alertePersistante = "Échec : " + problemes.joinToString(" ; ") +
+                        ". Les montants affichés peuvent être incomplets ; rouvre l'app pour réessayer.")
+                }
             }
-
-            // 🔄 RESET AUTOMATIQUE DES OBJECTIFS D'ÉCHÉANCE
-            objectifResetService.verifierEtResetterObjectifsEcheance().onSuccess { enveloppesResetees ->
-                // Reset échéance effectué
-            }.onFailure { e ->
-                // Erreur silencieuse
-            }
-
-            // 🔄 ROLLOVER AUTOMATIQUE : À chaque connexion dans un nouveau mois (pas seulement le 1er !)
-            verifierEtExecuterRolloverUseCase().onSuccess {
-                chargerDonneesBudget(Date())
-            }.onFailure { e ->
-                _uiState.update { it.copy(erreur = "Erreur de rollover: ${e.message}") }
-                chargerDonneesBudget(Date())
-            }
+            chargerDonneesBudget(Date())
         }
 
         // Abonnement à l'event bus pour rafraîchir le budget (si présent)
@@ -134,18 +116,7 @@ class BudgetViewModel(
         // 🚀 TEMPS RÉEL : Écoute des changements PocketBase
         viewModelScope.launch {
             realtimeSyncService.budgetUpdated.collectLatest {
-                // DEBUG: BudgetViewModel reçoit l'événement budgetUpdated
-                // 🔄 FORCER UN RECHARGEMENT COMPLET après un virement
-                // Vider le cache pour s'assurer d'avoir les données les plus récentes
-                cacheComptes = emptyList()
-                cacheEnveloppes = emptyList()
-                cacheAllocations = emptyList()
-                cacheCategories = emptyList()
-                
-                // DEBUG: Cache vidé, rechargement des données...
-                // Recharger avec les données les plus récentes
                 chargerDonneesBudget(moisSelectionne)
-                // DEBUG: Données rechargées
             }
         }
     }
@@ -154,14 +125,7 @@ class BudgetViewModel(
     fun setFigerPretAPlacer(enabled: Boolean) {
         _uiState.update { it.copy(figerPretAPlacer = enabled) }
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                com.xburnsx.toutiebudget.di.AppModule
-                    .let { it }
-                // Utiliser le repository de préférences via AppModule
-                val repoField = com.xburnsx.toutiebudget.di.AppModule::class.java
-                // Simple: appeler directement l'impl si accessible (simulé)
-                preferenceRepository.setFigerPretAPlacer(enabled)
-            } catch (_: Exception) {}
+            runCatching { preferenceRepository.setFigerPretAPlacer(enabled) }
         }
     }
 
@@ -176,7 +140,10 @@ class BudgetViewModel(
         moisSelectionne = moisCible
         // Bloquer immédiatement les assignations et aperçus sur les données du
         // mois précédent, avant même que la coroutine de lecture ne démarre.
-        _uiState.update { it.copy(isLoading = true, messageChargement = "Chargement des données...") }
+        // Le titre suit le mois demandé : écran et ViewModel ne divergent jamais.
+        _uiState.update {
+            it.copy(isLoading = true, messageChargement = "Chargement des données...", moisAffiche = moisCible)
+        }
         viewModelScope.launch {
             try {
                 // ⚠️ PLUS DE ROLLOVER AUTOMATIQUE ICI
@@ -187,21 +154,18 @@ class BudgetViewModel(
                 val resultComptes = compteRepository.recupererTousLesComptes()
                 val comptes = resultComptes.getOrThrow().filter { showArchived || !it.estArchive }
                 if (generation != generationChargementBudget) return@launch
-                cacheComptes = comptes
 
                 // 2. Charger les enveloppes
                 _uiState.update { it.copy(messageChargement = "Chargement des enveloppes...") }
                 val resultEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes()
                 val enveloppes = resultEnveloppes.getOrThrow().filter { showArchived || !it.estArchive }
                 if (generation != generationChargementBudget) return@launch
-                cacheEnveloppes = enveloppes
 
                 // 3. Charger les catégories
                 _uiState.update { it.copy(messageChargement = "Chargement des catégories...") }
                 val resultCategories = categorieRepository.recupererToutesLesCategories()
                 val categories = resultCategories.getOrThrow()
                 if (generation != generationChargementBudget) return@launch
-                cacheCategories = categories
 
                 // 4. Charger les allocations EXACTES pour le mois spécifique UNIQUEMENT
                 _uiState.update { it.copy(messageChargement = "Chargement des allocations mensuelles...") }
@@ -215,26 +179,23 @@ class BudgetViewModel(
 
                 // 4b. Charger TOUTES les allocations passées pour les objectifs intelligents
                 _uiState.update { it.copy(messageChargement = "Chargement de l'historique des allocations...") }
-                val toutesAllocationsPassees = mutableListOf<AllocationMensuelle>()
-                enveloppes.forEach { enveloppe ->
-                    val allocationsEnveloppe = enveloppeRepository.recupererAllocationsEnveloppe(enveloppe.id).getOrThrow()
-                    if (generation != generationChargementBudget) return@launch
-                    toutesAllocationsPassees.addAll(allocationsEnveloppe)
-                }
-                
+                // Une seule lecture groupée (avant : une lecture complète par enveloppe)
+                val allocationsParEnveloppe = enveloppeRepository
+                    .recupererAllocationsParEnveloppe(enveloppes.map { it.id }).getOrThrow()
+                if (generation != generationChargementBudget) return@launch
 
-
-                cacheAllocations = allocations
+                // Argent du mois resté dans une enveloppe non affichée (archivée ou supprimée)
+                val idsAffiches = enveloppes.map { it.id }.toSet()
+                val argentNonAffiche = MoneyFormatter.roundAmount(
+                    allocations.filter { it.enveloppeId !in idsAffiches && it.solde.isFinite() }
+                        .sumOf { it.solde }
+                )
 
                 // 5. Créer les bandeaux "Prêt à placer"
                 val bandeauxPretAPlacer = creerBandeauxPretAPlacer(comptes)
 
                 // 6. Créer les enveloppes UI avec les allocations DU MOIS SPÉCIFIQUE
-                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, toutesAllocationsPassees, moisCible)
-                
-                // Debug des enveloppes UI créées
-                enveloppesUi.forEachIndexed { index, env ->
-                }
+                val enveloppesUi = creerEnveloppesUi(enveloppes, allocations, comptes, allocationsParEnveloppe, moisCible)
 
                 // 7. Grouper par catégories en utilisant la même logique que CategoriesEnveloppesScreen
                 val enveloppesGroupees = OrganisationEnveloppesUtils.organiserEnveloppesParCategorie(categories, enveloppes)
@@ -271,6 +232,8 @@ class BudgetViewModel(
                         bandeauxPretAPlacer = bandeauxPretAPlacer,
                         categoriesEnveloppes = categoriesEnveloppesUi,
                         montantDejaCouvertMois = dejaCouvert,
+                        argentNonAffiche = argentNonAffiche,
+                        chargementEchoue = false,
                         // C2 : un clic effectué pendant la lecture Room ne peut
                         // pas être remplacé par un état de préférences plus ancien.
                         categoriesOuvertes = if (generationPreferencesBudget == generationPreferencesAuDebut)
@@ -287,10 +250,10 @@ class BudgetViewModel(
 
             } catch (e: Exception) {
                 if (generation != generationChargementBudget) return@launch
-                e.printStackTrace()
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
-                        isLoading = false, 
+                        isLoading = false,
+                        chargementEchoue = true,
                         erreur = "Erreur lors du chargement des données: ${e.message}",
                         messageChargement = null
                     ) 
@@ -328,20 +291,18 @@ class BudgetViewModel(
         enveloppes: List<Enveloppe>,
         allocations: List<AllocationMensuelle>,
         comptes: List<Compte>,
-        toutesAllocationsPassees: List<AllocationMensuelle>,
+        allocationsParEnveloppe: Map<String, List<AllocationMensuelle>>,
         moisCible: Date
     ): List<EnveloppeUi> {
-        
+
         // Grouper les allocations par ID d'enveloppe pour pouvoir les sommer
         val allocationsGroupees = allocations.groupBy { it.enveloppeId }
 
         // Créer une map des comptes par ID pour récupérer les couleurs
         val mapComptes = comptes.associateBy { it.id }
 
-        // Associer l'ID de catégorie à son nom pour détecter la catégorie "Dettes"
-        val nomCategorieParId = cacheCategories.associate { it.id to it.nom }
-
         return enveloppes.map { enveloppe ->
+            val historiqueEnveloppe = allocationsParEnveloppe[enveloppe.id] ?: emptyList()
 
             // Récupérer toutes les allocations pour cette enveloppe pour le mois en cours
             val allocationsDeLEnveloppe = allocationsGroupees[enveloppe.id] ?: emptyList()
@@ -353,16 +314,22 @@ class BudgetViewModel(
             
             // ✨ NOUVEAU : Calculer l'alloué cumulatif depuis le début de l'objectif (même logique qu'ObjectifCalculator)
             val alloueCumulatif = calculerAllocationCumulativeDepuisDebutObjectif(
-                enveloppe, 
-                toutesAllocationsPassees.filter { it.enveloppeId == enveloppe.id },
+                enveloppe,
+                historiqueEnveloppe,
                 moisCible
             )
 
             // 🎨 LOGIQUE SÉPARÉE POUR LES COULEURS :
             // 1. couleurProvenance : pour la bulle (reset à null si solde = 0)
             // 2. couleurObjectif : pour les barres (toujours garder couleur du compte si objectif atteint par dépense)
-            val derniereAllocation = allocationsDeLEnveloppe.lastOrNull()
-            
+            // Une seule provenance active à la fois : la ligne qui porte encore l'argent.
+            // Une ligne vidée (ancienne provenance gardée pour l'historique) ne donne
+            // jamais sa couleur, quel que soit l'ordre renvoyé par la base.
+            val derniereAllocation = allocationsDeLEnveloppe
+                .filter { kotlin.math.round(it.solde * 100.0).toLong() > 0L }
+                .maxByOrNull { it.solde }
+                ?: allocationsDeLEnveloppe.lastOrNull { it.compteSourceId != null }
+
             // Utiliser les valeurs de l'allocation ou 0.0 par défaut
             val objectif = enveloppe.objectifMontant
             
@@ -403,13 +370,7 @@ class BudgetViewModel(
             // Couleur bulle: ${compteSource?.couleur}
             // Couleur barres: ${compteSourcePourBarres?.couleur}
 
-            // Pour les enveloppes des catégories "Dettes" et "Cartes de crédit", afficher le solde réel (alloué - dépenses)
-            val nomCategorie = nomCategorieParId[enveloppe.categorieId]
-            val estCategorieDettes = nomCategorie?.equals("Dettes", ignoreCase = true) == true
-            val estCategorieCartesCredit = nomCategorie?.equals("Cartes de crédit", ignoreCase = true) == true
-            val soldeAffichage = if (estCategorieDettes || estCategorieCartesCredit) {
-                soldeTotal // Utiliser le solde réel au lieu de l'alloué
-            } else soldeTotal
+            val soldeAffichage = soldeTotal
 
             // 🎯 SOLUTION SIMPLE : soldeTotal contient déjà la bonne valeur du mois !
             val progresActuel = when (enveloppe.typeObjectif) {
@@ -426,7 +387,7 @@ class BudgetViewModel(
                 enveloppe, 
                 progresActuel,
                 moisCible,  // ← CORRECTION : utiliser moisCible au lieu de moisSelectionne
-                toutesAllocationsPassees.filter { it.enveloppeId == enveloppe.id }
+                historiqueEnveloppe
             )
 
             // Calculer le statut de l'objectif
@@ -566,14 +527,12 @@ class BudgetViewModel(
      * Utilisée quand une transaction est créée pour mettre à jour l'affichage.
      */
     fun rafraichirDonnees() {
-        // 🔄 FORCER UN RECHARGEMENT COMPLET
-        // Vider le cache pour s'assurer d'avoir les données les plus récentes
-        cacheComptes = emptyList()
-        cacheEnveloppes = emptyList()
-        cacheAllocations = emptyList()
-        cacheCategories = emptyList()
-        
-        chargerDonneesBudget(Date())
+        // Rester sur le mois consulté (avant : retour silencieux au mois courant)
+        chargerDonneesBudget(moisSelectionne)
+    }
+
+    fun fermerAlertePersistante() {
+        _uiState.update { it.copy(alertePersistante = null) }
     }
 
     /**
@@ -581,15 +540,6 @@ class BudgetViewModel(
      */
     fun effacerErreur() {
         _uiState.update { it.copy(erreur = null) }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        // Nettoyer explicitement les caches en mémoire pour éviter toute fuite
-        cacheComptes = emptyList()
-        cacheEnveloppes = emptyList()
-        cacheAllocations = emptyList()
-        cacheCategories = emptyList()
     }
 
     // C3 : signale la réussite d'UNE assignation (id de l'enveloppe) pour fermer SA fenêtre seulement
@@ -618,6 +568,10 @@ class BudgetViewModel(
         montantCentimes: Long,
         operationId: String = ""
     ) {
+        refusAssignation()?.let { motif ->
+            _uiState.update { it.copy(erreur = motif) }
+            return
+        }
         viewModelScope.lancerUneFois(verrouAssignation) {
             try {
                 _uiState.update { it.copy(isLoading = true, messageChargement = "Assignation de l'argent...") }
@@ -649,7 +603,6 @@ class BudgetViewModel(
                 rechargerApresModification()
 
             } catch (e: Exception) {
-                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -673,6 +626,10 @@ class BudgetViewModel(
             _resultatRepartition.tryEmit(
                 ResultatRepartition(emptyList(), "Une autre assignation est déjà en cours. Réessayez après sa fin.")
             )
+            return
+        }
+        refusAssignation()?.let { motif ->
+            _resultatRepartition.tryEmit(ResultatRepartition(emptyList(), motif))
             return
         }
         viewModelScope.lancerUneFois(verrouAssignation) {
@@ -729,6 +686,22 @@ class BudgetViewModel(
                 rechargerApresModification()
             }
         }
+    }
+
+    /**
+     * Raison de refuser une assignation, ou null. Jamais sur des données en cours de
+     * lecture ou d'un chargement raté, ni dans un mois terminé : son report vers le
+     * mois suivant est déjà fait, l'argent y resterait coincé.
+     */
+    private fun refusAssignation(): String? {
+        val etat = _uiState.value
+        if (etat.isLoading) return "Le budget est en cours de chargement. Réessaie dans un instant."
+        if (etat.chargementEchoue) return "Le budget n'a pas pu être chargé : les montants affichés ne sont pas fiables. Recharge le mois avant d'assigner."
+        val mois = obtenirPremierJourDuMois(moisSelectionne)
+        if (mois.before(obtenirPremierJourDuMois(Date()))) {
+            return "Ce mois est terminé et déjà reporté au mois suivant : assigne plutôt dans le mois courant."
+        }
+        return null
     }
 
     private suspend fun validerProvenance(enveloppeId: String, compteSourceId: String, mois: Date) {
@@ -838,13 +811,6 @@ class BudgetViewModel(
     private fun rechargerApresModification() {
         // 🔄 FORCER LA VISIBILITÉ DES SYNCJOB des allocations
         realtimeSyncService.declencherMiseAJourBudget()
-
-        // Vider le cache pour s'assurer d'avoir les données les plus récentes
-        cacheComptes = emptyList()
-        cacheEnveloppes = emptyList()
-        cacheAllocations = emptyList()
-        cacheCategories = emptyList()
-
         chargerDonneesBudget(moisSelectionne)
     }
 

@@ -645,6 +645,20 @@ class EnveloppeRepositoryRoomImpl(
         }
     }
 
+    override suspend fun recupererAllocationsParEnveloppe(
+        enveloppeIds: Collection<String>
+    ): Result<Map<String, List<AllocationMensuelle>>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val utilisateurId = client.obtenirUtilisateurConnecte()?.id
+                ?: return@runCatching emptyMap()
+            val voulues = enveloppeIds.toSet()
+            allocationMensuelleDao.getAllocationsByUtilisateur(utilisateurId).first()
+                .filter { it.enveloppeId in voulues }
+                .map { it.toAllocationMensuelleModel() }
+                .groupBy { it.enveloppeId }
+        }
+    }
+
     override suspend fun recupererAllocationsParIds(ids: List<String>): Result<List<AllocationMensuelle>> =
         withContext(Dispatchers.IO) {
             runCatching {

@@ -45,7 +45,15 @@ data class BudgetUiState(
     val figerPretAPlacer: Boolean = false,
     val categoriesOuvertes: Map<String, Boolean> = emptyMap(), // État ouvert/fermé de chaque catégorie
     val enveloppesFavorites: Set<String> = emptySet(), // A4 : ids des enveloppes favorites
-    val montantDejaCouvertMois: Double = 0.0 // GA5 : déficits déjà couverts ce mois-ci (cet appareil)
+    val montantDejaCouvertMois: Double = 0.0, // GA5 : déficits déjà couverts ce mois-ci (cet appareil)
+    /** Mois dont les données sont affichées : seule référence, l'écran ne fait que l'afficher. */
+    val moisAffiche: java.util.Date = java.util.Date(),
+    /** Le dernier chargement a échoué : les enveloppes visibles ne sont pas fiables pour assigner. */
+    val chargementEchoue: Boolean = false,
+    /** Problème du report de mois ou des remises à zéro : reste affiché jusqu'à ce qu'on le ferme. */
+    val alertePersistante: String? = null,
+    /** Argent du mois dans des enveloppes non affichées (archivées ou supprimées). */
+    val argentNonAffiche: Double = 0.0
 )
 
 /** Résultat d'une répartition vers plusieurs enveloppes (A2). */
