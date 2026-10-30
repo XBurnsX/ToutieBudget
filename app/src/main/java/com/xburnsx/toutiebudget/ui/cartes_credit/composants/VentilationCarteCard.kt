@@ -61,19 +61,19 @@ fun VentilationCarteCard(
                         "Aucun montant n'est débité ni crédité.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                     valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(achats),
                     onValeurChange = { achats = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
                     libelle = "Solde achats ($)",
                     modifier = Modifier.fillMaxWidth()
                 )
-                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                     valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(avances),
                     onValeurChange = { avances = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
                     libelle = "Solde avances de fonds ($)",
                     modifier = Modifier.fillMaxWidth()
                 )
-                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                     valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(transferts),
                     onValeurChange = { transferts = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
                     libelle = "Solde transferts de solde ($)",

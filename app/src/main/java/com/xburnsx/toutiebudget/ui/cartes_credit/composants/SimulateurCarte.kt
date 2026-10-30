@@ -88,7 +88,7 @@ fun SimulateurCarte(carte: CompteCredit) {
                 }
             }
             if (mode == ModeSimulation.FIXE) {
-                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                     valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(saisie),
                     onValeurChange = { saisie = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true) },
                     libelle = "Versement par mois ($)",

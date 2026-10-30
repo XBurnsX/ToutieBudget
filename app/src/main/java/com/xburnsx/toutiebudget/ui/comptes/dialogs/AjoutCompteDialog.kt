@@ -185,7 +185,7 @@ fun AjoutCompteDialog(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                         valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(formState.detteVersementMensuel),
                         onValeurChange = { onDetteChange(null, null, com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true), null, null) },
                         libelle = "Montant de chaque paiement ($)",
@@ -242,7 +242,7 @@ fun AjoutCompteDialog(
                             )
                         }
                     }
-                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                         valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(formState.soldeCarte),
                         onValeurChange = { onCarteChange(com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it), null, null) },
                         libelle = "Solde actuel (dette en négatif, ex. -400,00)",

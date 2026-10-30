@@ -21,7 +21,7 @@ class ObjectifCalculatorTest {
     private fun date(annee: Int, mois: Int, jour: Int = 1): Date =
         Calendar.getInstance().apply { clear(); set(annee, mois - 1, jour, 12, 0, 0) }.time
 
-    private fun ligne(mois: Int, alloue: Double, reporte: Double = 0.0, depense: Double = 0.0, annee: Int = 2026) =
+    private fun ligne(mois: Int, alloue: Double, reporte: Double = 0.0, depense: Double = 0.0, annee: Int = 2027) =
         AllocationMensuelle(
             id = "a${prochainId++}", utilisateurId = "u", enveloppeId = "env", mois = date(annee, mois),
             solde = alloue - depense, alloue = alloue, depense = depense,
@@ -35,9 +35,9 @@ class ObjectifCalculatorTest {
         typeObjectif = type, objectifMontant = montant, dateDebutObjectif = debut, dateObjectif = fin
     )
 
-    private val annuel120 = enveloppe(TypeObjectif.Annuel, 120.0, date(2026, 1), date(2027, 1))
+    private val annuel120 = enveloppe(TypeObjectif.Annuel, 120.0, date(2027, 1), date(2028, 1))
 
-    private fun suggestion(env: Enveloppe, mois: Int, lignes: List<AllocationMensuelle>, solde: Double = 0.0, annee: Int = 2026) =
+    private fun suggestion(env: Enveloppe, mois: Int, lignes: List<AllocationMensuelle>, solde: Double = 0.0, annee: Int = 2027) =
         calcul.calculerVersementRecommande(env, solde, date(annee, mois, 15), lignes)
 
     // ===== Annuel / échéance =====
@@ -105,62 +105,85 @@ class ObjectifCalculatorTest {
     }
 
     @Test
-    fun `les depenses du mois ne sont pas prises pour un manque`() {
-        // 10 $ mis puis 10 $ dépensés en janvier : c'est quand même 10 $ mis
+    fun `l'argent depense ne compte pas pour l'objectif`() {
+        // 10 $ mis puis 10 $ dépensés en janvier : il n'y a plus rien dans l'enveloppe
         val fevrier = listOf(ligne(1, alloue = 10.0, depense = 10.0), ligne(2, alloue = 0.0))
-        assertEquals(10.0, suggestion(annuel120, 2, fevrier))
+        assertEquals(10.91, suggestion(annuel120, 2, fevrier))
+    }
+
+    @Test
+    fun `une depense ce mois-ci fait remonter ce qui manque`() {
+        // 40 $ reportés de janvier, 30 $ dépensés en février : il reste 10 $ dans l'enveloppe
+        val fevrier = listOf(ligne(1, alloue = 0.0, reporte = 40.0), ligne(2, alloue = 40.0, depense = 30.0))
+        assertEquals(10.0, suggestion(annuel120, 2, fevrier)) // (120 − 10) ÷ 11
+    }
+
+    @Test
+    fun `s'il faut 400 il faut 400 dans l'enveloppe`() {
+        val env = enveloppe(TypeObjectif.Echeance, 400.0, date(2027, 1), date(2027, 4, 15))
+        // Les 400 $ étaient là, 100 $ ont été dépensés en mars : il manque 100 $ sur 2 mois
+        val mars = listOf(ligne(2, alloue = 0.0, reporte = 400.0), ligne(3, alloue = 400.0, depense = 100.0))
+        assertEquals(50.0, suggestion(env, 3, mars))
+    }
+
+    @Test
+    fun `octobre 2026 - report non note, calcul sur le solde actuel`() {
+        // Report d'avant GN3 : on ne sait pas ce qui est arrivé ce mois-ci
+        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2026, 10), date(2027, 10, 1))
+        val octobre = listOf(ligne(10, alloue = 30.0, annee = 2026))
+        assertEquals(7.5, suggestion(env, 10, octobre, annee = 2026)) // (120 − 30) ÷ 12
     }
 
     @Test
     fun `avant le debut de l'objectif - rien a suggerer`() {
-        val env = enveloppe(TypeObjectif.Annuel, 120.0, date(2026, 3), date(2027, 3))
+        val env = enveloppe(TypeObjectif.Annuel, 120.0, date(2027, 3), date(2027, 3))
         assertEquals(0.0, suggestion(env, 2, emptyList()))
     }
 
     @Test
     fun `argent deja present au debut de l'objectif - compte comme deja mis`() {
-        // 60 $ reportés de décembre 2025 vers janvier, objectif commencé en janvier
-        val janvier = listOf(ligne(12, alloue = 0.0, reporte = 60.0, annee = 2025), ligne(1, alloue = 60.0))
+        // 60 $ reportés de décembre 2026 vers janvier, objectif commencé en janvier
+        val janvier = listOf(ligne(12, alloue = 0.0, reporte = 60.0, annee = 2026), ligne(1, alloue = 60.0))
         assertEquals(5.0, suggestion(annuel120, 1, janvier))
     }
 
     @Test
     fun `echeance au milieu du mois - ce mois compte`() {
-        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2026, 1), date(2026, 6, 15))
+        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2027, 1), date(2027, 6, 15))
         assertEquals(20.0, suggestion(env, 1, emptyList()))
     }
 
     @Test
     fun `echeance le 1er - preparee jusqu'a la fin du mois precedent`() {
-        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2026, 1), date(2026, 7, 1))
+        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2027, 1), date(2027, 7, 1))
         assertEquals(20.0, suggestion(env, 1, emptyList()))
     }
 
     @Test
     fun `echeance depassee - tout le reste d'un coup`() {
-        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2026, 1), date(2026, 3, 15))
+        val env = enveloppe(TypeObjectif.Echeance, 120.0, date(2027, 1), date(2027, 3, 15))
         val avril = listOf(ligne(3, alloue = 0.0, reporte = 100.0), ligne(4, alloue = 100.0))
         assertEquals(20.0, suggestion(env, 4, avril))
     }
 
     @Test
     fun `echeance sans date - aucune suggestion`() {
-        assertEquals(0.0, suggestion(enveloppe(TypeObjectif.Echeance, 120.0, date(2026, 1), null), 1, emptyList()))
+        assertEquals(0.0, suggestion(enveloppe(TypeObjectif.Echeance, 120.0, date(2027, 1), null), 1, emptyList()))
     }
 
     // ===== Aux deux semaines =====
 
-    private val bihebdo = enveloppe(TypeObjectif.Bihebdomadaire, 100.0, date(2025, 12, 19), date(2026, 1, 2))
+    private val bihebdo = enveloppe(TypeObjectif.Bihebdomadaire, 100.0, date(2026, 12, 19), date(2027, 1, 2))
 
     @Test
     fun `aux deux semaines - mois a 3 echeances`() {
-        // Janvier 2026 : 2, 16 et 30
+        // Janvier 2027 : 2, 16 et 30
         assertEquals(300.0, suggestion(bihebdo, 1, emptyList()))
     }
 
     @Test
     fun `aux deux semaines - mois a 2 echeances`() {
-        // Février 2026 : 13 et 27
+        // Février 2027 : 13 et 27
         assertEquals(200.0, suggestion(bihebdo, 2, emptyList()))
     }
 
@@ -173,8 +196,8 @@ class ObjectifCalculatorTest {
 
     @Test
     fun `aux deux semaines - echeances calculees aussi avant la date connue`() {
-        // Décembre 2025 : 5 et 19
-        assertEquals(200.0, suggestion(bihebdo, 12, emptyList(), annee = 2025))
+        // Décembre 2026 : 5 et 19
+        assertEquals(200.0, suggestion(bihebdo, 12, emptyList(), annee = 2026))
     }
 
     // ===== Mensuel (inchangé) =====

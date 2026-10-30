@@ -4,6 +4,8 @@
 package com.xburnsx.toutiebudget.ui.budget.composants
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.layout.union
 import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -57,7 +58,6 @@ import androidx.core.graphics.toColorInt
 import com.xburnsx.toutiebudget.ui.budget.CategorieEnveloppesUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepartitionMultipleDialog(
     comptes: List<CompteBudget>,
@@ -88,10 +88,34 @@ fun RepartitionMultipleDialog(
     }.getOrNull()
     val resteCentimes = resteCentimesOuErreur ?: Long.MIN_VALUE
 
+    // Hauteur réelle de la barre de navigation de l'appareil, lue sur l'écran de l'app :
+    // dans un dialogue plein écran, Android ne la transmet pas toujours (marge à 0, bouton caché).
+    val contexte = androidx.compose.ui.platform.LocalContext.current
+    val densite = androidx.compose.ui.platform.LocalDensity.current
+    val barreNavigation = remember(contexte) {
+        var c = contexte
+        while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+        (c as? android.app.Activity)?.window?.decorView?.let { vue ->
+            androidx.core.view.ViewCompat.getRootWindowInsets(vue)
+                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())?.bottom
+        } ?: 0
+    }
+    // Même marge du bas que le clavier de ComptesScreen (celle qui fonctionne sur les Pixel),
+    // ou la barre de navigation rapportée par Android si elle est plus grande.
+    val hauteurEcran = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val margeComptes = when {
+        hauteurEcran in 800..850 -> 72.dp
+        hauteurEcran > 850 -> 88.dp
+        hauteurEcran < 800 -> 56.dp
+        else -> 64.dp
+    }
+    val bas = maxOf(with(densite) { barreNavigation.toDp() }, margeComptes)
+
     Dialog(
         onDismissRequest = { if (!enCours) onFermer() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
+        Box(modifier = Modifier.fillMaxSize()) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
@@ -99,7 +123,8 @@ fun RepartitionMultipleDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    // Le plus grand des deux : marges du système, ou barre de navigation de l'appareil
+                    .windowInsetsPadding(WindowInsets.safeDrawing.union(WindowInsets(bottom = bas)))
                     .padding(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,17 +301,32 @@ fun RepartitionMultipleDialog(
                 }
             }
         }
-    }
 
-    enSaisie?.let { id ->
-        ModalBottomSheet(onDismissRequest = { enSaisie = null }) {
-            ClavierNumerique(
-                montantInitial = saisies[id] ?: 0L,
-                isMoney = true,
-                suffix = "",
-                onMontantChange = { saisies[id] = it },
-                onFermer = { enSaisie = null }
+        // Clavier de l'app, par-dessus la répartition (même affichage que dans Comptes)
+        enSaisie?.let { id ->
+            // Toucher à côté du clavier le ferme
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .pointerInput(Unit) { detectTapGestures { enSaisie = null } }
             )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(top = 30.dp, bottom = bas)
+            ) {
+                ClavierNumerique(
+                    montantInitial = saisies[id] ?: 0L,
+                    isMoney = true,
+                    suffix = "",
+                    onMontantChange = { saisies[id] = it },
+                    onFermer = { enSaisie = null }
+                )
+            }
+        }
         }
     }
 }

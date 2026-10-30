@@ -418,7 +418,7 @@ fun GererSoldeNegatifScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Déficit : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(deficit)}. " +
                         "Le reste peut rester négatif.")
-                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                         valeur = saisieCentimes,
                         onValeurChange = { saisieCentimes = it },
                         libelle = "Montant à couvrir"

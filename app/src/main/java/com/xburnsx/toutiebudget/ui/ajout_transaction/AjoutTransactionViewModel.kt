@@ -77,7 +77,6 @@ class AjoutTransactionViewModel(
     private var idsJobsAvantEcriture: Set<String> = emptySet()
     private var idsJobsOperation: Set<String>? = null
     /** AA5 : fiches de l'operation, y compris celles dont le SyncJob a ete compacte. */
-    private var idsFichesOperation: Set<String> = emptySet()
 
     init {
         chargerDonneesInitiales()
@@ -573,9 +572,6 @@ class AjoutTransactionViewModel(
      */
     private fun terminerAvecSucces(message: String, detteSoldee: Boolean = false) {
         val avant = _uiState.value
-        idsFichesOperation = listOfNotNull(
-            idOperationBrouillon, avant.compteSelectionne?.id, avant.comptePaiementSelectionne?.id
-        ).toSet()
         // Une nouvelle saisie = nouvelle opération; un échec gardera l'ancien ID.
         idOperationBrouillon = IdGenerator.generateId()
         _uiState.update {
@@ -595,10 +591,10 @@ class AjoutTransactionViewModel(
             viewModelScope.launch {
                 val jobs = syncJobDao.getAllSyncJobs().first()
                 // Seules les tâches ajoutées durant l'opération sont suivies,
-                // même si le worker met à jour ensuite leurs statuts.
-                idsJobsOperation = jobs.filter {
-                    it.id !in idsJobsAvantEcriture || it.recordId in idsFichesOperation
-                }.map { it.id }.toSet()
+                // même si le worker met à jour ensuite leurs statuts. Une ancienne tâche
+                // du même compte (ex. un vieil échec) ne dit rien de CETTE transaction :
+                // elle affichait « Échec de synchronisation » alors que tout était envoyé.
+                idsJobsOperation = jobs.filter { it.id !in idsJobsAvantEcriture }.map { it.id }.toSet()
                 appliquerStatutSynchronisation(jobs, depuis)
             }
         }

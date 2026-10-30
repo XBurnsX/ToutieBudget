@@ -189,8 +189,10 @@ class BudgetViewModelTest {
         val vm = ouvrirBudget()
         assertEquals(10.0, vm.enveloppe("loyer").versementRecommande)
 
-        // 50 $ d'un coup : rien de plus à suggérer ce mois-ci
+        // 50 $ d'un coup : la suggestion baisse (0 $ dès novembre 2026, quand le report est noté;
+        // en octobre 2026, (120 − 50) ÷ 12 sur le solde actuel)
         vm.assignerArgentAEnveloppe("loyer", "bleu", 5000); attendre()
-        assertEquals(0.0, vm.enveloppe("loyer").versementRecommande)
+        val apres = vm.enveloppe("loyer").versementRecommande
+        assertTrue(apres < 10.0, "suggestion après 50 $ : $apres")
     }
 }

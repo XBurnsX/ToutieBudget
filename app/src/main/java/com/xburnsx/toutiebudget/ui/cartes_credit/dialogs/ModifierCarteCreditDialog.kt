@@ -154,7 +154,7 @@ internal fun Champ(
     // Un montant se saisit TOUJOURS avec le clavier de l'app (ChampUniversel → ClavierNumerique)
     if (montant) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+            com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
                 valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(valeur),
                 onValeurChange = { centimes ->
                     onValeur(com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(centimes, videSiZero = facultatif))

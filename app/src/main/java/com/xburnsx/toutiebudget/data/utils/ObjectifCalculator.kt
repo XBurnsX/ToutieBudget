@@ -23,12 +23,16 @@ import kotlin.math.roundToLong
  * Aux deux semaines : chaque échéance qui tombe dans le mois coûte le montant de l'objectif
  * (2 ou 3 échéances selon le mois), moins l'argent déjà disponible pour ce mois.
  *
- * « Déjà mis » se lit dans les allocations en tenant compte du report de fin de mois :
- * le report remet l'alloué du mois fini à ses dépenses (montantReporte = ce qui est parti)
- * et recopie le reste dans le mois suivant. Un report n'est donc jamais compté deux fois,
- * ni pris pour un nouveau versement.
+ * Annuel et à échéance comptent l'argent PRÉSENT dans l'enveloppe, jamais l'argent dépensé :
+ * le but est d'avoir le montant à la date. Le report de fin de mois (montantReporte) donne ce
+ * qui était présent au début du mois; un report n'est jamais pris pour un nouveau versement.
  */
 class ObjectifCalculator(private val zone: ZoneId = ZoneId.systemDefault()) {
+
+    private companion object {
+        /** GN3 : le montant reporté est noté depuis le report de fin octobre 2026 (vers novembre). */
+        val PREMIER_REPORT_NOTE: YearMonth = YearMonth.of(2026, 10)
+    }
 
     private fun arrondirSuggestion(suggestion: Double): Double {
         if (!suggestion.isFinite()) return 0.0
@@ -94,29 +98,27 @@ class ObjectifCalculator(private val zone: ZoneId = ZoneId.systemDefault()) {
         val dernierMois = YearMonth.from(echeance).let { if (echeance.dayOfMonth == 1) it.minusMonths(1) else it }
         val moisRestants = max(1L, ChronoUnit.MONTHS.between(mois, dernierMois) + 1)
 
-        val misAvant = dejaMisJusqua(mois.minusMonths(1), debut, lignes)
-        val misCeMois = dejaMisJusqua(mois, debut, lignes) - misAvant
-        val partCeMois = max(0.0, objectif - misAvant) / moisRestants
-        return arrondirSuggestion(max(0.0, partCeMois - misCeMois))
-    }
+        // Le but est d'AVOIR le montant à la date : seul l'argent présent dans l'enveloppe compte.
+        // Ce qui a été dépensé n'avance pas l'objectif (s'il faut 400 $, il faut 400 $ dedans).
+        val duMois = lignes.filter { it.mois.moisAnnee() == mois }
+        // Solde de l'enveloppe : actuel, ou fin de mois pour un mois déjà reporté
+        val solde = duMois.sumOf { it.solde.fini() + it.montantReporte.fini() }
+        val depenseCeMois = duMois.sumOf { it.depense.fini() }
 
-    /**
-     * Argent mis dans l'enveloppe à la fin du mois [jusqua], depuis le début de l'objectif,
-     * en comptant ce qui y était déjà au départ : somme des alloués (un mois reporté ne garde
-     * que ses dépenses) + ce que le mois [jusqua] a reporté au suivant.
-     */
-    private fun dejaMisJusqua(
-        jusqua: YearMonth,
-        debut: YearMonth?,
-        lignes: List<AllocationMensuelle>
-    ): Double {
-        val parMois = lignes.groupBy { it.mois.moisAnnee() }
-        val alloues = parMois
-            .filterKeys { m -> !m.isAfter(jusqua) && (debut == null || !m.isBefore(debut)) }
-            .values.flatten()
-            .sumOf { it.alloue.fini() }
-        val reporte = parMois[jusqua].orEmpty().sumOf { it.montantReporte.fini() }
-        return alloues + reporte
+        val precedent = mois.minusMonths(1)
+        val (presentAuDepart, versementsCeMois) = if (!precedent.isBefore(PREMIER_REPORT_NOTE)) {
+            // Présent au début du mois = ce que le mois précédent a reporté
+            val report = lignes.filter { it.mois.moisAnnee() == precedent }.sumOf { it.montantReporte.fini() }
+            // Mis ce mois-ci = solde − report + dépenses du mois
+            (report - depenseCeMois) to (solde - report + depenseCeMois)
+        } else {
+            // Report d'avant GN3 : non noté, on ne peut pas séparer l'argent arrivé ce mois-ci.
+            // On répartit simplement ce qui manque au solde actuel.
+            solde to 0.0
+        }
+
+        val partCeMois = max(0.0, objectif - presentAuDepart) / moisRestants
+        return arrondirSuggestion(max(0.0, partCeMois - max(0.0, versementsCeMois)))
     }
 
     // ---------- Aux deux semaines ----------

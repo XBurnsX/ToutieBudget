@@ -392,7 +392,7 @@ private fun SectionProjection(dette: CompteDette, onVoirEcheancier: () -> Unit) 
         TextButton(onClick = onVoirEcheancier) { Text("Voir l'échéancier détaillé") }
 
         HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-        com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+        com.xburnsx.toutiebudget.ui.composants_communs.ChampMontantClavier(
             valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(extra),
             onValeurChange = { extra = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true) },
             libelle = "Versement supplémentaire par mois ($)",
