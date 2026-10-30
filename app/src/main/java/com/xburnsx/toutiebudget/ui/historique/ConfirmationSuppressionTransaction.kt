@@ -33,12 +33,21 @@ fun ConfirmationSuppressionTransaction(
         "Achat complet : " + AffichageMontantHistorique.formater(montantTotal) +
             "\nPortion visible ici : " + AffichageMontantHistorique.formater(transaction.montant)
     } else "Montant : " + AffichageMontantHistorique.formater(montantTotal)
+    // HE3 : les autres enveloppes touchées par le même achat, nommées une à une
+    val autresEnveloppes = transaction.nomsEnveloppesFractions
+        .filter { it.isNotBlank() && it != transaction.nomEnveloppe }
+        .distinct()
+    val autres = if (transaction.estFractionnee) {
+        "\nAutres enveloppes affectées : " +
+            (autresEnveloppes.takeIf { it.isNotEmpty() }?.joinToString() ?: "aucune autre")
+    } else ""
     val operationLiee = transaction.type.name.startsWith("Transfert") ||
         transaction.type.name.startsWith("Paiement")
     val impact = when {
         transaction.estFractionnee ->
             "La suppression retire l'achat COMPLET et toutes ses fractions, " +
-                "pas seulement la portion de cette enveloppe."
+                "pas seulement la portion de cette enveloppe. Pour changer une seule fraction, " +
+                "ouvre plutôt Modifier transaction."
         operationLiee ->
             "La suppression annule l'opération et ses écritures liées dans les comptes concernés."
         else ->
@@ -51,7 +60,7 @@ fun ConfirmationSuppressionTransaction(
             Text(
                 transaction.tiersUtiliser + "\n" + montant + " • " + date +
                     "\nCompte : " + compte +
-                    "\nEnveloppe / contrepartie : " + destination +
+                    "\nEnveloppe / contrepartie : " + destination + autres +
                     "\n\n" + impact
             )
         },

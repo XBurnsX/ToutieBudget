@@ -25,6 +25,9 @@ data class StatistiquesUiState(
     val donneesIndisponibles: List<String> = emptyList(),
     val periode: Periode? = null,
     val totalDepenses: Double = 0.0,
+    /** ST2/ST3 : intérêts et frais de crédit réels inclus dans les dépenses. */
+    val interetsCredit: Double = 0.0,
+    val fraisCredit: Double = 0.0,
     val totalRevenus: Double = 0.0,
     val totalNet: Double = 0.0,
     val totalDette: Double = 0.0,

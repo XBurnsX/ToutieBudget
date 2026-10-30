@@ -86,6 +86,7 @@ fun ModifierTransactionScreen(
     onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Recharger les données quand l'écran s'ouvre
     LaunchedEffect(Unit) {
@@ -98,6 +99,14 @@ fun ModifierTransactionScreen(
         navigationEvents?.let { event ->
             when (event) {
                 is HistoriqueNavigationEvent.TransactionModifiee -> {
+                    // MA5 : confirmation exacte — enregistré sur l'appareil ; le serveur suit (sans le promettre)
+                    android.widget.Toast.makeText(
+                        context,
+                        if (com.xburnsx.toutiebudget.utils.DiagnosticDonnees.estEnLigne(context))
+                            "Modification enregistrée sur l'appareil ; synchronisation avec le serveur en cours."
+                        else "Modification enregistrée sur l'appareil ; elle partira au serveur au retour d'Internet.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
                     onTransactionModified()
                     viewModel.effacerNavigationEvent()
                 }

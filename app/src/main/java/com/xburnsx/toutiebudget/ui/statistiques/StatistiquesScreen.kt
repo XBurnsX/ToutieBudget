@@ -462,6 +462,7 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: Statistiqu
         enter = fadeIn(animationSpec = tween(800)) +
                 slideInVertically(animationSpec = tween(800)) { it / 2 }
     ) {
+      Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -508,6 +509,18 @@ private fun AnimatedKpiCards(uiState: StatistiquesUiState, viewModel: Statistiqu
                 delay = 200
             )
         }
+        // ST2/ST3 : seuls les intérêts et frais réels du crédit sont des dépenses (jamais le capital payé)
+        if (uiState.vue == VueStatistiques.BUDGET && (uiState.interetsCredit > 0.0 || uiState.fraisCredit > 0.0)) {
+            Text(
+                "Les dépenses incluent ${MoneyFormatter.formatAmount(uiState.interetsCredit)} d'intérêts et " +
+                    "${MoneyFormatter.formatAmount(uiState.fraisCredit)} de frais de crédit (cartes et dettes). " +
+                    "Les paiements de carte et remboursements de capital n'en font pas partie.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+      }
     }
 }
 

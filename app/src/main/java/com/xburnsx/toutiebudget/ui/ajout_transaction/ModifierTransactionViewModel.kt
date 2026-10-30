@@ -297,6 +297,16 @@ class ModifierTransactionViewModel(
                 }
                 
                 val original = transactionAModifier!!
+                // MT22 : jamais écraser une version modifiée ailleurs depuis l'ouverture du formulaire
+                val actuelle = transactionRepository.recupererTransactionParId(original.id).getOrThrow()
+                if (actuelle.montant != original.montant || actuelle.date != original.date ||
+                    actuelle.compteId != original.compteId || actuelle.type != original.type ||
+                    actuelle.allocationMensuelleId != original.allocationMensuelleId ||
+                    actuelle.sousItems != original.sousItems || actuelle.note != original.note ||
+                    actuelle.tiersUtiliser != original.tiersUtiliser
+                ) {
+                    throw Exception("Cette transaction a été modifiée ailleurs depuis l'ouverture : reviens à l'historique et rouvre-la.")
+                }
                 // MT18 : préserver l'heure d'origine, même quand seul le jour change.
                 val originalZoned = original.date.toInstant().atZone(ZoneId.systemDefault())
                 val dateTransaction = if (state.dateTransaction == originalZoned.toLocalDate()) original.date
@@ -655,6 +665,17 @@ class ModifierTransactionViewModel(
 
     // Méthodes de mise à jour de l'état (identiques à AjoutTransactionViewModel)
     fun mettreAJourTypeTransaction(type: TypeTransaction) {
+        // MT4 : un virement, un paiement ou un prêt ne devient jamais une dépense ordinaire par erreur
+        val original = transactionAModifier
+        if (original != null && original.type != type &&
+            original.type !in setOf(TypeTransaction.Depense, TypeTransaction.Revenu)
+        ) {
+            _uiState.update {
+                it.copy(messageErreur = "Le type d'un ${original.type.libelle.lowercase()} ne change pas ici : " +
+                    "modifie le montant, la date ou la note, ou supprime-le puis refais l'opération.")
+            }
+            return
+        }
         _uiState.update { it.copy(typeTransaction = type) }
     }
 

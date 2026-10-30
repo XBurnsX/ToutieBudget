@@ -120,6 +120,55 @@ object ReglesStatistiques {
         return cents / 100.0
     }
 
+    /** ST2/ST3 : vrai coût du crédit de la période, en cents (intérêts, frais). */
+    data class CoutsCredit(val interetsCents: Long, val fraisCents: Long) {
+        val totalCents: Long get() = interetsCents + fraisCents
+    }
+
+    /**
+     * ST2/ST3 : un paiement de carte, un emprunt ou un remboursement de capital n'est jamais une dépense ;
+     * seuls les intérêts et frais RÉELS le sont. Sources fiables, synchronisées avec le compte :
+     * relevés de carte dont les intérêts/frais ont été confirmés (comptabilisés ou déjà inclus),
+     * et ajustements « Intérêts / Frais ajoutés » des dettes, datés dans la période.
+     */
+    fun coutsDuCredit(
+        comptes: List<com.xburnsx.toutiebudget.data.modeles.Compte>,
+        debut: java.util.Date,
+        fin: java.util.Date,
+        filtreComptes: Set<String> = emptySet()
+    ): CoutsCredit {
+        val zone = java.time.ZoneId.systemDefault()
+        val du = debut.toInstant().atZone(zone).toLocalDate()
+        val au = fin.toInstant().atZone(zone).toLocalDate()
+        fun dansPeriode(texte: String?): Boolean = runCatching { java.time.LocalDate.parse(texte?.take(10)) }
+            .getOrNull()?.let { !it.isBefore(du) && !it.isAfter(au) } == true
+        var interets = 0L
+        var frais = 0L
+        comptes.filter { filtreComptes.isEmpty() || it.id in filtreComptes }.forEach { compte ->
+            when (compte) {
+                is com.xburnsx.toutiebudget.data.modeles.CompteCredit -> compte.details.releves
+                    .filter { dansPeriode(it.dateEmission) }
+                    .forEach { r ->
+                        if (r.interetsComptabilises || r.interetsDejaInclus) interets += cents(r.interetsFactures)
+                        if (r.fraisComptabilises || r.fraisDejaInclus) frais += cents(r.fraisFactures)
+                    }
+                is com.xburnsx.toutiebudget.data.modeles.CompteDette -> compte.details.ajustements
+                    .filter { dansPeriode(it.date) }
+                    .forEach { a ->
+                        // soldeDette est négatif : une dette qui grossit donne avant − après > 0
+                        val cout = cents(a.soldeAvant) - cents(a.soldeApres)
+                        if (cout > 0) when (a.type) {
+                            com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette.INTERETS -> interets += cout
+                            com.xburnsx.toutiebudget.data.modeles.TypeAjustementDette.FRAIS -> frais += cout
+                            else -> Unit
+                        }
+                    }
+                else -> Unit
+            }
+        }
+        return CoutsCredit(interets, frais)
+    }
+
     /** ST18 : montant exact en cents (jamais d'addition de Double pour un total d'argent). */
     fun cents(montant: Double): Long =
         BigDecimal.valueOf(montant).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValueExact()

@@ -203,7 +203,14 @@ class StatistiquesViewModel(
             val depenses = transactions.filter(ReglesStatistiques::estDepenseBudget)
             val revenus = transactions.filter(ReglesStatistiques::estRevenuBudget)
 
-            val totalDepenses = ReglesStatistiques.totalAuCent(depenses) { true }
+            // ST2/ST3 : les intérêts et frais réels du crédit sont des dépenses ; jamais le capital remboursé
+            val coutsCredit = runCatching {
+                ReglesStatistiques.coutsDuCredit(
+                    compteRepository.recupererTousLesComptes().getOrThrow(), debut, fin, filtreComptes
+                )
+            }.getOrDefault(ReglesStatistiques.CoutsCredit(0L, 0L))
+            val totalDepenses = (ReglesStatistiques.cents(ReglesStatistiques.totalAuCent(depenses) { true }) +
+                coutsCredit.totalCents) / 100.0
             val totalRevenus = ReglesStatistiques.totalAuCent(revenus) { true }
             val totalNet = com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(totalRevenus - totalDepenses)
             val totalSortiesTresorerie = ReglesStatistiques.totalAuCent(transactions, ReglesStatistiques::estSortieTresorerie)
@@ -406,6 +413,8 @@ class StatistiquesViewModel(
                 donneesIndisponibles = erreursAllocations.map { "Allocations $it" },
                 periode = periode,
                 totalDepenses = totalDepenses,
+                interetsCredit = coutsCredit.interetsCents / 100.0,
+                fraisCredit = coutsCredit.fraisCents / 100.0,
                 totalRevenus = totalRevenus,
                 totalNet = totalNet,
                 transactionsPeriode = transactions,
