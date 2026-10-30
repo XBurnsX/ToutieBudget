@@ -314,7 +314,7 @@ class EcransArgentTest {
 
     @Test
     fun `archiver une carte garde son taux et sa limite`() = test {
-        b.carte("visa", -100.0)
+        b.carte("visa", 0.0) // une carte qui doit encore de l'argent ne s'archive plus
         val vm = app.comptes(); attendre()
         vm.onCompteLongPress(b.comptes.getValue("visa")); vm.onArchiverCompte(); attendre()
         val c = b.comptes.getValue("visa") as CompteCredit

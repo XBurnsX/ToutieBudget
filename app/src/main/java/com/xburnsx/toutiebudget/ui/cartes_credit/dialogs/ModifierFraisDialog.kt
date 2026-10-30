@@ -33,7 +33,7 @@ fun ModifierFraisDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Champ("Nom (ex. assurance, frais annuels)", formulaire.nomFrais, null, texte = true) { v -> onChange { copy(nomFrais = v) } }
-                Champ("Montant ($)", formulaire.montantFrais, null) { v -> onChange { copy(montantFrais = v) } }
+                Champ("Montant ($)", formulaire.montantFrais, null, montant = true) { v -> onChange { copy(montantFrais = v) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(TypeFrais.MENSUEL to "Mensuel", TypeFrais.ANNUEL to "Annuel", TypeFrais.PONCTUEL to "Ponctuel").forEach { (type, libelle) ->
                         FilterChip(selected = formulaire.typeFrais == type, onClick = { onChange { copy(typeFrais = type) } }, label = { Text(libelle) })

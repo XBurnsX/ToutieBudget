@@ -15,11 +15,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import com.xburnsx.toutiebudget.ui.composants_communs.ClavierNumerique
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -45,31 +50,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.toColorInt
 import com.xburnsx.toutiebudget.ui.budget.CategorieEnveloppesUi
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
-import java.math.BigDecimal
-import java.math.RoundingMode
 
-/** Convertit « 12,5 » ou « 12.50 » en centimes ; null si la saisie n'est pas un montant. */
-private fun texteVersCentimes(texte: String): Long? {
-    val propre = texte.trim().replace(" ", "").replace(',', '.')
-    if (propre.isEmpty()) return 0L
-    return try {
-        BigDecimal(propre).setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).longValueExact()
-            .takeIf { it >= 0 }
-    } catch (_: Exception) {
-        null
-    }
-}
-
-private fun centimesVersTexte(centimes: Long): String =
-    BigDecimal.valueOf(centimes).movePointLeft(2).setScale(2).toPlainString().replace('.', ',')
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepartitionMultipleDialog(
     comptes: List<CompteBudget>,
@@ -80,15 +68,16 @@ fun RepartitionMultipleDialog(
     onFermer: () -> Unit
 ) {
     var compteId by remember { mutableStateOf(comptes.firstOrNull()?.id) }
-    val saisies = remember { mutableStateMapOf<String, String>() }
+    val saisies = remember { mutableStateMapOf<String, Long>() }
+    // Enveloppe dont le montant est en cours de saisie avec ClavierNumerique
+    var enSaisie by remember { mutableStateOf<String?>(null) }
     var recherche by remember { mutableStateOf("") }
     var apercu by remember { mutableStateOf(false) }
 
     val compte = comptes.find { it.id == compteId }
     val toutesEnveloppes = categories.flatMap { it.enveloppes }
-    val montants: Map<String, Long?> = saisies.mapValues { (_, texte) -> texteVersCentimes(texte) }
-    val saisieInvalide = montants.values.any { it == null }
-    val montantsValides = montants.mapNotNull { (id, c) -> if (c != null && c > 0) id to c else null }.toMap()
+    val saisieInvalide = saisies.values.any { it < 0L }
+    val montantsValides = saisies.filterValues { it > 0L }.toMap()
     val totalCentimesOuErreur = runCatching {
         montantsValides.values.fold(0L) { total, valeur -> Math.addExact(total, valeur) }
     }.getOrNull()
@@ -107,7 +96,12 @@ fun RepartitionMultipleDialog(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(16.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (apercu) "Aperçu de la répartition" else "Répartir vers plusieurs enveloppes",
@@ -160,7 +154,7 @@ fun RepartitionMultipleDialog(
                             toutesEnveloppes
                                 .filter { !it.estArchive && it.versementRecommande.isFinite() &&
                                     it.versementRecommande >= 0.01 }
-                                .forEach { saisies[it.id] = centimesVersTexte(Math.round(it.versementRecommande * 100)) }
+                                .forEach { saisies[it.id] = Math.round(it.versementRecommande * 100) }
                         }) { Text("Selon objectifs") }
                     }
 
@@ -192,16 +186,13 @@ fun RepartitionMultipleDialog(
                                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                             )
                                         }
-                                        OutlinedTextField(
-                                            value = saisies[enveloppe.id] ?: "",
-                                            onValueChange = { saisies[enveloppe.id] = it },
-                                            placeholder = { Text("0,00") },
-                                            singleLine = true,
-                                            isError = saisies[enveloppe.id]?.let { texteVersCentimes(it) == null } == true,
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                            suffix = { Text("$") },
+                                        // Montant : touché → ClavierNumerique de l'app (jamais le clavier Android)
+                                        OutlinedButton(
+                                            onClick = { enSaisie = enveloppe.id },
                                             modifier = Modifier.width(130.dp)
-                                        )
+                                        ) {
+                                            Text(MoneyFormatter.formatAmountFromCents(saisies[enveloppe.id] ?: 0L))
+                                        }
                                     }
                                 }
                             }
@@ -244,7 +235,7 @@ fun RepartitionMultipleDialog(
                     Text("Montants trop élevés pour une répartition valide.", color = MaterialTheme.colorScheme.error)
                 }
                 if (saisieInvalide) {
-                    Text("Entre des montants positifs avec au maximum deux décimales.",
+                    Text("Entre des montants positifs.",
                         color = MaterialTheme.colorScheme.error)
                 }
                 erreur?.let {
@@ -284,6 +275,18 @@ fun RepartitionMultipleDialog(
                     }
                 }
             }
+        }
+    }
+
+    enSaisie?.let { id ->
+        ModalBottomSheet(onDismissRequest = { enSaisie = null }) {
+            ClavierNumerique(
+                montantInitial = saisies[id] ?: 0L,
+                isMoney = true,
+                suffix = "",
+                onMontantChange = { saisies[id] = it },
+                onFermer = { enSaisie = null }
+            )
         }
     }
 }

@@ -69,9 +69,10 @@ fun ModifierCarteCreditDialog(
                     "Solde actuel (dette en négatif, ex. -400,00)",
                     formulaire.soldeActuel,
                     formulaire.erreurs["solde"],
-                    aide = "0 = carte à zéro ; positif = trop-payé. Une correction est notée dans l'historique, sans créer de paiement."
+                    aide = "0 = carte à zéro ; positif = trop-payé. Une correction est notée dans l'historique, sans créer de paiement.",
+                    montant = true
                 ) { v -> onChange { copy(soldeActuel = v) } }
-                Champ("Limite de crédit", formulaire.limiteCredit, formulaire.erreurs["limite"]) { v -> onChange { copy(limiteCredit = v) } }
+                Champ("Limite de crédit", formulaire.limiteCredit, formulaire.erreurs["limite"], montant = true) { v -> onChange { copy(limiteCredit = v) } }
                 Champ("Taux annuel des achats (%)", formulaire.tauxInteret, formulaire.erreurs["taux"]) { v -> onChange { copy(tauxInteret = v) } }
 
                 TextButton(onClick = { avance = !avance }) {
@@ -101,13 +102,17 @@ fun ModifierCarteCreditDialog(
                         "Plancher prévu au contrat ($)",
                         formulaire.plancherMinimum,
                         formulaire.erreurs["plancher"],
-                        aide = "Seulement s'il figure dans votre contrat."
+                        aide = "Seulement s'il figure dans votre contrat.",
+                        montant = true,
+                        facultatif = true
                     ) { v -> onChange { copy(plancherMinimum = v) } }
                     Champ(
                         "Minimum officiel connu ($)",
                         formulaire.paiementMinimum,
                         formulaire.erreurs["minimum"],
-                        aide = "Le minimum d'un relevé saisi dans « Relevés officiels » a priorité."
+                        aide = "Le minimum d'un relevé saisi dans « Relevés officiels » a priorité.",
+                        montant = true,
+                        facultatif = true
                     ) { v -> onChange { copy(paiementMinimum = v) } }
 
                     Text("Autres taux annuels (%)", style = MaterialTheme.typography.labelLarge)
@@ -142,8 +147,32 @@ internal fun Champ(
     texte: Boolean = false,
     entier: Boolean = false,
     aide: String? = null,
+    montant: Boolean = false,
+    facultatif: Boolean = false,
     onValeur: (String) -> Unit
 ) {
+    // Un montant se saisit TOUJOURS avec le clavier de l'app (ChampUniversel → ClavierNumerique)
+    if (montant) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(valeur),
+                onValeurChange = { centimes ->
+                    onValeur(com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(centimes, videSiZero = facultatif))
+                },
+                libelle = libelle,
+                modifier = Modifier.fillMaxWidth()
+            )
+            (erreur ?: aide)?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (erreur != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
+        return
+    }
     OutlinedTextField(
         value = valeur,
         onValueChange = onValeur,

@@ -61,19 +61,22 @@ fun VentilationCarteCard(
                         "Aucun montant n'est débité ni crédité.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                OutlinedTextField(
-                    value = achats, onValueChange = { achats = it },
-                    label = { Text("Solde achats ($)") }, singleLine = true,
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(achats),
+                    onValeurChange = { achats = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
+                    libelle = "Solde achats ($)",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = avances, onValueChange = { avances = it },
-                    label = { Text("Solde avances de fonds ($)") }, singleLine = true,
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(avances),
+                    onValeurChange = { avances = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
+                    libelle = "Solde avances de fonds ($)",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = transferts, onValueChange = { transferts = it },
-                    label = { Text("Solde transferts de solde ($)") }, singleLine = true,
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(transferts),
+                    onValeurChange = { transferts = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it) },
+                    libelle = "Solde transferts de solde ($)",
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

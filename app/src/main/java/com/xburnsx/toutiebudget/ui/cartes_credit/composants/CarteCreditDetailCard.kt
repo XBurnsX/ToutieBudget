@@ -97,7 +97,7 @@ fun CarteCreditDetailCard(
                 Ligne("Solde du relevé (${releve.dateEmission})", MoneyFormatter.formatAmount(releve.soldeOfficiel) + " · officiel")
             }
             if (minimum != null) {
-                MoteurCarteCredit.dernierReleve(carte)?.minimumOfficiel?.let { officiel ->
+                MoteurCarteCredit.releveCourant(carte)?.minimumOfficiel?.let { officiel ->
                     Ligne("Minimum officiel du relevé", MoneyFormatter.formatAmount(officiel))
                 }
                 Ligne(

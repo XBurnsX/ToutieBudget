@@ -87,7 +87,14 @@ fun SimulateurCarte(carte: CompteCredit) {
                     FilterChip(selected = mode == m, onClick = { mode = m }, label = { Text(m.libelle) })
                 }
             }
-            if (mode != ModeSimulation.MINIMUM) {
+            if (mode == ModeSimulation.FIXE) {
+                com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                    valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(saisie),
+                    onValeurChange = { saisie = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true) },
+                    libelle = "Versement par mois ($)",
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else if (mode != ModeSimulation.MINIMUM) {
                 OutlinedTextField(
                     value = saisie,
                     onValueChange = { saisie = it },

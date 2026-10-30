@@ -209,7 +209,7 @@ fun BudgetScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
-        containerColor = Color(0xFF121212),
+        containerColor = com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond,
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0),
@@ -220,7 +220,7 @@ fun BudgetScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF121212),
+                    containerColor = com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond,
                     titleContentColor = Color.White
                 ),
                 actions = {
@@ -348,7 +348,7 @@ fun BudgetScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF121212))
+                            .background(com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond)
                             .padding(vertical = 8.dp)
                     ) {
                         uiState.bandeauxPretAPlacer.forEach { bandeau ->
@@ -492,7 +492,7 @@ fun BudgetScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFF121212))
+                                .background(com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond)
                                 .clickable { viewModel.toggleCategorie(CATEGORIE_FAVORIS) }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -518,10 +518,14 @@ fun BudgetScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        if (estOuverte) {
-                            favoris.forEach { enveloppe ->
-                                Box(modifier = Modifier.clickable { ouvrirClavier(enveloppe) }) {
-                                    EnveloppeItem(enveloppe = enveloppe)
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = estOuverte,
+                            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                        ) {
+                            Column {
+                                favoris.forEach { enveloppe ->
+                                    EnveloppeItem(enveloppe = enveloppe, onClick = { ouvrirClavier(enveloppe) })
                                 }
                             }
                         }
@@ -538,7 +542,7 @@ fun BudgetScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF121212))
+                            .background(com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond)
                             .clickable(enabled = !filtreActif) { viewModel.toggleCategorie(categorie.nomCategorie) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -561,12 +565,14 @@ fun BudgetScreen(
                     }
 
                     // 🆕 ENVELOPPES (affichées seulement si la catégorie est ouverte)
-                    if (estOuverte) {
-                        categorie.enveloppes.forEach { enveloppe ->
-                            Box(
-                                modifier = Modifier.clickable { ouvrirClavier(enveloppe) }
-                            ) {
-                                EnveloppeItem(enveloppe = enveloppe)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = estOuverte,
+                        enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                        exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                    ) {
+                        Column {
+                            categorie.enveloppes.forEach { enveloppe ->
+                                EnveloppeItem(enveloppe = enveloppe, onClick = { ouvrirClavier(enveloppe) })
                             }
                         }
                     }
@@ -693,7 +699,7 @@ fun BudgetScreenPreview() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212))
+            .background(com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.Fond)
             .padding(16.dp)
     ) {
         Text(

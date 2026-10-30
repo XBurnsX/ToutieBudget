@@ -31,7 +31,9 @@ data class DetailsCarte(
     // CC5 : ventilation déclarée explicitement du solde du jour; jamais inférée du seul total.
     val ventilationCourante: VentilationSoldeCarte? = null,
     // CC6 : relevés officiels saisis par l'utilisateur
-    val releves: List<ReleveCarte> = emptyList()
+    val releves: List<ReleveCarte> = emptyList(),
+    // Lien permanent vers l'enveloppe de la carte (comme les dettes) : un renommage ne le casse plus
+    val enveloppeId: String? = null
 ) {
     val pourcentageMinimumEffectif: Double get() = pourcentageMinimum ?: emetteur.pourcentageMinimum
     val plancherMinimumEffectif: Double? get() = plancherMinimum

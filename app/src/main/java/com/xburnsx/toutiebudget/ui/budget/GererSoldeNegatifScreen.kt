@@ -409,10 +409,8 @@ fun GererSoldeNegatifScreen(
 
     enveloppePersonnalisee?.let { env ->
         val deficit = -kotlin.math.round(env.solde * 100.0).toLong() / 100.0
-        var saisie by remember(env.id) { mutableStateOf("") }
-        val centimes = saisie.trim().replace(" ", "").replace(',', '.').toBigDecimalOrNull()
-            ?.takeIf { it.scale() <= 2 && it.signum() > 0 }
-            ?.movePointRight(2)?.toLong()
+        var saisieCentimes by remember(env.id) { mutableStateOf(0L) }
+        val centimes = saisieCentimes.takeIf { it > 0L }
         AlertDialog(
             onDismissRequest = { enveloppePersonnalisee = null },
             title = { Text("Couvrir une partie de « ${env.nom} »") },
@@ -420,15 +418,10 @@ fun GererSoldeNegatifScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Déficit : ${com.xburnsx.toutiebudget.utils.MoneyFormatter.formatAmount(deficit)}. " +
                         "Le reste peut rester négatif.")
-                    OutlinedTextField(
-                        value = saisie,
-                        onValueChange = { saisie = it },
-                        label = { Text("Montant à couvrir") },
-                        singleLine = true,
-                        isError = saisie.isNotBlank() && centimes == null,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                        )
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                        valeur = saisieCentimes,
+                        onValeurChange = { saisieCentimes = it },
+                        libelle = "Montant à couvrir"
                     )
                 }
             },

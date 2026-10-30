@@ -303,7 +303,9 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             }
         }
         Champ("Durée du prêt (mois)", f.dureeMois, f.erreurs["duree"], entier = true) { v -> onChange { copy(dureeMois = v) } }
-        Champ("Montant de chaque paiement ($)", f.versementPrevu, f.erreurs["versement"]) { v -> onChange { copy(versementPrevu = v) } }
+        com.xburnsx.toutiebudget.ui.cartes_credit.dialogs.Champ(
+            "Montant de chaque paiement ($)", f.versementPrevu, f.erreurs["versement"], montant = true
+        ) { v -> onChange { copy(versementPrevu = v) } }
         Champ("Taux annuel (%)", f.taux, f.erreurs["taux"]) { v -> onChange { copy(taux = v) } }
         situation?.let { s ->
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
@@ -390,12 +392,10 @@ private fun SectionProjection(dette: CompteDette, onVoirEcheancier: () -> Unit) 
         TextButton(onClick = onVoirEcheancier) { Text("Voir l'échéancier détaillé") }
 
         HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-        OutlinedTextField(
-            value = extra,
-            onValueChange = { extra = it },
-            label = { Text("Versement supplémentaire par mois ($)") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+            valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(extra),
+            onValeurChange = { extra = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true) },
+            libelle = "Versement supplémentaire par mois ($)",
             modifier = Modifier.fillMaxWidth()
         )
         val montantExtra = extra.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }

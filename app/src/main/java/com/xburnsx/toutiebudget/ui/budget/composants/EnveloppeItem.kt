@@ -3,6 +3,25 @@ package com.xburnsx.toutiebudget.ui.budget.composants
 
 // Importations des bibliothèques nécessaires pour créer des interfaces utilisateur avec Jetpack Compose.
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.eclaircir
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +34,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,160 +79,140 @@ fun String?.toColor(): Color {
  * @param enveloppe L'objet de données contenant toutes les informations sur l'enveloppe à afficher.
  */
 @Composable
-fun EnveloppeItem(enveloppe: EnveloppeUi) {
-    // Récupère le solde actuel de l'enveloppe.
-    // 🎯 UTILISER LA NORMALISATION GLOBALE POUR UNE PRÉCISION COHÉRENTE
+fun EnveloppeItem(enveloppe: EnveloppeUi, onClick: (() -> Unit)? = null) {
     val montant = MoneyFormatter.normalizeAmount(enveloppe.solde)
-    // Récupère le montant de l'objectif, s'il y en a un.
     val objectif = enveloppe.objectif
-    
-    // 🎨 SOLUTION : Utiliser couleurObjectif pour les barres (toujours garder couleur du compte)
-    // couleurProvenance reste pour la bulle (reset à null si solde = 0)
-    val couleurCompteSource = enveloppe.couleurObjectif ?: "#4CAF50" // Couleur par défaut si pas de couleur objectif
-    
-    // LOGS POUR DÉBOGUER LA COULEUR DU COMPTE SOURCE
+    val estObjectifAtteint = StyleBudget.objectifAtteint(enveloppe)
 
-    // --- LOGIQUE POUR DÉTERMINER SI L'OBJECTIF EST ATTEINT ---
-    val estObjectifAtteint = when (enveloppe.typeObjectif) {
-        // Pour les objectifs de dépense : vérifier si depense >= objectif (pas alloue + depense !)
-        com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.depense >= objectif
-        // Pour les objectifs d'épargne/accumulation : vérifier si alloueCumulatif >= objectif
-        else -> enveloppe.alloueCumulatif >= objectif
-    }
-    
-    // LOGS POUR DÉBOGUER LA DÉTECTION DE L'OBJECTIF
-
-    // --- LOGIQUE POUR LA BULLE DE MONTANT ---
-    // Détermine la couleur de fond de la bulle qui affiche le solde.
-    val couleurBulle = when {
-        // Rouge pour soldes négatifs (seulement si vraiment négatif, pas juste proche de zéro)
-        enveloppe.solde < -0.001 -> Color(0xFFEF4444) // Rouge pour négatif
-        // Si le solde est positif et une couleur est définie, on utilise cette couleur.
+    // --- Bulle : couleur du compte d'où vient l'argent, rouge si négatif, gris si vide ---
+    val couleurBulleCible = when {
+        enveloppe.solde < -0.001 -> StyleBudget.Rouge
         enveloppe.solde > 0.001 -> enveloppe.couleurProvenance.toColor()
-        // Sinon (solde à zéro ou très proche de zéro), on utilise un gris foncé.
-        else -> Color(0xFF444444)
+        else -> StyleBudget.BulleVide
     }
+    val bulleVide = kotlin.math.abs(enveloppe.solde) <= 0.001
+    val couleurBulle by animateColorAsState(couleurBulleCible, tween(400), label = "couleurBulle")
+    val couleurTexteBulle = if (bulleVide) StyleBudget.TexteSecondaire else Color.White
 
-    // Détermine la couleur du texte dans la bulle.
-    val couleurTexteBulle = when {
-        enveloppe.solde < -0.001 -> Color.White // Texte blanc pour le rouge
-        enveloppe.solde > 0.001 -> Color.White // Texte blanc pour les couleurs
-        else -> Color.LightGray // Texte gris clair pour le gris
-    }
+    // --- Couleurs d'état : une seule règle pour la barre latérale et la barre de progression ---
+    val couleurStatut by animateColorAsState(
+        StyleBudget.couleurEtat(enveloppe, pourBarre = false), tween(400), label = "couleurStatut"
+    )
+    val couleurBarre by animateColorAsState(
+        StyleBudget.couleurEtat(enveloppe, pourBarre = true), tween(400), label = "couleurBarre"
+    )
 
-    // --- LOGIQUE POUR LA BARRE LATÉRALE DE STATUT ---
-    // Détermine la couleur de la barre verticale à droite de la carte, indiquant le statut global.
-    // MÊME LOGIQUE QUE LA BARRE DE PROGRESSION pour la cohérence
-    val couleurStatut = when {
-        // Si pas d'objectif (objectif = 0 ou typeObjectif = Aucun) et solde = 0 : Gris
-        (objectif <= 0 || enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun) && enveloppe.solde <= 0.001 -> Color.Gray
-        // Si pas d'objectif mais solde > 0 : JAUNE pour indiquer l'activité
-        (objectif <= 0 || enveloppe.typeObjectif == com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun) && enveloppe.solde > 0.001 -> Color(0xFFFFC107)
-        // Objectif atteint : Vert ou couleur du compte source si dépensé
-        estObjectifAtteint -> {
-            when (enveloppe.typeObjectif) {
-                com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                    // LOGS POUR DÉBOGUER LA COULEUR DU COMPTE
-                    
-                    if (enveloppe.depense >= objectif) {
-                        val couleurCompte = couleurCompteSource.toColor()
-                        couleurCompte
-                    } else {
-                        Color(0xFF4CAF50) // Vert si atteint par allocation
-                    }
-                }
-                else -> {
-                    Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
-                }
-            }
+
+    // --- Le montant défile vers sa nouvelle valeur et la bulle pulse une fois ---
+    val montantAnime = remember { Animatable(montant.toFloat()) }
+    val echelleBulle = remember { Animatable(1f) }
+    val premierAffichage = remember { booleanArrayOf(true) }
+    LaunchedEffect(montant) {
+        if (premierAffichage[0]) {
+            premierAffichage[0] = false
+            montantAnime.snapTo(montant.toFloat())
+            return@LaunchedEffect
         }
-        // Vert si objectif atteint (même logique que barre de progression)
-        when (enveloppe.typeObjectif) {
-            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue >= objectif
-            else -> enveloppe.alloueCumulatif >= objectif
-        } -> Color(0xFF4CAF50)
-        // Jaune si en cours (même logique que barre de progression)
-        when (enveloppe.typeObjectif) {
-            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue > 0.001
-            else -> enveloppe.alloueCumulatif > 0.001
-        } -> Color(0xFFFFC107)
-        // Gris si pas d'argent
-        else -> Color.Gray
+        launch {
+            echelleBulle.animateTo(1.12f, tween(140))
+            echelleBulle.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow))
+        }
+        montantAnime.animateTo(montant.toFloat(), tween(550, easing = FastOutSlowInEasing))
     }
+    // La valeur exacte s'affiche dès la fin de l'animation (jamais d'arrondi de Float qui reste)
+    val montantAffiche = if (montantAnime.isRunning) montantAnime.value.toDouble() else montant
 
-    // Définit la forme de la carte avec des coins arrondis de 20.dp.
+    // --- Appui : la carte s'enfonce légèrement ---
+    val interaction = remember { MutableInteractionSource() }
+    val presse by interaction.collectIsPressedAsState()
+    val echelleCarte by animateFloatAsState(
+        if (presse) 0.97f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "appui"
+    )
+
     val cardShape = RoundedCornerShape(20.dp)
+    val chiffres = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
 
-    // Le composant Card est le conteneur principal de l'item.
-    Card(
+    Box(
         modifier = Modifier
-            .fillMaxWidth() // La carte prend toute la largeur de son parent.
-            .padding(horizontal = 8.dp, vertical = 6.dp), // Ajoute de l'espace autour de la carte.
-        shape = cardShape, // Applique la forme avec coins arrondis définie plus haut.
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), // Ajoute une légère ombre sous la carte.
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF232323) // Définit la couleur de fond de la carte.
-        )
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 5.dp)
+            .graphicsLayer {
+                scaleX = echelleCarte
+                scaleY = echelleCarte
+            }
+            .shadow(6.dp, cardShape, ambientColor = Color.Black, spotColor = Color.Black)
+            .clip(cardShape)
+            .background(Brush.verticalGradient(listOf(StyleBudget.CarteHaut, StyleBudget.CarteBas)))
+            .border(1.dp, StyleBudget.Bordure, cardShape)
+            .then(
+                if (onClick != null) Modifier.clickable(
+                    interactionSource = interaction,
+                    indication = LocalIndication.current,
+                    onClick = onClick
+                ) else Modifier
+            )
     ) {
-        // Row arrange ses enfants (la colonne de texte et la barre de statut) horizontalement.
         Row(
             modifier = Modifier
-                .fillMaxWidth() // Prend toute la largeur.
-                .height(IntrinsicSize.Min), // La hauteur de la Row sera la hauteur minimale nécessaire pour contenir ses enfants.
-            verticalAlignment = Alignment.CenterVertically // Centre les enfants verticalement.
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Column pour la partie principale, avec le nom, le montant et la barre de progression.
             Column(
                 modifier = Modifier
-                    .weight(1f) // La colonne prend tout l'espace disponible dans la Row (après que la barre de statut ait pris sa largeur fixe).
-                    .padding(horizontal = 16.dp, vertical = 12.dp) // Espace intérieur.
-                // SUPPRIMÉ verticalArrangement = Arrangement.spacedBy((-2).dp) - plus besoin !
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                // Row pour le nom de l'enveloppe et la bulle de montant.
+                // Nom de l'enveloppe et bulle de montant
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically // Aligne le nom et la bulle sur la même ligne verticale.
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Texte affichant le nom de l'enveloppe.
                     Text(
                         text = enveloppe.nom,
-                        fontWeight = FontWeight.Bold, // Texte en gras.
+                        fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        lineHeight = 15.sp, // SUPPRIME l'espace vertical interne
+                        lineHeight = 15.sp,
                         color = Color.White,
-                        modifier = Modifier.weight(1f) // Le texte prend l'espace restant pour pousser la bulle à droite.
+                        modifier = Modifier.weight(1f)
                     )
 
-                    // --- BULLE DE MONTANT (RÉDUITE) ---
-                    // Box est utilisé comme conteneur pour la bulle afin de pouvoir lui donner un fond et une forme.
+                    // Bulle : léger dégradé et halo de la couleur du compte
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50)) // Découpe la Box en une forme de pilule (coins très arrondis).
-                            .background(couleurBulle) // Applique la couleur de fond calculée plus tôt.
-                            .padding(horizontal = 12.dp, vertical = 4.dp) // Espace réduit à l'intérieur de la bulle.
+                            .graphicsLayer {
+                                scaleX = echelleBulle.value
+                                scaleY = echelleBulle.value
+                            }
+                            .shadow(
+                                if (bulleVide) 0.dp else 6.dp, RoundedCornerShape(50),
+                                ambientColor = couleurBulle, spotColor = couleurBulle
+                            )
+                            .clip(RoundedCornerShape(50))
+                            .background(Brush.verticalGradient(listOf(couleurBulle.eclaircir(0.18f), couleurBulle)))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
                     ) {
-                        // Texte affichant le montant formaté en devise.
                         Text(
-                            text = MoneyFormatter.formatAmount(montant),
-                            color = couleurTexteBulle, // Applique la couleur de texte calculée.
+                            text = MoneyFormatter.formatAmount(montantAffiche),
+                            color = couleurTexteBulle,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp, // Taille réduite
-                            lineHeight = 14.sp // SUPPRIME l'espace vertical interne
+                            fontSize = 14.sp,
+                            lineHeight = 14.sp,
+                            style = chiffres
                         )
                     }
                 }
 
-                // Afficher le montant dépensé sur toutes les enveloppes (pas seulement celles avec objectif)
+                // Montant dépensé (toutes les enveloppes)
                 if (enveloppe.depense > 0) {
-                    Spacer(modifier = Modifier.height(2.dp)) // ESPACE CONTRÔLÉ entre nom et dépensé
-
-                    // Afficher le montant dépensé
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Dépensé: ${MoneyFormatter.formatAmount(enveloppe.depense)}",
-                        color = Color(0xFFFF6B6B), // Couleur rouge/orange pour les dépenses
+                        color = StyleBudget.TexteDepense,
                         fontSize = 11.sp,
-                        lineHeight = 11.sp, // SUPPRIME l'espace vertical interne
-                        fontWeight = FontWeight.Medium
+                        lineHeight = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        style = chiffres
                     )
                 }
 
@@ -225,163 +222,124 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                     Text(
                         text = "Fin de mois : ${MoneyFormatter.formatAmount(enveloppe.solde + enveloppe.montantReporte)}" +
                             " (reporté au mois suivant : ${MoneyFormatter.formatAmount(enveloppe.montantReporte)})",
-                        color = Color.LightGray,
+                        color = StyleBudget.TexteSecondaire,
                         fontSize = 11.sp,
                         lineHeight = 11.sp
                     )
                 }
 
-                // Afficher le texte de l'objectif directement sous le nom si un objectif est défini
                 if (objectif > 0) {
-                    Spacer(modifier = Modifier.height(2.dp)) // ESPACE CONTRÔLÉ entre dépensé et objectif
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                    // Row pour le texte de l'objectif et le pourcentage
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Texte de l'objectif adapté selon le type
-                        val texteObjectif = when (enveloppe.typeObjectif) {
-                                                         com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
-                                 val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
-                                 val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
-                                 if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
-                                     "Objectif atteint pour le $dateTexte"
-                                 } else {
-                                     "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFormatee?.toStringCourtAvecAnnee() ?: "date limite"}"
-                                 }
+                    val texteObjectif = when (enveloppe.typeObjectif) {
+                                                     com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Echeance -> {
+                             val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                             val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
+                             if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                 "Objectif atteint pour le $dateTexte"
+                             } else {
+                                 "Objectif: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFormatee?.toStringCourtAvecAnnee() ?: "date limite"}"
                              }
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
-                                                                                                  // dateObjectif est déjà la date de fin de l'objectif annuel
-                                 val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
-                                     try {
-                                         
-                                         val dateFin = when {
-                                             dateString.contains("T") -> {
-                                                 val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-                                                 isoFormat.parse(dateString)
-                                             }
-                                             dateString.contains(" ") -> {
-                                                 // Essayer d'abord le format avec Z
+                         }
+                        com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Annuel -> {
+                                                                                              // dateObjectif est déjà la date de fin de l'objectif annuel
+                             val dateFinAnnuel = enveloppe.dateObjectif?.let { dateString ->
+                                 try {
+                                     
+                                     val dateFin = when {
+                                         dateString.contains("T") -> {
+                                             val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+                                             isoFormat.parse(dateString)
+                                         }
+                                         dateString.contains(" ") -> {
+                                             // Essayer d'abord le format avec Z
+                                             try {
+                                                 val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
+                                                 spaceFormat.parse(dateString)
+                                             } catch (_: Exception) {
+                                                 // Si ça échoue, essayer le format sans Z
                                                  try {
-                                                     val spaceFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS'Z'", Locale.getDefault())
-                                                     spaceFormat.parse(dateString)
+                                                     val spaceFormatSansZ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                                                     spaceFormatSansZ.parse(dateString)
                                                  } catch (_: Exception) {
-                                                     // Si ça échoue, essayer le format sans Z
-                                                     try {
-                                                         val spaceFormatSansZ = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                                                         spaceFormatSansZ.parse(dateString)
-                                                     } catch (_: Exception) {
-                                                         null
-                                                     }
+                                                     null
                                                  }
                                              }
-                                             dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
-                                                 val simpleFormat =
-                                                     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                                                 simpleFormat.parse(dateString)
-                                             }
-                                             else -> null
                                          }
-
-                                                                                  if (dateFin != null) {
-                                              // Utiliser directement la date de fin (pas besoin d'ajouter 1 an)
-                                              val dateFormatee = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(dateFin)
-                                              dateFormatee.toDateFormatee()
-                                          } else null
-                                     } catch (_: Exception) {
-                                         null
+                                         dateString.matches(Regex("""\d{4}-\d{2}-\d{2}""")) -> {
+                                             val simpleFormat =
+                                                 SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                                             simpleFormat.parse(dateString)
+                                         }
+                                         else -> null
                                      }
-                                 }
 
-                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
-                                     "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
-                                 } else {
-                                     "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
+                                                                              if (dateFin != null) {
+                                          // Utiliser directement la date de fin (pas besoin d'ajouter 1 an)
+                                          val dateFormatee = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(dateFin)
+                                          dateFormatee.toDateFormatee()
+                                      } else null
+                                 } catch (_: Exception) {
+                                     null
                                  }
-                            }
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                val dateTexte = when {
-                                    // Si on a stocké juste le jour (ex: "10"), on l'affiche tel quel
-                                    enveloppe.dateObjectif?.matches(Regex("\\d{1,2}")) == true -> "le ${enveloppe.dateObjectif}"
-                                    else -> {
-                                        val df = enveloppe.dateObjectif?.toDateFormatee()
-                                        df?.toStringCourt() ?: "fin du mois"
-                                    }
-                                }
-                                if (enveloppe.alloueCumulatif >= objectif) {
-                                    "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
-                                } else {
-                                    "${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
-                                }
-                            }
-                            com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
-                                val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
-                                val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
-                                if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
-                                    "Objectif de période atteint: ${MoneyFormatter.formatAmount(objectif)}"
-                                } else {
-                                    "Objectif / 2 sem: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
+                             }
+
+                            if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                 "Objectif annuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour le ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
+                             } else {
+                                 "Objectif annuel: ${MoneyFormatter.formatAmount(objectif)} jusqu'au ${dateFinAnnuel?.toStringCourtAvecAnnee() ?: "fin d'année"}"
+                             }
+                        }
+                        com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
+                            val dateTexte = when {
+                                // Si on a stocké juste le jour (ex: "10"), on l'affiche tel quel
+                                enveloppe.dateObjectif?.matches(Regex("\\d{1,2}")) == true -> "le ${enveloppe.dateObjectif}"
+                                else -> {
+                                    val df = enveloppe.dateObjectif?.toDateFormatee()
+                                    df?.toStringCourt() ?: "fin du mois"
                                 }
                             }
-                            else -> {
-                                // Pour TypeObjectif.Aucun et autres cas non gérés
-                                "Objectif: ${MoneyFormatter.formatAmount(objectif)}"
+                            if (enveloppe.alloueCumulatif >= objectif) {
+                                "Objectif mensuel atteint: ${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
+                            } else {
+                                "${MoneyFormatter.formatAmount(objectif)} pour $dateTexte"
                             }
                         }
+                        com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Bihebdomadaire -> {
+                            val dateFormatee = enveloppe.dateObjectif?.toDateFormatee()
+                            val dateTexte = dateFormatee?.toStringCourt() ?: "date limite"
+                            if (enveloppe.alloueCumulatif >= objectif) { // ← MODIFIÉ : alloueCumulatif
+                                "Objectif de période atteint: ${MoneyFormatter.formatAmount(objectif)}"
+                            } else {
+                                "Objectif / 2 sem: ${MoneyFormatter.formatAmount(objectif)} pour le $dateTexte"
+                            }
+                        }
+                        else -> {
+                            // Pour TypeObjectif.Aucun et autres cas non gérés
+                            "Objectif: ${MoneyFormatter.formatAmount(objectif)}"
+                        }
+                    }
 
                         Text(
                             text = texteObjectif,
-                            color = Color.LightGray,
+                            color = StyleBudget.TexteSecondaire,
                             fontSize = 12.sp,
-                            lineHeight = 12.sp, // SUPPRIME l'espace vertical interne
+                            lineHeight = 12.sp,
                             modifier = Modifier.weight(1f)
                         )
 
-                        // Calculs pour le pourcentage
-                        val progression = if (estObjectifAtteint) {
-                            1.0f
-                        } else {
+                        val progression = if (estObjectifAtteint) 1.0f else {
                             when (enveloppe.typeObjectif) {
                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> (enveloppe.alloue / objectif).coerceIn(0.0, 1.0).toFloat()
                                 else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
                             }
                         }
-
-                                                 // Couleur de la barre de progression
-                         val couleurBarreProgression = when {
-                             estObjectifAtteint -> {
-                                 when (enveloppe.typeObjectif) {
-                                     com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                         // LOGS POUR DÉBOGUER LA COULEUR DE LA BARRE DE PROGRESSION
-                                         
-                                         if (enveloppe.depense >= objectif) {
-                                             val couleurCompte = couleurCompteSource.toColor()
-                                             couleurCompte
-                                         } else {
-                                             Color(0xFF4CAF50) // Vert si atteint par allocation
-                                         }
-                                     }
-                                     else -> {
-                                         // Barre progression - Objectif d'épargne atteint - Couleur verte
-                                         Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
-                                     }
-                                 }
-                             }
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue >= objectif
-                                 else -> enveloppe.alloueCumulatif >= objectif
-                             } -> Color(0xFF4CAF50) // Vert si objectif atteint
-                             when (enveloppe.typeObjectif) {
-                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue > 0.001
-                                 else -> enveloppe.alloueCumulatif > 0.001
-                             } -> Color(0xFFFFC107) // Jaune si en cours
-                             else -> Color.Gray // Gris si pas d'argent
-                         }
-
-                        // Pourcentage à droite
                         val progressionEntiere = (progression * 100).toInt()
-                        val texteAffichage = if(estObjectifAtteint) {
+                        val texteAffichage = if (estObjectifAtteint) {
                             when (enveloppe.typeObjectif) {
                                 com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
                                     if (enveloppe.depense >= objectif) "Dépensé ✓" else "Bravo ! ✓"
@@ -389,31 +347,22 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 else -> "Objectif ✓"
                             }
                         } else {
-                            if (progressionEntiere < 100) {
-                                "$progressionEntiere %"
-                            } else {
-                                "Meow ! ✓"
-                            }
-                        }
-
-                        val couleurTexte = if (progressionEntiere == 0 && !estObjectifAtteint) {
-                            Color.LightGray
-                        } else {
-                            couleurBarreProgression
+                            if (progressionEntiere < 100) "$progressionEntiere %" else "Meow ! ✓"
                         }
 
                         Text(
                             text = texteAffichage,
-                            color = couleurTexte,
+                            color = if (progressionEntiere == 0 && !estObjectifAtteint) StyleBudget.TexteSecondaire else couleurBarre,
                             fontWeight = if (estObjectifAtteint) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 12.sp,
-                            lineHeight = 12.sp // SUPPRIME l'espace vertical interne
+                            lineHeight = 12.sp,
+                            style = chiffres
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(3.dp)) // ESPACE CONTRÔLÉ entre objectif et barre
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Barre de progression directement sous le texte
+                    // Barre de progression : piste sombre, remplissage en dégradé, petit rebond
                     val progressionAnimee by animateFloatAsState(
                         targetValue = if (estObjectifAtteint) 1.0f else {
                             when (enveloppe.typeObjectif) {
@@ -421,79 +370,55 @@ fun EnveloppeItem(enveloppe: EnveloppeUi) {
                                 else -> (enveloppe.alloueCumulatif / objectif).coerceIn(0.0, 1.0).toFloat()
                             }
                         },
+                        animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow),
                         label = "Animation Barre de Progression"
                     )
-
-                                                                                   val couleurBarre = when {
-                          estObjectifAtteint -> {
-                              when (enveloppe.typeObjectif) {
-                                  com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> {
-                                      // LOGS POUR DÉBOGUER LA COULEUR DE LA BARRE PRINCIPALE
-                                      
-                                      if (enveloppe.depense >= objectif) {
-                                          val couleurCompte = couleurCompteSource.toColor()
-                                          couleurCompte
-                                      } else {
-                                          Color(0xFF4CAF50) // Vert si atteint par allocation
-                                      }
-                                  }
-                                  else -> {
-                                      Color(0xFF4CAF50) // Vert pour les objectifs d'épargne atteints
-                                  }
-                              }
-                          }
-                          when (enveloppe.typeObjectif) {
-                              com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue >= objectif
-                              else -> enveloppe.alloueCumulatif >= objectif
-                          } -> Color(0xFF4CAF50) // Vert si objectif atteint
-                          when (enveloppe.typeObjectif) {
-                              com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel -> enveloppe.alloue > 0.001
-                              else -> enveloppe.alloueCumulatif > 0.001
-                          } -> Color(0xFFFFC107) // Jaune si en cours
-                          else -> Color.Gray // Gris si pas d'argent
-                      }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF333333))
+                            .background(StyleBudget.Piste)
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(fraction = progressionAnimee)
+                                .fillMaxWidth(fraction = progressionAnimee.coerceIn(0f, 1f))
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(50))
-                                .background(couleurBarre)
+                                .background(Brush.horizontalGradient(listOf(couleurBarre.copy(alpha = 0.6f), couleurBarre)))
                         )
                     }
 
-                    // AJOUT: Afficher le versement recommandé SEULEMENT pour certains types d'objectifs
+                    // Versement recommandé, seulement pour les objectifs non mensuels
                     if (enveloppe.versementRecommande > 0 && enveloppe.typeObjectif != com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Mensuel) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Suggéré: ${MoneyFormatter.formatAmount(enveloppe.versementRecommande)}",
-                            color = Color(0xFF82DD86), // Vert clair pour la suggestion
+                            color = StyleBudget.TexteSuggestion,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            modifier = Modifier.align(Alignment.End) // Aligner à droite
+                            style = chiffres,
+                            modifier = Modifier.align(Alignment.End)
                         )
                     }
                 }
             }
 
-            // Box pour la barre de statut verticale à droite.
+            // Barre de statut à droite : pilule arrondie en dégradé
             Box(
                 modifier = Modifier
-                    .fillMaxHeight() // Remplit toute la hauteur de la carte.
-                    .width(8.dp) // Largeur fixe.
-                    .background(couleurStatut) // Applique la couleur de statut calculée au début.
+                    .fillMaxHeight()
+                    .padding(top = 10.dp, bottom = 10.dp, end = 8.dp)
+                    .width(5.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        Brush.verticalGradient(listOf(couleurStatut.eclaircir(0.15f), couleurStatut.copy(alpha = 0.7f)))
+                    )
             )
         }
     }
 }
-
 
 /**
  * Fonction d'aperçu pour Android Studio.

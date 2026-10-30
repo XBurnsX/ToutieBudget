@@ -203,20 +203,43 @@ object MoteurCarteCredit {
     )
 
     /**
-     * Le minimum OFFICIEL du dernier relevé a priorité ; sinon le minimum saisi sur la carte ;
-     * sinon une estimation sur le solde du relevé (ou le solde actuel s'il n'y a pas de relevé).
+     * Un relevé ne compte que pour SON cycle : tant que son échéance n'est pas passée
+     * (ou, sans échéance connue, pendant 35 jours après l'émission). Un vieux relevé ne
+     * fixe plus le minimum des mois suivants.
      */
-    fun minimumAPayer(carte: CompteCredit): MinimumAPayer? {
-        val releve = dernierReleve(carte)
+    fun releveCourant(carte: CompteCredit, aujourdHui: Date = Date()): ReleveCarte? {
+        val releve = dernierReleve(carte) ?: return null
+        val jour = debutJour(aujourdHui)
+        val echeance = lireDate(releve.dateEcheance)
+        if (echeance != null) return releve.takeIf { !echeance.before(jour) }
+        val emission = lireDate(releve.dateEmission) ?: return null
+        return releve.takeIf { joursCivilsEntre(emission, jour) <= 35 }
+    }
+
+    /**
+     * Le minimum OFFICIEL du relevé en cours a priorité. Sinon, la règle de la carte (5 % par défaut)
+     * sur le solde du relevé en cours, ou sur le solde actuel s'il n'y en a pas.
+     * Un minimum saisi sur la carte n'est utilisé que s'il n'est pas plus bas que cette règle :
+     * une vieille valeur (ex. 27 $ sur 4 000 $ dus) n'écrase plus le vrai calcul.
+     */
+    fun minimumAPayer(carte: CompteCredit, aujourdHui: Date = Date()): MinimumAPayer? {
+        val releve = releveCourant(carte, aujourdHui)
         if (releve?.minimumOfficiel != null) {
             return MinimumAPayer(releve.minimumOfficiel, true, lireDate(releve.dateEcheance), "Relevé du ${releve.dateEmission}")
         }
-        carte.paiementMinimum?.takeIf { it > 0 }?.let {
-            return MinimumAPayer(it, false, prochaineEcheance(carte), "Montant saisi (non confirmé par relevé)")
-        }
         val base = releve?.soldeOfficiel ?: dette(carte)
+        val estimation = if (base > 0.005) minimumEstime(carte, base) else 0.0
+        val pourcentage = carte.details.pourcentageMinimumEffectif
+        val saisi = carte.paiementMinimum?.takeIf { it.isFinite() && it > 0 }
+        if (saisi != null && saisi + 0.005 >= estimation) {
+            return MinimumAPayer(saisi, false, prochaineEcheance(carte, aujourdHui), "Montant saisi (non confirmé par relevé)")
+        }
         if (base <= 0.005) return null
-        return MinimumAPayer(minimumEstime(carte, base), false, prochaineEcheance(carte), "Estimation (${carte.details.pourcentageMinimumEffectif} %)")
+        val source = if (saisi != null) {
+            "Estimation ($pourcentage % de ${base.let { arrondi(it) }} $) : le minimum saisi (${arrondi(saisi)} $) " +
+                "est plus bas que la règle de la carte et n'est pas utilisé."
+        } else "Estimation ($pourcentage %)"
+        return MinimumAPayer(estimation, false, prochaineEcheance(carte, aujourdHui), source)
     }
 
     /**
@@ -229,7 +252,8 @@ object MoteurCarteCredit {
         transactionsCarte: List<Transaction>
     ): MinimumAPayer? {
         val minimum = minimumAPayer(carte) ?: return null
-        val emission = lireDate(dernierReleve(carte)?.dateEmission) ?: return minimum
+        // Les paiements ne se soustraient que d'un minimum de relevé EN COURS
+        val emission = lireDate(releveCourant(carte)?.dateEmission) ?: return minimum
         val paiements = paiementsDepuis(transactionsCarte, emission)
         if (paiements <= 0.0) return minimum
         return minimum.copy(

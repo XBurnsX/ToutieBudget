@@ -268,6 +268,7 @@ class ComptesViewModel(
                     val aJour = compteRepository.getCompteById(compte.id, compte.collection)
                         ?: throw IllegalStateException("Compte introuvable.")
                     if (aJour.estArchive) return@executer null // ARC17 : déjà archivé, rien à refaire
+                    verifierRienACacher(aJour)
                     // ARA4 : la date est posée par le dépôt ; la raison vient du dialogue
                     val raison = _uiState.value.raisonArchivage.trim().ifBlank { null }
                     val compteArchive = when (aJour) {
@@ -295,6 +296,37 @@ class ComptesViewModel(
             } catch (e: Exception) {
                 _uiState.update { it.copy(isConfirmationArchivageVisible = true, erreur = "Erreur archivage: ${e.message}") }
             }
+        }
+    }
+
+    /**
+     * Un compte archivé disparaît du Budget et de la page Comptes : on refuse tant qu'il porte
+     * encore de l'argent (solde, « Prêt à placer », enveloppes financées par lui ce mois-ci).
+     * Les dettes gardent leur règle (CO1) : archivables, leur enveloppe reste active si besoin.
+     */
+    private suspend fun verifierRienACacher(compte: Compte) {
+        if (compte is CompteDette) return
+        val f = com.xburnsx.toutiebudget.utils.MoneyFormatter::formatAmount
+        val motifs = mutableListOf<String>()
+        if (cents(compte.solde) != 0L) motifs += "un solde de ${f(compte.solde)}"
+        if (compte is CompteCheque) {
+            if (cents(compte.pretAPlacer) != 0L) motifs += "${f(compte.pretAPlacer)} prêts à placer"
+            val mois = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.DAY_OF_MONTH, 1)
+                set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+            }.time
+            val financees = enveloppeRepository.recupererAllocationsPourMois(mois).getOrThrow()
+                .filter { it.compteSourceId == compte.id && cents(it.solde) > 0L }
+            if (financees.isNotEmpty()) {
+                motifs += "${f(financees.sumOf { it.solde })} dans ${financees.size} enveloppe(s) financée(s) par ce compte"
+            }
+        }
+        if (motifs.isNotEmpty()) {
+            throw IllegalStateException(
+                "« ${compte.nom} » ne peut pas être archivé : il reste ${motifs.joinToString(", ")}. " +
+                    "Ramène-le à 0 $ (virement ou réconciliation) avant de l'archiver, sinon cet argent disparaîtrait de l'app."
+            )
         }
     }
 
@@ -362,8 +394,8 @@ class ComptesViewModel(
                 formState = CompteFormState(
                     id = compte.id,
                     nom = compte.nom,
-                    solde = compte.solde.toString(),
-                    pretAPlacer = if (compte is CompteCheque) compte.pretAPlacer.toString() else "",
+                    solde = deuxDecimales(compte.solde),
+                    pretAPlacer = if (compte is CompteCheque) deuxDecimales(compte.pretAPlacer) else "",
                     couleur = compte.couleur,
                     type = when (compte) {
                         is CompteCheque -> "Compte chèque"
@@ -595,9 +627,10 @@ class ComptesViewModel(
                     .setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
             }.getOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
                 ?: throw IllegalArgumentException("Solde initial invalide : maximum deux décimales.")
+            val nomCompte = formState.nom.trim().ifBlank { throw IllegalArgumentException("Nom du compte requis.") }
             val nouveauCompte = when(formState.type) {
                 "Compte chèque" -> CompteCheque(
-                    nom = formState.nom,
+                    nom = nomCompte,
                     solde = soldeInitial,
                     pretAPlacerRaw = soldeInitial, // Pour l'ajout, prêt à placer = solde initial
                     couleur = formState.couleur,
@@ -605,7 +638,7 @@ class ComptesViewModel(
                     ordre = 0
                 )
                 "Carte de crédit" -> CompteCredit(
-                    nom = formState.nom,
+                    nom = nomCompte,
                     // CC3 : solde SIGNÉ tel que saisi (dette négative), sans inversion
                     soldeUtilise = runCatching {
                         java.math.BigDecimal(formState.soldeCarte.trim().replace(',', '.').replace(" ", ""))
@@ -625,7 +658,7 @@ class ComptesViewModel(
                     detailsCarteJson = com.xburnsx.toutiebudget.data.modeles.DetailsCarte(emetteur = formState.emetteurCarte).versJson()
                 )
                 "Investissement" -> CompteInvestissement(
-                    nom = formState.nom, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0,
+                    nom = nomCompte, solde = soldeInitial, couleur = formState.couleur, estArchive = false, ordre = 0,
                     // IA2 : la valeur à la création est la valeur de départ connue du suivi
                     detailsInvestissementJson = com.xburnsx.toutiebudget.data.modeles.DetailsInvestissement(
                         typeCompte = formState.typePlacement,
@@ -635,110 +668,43 @@ class ComptesViewModel(
                 )
                 else -> throw IllegalArgumentException("Type de compte inconnu")
             }
-            // OPTIMISATION : Créer le compte immédiatement pour UX fluide
-            compteRepository.creerCompte(nouveauCompte).onSuccess {
-                // ✅ COMPTE CRÉÉ IMMÉDIATEMENT - L'utilisateur le voit tout de suite !
-                
-                // 🔄 Mettre à jour l'UI immédiatement
-                chargerComptes()
-                onFermerTousLesDialogues()
-                realtimeSyncService.declencherMiseAJourBudget()
-                realtimeSyncService.declencherMiseAJourComptes()
-                onCompteChange?.invoke()
-
-                // 🚀 CRÉATION EN ARRIÈRE-PLAN des catégories/enveloppes (transparent pour l'utilisateur)
-                viewModelScope.launch {
-                    try {
-                        val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
-                            ?: return@launch
-                        
-                        // Création via repositories directs
-                        // Utiliser les repositories Room injectés dans le ViewModel
-
-                        when (nouveauCompte) {
-                            is CompteDette -> {
-                                // Toute dette doit avoir été créée atomiquement plus haut.
-                                throw IllegalStateException("Création de dette hors transaction interdite.")
-                            }
-
-                            is CompteCredit -> {
-                                // Assurer catégories et ordre: Cartes de crédit (0), Dettes (1), autres (2+)
-                                val categories = categorieRepository.recupererToutesLesCategories().getOrElse { emptyList() }
-                                val catCartes = categories.firstOrNull { it.nom.equals("Cartes de crédit", ignoreCase = true) } ?: run {
-                                    val nouvelleCat = com.xburnsx.toutiebudget.data.modeles.Categorie(
-                                        id = "",
-                                        utilisateurId = utilisateurId,
-                                        nom = "Cartes de crédit",
-                                        ordre = 0
-                                    )
-                                    categorieRepository.creerCategorie(nouvelleCat).getOrNull() ?: nouvelleCat
-                                }
-                                val catDettes = categories.firstOrNull { it.nom.equals("Dettes", ignoreCase = true) }
-
-                                // Forcer ordres
-                                try {
-                                    if (catCartes.ordre != 0) categorieRepository.mettreAJourCategorie(catCartes.copy(ordre = 0))
-                                    if (catDettes != null && catDettes.ordre != 1) categorieRepository.mettreAJourCategorie(catDettes.copy(ordre = 1))
-                                    // Renuméroter autres à partir de 2
-                                    val bloqueIds = setOf(catCartes.id) + (catDettes?.id?.let { setOf(it) } ?: emptySet())
-                                    val autres = categories.filter { it.id !in bloqueIds }.sortedBy { it.ordre }
-                                    autres.forEachIndexed { index, c ->
-                                        val target = index + 2
-                                        if (c.ordre != target) categorieRepository.mettreAJourCategorie(c.copy(ordre = target))
-                                    }
-                                } catch (_: Exception) {}
-
-                                // Créer l'enveloppe associée à la carte
-                                val env = com.xburnsx.toutiebudget.data.modeles.Enveloppe(
-                                    id = IdGenerator.generateId(),
-                                    utilisateurId = utilisateurId,
-                                    nom = nouveauCompte.nom,
-                                    categorieId = catCartes.id,
-                                    estArchive = false,
-                                    ordre = 0,
-                                    typeObjectif = com.xburnsx.toutiebudget.data.modeles.TypeObjectif.Aucun,
-                                    objectifMontant = 0.0,
-                                    dateObjectif = null,
-                                    dateDebutObjectif = null,
-                                    objectifJour = null,
-                                    resetApresEcheance = false
-                                )
-                                enveloppeRepository.creerEnveloppe(env)
-                            }
-                            
-                            is CompteCheque -> {
-                                // Pour les comptes chèques, pas de catégorie spéciale nécessaire
-                                // L'enveloppe sera créée automatiquement par le système d'enveloppes
-                            }
-                            
-                            is CompteInvestissement -> {
-                                // Pour les comptes d'investissement, pas de catégorie spéciale nécessaire
-                                // L'enveloppe sera créée automatiquement par le système d'enveloppes
-                            }
-                        }
-                        
-                        // 🔄 Rafraîchir l'UI après création des catégories/enveloppes
-                        realtimeSyncService.declencherMiseAJourBudget()
-                        
-                        // Attendre un peu pour que les SyncJob soient créés (comptes + enveloppes + allocations)
-                        kotlinx.coroutines.delay(500L)
-                        
-                        // Forcer une deuxième mise à jour pour s'assurer que les SyncJob sont visibles
-                        realtimeSyncService.declencherMiseAJourBudget()
-                        
-                        // Attendre encore un peu et forcer une troisième mise à jour
-                        kotlinx.coroutines.delay(300L)
-                        realtimeSyncService.declencherMiseAJourBudget()
-                        
-                    } catch (e: Exception) {
-                        // 🚨 Gestion d'erreur silencieuse - ne pas bloquer l'utilisateur
-                        // Les catégories/enveloppes seront créées plus tard si nécessaire
-                    }
+            // Une carte naît avec sa catégorie et son enveloppe en UNE opération (comme une dette) :
+            // jamais de carte sans enveloppe, et l'ordre des catégories existantes n'est plus touché.
+            if (nouveauCompte is CompteCredit) {
+                val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient.obtenirUtilisateurConnecte()?.id
+                    ?: throw IllegalStateException("Session utilisateur indisponible.")
+                operationAtomique.executer {
+                    val categories = categorieRepository.recupererToutesLesCategories().getOrThrow()
+                    val catCartes = categories.firstOrNull { it.nom.equals("Cartes de crédit", ignoreCase = true) }
+                        ?: categorieRepository.creerCategorie(
+                            Categorie(
+                                id = IdGenerator.generateId(), utilisateurId = utilisateurId,
+                                nom = "Cartes de crédit", ordre = 0
+                            )
+                        ).getOrThrow()
+                    val envId = IdGenerator.generateId()
+                    enveloppeRepository.creerEnveloppe(
+                        Enveloppe(
+                            id = envId,
+                            utilisateurId = utilisateurId,
+                            nom = nouveauCompte.nom,
+                            categorieId = catCartes.id,
+                            estArchive = false,
+                            ordre = 0
+                        )
+                    ).getOrThrow()
+                    compteRepository.creerCompte(
+                        nouveauCompte.copy(detailsCarteJson = nouveauCompte.details.copy(enveloppeId = envId).versJson())
+                    ).getOrThrow()
                 }
-            }.onFailure { e ->
-                // CO6 : erreur visible, le formulaire reste ouvert avec les valeurs saisies
-                _uiState.update { it.copy(enregistrementEnCours = false, erreur = "Erreur création: ${e.message}") }
+            } else {
+                compteRepository.creerCompte(nouveauCompte).getOrThrow()
             }
+            chargerComptes()
+            onFermerTousLesDialogues()
+            realtimeSyncService.declencherMiseAJourBudget()
+            realtimeSyncService.declencherMiseAJourComptes()
+            onCompteChange?.invoke()
             } catch (e: Exception) {
                 _uiState.update { it.copy(
                     enregistrementEnCours = false,
@@ -746,6 +712,51 @@ class ComptesViewModel(
                 ) }
             }
         }
+    }
+
+    private fun cents(montant: Double): Long = Math.round(montant * 100.0)
+
+    /** Montant affiché dans un champ : toujours deux décimales, jamais « 1.0E7 » ni « 0.30000000000000004 ». */
+    private fun deuxDecimales(montant: Double): String =
+        if (!montant.isFinite()) "0.00"
+        else java.math.BigDecimal.valueOf(montant).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+
+    /** Saisie d'argent au cent près, comme à la création d'un compte. */
+    private fun montantSaisi(texte: String, nom: String): Double {
+        val nettoye = texte.trim().replace(Regex("[\\s\\p{Z}]+"), "").replace(',', '.')
+        return runCatching {
+            java.math.BigDecimal(nettoye).setScale(2, java.math.RoundingMode.UNNECESSARY).toDouble()
+        }.getOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1.0e13 }
+            ?: throw IllegalArgumentException("$nom invalide : un montant au cent près est requis.")
+    }
+
+    /**
+     * Renomme l'enveloppe d'une carte ou d'une dette avec son compte, et garde le lien par ID.
+     * Retourne le compte (pour une ancienne carte retrouvée par son nom, le lien est ajouté).
+     */
+    private suspend fun renommerEnveloppeLiee(ancien: Compte, modifie: Compte, nouveauNom: String): Compte {
+        val nomCategorie = if (ancien is CompteDette) "Dettes" else "Cartes de crédit"
+        val categorie = categorieRepository.recupererToutesLesCategories().getOrThrow()
+            .firstOrNull { it.nom.equals(nomCategorie, ignoreCase = true) }
+        val enveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
+        val idLie = when (ancien) {
+            is CompteDette -> ancien.details.enveloppeId
+            is CompteCredit -> ancien.details.enveloppeId
+            else -> null
+        }
+        val enveloppe = idLie?.let { id -> enveloppes.firstOrNull { it.id == id } }
+            ?: categorie?.let { cat ->
+                enveloppes.singleOrNull {
+                    it.nom.equals(ancien.nom, ignoreCase = true) && it.categorieId == cat.id && !it.estArchive
+                }
+            }
+            ?: return modifie
+        if (enveloppe.nom != nouveauNom) {
+            enveloppeRepository.mettreAJourEnveloppe(enveloppe.copy(nom = nouveauNom)).getOrThrow()
+        }
+        return if (modifie is CompteCredit && modifie.details.enveloppeId == null) {
+            modifie.copy(detailsCarteJson = modifie.details.copy(enveloppeId = enveloppe.id).versJson())
+        } else modifie
     }
 
     /**
@@ -758,43 +769,69 @@ class ComptesViewModel(
         viewModelScope.lancerUneFois(verrouCompte) {
             try {
                 val form = _uiState.value.formState
-                val compteOriginal = _uiState.value.compteSelectionne ?: return@lancerUneFois
-                val soldeDouble = form.solde.replace(',', '.').toDoubleOrNull()
-                    ?: throw Exception("Solde invalide")
-                val pretAPlacerDouble = if (compteOriginal is CompteCheque) {
-                    form.pretAPlacer.replace(',', '.').toDoubleOrNull() ?: throw Exception("Prêt à placer invalide")
-                } else 0.0
+                val compteAffiche = _uiState.value.compteSelectionne ?: return@lancerUneFois
+                val nom = form.nom.trim().ifBlank { throw IllegalArgumentException("Nom du compte requis.") }
+                // Même exigence qu'à la création : un montant au cent près
+                val soldeSaisi = montantSaisi(form.solde, "Solde")
+                val pretSaisi = if (compteAffiche is CompteCheque) montantSaisi(form.pretAPlacer, "Prêt à placer") else 0.0
 
-                if (!soldeDouble.isFinite() || !pretAPlacerDouble.isFinite()) {
-                    throw IllegalArgumentException("Solde ou prêt à placer invalide")
-                }
-                val compteModifie = when (compteOriginal) {
-                    is CompteCheque -> compteOriginal.copy(
-                        nom = form.nom,
-                        solde = soldeDouble,
-                        pretAPlacerRaw = pretAPlacerDouble,
-                        couleur = form.couleur
+                _uiState.update { it.copy(enregistrementEnCours = true) }
+                operationAtomique.executer {
+                // Relire le compte : jamais écraser un solde changé depuis l'ouverture du dialogue
+                // (transaction, synchronisation, autre appareil).
+                val compteOriginal = compteRepository.getCompteById(compteAffiche.id, compteAffiche.collection)
+                    ?: throw IllegalStateException("Ce compte n'existe plus.")
+                if (compteOriginal.estArchive) throw IllegalStateException("Ce compte est archivé.")
+                val pretAffiche = (compteAffiche as? CompteCheque)?.pretAPlacer ?: 0.0
+                val pretActuel = (compteOriginal as? CompteCheque)?.pretAPlacer ?: 0.0
+                if (cents(compteOriginal.solde) != cents(compteAffiche.solde) || cents(pretActuel) != cents(pretAffiche)) {
+                    throw IllegalStateException(
+                        "Ce compte a changé depuis l'ouverture (transaction ou synchronisation). " +
+                            "Ferme et rouvre Modifier pour partir du bon solde."
                     )
-                    is CompteCredit -> compteOriginal.copy(nom = form.nom, soldeUtilise = soldeDouble, couleur = form.couleur)
-                    is CompteDette -> compteOriginal.copy(nom = form.nom, soldeDette = soldeDouble)
+                }
+
+                val modifie = when (compteOriginal) {
+                    is CompteCheque -> {
+                        // Un solde changé seul déplace le « Prêt à placer » du même écart (comme une
+                        // réconciliation) : le compte reste égal à Prêt à placer + enveloppes.
+                        val soldeChange = cents(soldeSaisi) != cents(compteOriginal.solde)
+                        val pretChangeParSaisie = cents(pretSaisi) != cents(compteOriginal.pretAPlacer)
+                        val nouveauPret = if (soldeChange && !pretChangeParSaisie) {
+                            com.xburnsx.toutiebudget.utils.MoneyFormatter.roundAmount(
+                                compteOriginal.pretAPlacer + (soldeSaisi - compteOriginal.solde)
+                            )
+                        } else pretSaisi
+                        compteOriginal.copy(
+                            nom = nom,
+                            solde = soldeSaisi,
+                            pretAPlacerRaw = nouveauPret,
+                            couleur = form.couleur
+                        )
+                    }
+                    is CompteCredit -> compteOriginal.copy(nom = nom, soldeUtilise = soldeSaisi, couleur = form.couleur)
+                    is CompteDette -> compteOriginal.copy(nom = nom, soldeDette = soldeSaisi)
                     is CompteInvestissement -> {
                         // IF7 : un changement de solde à la main est noté comme correction datée
-                        val details = if (kotlin.math.abs(soldeDouble - compteOriginal.solde) > 0.005) {
+                        val details = if (cents(soldeSaisi) != cents(compteOriginal.solde)) {
                             compteOriginal.details.copy(
                                 valorisations = compteOriginal.details.valorisations + com.xburnsx.toutiebudget.data.modeles.Valorisation(
                                     date = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(java.util.Date()),
-                                    valeur = soldeDouble,
+                                    valeur = soldeSaisi,
                                     ancienneValeur = compteOriginal.solde,
                                     type = com.xburnsx.toutiebudget.data.modeles.TypeValorisation.CORRECTION
                                 )
                             )
                         } else compteOriginal.details
-                        compteOriginal.copy(nom = form.nom, solde = soldeDouble, couleur = form.couleur, detailsInvestissementJson = details.versJson())
+                        compteOriginal.copy(nom = nom, solde = soldeSaisi, couleur = form.couleur, detailsInvestissementJson = details.versJson())
                     }
                 }
 
-                _uiState.update { it.copy(enregistrementEnCours = true) }
-                operationAtomique.executer {
+                // Une carte ou une dette renommée garde son enveloppe : on la renomme avec elle
+                val compteModifie = if (nom != compteOriginal.nom &&
+                    (compteOriginal is CompteCredit || compteOriginal is CompteDette)
+                ) renommerEnveloppeLiee(compteOriginal, modifie, nom) else modifie
+
                 compteRepository.mettreAJourCompte(compteModifie).getOrThrow()
 
                 val pretAvant = (compteOriginal as? CompteCheque)?.pretAPlacer ?: 0.0

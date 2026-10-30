@@ -59,11 +59,11 @@ fun ReleveDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Champ("Date d'émission (AAAA-MM-JJ)", emission, erreurEmission, texte = true) { emission = it }
                 Champ("Date d'échéance (AAAA-MM-JJ)", echeance, erreurEcheance ?: erreurDates, texte = true) { echeance = it }
-                Champ("Solde du relevé ($)", solde, erreurSolde) { solde = it }
-                Champ("Paiement minimum ($)", minimum, null) { minimum = it }
-                Champ("Intérêts facturés ($)", interets, null, aide = "Déjà inclus dans le solde du relevé.") { interets = it }
-                Champ("Frais facturés ($)", frais, null) { frais = it }
-                Champ("Paiements et crédits reçus ($)", paiements, null) { paiements = it }
+                Champ("Solde du relevé ($)", solde, erreurSolde, montant = true) { solde = it }
+                Champ("Paiement minimum ($)", minimum, null, montant = true) { minimum = it }
+                Champ("Intérêts facturés ($)", interets, null, aide = "Déjà inclus dans le solde du relevé.", montant = true) { interets = it }
+                Champ("Frais facturés ($)", frais, null, montant = true) { frais = it }
+                Champ("Paiements et crédits reçus ($)", paiements, null, montant = true) { paiements = it }
                 if (!estNouveau) {
                     TextButton(onClick = { confirmerSuppression = true }) {
                         Text("Supprimer ce relevé", color = MaterialTheme.colorScheme.error)

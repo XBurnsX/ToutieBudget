@@ -185,14 +185,10 @@ fun AjoutCompteDialog(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = formState.detteVersementMensuel,
-                        onValueChange = { onDetteChange(null, null, it, null, null) },
-                        label = { Text("Montant de chaque paiement ($)") },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
-                        ),
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                        valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(formState.detteVersementMensuel),
+                        onValeurChange = { onDetteChange(null, null, com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it, videSiZero = true), null, null) },
+                        libelle = "Montant de chaque paiement ($)",
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -246,11 +242,11 @@ fun AjoutCompteDialog(
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = formState.soldeCarte,
-                        onValueChange = { onCarteChange(it, null, null) },
-                        label = { Text("Solde actuel (dette en négatif, ex. -400,00)") },
-                        singleLine = true
+                    com.xburnsx.toutiebudget.ui.composants_communs.ChampUniversel(
+                        valeur = com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versCentimes(formState.soldeCarte),
+                        onValeurChange = { onCarteChange(com.xburnsx.toutiebudget.ui.composants_communs.ConversionMontant.versTexte(it), null, null) },
+                        libelle = "Solde actuel (dette en négatif, ex. -400,00)",
+                        modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = formState.tauxCarte,

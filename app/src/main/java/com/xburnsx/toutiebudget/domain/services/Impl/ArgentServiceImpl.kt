@@ -802,13 +802,15 @@ class ArgentServiceImpl @Inject constructor(
         val toutesEnveloppes = enveloppeRepository.recupererToutesLesEnveloppes().getOrThrow()
         // DF11 : lien par ID prioritaire et strict. Un ID supprimé ou archivé
         // ne doit JAMAIS autoriser un rapprochement par nom avec une autre dette.
+        // Les cartes ont aussi leur lien permanent (créées ou renommées depuis l'ajout du lien)
         val idLie = (carteOuDette as? CompteDette)?.details?.enveloppeId
+            ?: (carteOuDette as? com.xburnsx.toutiebudget.data.modeles.CompteCredit)?.details?.enveloppeId
         val enveloppeCible = if (idLie != null) {
             toutesEnveloppes.singleOrNull {
                 it.id == idLie && it.utilisateurId == carteOuDette.utilisateurId &&
                     it.categorieId == categorie?.id && !it.estArchive
             } ?: throw IllegalStateException(
-                "L'enveloppe liée à cette dette est introuvable, archivée ou incohérente. Corrige le lien avant de payer."
+                "L'enveloppe liée à « ${carteOuDette.nom} » est introuvable, archivée ou incohérente. Corrige le lien avant de payer."
             )
         } else {
             // Anciens comptes sans ID : association uniquement si UNIQUE dans

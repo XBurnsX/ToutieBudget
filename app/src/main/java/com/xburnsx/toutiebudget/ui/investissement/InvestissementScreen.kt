@@ -242,8 +242,8 @@ private fun SectionCompte(compte: CompteInvestissement, vm: InvestissementViewMo
         } else {
             var encaisse by remember(d.encaisse) { mutableStateOf(d.encaisse?.toString() ?: "") }
             var retirable by remember(d.retirableConnu) { mutableStateOf(d.retirableConnu?.toString() ?: "") }
-            Champ("Encaisse (espèces dans le compte)", encaisse, null) { encaisse = it }
-            Champ("Montant retirable connu", retirable, null) { retirable = it }
+            Champ("Encaisse (espèces dans le compte)", encaisse, null, montant = true) { encaisse = it }
+            Champ("Montant retirable connu", retirable, null, montant = true, facultatif = true) { retirable = it }
             TextButton(onClick = {
                 vm.modifierDetails {
                     copy(encaisse = encaisse.replace(',', '.').toDoubleOrNull(), retirableConnu = retirable.replace(',', '.').toDoubleOrNull())
@@ -263,7 +263,7 @@ private fun SectionCapital(compte: CompteInvestissement, ui: InvestissementUiSta
             Note("Valeur de départ inconnue : indiquez-la pour calculer le capital net versé et les gains.")
             var valeur by remember { mutableStateOf("") }
             var date by remember { mutableStateOf(MoteurCarteCredit.ecrireDate(Date())) }
-            Champ("Valeur de départ du suivi ($)", valeur, null) { valeur = it }
+            Champ("Valeur de départ du suivi ($)", valeur, null, montant = true) { valeur = it }
             Champ("Date (AAAA-MM-JJ)", date, null, texte = true) { date = it }
             val v = valeur.replace(',', '.').toDoubleOrNull()
             TextButton(enabled = v != null && MoteurCarteCredit.lireDate(date.trim()) != null, onClick = {
@@ -438,7 +438,7 @@ private fun DialogueValeur(valeurActuelle: Double, onConfirmer: (String, Double,
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     TypeValorisation.entries.forEach { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(if (t == TypeValorisation.MARCHE) "Marché" else "Correction") }) }
                 }
-                Champ("Valeur totale du compte ($)", valeur, null) { valeur = it }
+                Champ("Valeur totale du compte ($)", valeur, null, montant = true) { valeur = it }
                 Champ("Date (AAAA-MM-JJ)", date, if (dateOk) null else "Date invalide", texte = true) { date = it }
                 Champ("Note (optionnel)", note, null, texte = true) { note = it }
                 v?.let { Note("Écart : ${signe(it - valeurActuelle)}") }
@@ -469,8 +469,8 @@ private fun DialoguePosition(p: PositionTitre, existe: Boolean, onEnregistrer: (
                     CategorieActif.entries.forEach { c -> FilterChip(selected = categorie == c, onClick = { categorie = c }, label = { Text(c.libelle) }) }
                 }
                 Champ("Quantité (fractions permises)", quantite, null) { quantite = it }
-                Champ("Coût total, frais inclus ($)", cout, null) { cout = it }
-                Champ("Cours actuel (optionnel)", cours, null) { cours = it }
+                Champ("Coût total, frais inclus ($)", cout, null, montant = true) { cout = it }
+                Champ("Cours actuel (optionnel)", cours, null, montant = true, facultatif = true) { cours = it }
                 Champ("Devise", devise, null, texte = true) { devise = it.uppercase() }
                 if (existe) TextButton(onClick = onSupprimer) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
             }
@@ -508,7 +508,7 @@ private fun DialogueMouvement(m: MouvementPlacement, existe: Boolean, onEnregist
                     TypeMouvementPlacement.entries.forEach { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(t.libelle) }) }
                 }
                 Champ("Date (AAAA-MM-JJ)", date, null, texte = true) { date = it }
-                Champ("Montant ($)", montant, null) { montant = it }
+                Champ("Montant ($)", montant, null, montant = true) { montant = it }
                 Champ("Symbole (optionnel)", symbole, null, texte = true) { symbole = it.uppercase() }
                 if (type == TypeMouvementPlacement.ACHAT || type == TypeMouvementPlacement.VENTE || type == TypeMouvementPlacement.REINVESTISSEMENT) {
                     Champ("Quantité", quantite, null) { quantite = it }

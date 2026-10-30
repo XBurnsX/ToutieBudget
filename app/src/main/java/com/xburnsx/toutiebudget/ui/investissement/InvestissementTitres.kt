@@ -151,8 +151,8 @@ fun DialogueAchat(
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Champ("Symbole (ex. XEQT)", symbole, null, texte = true) { symbole = it.uppercase().trim() }
                 Champ("Quantité (ex. 30,2)", quantite, null) { quantite = it }
-                Champ("Prix payé par part ($)", prix, null) { prix = it }
-                Champ("Frais (facultatif)", frais, null) { frais = it }
+                Champ("Prix payé par part ($)", prix, null, montant = true) { prix = it }
+                Champ("Frais (facultatif)", frais, null, montant = true, facultatif = true) { frais = it }
                 Champ("Date d'achat (AAAA-MM-JJ)", date, null, texte = true) { date = it }
                 Champ("Devise (CAD, USD…)", devise, null, texte = true) { devise = it.uppercase().trim() }
                 if (q != null && p != null) {
@@ -199,13 +199,13 @@ fun DialogueTitre(
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("${quantiteTexte(ligne.position.quantite)} parts · coût ${MoneyFormatter.formatAmount(ligne.position.coutTotal)}", color = Color.LightGray)
                 if (!vente) {
-                    Champ("Prix actuel par part (${ligne.position.devise})", prixManuel, null) { prixManuel = it }
+                    Champ("Prix actuel par part (${ligne.position.devise})", prixManuel, null, montant = true, facultatif = true) { prixManuel = it }
                     Text("Pour corriger ou quand le prix en ligne est introuvable.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { vente = true }) { Text("Vendre des parts") }
                 } else {
                     Champ("Quantité vendue", quantite, null) { quantite = it }
-                    Champ("Prix de vente par part", prixVente, null) { prixVente = it }
-                    Champ("Frais (facultatif)", frais, null) { frais = it }
+                    Champ("Prix de vente par part", prixVente, null, montant = true) { prixVente = it }
+                    Champ("Frais (facultatif)", frais, null, montant = true, facultatif = true) { frais = it }
                     Champ("Date (AAAA-MM-JJ)", date, null, texte = true) { date = it }
                 }
             }

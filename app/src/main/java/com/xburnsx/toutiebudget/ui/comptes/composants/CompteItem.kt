@@ -2,6 +2,27 @@
 package com.xburnsx.toutiebudget.ui.comptes.composants
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget
+import com.xburnsx.toutiebudget.ui.budget.composants.StyleBudget.eclaircir
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +34,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,10 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.RequestQuote
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +66,22 @@ import com.xburnsx.toutiebudget.ui.budget.composants.toColor
 import com.xburnsx.toutiebudget.utils.MoneyFormatter
 import kotlin.math.abs
 
+/** Montant qui défile vers sa nouvelle valeur; la valeur exacte s'affiche dès la fin. */
+@Composable
+private fun montantAnime(valeur: Double): Double {
+    val anime = remember { Animatable(valeur.toFloat()) }
+    val premier = remember { booleanArrayOf(true) }
+    LaunchedEffect(valeur) {
+        if (premier[0]) {
+            premier[0] = false
+            anime.snapTo(valeur.toFloat())
+        } else {
+            anime.animateTo(valeur.toFloat(), tween(550, easing = FastOutSlowInEasing))
+        }
+    }
+    return if (anime.isRunning) anime.value.toDouble() else valeur
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompteItem(
@@ -57,106 +90,107 @@ fun CompteItem(
     onLongClick: () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
-    val couleurCompte = compte.couleur.toColor()
-    
-    // Forcer la couleur rouge pour les comptes dette
-    val couleurFinale = if (compte is CompteDette) {
-        Color.Red
-    } else {
-        couleurCompte
-    }
+    // Les dettes restent toujours en rouge
+    val couleurFinale = if (compte is CompteDette) StyleBudget.Rouge else compte.couleur.toColor()
 
-    Card(
+    // Appui : la carte s'enfonce légèrement
+    val interaction = remember { MutableInteractionSource() }
+    val presse by interaction.collectIsPressedAsState()
+    val echelle by animateFloatAsState(
+        if (presse) 0.97f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "appuiCompte"
+    )
+
+    val forme = RoundedCornerShape(16.dp)
+    val chiffres = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+    val solde = montantAnime(compte.solde)
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .graphicsLayer { scaleX = echelle; scaleY = echelle }
+            .shadow(6.dp, forme, ambientColor = Color.Black, spotColor = Color.Black)
+            .clip(forme)
+            .background(Brush.verticalGradient(listOf(StyleBudget.CarteHaut, StyleBudget.CarteBas)))
+            .border(1.dp, StyleBudget.Bordure, forme)
             .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
                 onClick = onClick,
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onLongClick()
                 }
-            ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2E))
+            )
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .padding(start = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Contenu principal
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Icône sur le fond de la carte (pas de bande colorée)
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconePourCompte(compte = compte, tint = couleurFinale)
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = compte.nom,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = MoneyFormatter.formatAmount(compte.solde),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                color = if (compte.solde >= 0) Color.White else MaterialTheme.colorScheme.error
-                            )
-                            if (compte is CompteCheque) {
-                                Text(
-                                    text = "Prêt à placer: ${MoneyFormatter.formatAmount(compte.pretAPlacer)}",
-                                    fontSize = 13.sp,
-                                    color = if (compte.pretAPlacer >= 0) Color(0xFF66BB6A) else MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.offset(y = 12.dp) // Déplace le texte vers le bas
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (compte !is CompteCheque) {
-                        InfoSecondaireCompte(compte = compte)
-                    }
-                }
-            }
-
-            // Mini colonne de 8 pixels juste à droite de l'icône
+            // Icône dans une pastille teintée de la couleur du compte
             Box(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .offset(x = 52.dp) // Rapprocher du logo (au lieu de 60dp)
-                    .width(6.dp)
-                    .height(40.dp) // Moitié de la hauteur (environ 80dp / 2)
-                    .clip(RoundedCornerShape(4.dp)) // Arrondir les bords
-                    .background(couleurFinale)
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(couleurFinale.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
             ) {
-                // Pas d'icône ici, juste la colonne colorée
+                IconePourCompte(compte = compte, tint = couleurFinale)
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            // Barre de couleur du compte : pilule en dégradé
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 14.dp)
+                    .fillMaxHeight()
+                    .width(5.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Brush.verticalGradient(listOf(couleurFinale.eclaircir(0.15f), couleurFinale.copy(alpha = 0.7f))))
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = compte.nom,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = Color.White,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = MoneyFormatter.formatAmount(solde),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = if (compte.solde >= 0) Color.White else StyleBudget.Rouge,
+                        style = chiffres
+                    )
+                }
+
+                if (compte is CompteCheque) {
+                    val pretAPlacer = montantAnime(compte.pretAPlacer)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Prêt à placer: ${MoneyFormatter.formatAmount(pretAPlacer)}",
+                        fontSize = 13.sp,
+                        color = if (compte.pretAPlacer >= 0) StyleBudget.Vert else StyleBudget.Rouge,
+                        fontWeight = FontWeight.SemiBold,
+                        style = chiffres,
+                        modifier = Modifier.align(Alignment.End)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InfoSecondaireCompte(compte = compte)
+                }
             }
         }
     }
@@ -174,8 +208,34 @@ private fun IconePourCompte(compte: Compte, tint: Color) {
         imageVector = icone,
         contentDescription = "Type de compte",
         tint = tint,
-        modifier = Modifier.size(28.dp)
+        modifier = Modifier.size(22.dp)
     )
+}
+
+/** Barre de progression : piste sombre, remplissage en dégradé, petit rebond. */
+@Composable
+private fun BarreProgression(progression: Float, couleur: Color) {
+    val anime by animateFloatAsState(
+        progression.coerceIn(0f, 1f),
+        spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow),
+        label = "progressionCompte"
+    )
+    val couleurAnimee by animateColorAsState(couleur, tween(400), label = "couleurProgression")
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(RoundedCornerShape(50))
+            .background(StyleBudget.Piste)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(anime)
+                .height(6.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Brush.horizontalGradient(listOf(couleurAnimee.copy(alpha = 0.6f), couleurAnimee)))
+        )
+    }
 }
 
 @Composable
@@ -184,29 +244,22 @@ private fun InfoSecondaireCompte(compte: Compte) {
         is CompteCredit -> {
             val progression = (abs(compte.solde) / compte.limiteCredit).toFloat().coerceIn(0f, 1f)
             val couleurProgression = when {
-                progression > 0.9f -> MaterialTheme.colorScheme.error
-                progression > 0.7f -> Color(0xFFFFA000) // Ambre
-                else -> Color(0xFF388E3C) // Vert foncé
+                progression > 0.9f -> StyleBudget.Rouge
+                progression > 0.7f -> StyleBudget.Jaune
+                else -> StyleBudget.Vert
             }
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                LinearProgressIndicator(
-                    progress = { progression },
-                    modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
-                    color = couleurProgression,
-                    trackColor = Color.Gray.copy(alpha = 0.3f)
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                BarreProgression(progression, couleurProgression)
                 Spacer(Modifier.height(4.dp))
                 Row {
                     Text(
                         text = "Utilisé : ${MoneyFormatter.formatAmount(abs(compte.solde))}",
-                        fontSize = 12.sp, color = Color.LightGray
+                        fontSize = 12.sp, color = StyleBudget.TexteSecondaire
                     )
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "Limite : ${MoneyFormatter.formatAmount(compte.limiteCredit)}",
-                        fontSize = 12.sp, color = Color.Gray
+                        fontSize = 12.sp, color = StyleBudget.Gris
                     )
                 }
             }
@@ -218,16 +271,11 @@ private fun InfoSecondaireCompte(compte: Compte) {
                 ((base - remaining) / base).toFloat().coerceIn(0f, 1f)
             } else 0f
             Column {
-                LinearProgressIndicator(
-                    progress = { progression },
-                    modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
-                    color = Color(0xFF4CAF50),
-                    trackColor = Color.Gray.copy(alpha = 0.3f)
-                )
+                BarreProgression(progression, StyleBudget.Vert)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Remboursé à ${(progression * 100).toInt()}% sur ${MoneyFormatter.formatAmount(base)}",
-                    fontSize = 12.sp, color = Color.Gray
+                    fontSize = 12.sp, color = StyleBudget.Gris
                 )
             }
         }
@@ -240,7 +288,7 @@ private fun InfoSecondaireCompte(compte: Compte) {
             }
             val gain = resume?.gain
             if (gain == null) {
-                Text("Compte d'investissement", fontSize = 13.sp, color = Color.Gray)
+                Text("Compte d'investissement", fontSize = 13.sp, color = StyleBudget.Gris)
             } else {
                 val signe = if (gain < 0) "−" else "+"
                 val pourcentage = resume.pourcentage?.let {
@@ -249,7 +297,7 @@ private fun InfoSecondaireCompte(compte: Compte) {
                 Text(
                     text = signe + MoneyFormatter.formatAmount(abs(gain)) + pourcentage,
                     fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    color = if (gain < 0) Color(0xFFEF5350) else Color(0xFF4CAF50)
+                    color = if (gain < 0) StyleBudget.Rouge else StyleBudget.Vert
                 )
             }
         }

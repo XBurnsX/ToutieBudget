@@ -66,9 +66,42 @@ class MoteurCarteCreditTest {
     fun `le minimum officiel du releve passe avant l'estimation`() {
         val releve = ReleveCarte(dateEmission = "2026-09-25", dateEcheance = "2026-10-21", soldeOfficiel = 3672.42, minimumOfficiel = 184.0, interetsFactures = 51.50)
         val c = carte(-4182.87, details = DetailsCarte(emetteur = EmetteurCarte.DESJARDINS, releves = listOf(releve)))
-        val m = assertNotNull(MoteurCarteCredit.minimumAPayer(c))
+        // Avant l'échéance du relevé : son minimum officiel s'applique
+        val m = assertNotNull(MoteurCarteCredit.minimumAPayer(c, jour("2026-10-01")))
         assertEquals(184.0, m.montant)
         assertTrue(m.officiel)
+    }
+
+    private fun jour(texte: String) = assertNotNull(MoteurCarteCredit.lireDate(texte))
+
+    @Test
+    fun `un releve dont l'echeance est passee ne fixe plus le minimum`() {
+        // Vieux relevé : 540 $ dus, minimum officiel 27 $. Aujourd'hui la carte doit 4 182,87 $.
+        val vieux = ReleveCarte(dateEmission = "2026-05-25", dateEcheance = "2026-06-18", soldeOfficiel = 540.0, minimumOfficiel = 27.0)
+        val c = carte(-4182.87, details = DetailsCarte(emetteur = EmetteurCarte.DESJARDINS, releves = listOf(vieux)))
+        val m = assertNotNull(MoteurCarteCredit.minimumAPayer(c, jour("2026-10-29")))
+        assertEquals(209.15, m.montant) // 5 % de 4 182,87 $, au cent supérieur
+        assertEquals(false, m.officiel)
+    }
+
+    @Test
+    fun `un vieux releve sans minimum ne sert plus de base a l'estimation`() {
+        val vieux = ReleveCarte(dateEmission = "2026-05-25", dateEcheance = "2026-06-18", soldeOfficiel = 540.0)
+        val c = carte(-4182.87, details = DetailsCarte(emetteur = EmetteurCarte.DESJARDINS, releves = listOf(vieux)))
+        assertEquals(209.15, assertNotNull(MoteurCarteCredit.minimumAPayer(c, jour("2026-10-29"))).montant)
+    }
+
+    @Test
+    fun `un minimum saisi plus bas que la regle de la carte est ignore`() {
+        val m = assertNotNull(MoteurCarteCredit.minimumAPayer(carte(-4182.87, minimumSaisi = 27.0)))
+        assertEquals(209.15, m.montant)
+        assertTrue(m.source.contains("27"), m.source)
+    }
+
+    @Test
+    fun `un minimum saisi au-dessus de la regle de la carte est garde`() {
+        val m = assertNotNull(MoteurCarteCredit.minimumAPayer(carte(-1000.0, minimumSaisi = 75.0)))
+        assertEquals(75.0, m.montant)
     }
 
     @Test
