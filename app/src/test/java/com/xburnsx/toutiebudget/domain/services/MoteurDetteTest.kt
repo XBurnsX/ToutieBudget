@@ -109,6 +109,44 @@ class MoteurDetteTest {
         assertEquals("2026-06-16", MoteurCarteCredit.ecrireDate(assertNotNull(s.prochaineDatePaiement)))
     }
 
+    /**
+     * Cas réel (relevé de la banque) : 21 436,23 $ à 14,99 %, 234,11 $ aux deux semaines depuis le 10 mars 2023.
+     * La banque compte les intérêts au jour près et a pris le 1er paiement le 17 mars (7 jours après).
+     * Relevé du 29 octobre 2026 : 7 371,24 $ (intérêts quotidiens 3,03 $).
+     */
+    @Test
+    fun `aux deux semaines avec 1er paiement reel - meme solde que la banque`() {
+        val s = assertNotNull(MoteurDette.situationContrat(
+            dateDebut = assertNotNull(MoteurCarteCredit.lireDate("2023-03-10")),
+            dureeMois = 59,
+            mensualite = 234.11,
+            tauxAnnuel = 14.99,
+            aujourdHui = assertNotNull(MoteurCarteCredit.lireDate("2026-10-29")),
+            principalInitial = 21436.23,
+            frequence = FrequencePaiementDette.AUX_DEUX_SEMAINES,
+            premierPaiement = MoteurCarteCredit.lireDate("2023-03-17")
+        ))
+        assertEquals(95, s.paiementsEcoules)
+        assertEquals(7370.88, s.soldeActuel) // banque : 7 371,24 $ (écart d'arrondi de 36 ¢)
+        assertEquals("2026-11-06", MoteurCarteCredit.ecrireDate(assertNotNull(s.prochaineDatePaiement)))
+        assertEquals(17, s.jourVersement)
+    }
+
+    @Test
+    fun `aux deux semaines sans 1er paiement - une periode apres le debut, comme avant`() {
+        val s = assertNotNull(MoteurDette.situationContrat(
+            dateDebut = assertNotNull(MoteurCarteCredit.lireDate("2023-03-10")),
+            dureeMois = 59,
+            mensualite = 234.11,
+            tauxAnnuel = 14.99,
+            aujourdHui = assertNotNull(MoteurCarteCredit.lireDate("2026-10-29")),
+            principalInitial = 21436.23,
+            frequence = FrequencePaiementDette.AUX_DEUX_SEMAINES
+        ))
+        assertEquals(94, s.paiementsEcoules)
+        assertEquals("2026-10-30", MoteurCarteCredit.ecrireDate(assertNotNull(s.prochaineDatePaiement)))
+    }
+
     @Test
     fun `paiement chaque semaine compte les vraies periodes de sept jours`() {
         val debut = assertNotNull(MoteurCarteCredit.lireDate("2026-05-05"))

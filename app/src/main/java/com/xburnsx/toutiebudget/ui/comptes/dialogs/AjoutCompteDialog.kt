@@ -47,12 +47,14 @@ fun AjoutCompteDialog(
         String?,
         com.xburnsx.toutiebudget.data.modeles.FrequencePaiementDette?
     ) -> Unit = { _, _, _, _, _ -> },
-    onTypePlacementChange: (com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement) -> Unit = {}
+    onTypePlacementChange: (com.xburnsx.toutiebudget.data.modeles.TypeComptePlacement) -> Unit = {},
+    onPremierPaiementChange: (String) -> Unit = {}
 ) {
     val typesDeCompte = listOf("Compte chèque", "Carte de crédit", "Dette", "Investissement")
     val couleursDisponibles = COULEURS_COMPTES
     var expanded by remember { mutableStateOf(false) }
     var choisirDateDette by remember { mutableStateOf(false) }
+    var choisirPremierPaiement by remember { mutableStateOf(false) }
 
     // État du clavier
     val montantEnCentimes = remember(formState.solde) {
@@ -162,6 +164,20 @@ fun AjoutCompteDialog(
                                 ?: "Choisir la date de début"
                         )
                     }
+                    // La banque prend parfois le 1er versement avant une période complète
+                    // (ex. 7 jours après le contrat) : sans cette date, le calcul compte un versement de moins.
+                    OutlinedButton(
+                        onClick = { choisirPremierPaiement = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                        Text(
+                            formState.dettePremierPaiement.takeIf { it.isNotBlank() }
+                                ?.let { "1er paiement : $it" }
+                                ?: "Date du 1er paiement (facultatif)"
+                        )
+                    }
                     Text("Fréquence des paiements", style = MaterialTheme.typography.labelLarge)
                     androidx.compose.foundation.layout.Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -207,7 +223,8 @@ fun AjoutCompteDialog(
                         formState.detteDureeMois,
                         formState.detteVersementMensuel,
                         formState.detteTauxAnnuel,
-                        formState.detteFrequence
+                        formState.detteFrequence,
+                        formState.dettePremierPaiement
                     ) {
                         val debut = MoteurCarteCredit.lireDate(formState.detteDateDebut)
                         val duree = formState.detteDureeMois.toIntOrNull()
@@ -218,7 +235,8 @@ fun AjoutCompteDialog(
                             MoteurDette.situationContrat(
                                 debut, duree, versement, taux,
                                 principalInitial = montantTotal,
-                                frequence = formState.detteFrequence
+                                frequence = formState.detteFrequence,
+                                premierPaiement = MoteurCarteCredit.lireDate(formState.dettePremierPaiement)
                             )
                         } else null
                     }
@@ -301,8 +319,12 @@ fun AjoutCompteDialog(
         }
     )
 
-    if (choisirDateDette) {
-        val initiale = MoteurCarteCredit.lireDate(formState.detteDateDebut) ?: java.util.Date()
+    if (choisirDateDette || choisirPremierPaiement) {
+        val pourPremier = choisirPremierPaiement
+        val fermer = { choisirDateDette = false; choisirPremierPaiement = false }
+        val initiale = MoteurCarteCredit.lireDate(
+            if (pourPremier) formState.dettePremierPaiement.ifBlank { formState.detteDateDebut } else formState.detteDateDebut
+        ) ?: java.util.Date()
         val locale = Calendar.getInstance().apply { time = initiale }
         val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
             clear()
@@ -310,7 +332,7 @@ fun AjoutCompteDialog(
         }
         val etatDate = rememberDatePickerState(initialSelectedDateMillis = utc.timeInMillis)
         DatePickerDialog(
-            onDismissRequest = { choisirDateDette = false },
+            onDismissRequest = fermer,
             confirmButton = {
                 TextButton(onClick = {
                     etatDate.selectedDateMillis?.let { millis ->
@@ -319,12 +341,13 @@ fun AjoutCompteDialog(
                             clear()
                             set(jourUtc.get(Calendar.YEAR), jourUtc.get(Calendar.MONTH), jourUtc.get(Calendar.DAY_OF_MONTH))
                         }
-                        onDetteChange(MoteurCarteCredit.ecrireDate(jourLocal.time), null, null, null, null)
+                        val texte = MoteurCarteCredit.ecrireDate(jourLocal.time)
+                        if (pourPremier) onPremierPaiementChange(texte) else onDetteChange(texte, null, null, null, null)
                     }
-                    choisirDateDette = false
+                    fermer()
                 }) { Text("Choisir") }
             },
-            dismissButton = { TextButton(onClick = { choisirDateDette = false }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = fermer) { Text("Annuler") } }
         ) { DatePicker(state = etatDate) }
     }
 }

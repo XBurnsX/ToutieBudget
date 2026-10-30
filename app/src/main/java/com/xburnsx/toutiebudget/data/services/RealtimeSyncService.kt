@@ -35,6 +35,8 @@ class RealtimeSyncService @Inject constructor() {
     companion object {
         private const val PREFS_SYNC = "realtime_sync"
         private const val MARGE_PREMIER_LANCEMENT_MS = 5 * 60 * 1000L
+        /** Mise à jour complète automatique depuis le serveur : au plus une fois par 10 minutes. */
+        private const val DELAI_MISE_A_JOUR_COMPLETE_MS = 10 * 60 * 1000L
     }
 
     private val client = PocketBaseClient
@@ -45,13 +47,7 @@ class RealtimeSyncService @Inject constructor() {
         .retryOnConnectionFailure(true)
         .connectionPool(okhttp3.ConnectionPool(2, 5, TimeUnit.MINUTES)) // Pool dédié pour SSE
         .protocols(listOf(okhttp3.Protocol.HTTP_2, okhttp3.Protocol.HTTP_1_1))
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Accept-Encoding", "gzip, deflate")
-                .addHeader("Connection", "keep-alive")
-                .build()
-            chain.proceed(request)
-        }
+        // Pas d'« Accept-Encoding » à la main : OkHttp gère gzip et la décompression tout seul
         .build()
     private val gson = Gson()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -201,9 +197,29 @@ class RealtimeSyncService @Inject constructor() {
             abonnerCollections(clientId, urlBase, token)
             // Rattraper ce qui a changé pendant qu'on n'écoutait pas (app fermée, hors ligne...)
             rattraperChangementsManques(urlBase, token)
+            // Et les suppressions faites pendant ce temps (le rattrapage ne les voit pas) :
+            // mise à jour complète depuis le serveur, à part pour ne pas bloquer les événements.
+            lancerMiseAJourAutomatique()
             return
         }
         handleRealtimeEvent(donnees)
+    }
+
+    @Volatile private var derniereMiseAJourComplete = 0L
+
+    /**
+     * Mise à jour complète automatique (deux sens) : au premier branchement, puis au plus une fois
+     * toutes les 10 minutes (le flux se reconnecte souvent). Même règles de sécurité que le bouton.
+     */
+    private fun lancerMiseAJourAutomatique() {
+        val maintenant = System.currentTimeMillis()
+        if (maintenant - derniereMiseAJourComplete < DELAI_MISE_A_JOUR_COMPLETE_MS) return
+        derniereMiseAJourComplete = maintenant
+        serviceScope.launch {
+            mettreAJourDepuisServeur(appliquer = true).onFailure {
+                derniereMiseAJourComplete = 0L // réessayer à la prochaine connexion
+            }
+        }
     }
 
     private fun abonnerCollections(clientId: String, urlBase: String, token: String) {
@@ -328,6 +344,96 @@ class RealtimeSyncService @Inject constructor() {
         }
     }
 
+    /**
+     * La fiche n'existe plus sur le serveur (supprimée ailleurs : admin, autre appareil, version web).
+     * Ses tâches en attente n'ont plus de cible : elles sont terminées, et la fiche est retirée d'ici.
+     * Retourne false sans rien toucher si c'est une création pas encore envoyée (elle n'est pas
+     * supprimée, elle n'est juste pas encore sur le serveur).
+     */
+    suspend fun retirerFicheSupprimeeSurServeur(collection: String, recordId: String): Boolean = withContext(Dispatchers.IO) {
+        val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance() ?: return@withContext false
+        val db = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(context)
+        if (recordId.isBlank() || db.syncJobDao().compterCreationsNonEnvoyees(recordId) > 0) return@withContext false
+        db.syncJobDao().terminerTachesDeFiche(recordId, "Fiche supprimée sur le serveur")
+        appliquerFicheDansRoom(collection, "delete", JsonObject().apply { addProperty("id", recordId) })
+        notifierChangement(collection)
+        true
+    }
+
+    /** Résultat, par collection, de la mise à jour depuis le serveur. */
+    data class BilanServeur(
+        val collection: String,
+        val surServeur: Int,
+        val ici: Int,
+        /** Fiches de l'appareil qui n'existent plus sur le serveur (et ne sont pas des créations en attente). */
+        val aRetirerIci: Int,
+        /** Serveur vide alors que l'appareil a des fiches : réponse douteuse, rien n'est retiré. */
+        val retraitsIgnores: Boolean
+    )
+
+    /**
+     * Synchronisation dans les deux sens, le serveur faisant foi : chaque fiche du serveur est appliquée ici
+     * (sauf si un changement local attend d'être envoyé), et chaque fiche de l'appareil absente du serveur
+     * est retirée (sauf une création pas encore envoyée). [appliquer] = false : aperçu seulement, rien ne change.
+     */
+    suspend fun mettreAJourDepuisServeur(appliquer: Boolean): Result<List<BilanServeur>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val uid = client.obtenirUtilisateurConnecte()?.id ?: error("Connexion requise.")
+            val token = client.obtenirToken() ?: error("Session expirée : reconnecte-toi.")
+            val urlBase = UrlResolver.obtenirUrlActive()
+            val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance() ?: error("Application indisponible.")
+            val db = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(context)
+
+            ComparaisonServeur.idsLocaux(uid).map { (collection, ici) ->
+                val fiches = telechargerToutesLesFiches(collection, uid, urlBase, token)
+                val idsServeur = fiches.mapNotNull { it.get("id")?.asString }.toSet()
+                val absentes = ici.filter { id ->
+                    id !in idsServeur && db.syncJobDao().compterCreationsNonEnvoyees(id) == 0
+                }
+                // Sécurité : jamais vider une collection entière sur une réponse vide du serveur
+                val ignorer = idsServeur.isEmpty() && ici.isNotEmpty()
+                if (appliquer) {
+                    fiches.forEach { appliquerFicheDansRoom(collection, "update", it) }
+                    if (!ignorer) absentes.forEach { id ->
+                        db.syncJobDao().terminerTachesDeFiche(id, "Fiche supprimée sur le serveur")
+                        appliquerFicheDansRoom(collection, "delete", JsonObject().apply { addProperty("id", id) })
+                    }
+                    notifierChangement(collection)
+                }
+                BilanServeur(
+                    collection = collection,
+                    surServeur = idsServeur.size,
+                    ici = ici.size,
+                    aRetirerIci = if (ignorer) 0 else absentes.size,
+                    retraitsIgnores = ignorer && absentes.isNotEmpty()
+                )
+            }
+        }
+    }
+
+    /** Toutes les fiches de l'utilisateur dans une collection (toutes les pages). Erreur = exception, jamais une liste partielle. */
+    private fun telechargerToutesLesFiches(collection: String, uid: String, urlBase: String, token: String): List<JsonObject> {
+        val fiches = mutableListOf<JsonObject>()
+        val filtre = URLEncoder.encode("utilisateur_id='$uid'", Charsets.UTF_8.name())
+        var page = 1
+        while (true) {
+            val request = Request.Builder()
+                .url("$urlBase/api/collections/$collection/records?filter=$filtre&perPage=500&page=$page")
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+            val reponse = httpClient.newCall(request).execute().use { r ->
+                if (!r.isSuccessful) throw Exception("$collection : HTTP ${r.code}")
+                gson.fromJson(r.body?.string() ?: "{}", JsonObject::class.java)
+            }
+            val items = reponse.getAsJsonArray("items") ?: throw Exception("$collection : réponse illisible")
+            items.forEach { fiches += it.asJsonObject }
+            val pages = reponse.get("totalPages")?.asInt ?: 1
+            if (page >= pages || items.size() == 0) break
+            page++
+        }
+        return fiches
+    }
+
     private suspend fun appliquerFicheDansRoom(collection: String, action: String, record: JsonObject) {
         val context = com.xburnsx.toutiebudget.ToutieBudgetApplication.getInstance() ?: return
         val db = com.xburnsx.toutiebudget.data.room.ToutieBudgetDatabase.getDatabase(context)
@@ -346,7 +452,12 @@ class RealtimeSyncService @Inject constructor() {
         // doivent être atomiques. Sinon un événement serveur peut passer
         // entre un changement local et son entrée dans la file d'envoi.
         db.withTransaction {
-            if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) {
+            if (action == "delete") {
+                // Supprimée sur le serveur : le serveur l'emporte sur une modification locale en attente
+                // (elle n'aurait plus de cible). Seule une création pas encore envoyée est gardée.
+                if (db.syncJobDao().compterCreationsNonEnvoyees(item.id) > 0) return@withTransaction
+                db.syncJobDao().terminerTachesDeFiche(item.id, "Fiche supprimée sur le serveur")
+            } else if (db.syncJobDao().compterTachesEnAttentePourFiche(item.id) > 0) {
                 return@withTransaction
             }
 

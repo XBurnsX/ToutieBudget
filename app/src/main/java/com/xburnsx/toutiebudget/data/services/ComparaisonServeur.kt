@@ -34,18 +34,7 @@ object ComparaisonServeur {
             val jobs = db.syncJobDao().getAllSyncJobs().first()
                 .filter { it.status in setOf("PENDING", "FAILED", "IN_PROGRESS") }
             val enAttente = jobs.map { it.recordId }.filter { it.isNotBlank() }.toSet()
-            val locales: Map<String, Set<String>> = mapOf(
-                "comptes_cheques" to db.compteChequeDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "comptes_credits" to db.compteCreditDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "comptes_dettes" to db.compteDetteDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "comptes_investissement" to db.compteInvestissementDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "categories" to db.categorieDao().getCategoriesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "enveloppes" to db.enveloppeDao().getEnveloppesByUtilisateur(uid).first().map { it.id }.toSet(),
-                "allocations_mensuelles" to db.allocationMensuelleDao().getAllocationsByUtilisateur(uid).first().map { it.id }.toSet(),
-                "transactions" to db.transactionDao().getTransactionsByUtilisateur(uid).first().map { it.id }.toSet(),
-                "tiers" to db.tiersDao().getTiersByUtilisateur(uid).first().map { it.id }.toSet(),
-                "pret_personnel" to db.pretPersonnelDao().getPretsByUtilisateur(uid).first().map { it.id }.toSet()
-            )
+            val locales = idsLocaux(uid)
             locales.map { (collection, ici) ->
                 val serveur = idsServeur(collection, uid)
                 Ligne(
@@ -59,6 +48,23 @@ object ComparaisonServeur {
                 )
             }
         }
+    }
+
+    /** IDs des fiches de l'utilisateur sur cet appareil, par collection synchronisée. */
+    suspend fun idsLocaux(uid: String): Map<String, Set<String>> {
+        val db = AppModule.provideBaseDeDonnees()
+        return mapOf(
+            "comptes_cheques" to db.compteChequeDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "comptes_credits" to db.compteCreditDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "comptes_dettes" to db.compteDetteDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "comptes_investissement" to db.compteInvestissementDao().getComptesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "categories" to db.categorieDao().getCategoriesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "enveloppes" to db.enveloppeDao().getEnveloppesByUtilisateur(uid).first().map { it.id }.toSet(),
+            "allocations_mensuelles" to db.allocationMensuelleDao().getAllocationsByUtilisateur(uid).first().map { it.id }.toSet(),
+            "transactions" to db.transactionDao().getTransactionsByUtilisateur(uid).first().map { it.id }.toSet(),
+            "tiers" to db.tiersDao().getTiersByUtilisateur(uid).first().map { it.id }.toSet(),
+            "pret_personnel" to db.pretPersonnelDao().getPretsByUtilisateur(uid).first().map { it.id }.toSet()
+        )
     }
 
     /** Tous les IDs de l'utilisateur sur le serveur (toutes les pages, seulement le champ id). */

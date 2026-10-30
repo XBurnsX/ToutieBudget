@@ -15,6 +15,8 @@ data class CompteFormState(
     val tauxCarte: String = "",
     val emetteurCarte: com.xburnsx.toutiebudget.data.modeles.EmetteurCarte = com.xburnsx.toutiebudget.data.modeles.EmetteurCarte.AUTRE,
     val detteDateDebut: String = "",
+    /** Date du 1er versement réel (facultatif) : vide = une période après le début. */
+    val dettePremierPaiement: String = "",
     val detteDureeMois: String = "",
     val detteVersementMensuel: String = "",
     val detteTauxAnnuel: String = "",

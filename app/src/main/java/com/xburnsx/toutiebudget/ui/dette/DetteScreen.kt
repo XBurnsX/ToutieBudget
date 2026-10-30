@@ -258,9 +258,11 @@ private fun SectionEcheance(dette: CompteDette, uiState: DetteUiState) {
 @Composable
 private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() -> FormulaireDette) -> Unit) {
     var choisirDate by remember { mutableStateOf(false) }
+    var choisirPremier by remember { mutableStateOf(false) }
     val situation = remember(
         f.montantInitial,
         f.dateDebut,
+        f.datePremierPaiement,
         f.dureeMois,
         f.versementPrevu,
         f.taux,
@@ -275,7 +277,8 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             MoteurDette.situationContrat(
                 debut, duree, versement, taux,
                 principalInitial = montantTotal,
-                frequence = f.frequencePaiement
+                frequence = f.frequencePaiement,
+                premierPaiement = MoteurCarteCredit.lireDate(f.datePremierPaiement)
             )
         } else null
     }
@@ -287,6 +290,21 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             Text(f.dateDebut.takeIf { it.isNotBlank() }?.let { "Date de début : $it" } ?: "Choisir la date de début")
         }
         f.erreurs["dateDebut"]?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        // La banque prend parfois le 1er versement avant une période complète (ex. 7 jours après le contrat)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { choisirPremier = true }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.DateRange, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(f.datePremierPaiement.takeIf { it.isNotBlank() }?.let { "1er paiement : $it" }
+                    ?: "Date du 1er paiement (facultatif)")
+            }
+            if (f.datePremierPaiement.isNotBlank()) {
+                TextButton(onClick = { onChange { copy(datePremierPaiement = "") } }) { Text("Retirer") }
+            }
+        }
+        f.erreurs["premier"]?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
         Text("Fréquence des paiements", color = Color.White)
@@ -315,7 +333,10 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             Ligne("Capital payé", MoneyFormatter.formatAmount(s.capitalPaye))
             Ligne("Intérêts payés", MoneyFormatter.formatAmount(s.interetsPayes))
             Ligne("Solde actuel calculé", MoneyFormatter.formatAmount(s.soldeActuel), gras = true)
-            Note("La première mensualité est due un mois après la date de début.")
+            Note(
+                if (f.datePremierPaiement.isNotBlank()) "Les versements partent du 1er paiement indiqué."
+                else "Le premier versement est dû une période après la date de début."
+            )
         }
 
         // DA7 : taux variable avec changements datés
@@ -347,8 +368,12 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
             Note("Le passé n'est jamais recalculé : seuls les versements futurs utilisent le nouveau taux.")
         }
     }
-    if (choisirDate) {
-        val initiale = MoteurCarteCredit.lireDate(f.dateDebut) ?: Date()
+    if (choisirDate || choisirPremier) {
+        val pourPremier = choisirPremier
+        val fermer = { choisirDate = false; choisirPremier = false }
+        val initiale = MoteurCarteCredit.lireDate(
+            if (pourPremier) f.datePremierPaiement.ifBlank { f.dateDebut } else f.dateDebut
+        ) ?: Date()
         val local = Calendar.getInstance().apply { time = initiale }
         val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
             clear()
@@ -356,7 +381,7 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
         }
         val etatDate = rememberDatePickerState(initialSelectedDateMillis = utc.timeInMillis)
         DatePickerDialog(
-            onDismissRequest = { choisirDate = false },
+            onDismissRequest = fermer,
             confirmButton = {
                 TextButton(onClick = {
                     etatDate.selectedDateMillis?.let { millis ->
@@ -365,12 +390,13 @@ private fun SectionParametres(f: FormulaireDette, onChange: (FormulaireDette.() 
                             clear()
                             set(choisiUtc.get(Calendar.YEAR), choisiUtc.get(Calendar.MONTH), choisiUtc.get(Calendar.DAY_OF_MONTH))
                         }
-                        onChange { copy(dateDebut = MoteurCarteCredit.ecrireDate(choisi.time)) }
+                        val texte = MoteurCarteCredit.ecrireDate(choisi.time)
+                        onChange { if (pourPremier) copy(datePremierPaiement = texte) else copy(dateDebut = texte) }
                     }
-                    choisirDate = false
+                    fermer()
                 }) { Text("Choisir") }
             },
-            dismissButton = { TextButton(onClick = { choisirDate = false }) { Text("Annuler") } }
+            dismissButton = { TextButton(onClick = fermer) { Text("Annuler") } }
         ) { DatePicker(state = etatDate) }
     }
 }

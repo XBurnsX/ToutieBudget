@@ -184,6 +184,61 @@ class SyncJobViewModel(
         }
     }
 
+    /** Aperçu de la mise à jour depuis le serveur, en attente de confirmation (null = rien à confirmer). */
+    private val _apercuServeur = MutableStateFlow<String?>(null)
+    val apercuServeur: StateFlow<String?> = _apercuServeur.asStateFlow()
+
+    /**
+     * Deux sens : d'abord envoyer ce qui attend, puis préparer la réception de la version du serveur.
+     * Rien ne change avant la confirmation.
+     */
+    fun preparerMiseAJourDepuisServeur(context: android.content.Context) {
+        com.xburnsx.toutiebudget.workers.SyncWorkManager.demarrerSynchronisation(context)
+        _comparaison.value = "Lecture du serveur…"
+        viewModelScope.launch {
+            com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+                .mettreAJourDepuisServeur(appliquer = false)
+                .onSuccess { bilans ->
+                    _comparaison.value = null
+                    val retraits = bilans.filter { it.aRetirerIci > 0 }
+                    val ignores = bilans.filter { it.retraitsIgnores }
+                    _apercuServeur.value = buildString {
+                        append("Les fiches du serveur vont remplacer celles de cet appareil ")
+                        append("(sauf les changements pas encore envoyés).")
+                        if (retraits.isEmpty()) {
+                            append(SAUT + SAUT + "Rien à retirer de cet appareil.")
+                        } else {
+                            append(SAUT + SAUT + "Supprimées sur le serveur, donc retirées d'ici :")
+                            retraits.forEach { append(SAUT + "• ${it.collection} : ${it.aRetirerIci}") }
+                        }
+                        if (ignores.isNotEmpty()) {
+                            append(SAUT + SAUT + "Par sécurité, rien n'est retiré de : " +
+                                ignores.joinToString { it.collection } + " (serveur vide pour cette collection).")
+                        }
+                    }
+                }
+                .onFailure { _comparaison.value = "Mise à jour impossible : ${it.message}. Rien n'a été modifié." }
+        }
+    }
+
+    fun annulerMiseAJourDepuisServeur() { _apercuServeur.value = null }
+
+    fun confirmerMiseAJourDepuisServeur() {
+        _apercuServeur.value = null
+        _comparaison.value = "Mise à jour en cours…"
+        viewModelScope.launch {
+            com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+                .mettreAJourDepuisServeur(appliquer = true)
+                .onSuccess { bilans ->
+                    val retirees = bilans.sumOf { it.aRetirerIci }
+                    _comparaison.value = null
+                    _message.value = "Cet appareil est à jour avec le serveur" +
+                        (if (retirees > 0) " ($retirees fiche(s) supprimée(s) sur le serveur retirée(s) d'ici)." else ".")
+                }
+                .onFailure { _comparaison.value = "Mise à jour interrompue : ${it.message}" }
+        }
+    }
+
     fun formatDate(timestamp: Long): String {
         return dateFormatter.format(Date(timestamp))
     }

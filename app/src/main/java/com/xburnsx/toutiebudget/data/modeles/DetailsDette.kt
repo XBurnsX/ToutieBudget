@@ -15,6 +15,9 @@ data class DetailsDette(
     // DF5 : vraies dates du contrat (yyyy-MM-dd)
     val dateDebut: String? = null,
     val dateFin: String? = null,
+    // Date du 1er versement réel (yyyy-MM-dd) : la banque le prend parfois avant une période complète
+    // (ex. 7 jours après le contrat pour un prêt aux deux semaines). Null = une période après le début.
+    val datePremierPaiement: String? = null,
     val jourVersement: Int? = null,
     // Null uniquement pour les anciennes dettes créées avant l'ajout du choix;
     // elles restent mensuelles pour compatibilité.

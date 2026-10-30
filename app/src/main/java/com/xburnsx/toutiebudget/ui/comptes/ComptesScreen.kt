@@ -240,6 +240,7 @@ fun ComptesScreen(
             onCarteChange = viewModel::onFormCarteChange,
             onDetteChange = viewModel::onFormDetteChange,
             onTypePlacementChange = viewModel::onTypePlacementChange,
+            onPremierPaiementChange = viewModel::onFormPremierPaiementChange,
             onDismissRequest = { viewModel.onFermerTousLesDialogues() },
             onValueChange = viewModel::onFormValueChange,
             onSave = { viewModel.onSauvegarderCompte() },

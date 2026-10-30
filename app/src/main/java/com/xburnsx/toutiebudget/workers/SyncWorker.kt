@@ -132,6 +132,20 @@ class SyncWorker(
                     continue
                 }
 
+                // Modification d'une fiche qui n'existe plus sur le serveur (supprimée ailleurs) : le serveur
+                // fait foi, la fiche est retirée d'ici et ses tâches sont terminées — jamais bloquée pour toujours.
+                if (resultat.code == 404 && tache.action == "UPDATE") {
+                    val idFiche = tache.recordId.ifBlank { idDepuisJson(tache.dataJson) ?: "" }
+                    val retiree = runCatching {
+                        com.xburnsx.toutiebudget.di.AppModule.provideRealtimeSyncService()
+                            .retirerFicheSupprimeeSurServeur(SyncCollections.collectionPourType(tache.type), idFiche)
+                    }.getOrDefault(false)
+                    if (retiree) {
+                        Log.i(TAG, "Fiche ${tache.type} $idFiche supprimée sur le serveur : retirée de l'appareil")
+                        continue
+                    }
+                }
+
                 if (fiche != null) fichesEnAttente += fiche
                 val bloquee = estErreurPermanente(resultat.code, tache.action)
                 // Diagnostic : type, action, code et message de PocketBase seulement (jamais les données)

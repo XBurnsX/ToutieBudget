@@ -154,6 +154,7 @@ class DetteViewModel(
                     aJour.paiementMinimum != avant.paiementMinimum ||
                     aJour.details.mode != avant.details.mode ||
                     aJour.details.dateDebut != avant.details.dateDebut ||
+                    aJour.details.datePremierPaiement != avant.details.datePremierPaiement ||
                     aJour.details.dateFin != avant.details.dateFin ||
                     aJour.details.jourVersement != avant.details.jourVersement ||
                     aJour.details.frequencePaiement != avant.details.frequencePaiement ||
@@ -172,14 +173,17 @@ class DetteViewModel(
                     ?: throw IllegalStateException("Montant du paiement invalide.")
                 val taux = f.taux.trim().replace(" ", "").replace(',', '.').toDoubleOrNull()
                     ?: throw IllegalStateException("Taux annuel invalide.")
+                val premierPaiement = f.datePremierPaiement.trim().takeIf { it.isNotBlank() }
                 val situation = com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
                     dateDebut, duree, versement, taux,
                     principalInitial = aJour.montantInitial,
-                    frequence = f.frequencePaiement
+                    frequence = f.frequencePaiement,
+                    premierPaiement = premierPaiement?.let { MoteurCarteCredit.lireDate(it) }
                 ) ?: throw IllegalStateException("Impossible de calculer cette dette.")
                 val details = aJour.details.copy(
                     mode = ModeDette.FINANCE,
                     dateDebut = f.dateDebut.trim(),
+                    datePremierPaiement = premierPaiement,
                     dateFin = MoteurCarteCredit.ecrireDate(situation.dateFin),
                     jourVersement = situation.jourVersement,
                     frequencePaiement = f.frequencePaiement,
@@ -377,6 +381,8 @@ data class FormulaireDette(
     val dureeMois: String = "",
     val versementPrevu: String = "",
     val dateDebut: String = "",
+    /** 1er versement réel (facultatif) : vide = une période après le début. */
+    val datePremierPaiement: String = "",
     val dateFin: String = "",
     val jourVersement: String = "",
     val frequencePaiement: FrequencePaiementDette = FrequencePaiementDette.MENSUELLE,
@@ -405,6 +411,13 @@ data class FormulaireDette(
         t(taux).let { if (it == null) e["taux"] = "Taux entre 0 et 100 requis" }
         dureeMois.trim().toIntOrNull().let { if (it == null || it !in 1..600) e["duree"] = "Durée de 1 à 600 mois" }
         if (MoteurCarteCredit.lireDate(dateDebut.trim()) == null) e["dateDebut"] = "Choisis la date de début"
+        val premier = datePremierPaiement.trim().takeIf { it.isNotBlank() }?.let { MoteurCarteCredit.lireDate(it) }
+        if (datePremierPaiement.isNotBlank()) {
+            val debutContrat = MoteurCarteCredit.lireDate(dateDebut.trim())
+            if (premier == null || (debutContrat != null && premier.before(debutContrat))) {
+                e["premier"] = "Le 1er paiement doit être le jour du début ou après"
+            }
+        }
         val situationValide = MoteurCarteCredit.lireDate(dateDebut.trim())?.let { debut ->
             val duree = dureeMois.trim().toIntOrNull()
             val versement = n(versementPrevu)
@@ -413,7 +426,8 @@ data class FormulaireDette(
                 com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
                     debut, duree, versement, tauxAnnuel,
                     principalInitial = n(montantInitial),
-                    frequence = frequencePaiement
+                    frequence = frequencePaiement,
+                    premierPaiement = premier
                 )
             } else null
         }
@@ -439,6 +453,7 @@ data class FormulaireDette(
                 dureeMois = dette.dureeMoisPret?.toString() ?: "",
                 versementPrevu = t(dette.paiementMinimum),
                 dateDebut = d.dateDebut ?: "",
+                datePremierPaiement = d.datePremierPaiement ?: "",
                 dateFin = d.dateFin ?: "",
                 jourVersement = d.jourVersement?.toString() ?: "",
                 frequencePaiement = d.frequencePaiement ?: FrequencePaiementDette.MENSUELLE,

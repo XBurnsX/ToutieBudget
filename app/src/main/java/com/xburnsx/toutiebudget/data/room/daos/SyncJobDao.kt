@@ -191,4 +191,18 @@ interface SyncJobDao {
         "AND (recordId = :recordId OR dataJson LIKE '%\"id\":\"' || :recordId || '\"%')"
     )
     suspend fun compterTachesEnAttentePourFiche(recordId: String): Int
+
+    /** Une création pas encore envoyée : la fiche n'est pas « supprimée sur le serveur », elle n'y est pas encore. */
+    @Query(
+        "SELECT COUNT(*) FROM sync_jobs WHERE action = 'CREATE' AND status != 'COMPLETED' " +
+        "AND (recordId = :recordId OR dataJson LIKE '%\"id\":\"' || :recordId || '\"%')"
+    )
+    suspend fun compterCreationsNonEnvoyees(recordId: String): Int
+
+    /** Fiche supprimée sur le serveur : ses modifications en attente n'ont plus de cible. */
+    @Query(
+        "UPDATE sync_jobs SET status = 'COMPLETED', bloque = 0, derniereErreur = :note " +
+        "WHERE status != 'COMPLETED' AND (recordId = :recordId OR dataJson LIKE '%\"id\":\"' || :recordId || '\"%')"
+    )
+    suspend fun terminerTachesDeFiche(recordId: String, note: String)
 }

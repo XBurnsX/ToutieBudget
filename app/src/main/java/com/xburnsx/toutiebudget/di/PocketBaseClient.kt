@@ -34,17 +34,9 @@ object PocketBaseClient {
         .retryOnConnectionFailure(true)
         .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de connexions persistantes
         .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)) // Support HTTP/2
-        // OkHttp décompresse automatiquement gzip/deflate, pas besoin d'intercepteur spécial
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Accept-Encoding", "gzip, deflate") // Compression
-                .addHeader("Connection", "keep-alive") // Connexions persistantes
-                .build()
-            val response = chain.proceed(request)
-            // Vérifier que la réponse est bien décompressée
-            Log.d("PocketBaseClient", "📦 Content-Encoding: ${response.header("Content-Encoding")}")
-            response
-        }
+        // OkHttp demande et décompresse gzip TOUT SEUL. Ne jamais ajouter « Accept-Encoding » à la main :
+        // OkHttp ne décompresse alors plus, et une grosse réponse arrive illisible
+        // (« MalformedJsonException … line 1 column 15 »).
         .build()
 
     private val gson = com.google.gson.GsonBuilder()

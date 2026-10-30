@@ -499,6 +499,10 @@ class ComptesViewModel(
         }
     }
 
+    fun onFormPremierPaiementChange(date: String) {
+        _uiState.update { s -> s.copy(formState = s.formState.copy(dettePremierPaiement = date)) }
+    }
+
     fun onSauvegarderCompte() {
         if (_uiState.value.enregistrementEnCours) return
         // CO6 : chaque sauvegarde ferme son dialogue elle-même, seulement après réussite
@@ -535,13 +539,19 @@ class ComptesViewModel(
                     val taux = formState.detteTauxAnnuel.trim().replace(',', '.').toDoubleOrNull()
                         ?.takeIf { it.isFinite() && it in 0.0..100.0 }
                         ?: throw IllegalArgumentException("Taux annuel requis entre 0 et 100 %.")
+                    val premierPaiement = formState.dettePremierPaiement.takeIf { it.isNotBlank() }?.let {
+                        com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.lireDate(it)
+                            ?.takeIf { d -> !d.before(dateDebut) }
+                            ?: throw IllegalArgumentException("Date du 1er paiement invalide (avant le début du prêt).")
+                    }
                     val situation = com.xburnsx.toutiebudget.domain.services.MoteurDette.situationContrat(
                         dateDebut = dateDebut,
                         dureeMois = duree,
                         mensualite = versement,
                         tauxAnnuel = taux,
                         principalInitial = montantTotal,
-                        frequence = formState.detteFrequence
+                        frequence = formState.detteFrequence,
+                        premierPaiement = premierPaiement
                     ) ?: throw IllegalArgumentException("Les conditions de la dette ne permettent pas un calcul valide.")
                     val utilisateurId = com.xburnsx.toutiebudget.di.PocketBaseClient
                         .obtenirUtilisateurConnecte()?.id
@@ -601,6 +611,7 @@ class ComptesViewModel(
                             detailsDetteJson = com.xburnsx.toutiebudget.data.modeles.DetailsDette(
                                 mode = com.xburnsx.toutiebudget.data.modeles.ModeDette.FINANCE,
                                 dateDebut = formState.detteDateDebut,
+                                datePremierPaiement = formState.dettePremierPaiement.takeIf { it.isNotBlank() },
                                 dateFin = com.xburnsx.toutiebudget.domain.services.MoteurCarteCredit.ecrireDate(situation.dateFin),
                                 jourVersement = situation.jourVersement,
                                 frequencePaiement = formState.detteFrequence,

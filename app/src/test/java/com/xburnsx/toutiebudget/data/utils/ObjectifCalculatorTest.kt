@@ -47,6 +47,30 @@ class ObjectifCalculatorTest {
         assertEquals(10.0, suggestion(annuel120, 1, emptyList()))
     }
 
+    // Cas réel « Epargne » : 50 $ pour le 13 avril, enveloppe à −13,64 $ (dépense), rien de placé.
+    private val epargne = enveloppe(TypeObjectif.Annuel, 50.0, date(2027, 3, 13), date(2028, 4, 13))
+    private val octobreEpargne = listOf(ligne(10, alloue = 0.0, depense = 13.64))
+
+    @Test
+    fun `epargne - le deficit se couvre en entier ce mois-ci`() {
+        assertEquals(20.78, suggestion(epargne, 10, octobreEpargne)) // 13,64 + 50 ÷ 7 mois
+    }
+
+    @Test
+    fun `epargne - un mois futur part du solde actuel, pas de zero`() {
+        // Rien de placé : le déficit est toujours là et la suggestion MONTE chaque mois
+        assertEquals(21.97, suggestion(epargne, 11, octobreEpargne)) // 13,64 + 50 ÷ 6
+        assertEquals(30.31, suggestion(epargne, 2, octobreEpargne, annee = 2028)) // 13,64 + 50 ÷ 3
+    }
+
+    @Test
+    fun `deficit couvert dans le mois - il ne reste que la part de l'objectif`() {
+        // −13,64 $ couverts ce mois-ci par 13,64 $ placés : solde à 0
+        val octobre = listOf(ligne(10, alloue = 13.64, depense = 13.64))
+        // Le dépôt couvre le déficit; il reste 50 ÷ 7 = 7,14 $ à placer
+        assertEquals(7.14, suggestion(epargne, 10, octobre))
+    }
+
     @Test
     fun `10 dollars chaque mois avec les reports - toujours 10, jamais 0`() {
         // Janvier : 10 $ mis, puis reporté en février

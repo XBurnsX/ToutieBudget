@@ -45,6 +45,22 @@ fun SyncJobScreen(
     val isSyncRunning = infosWorker.any { it.state == androidx.work.WorkInfo.State.RUNNING }
     val comparaison by syncJobViewModel.comparaison.collectAsState()
     val message by syncJobViewModel.message.collectAsState()
+    val apercuServeur by syncJobViewModel.apercuServeur.collectAsState()
+
+    // Deux sens : confirmation avant de retirer de l'appareil ce qui n'existe plus sur le serveur
+    apercuServeur?.let { apercu ->
+        AlertDialog(
+            onDismissRequest = { syncJobViewModel.annulerMiseAJourDepuisServeur() },
+            title = { Text("Mettre à jour depuis le serveur") },
+            text = { Text(apercu) },
+            confirmButton = {
+                TextButton(onClick = { syncJobViewModel.confirmerMiseAJourDepuisServeur() }) { Text("Mettre à jour") }
+            },
+            dismissButton = {
+                TextButton(onClick = { syncJobViewModel.annulerMiseAJourDepuisServeur() }) { Text("Annuler") }
+            }
+        )
+    }
     val enLigne = remember(syncJobs, isSyncRunning) { com.xburnsx.toutiebudget.utils.DiagnosticDonnees.estEnLigne(context) }
     
     // 🆕 État de filtrage - par défaut afficher seulement les tâches en attente
@@ -219,6 +235,15 @@ fun SyncJobScreen(
                             OutlinedButton(onClick = { syncJobViewModel.comparerAvecServeur(context) }) {
                                 Text("Comparer avec le serveur", color = Color.White)
                             }
+                        }
+                        // Deux sens : envoyer ce qui attend, puis prendre la version du serveur
+                        // (y compris les suppressions faites ailleurs : admin, autre appareil, web).
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { syncJobViewModel.preparerMiseAJourDepuisServeur(context) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Mettre à jour depuis le serveur", color = Color.White)
                         }
                         // « Synchroniser maintenant » saute les tâches bloquées : une fois la cause
                         // corrigée (ex. collection créée sur le serveur), les relancer toutes d'un coup.

@@ -100,24 +100,34 @@ class ObjectifCalculator(private val zone: ZoneId = ZoneId.systemDefault()) {
 
         // Le but est d'AVOIR le montant à la date : seul l'argent présent dans l'enveloppe compte.
         // Ce qui a été dépensé n'avance pas l'objectif (s'il faut 400 $, il faut 400 $ dedans).
-        val duMois = lignes.filter { it.mois.moisAnnee() == mois }
-        // Solde de l'enveloppe : actuel, ou fin de mois pour un mois déjà reporté
-        val solde = duMois.sumOf { it.solde.fini() + it.montantReporte.fini() }
+        val parMois = lignes.groupBy { it.mois.moisAnnee() }
+        // Solde de fin d'un mois : actuel (mois en cours) ou reporté (mois déjà fermé)
+        fun soldeFin(m: YearMonth) = parMois[m].orEmpty().sumOf { it.solde.fini() + it.montantReporte.fini() }
+
+        // Dernier mois connu avant celui-ci : pour un mois futur, c'est le mois en cours.
+        // Rien n'est placé entre les deux, donc son solde est ce qui sera là au départ.
+        val dernierConnu = parMois.keys.filter { it.isBefore(mois) }.maxOrNull()
+        val duMois = parMois[mois].orEmpty()
         val depenseCeMois = duMois.sumOf { it.depense.fini() }
 
         val precedent = mois.minusMonths(1)
         val (presentAuDepart, versementsCeMois) = if (!precedent.isBefore(PREMIER_REPORT_NOTE)) {
-            // Présent au début du mois = ce que le mois précédent a reporté
-            val report = lignes.filter { it.mois.moisAnnee() == precedent }.sumOf { it.montantReporte.fini() }
+            // Présent au début du mois = solde de fin du dernier mois connu
+            val report = dernierConnu?.let { soldeFin(it) } ?: 0.0
+            // Solde du mois (sans lignes : rien n'a bougé depuis)
+            val solde = if (duMois.isEmpty()) report else soldeFin(mois)
             // Mis ce mois-ci = solde − report + dépenses du mois
             (report - depenseCeMois) to (solde - report + depenseCeMois)
         } else {
             // Report d'avant GN3 : non noté, on ne peut pas séparer l'argent arrivé ce mois-ci.
             // On répartit simplement ce qui manque au solde actuel.
-            solde to 0.0
+            soldeFin(mois) to 0.0
         }
 
-        val partCeMois = max(0.0, objectif - presentAuDepart) / moisRestants
+        // Un solde négatif est de l'argent qui manque DÉJÀ : il se couvre en entier tout de suite,
+        // puis l'objectif se répartit normalement sur les mois restants.
+        val deficit = max(0.0, -presentAuDepart)
+        val partCeMois = deficit + max(0.0, objectif - max(0.0, presentAuDepart)) / moisRestants
         return arrondirSuggestion(max(0.0, partCeMois - max(0.0, versementsCeMois)))
     }
 
