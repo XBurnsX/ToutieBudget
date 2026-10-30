@@ -219,21 +219,21 @@ fun AppNavigation() {
                     }
                 }
 
-                HistoriqueCompteScreen(
-                    viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    onModifierTransaction = { transactionId ->
-                        // ✅ Naviguer vers l'écran de modification avec les paramètres de retour
-                        navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
-                    },
-                    onReprendreTransaction = { transactionId ->
-                        // Le chargement doit se faire dans le ViewModel de la
-                        // destination, pas sur un ViewModel aussitôt abandonné.
-                        navController.navigate(
-                            "reprendre_transaction/" + android.net.Uri.encode(transactionId)
-                        )
-                    }
-                )
+                RessourceVerifiee(compteId, { VerificationsRoutes.compte(compteId, collectionCompte, actif = false) }, { navController.retourSecurise() }) {
+                    HistoriqueCompteScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = { navController.retourSecurise() },
+                        onModifierTransaction = { transactionId ->
+                            // ✅ Naviguer vers l'écran de modification avec les paramètres de retour
+                            navController.naviguerUneFois(Routes.modifierTransaction(transactionId))
+                        },
+                        onReprendreTransaction = { transactionId ->
+                            // Le chargement doit se faire dans le ViewModel de la
+                            // destination, pas sur un ViewModel aussitôt abandonné.
+                            navController.naviguerUneFois(Routes.reprendreTransaction(transactionId))
+                        }
+                    )
+                }
             }
             
             // Route pour l'historique des enveloppes
@@ -272,21 +272,21 @@ fun AppNavigation() {
                     }
                 }
 
-                HistoriqueEnveloppeScreen(
-                    viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    onModifierTransaction = { transactionId ->
-                        // Naviguer vers l'écran de modification
-                        navController.navigate("modifier_transaction/${android.net.Uri.encode(transactionId)}")
-                    },
-                    onReprendreTransaction = { transactionId ->
-                        // Le chargement doit se faire dans le ViewModel de la
-                        // destination, pas sur un ViewModel aussitôt abandonné.
-                        navController.navigate(
-                            "reprendre_transaction/" + android.net.Uri.encode(transactionId)
-                        )
-                    }
-                )
+                RessourceVerifiee(enveloppeId, { VerificationsRoutes.enveloppe(enveloppeId) }, { navController.retourSecurise() }) {
+                    HistoriqueEnveloppeScreen(
+                        viewModel = viewModel,
+                        onNavigateBack = { navController.retourSecurise() },
+                        onModifierTransaction = { transactionId ->
+                            // Naviguer vers l'écran de modification
+                            navController.naviguerUneFois(Routes.modifierTransaction(transactionId))
+                        },
+                        onReprendreTransaction = { transactionId ->
+                            // Le chargement doit se faire dans le ViewModel de la
+                            // destination, pas sur un ViewModel aussitôt abandonné.
+                            navController.naviguerUneFois(Routes.reprendreTransaction(transactionId))
+                        }
+                    )
+                }
             }
             
             // Route pour l'écran de modification de transaction
@@ -305,22 +305,24 @@ fun AppNavigation() {
                         historiqueFactory { AppModule.provideModifierTransactionViewModel() }
                     }
                 )
-                ModifierTransactionScreen(
-                    transactionId = transactionId,
-                    viewModel = viewModel,
-                    onTransactionModified = {
-                        // Signal à la destination d'origine (historique compte OU enveloppe).
-                        // Une date/nom passé en argument ne suffit pas à rafraîchir Room.
-                        navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
-                            val generation = handle.get<Long>("historique_retour_edition") ?: 0L
-                            handle["historique_retour_edition"] = generation + 1L
+                RessourceVerifiee(transactionId, { VerificationsRoutes.transaction(transactionId) }, { navController.retourSecurise() }) {
+                    ModifierTransactionScreen(
+                        transactionId = transactionId,
+                        viewModel = viewModel,
+                        onTransactionModified = {
+                            // Signal à la destination d'origine (historique compte OU enveloppe).
+                            // Une date/nom passé en argument ne suffit pas à rafraîchir Room.
+                            navController.previousBackStackEntry?.savedStateHandle?.let { handle ->
+                                val generation = handle.get<Long>("historique_retour_edition") ?: 0L
+                                handle["historique_retour_edition"] = generation + 1L
+                            }
+                            navController.retourSecurise()
+                        },
+                        onNavigateBack = {
+                            navController.retourSecurise()
                         }
-                        navController.popBackStack()
-                    },
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
+                    )
+                }
             }
 
             // Route pour l'écran de gestion des cartes de crédit
@@ -332,16 +334,18 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val carteCreditId = backStackEntry.arguments?.getString("carteCreditId") ?: ""
                 val viewModel = AppModule.provideCartesCreditViewModel()
-                GestionCarteCreditScreen(
-                    carteCreditId = carteCreditId,
-                    viewModel = viewModel,
-                    onRetour = { navController.popBackStack() },
-                    onNaviguerVersPaiement = { carteCredit ->
-                        // Navigation vers l'écran d'ajout de transaction en mode paiement
-                        // avec la carte de crédit présélectionnée
-                        navController.navigate("nouvelle_transaction_paiement/${carteCredit.id}")
-                    }
-                )
+                RessourceVerifiee(carteCreditId, { VerificationsRoutes.compte(carteCreditId, "comptes_credits", actif = true) }, { navController.retourSecurise() }) {
+                    GestionCarteCreditScreen(
+                        carteCreditId = carteCreditId,
+                        viewModel = viewModel,
+                        onRetour = { navController.retourSecurise() },
+                        onNaviguerVersPaiement = { carteCredit ->
+                            // Navigation vers l'écran d'ajout de transaction en mode paiement
+                            // avec la carte de crédit présélectionnée
+                            navController.naviguerUneFois(Routes.paiementCarte(carteCredit.id))
+                        }
+                    )
+                }
             }
             
             // Route « Gérer le placement » (section 12)
@@ -349,11 +353,13 @@ fun AppNavigation() {
                 route = "gestion_investissement/{compteId}",
                 arguments = listOf(navArgument("compteId") { type = NavType.StringType })
             ) { backStackEntry ->
-                com.xburnsx.toutiebudget.ui.investissement.InvestissementScreen(
-                    compteId = backStackEntry.arguments?.getString("compteId") ?: "",
-                    viewModel = AppModule.provideInvestissementViewModel(),
-                    onRetour = { navController.popBackStack() }
-                )
+                RessourceVerifiee(backStackEntry.arguments?.getString("compteId"), { VerificationsRoutes.compte(backStackEntry.arguments?.getString("compteId").orEmpty(), "comptes_investissement", actif = true) }, { navController.retourSecurise() }) {
+                    com.xburnsx.toutiebudget.ui.investissement.InvestissementScreen(
+                        compteId = backStackEntry.arguments?.getString("compteId") ?: "",
+                        viewModel = AppModule.provideInvestissementViewModel(),
+                        onRetour = { navController.retourSecurise() }
+                    )
+                }
             }
 
             // Route pour l'écran de gestion des dettes
@@ -365,15 +371,17 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val detteId = backStackEntry.arguments?.getString("detteId") ?: ""
                 val viewModel = AppModule.provideDetteViewModel()
-                DetteScreen(
-                    detteId = detteId,
-                    viewModel = viewModel,
-                    onRetour = { navController.popBackStack() },
-                    onSauvegarder = { dette ->
-                        // Retour à l'écran précédent après sauvegarde
-                        navController.popBackStack()
-                    }
-                )
+                RessourceVerifiee(detteId, { VerificationsRoutes.compte(detteId, "comptes_dettes", actif = true) }, { navController.retourSecurise() }) {
+                    DetteScreen(
+                        detteId = detteId,
+                        viewModel = viewModel,
+                        onRetour = { navController.retourSecurise() },
+                        onSauvegarder = { dette ->
+                            // Retour à l'écran précédent après sauvegarde
+                            navController.retourSecurise()
+                        }
+                    )
+                }
             }
             
             // AA4 / HC13 : une seule instance conserve le préremplissage;
@@ -392,10 +400,12 @@ fun AppNavigation() {
                 val budgetViewModel = remember(backStackEntry.id) {
                     AppModule.provideBudgetViewModel()
                 }
-                AjoutTransactionScreen(
-                    viewModel = ajoutViewModel,
-                    onTransactionSuccess = { budgetViewModel.rafraichirDonnees() }
-                )
+                RessourceVerifiee(transactionId, { VerificationsRoutes.transaction(transactionId) }, { navController.retourSecurise() }) {
+                    AjoutTransactionScreen(
+                        viewModel = ajoutViewModel,
+                        onTransactionSuccess = { budgetViewModel.rafraichirDonnees() }
+                    )
+                }
             }
 
             // Route pour l'ajout de transaction avec présélection (paiement carte de crédit)
@@ -419,7 +429,12 @@ fun AppNavigation() {
                 when {
                     carteCredit != null -> AjoutTransactionScreen(
                         viewModel = viewModel,
-                        onTransactionSuccess = { budgetViewModel.rafraichirDonnees() },
+                        onTransactionSuccess = {
+                            // NV11 : retrouver la carte d'origine avec son solde à jour
+                            budgetViewModel.rafraichirDonnees()
+                            cartesCreditViewModel.chargerCarteSpecifique(carteCreditId)
+                            navController.retourSecurise()
+                        },
                         modePreselectionne = "Paiement",
                         carteCreditPreselectionnee = carteCredit
                     )
@@ -485,23 +500,23 @@ fun MainAppScaffold(
                 BudgetScreen(
                     viewModel = viewModel,
                     onCategoriesClick = {
-                        bottomBarNavController.navigate(Screen.Categories.route)
+                        bottomBarNavController.naviguerUneFois(Screen.Categories.route)
                     },
                     onVirementClick = {
-                        bottomBarNavController.navigate(Screen.VirerArgent.route)
+                        bottomBarNavController.naviguerUneFois(Screen.VirerArgent.route)
                     },
                     onSettingsClick = {
-                        bottomBarNavController.navigate(Screen.Settings.route)
+                        bottomBarNavController.naviguerUneFois(Screen.Settings.route)
                     },
                     onPretPersonnelClick = {
-                        bottomBarNavController.navigate("pret_personnel")
+                        bottomBarNavController.naviguerUneFois("pret_personnel")
                     },
                     onGererSoldeNegatifClick = { mois ->
-                        bottomBarNavController.navigate("gerer_solde_negatif/${mois.time}")
+                        bottomBarNavController.naviguerUneFois(Routes.gererSoldeNegatif(mois.time))
                     },
                     onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
-                        mainNavController.navigate(
-                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        mainNavController.naviguerUneFois(
+                            Routes.historiqueEnveloppe(enveloppeId, nomEnveloppe)
                         )
                     }
                 )
@@ -517,19 +532,19 @@ fun MainAppScaffold(
                     viewModel = viewModel,
                     moisSelectionne = Date(backStackEntry.arguments?.getLong("moisMillis") ?: System.currentTimeMillis()),
                     onRetour = {
-                        bottomBarNavController.popBackStack()
+                        bottomBarNavController.retourSecurise()
                     },
                     onVirementClick = { enveloppeId, montantNegatif, mois, total ->
                         // Naviguer vers le virement avec paramètres pré-remplis
                         val moisInt = mois.month + 1 // +1 car month commence à 0
                         val anneeInt = mois.year + 1900 // +1900 car year commence à 1900
-                        bottomBarNavController.navigate(
-                            "virer_argent_pre_rempli/${android.net.Uri.encode(enveloppeId)}/$montantNegatif/$moisInt/$anneeInt?total=$total"
+                        bottomBarNavController.naviguerUneFois(
+                            Routes.virementPrerempli(enveloppeId, montantNegatif, moisInt, anneeInt, total)
                         )
                     },
                     onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
-                        mainNavController.navigate(
-                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        mainNavController.naviguerUneFois(
+                            Routes.historiqueEnveloppe(enveloppeId, nomEnveloppe)
                         )
                     }
                 )
@@ -541,51 +556,51 @@ fun MainAppScaffold(
                     onCouleurThemeChange = onCouleurThemeChange,
                     onLogout = {
                         // Redirige immédiatement vers l'écran de login
-                        mainNavController.navigate("login_flow") {
+                        mainNavController.naviguerUneFois("login_flow") {
                             popUpTo(0) { inclusive = true }
                         }
                     },
                     // PR1 : nouveau budget vide ou restauration -> redémarrage complet, toujours connecté
                     onNouveauBudget = {
-                        mainNavController.navigate("post_login_startup") {
+                        mainNavController.naviguerUneFois("post_login_startup") {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onBack = { bottomBarNavController.popBackStack() },
-                    onNavigateToArchives = { bottomBarNavController.navigate("archives") },
-                    onNavigateToSyncJobs = { bottomBarNavController.navigate("sync_jobs") },
-                    onNavigateToDatabaseManager = { bottomBarNavController.navigate("database_manager") },
-                    onNavigateToAliasBancaires = { bottomBarNavController.navigate("alias_bancaires") },
-                    onNavigateToOperationsBancaires = { bottomBarNavController.navigate("operations_bancaires") },
-                    onNavigateToHistory = { bottomBarNavController.navigate(Screen.HistoriqueGeneral.route) }
+                    onBack = { bottomBarNavController.retourSecurise() },
+                    onNavigateToArchives = { bottomBarNavController.naviguerUneFois("archives") },
+                    onNavigateToSyncJobs = { bottomBarNavController.naviguerUneFois("sync_jobs") },
+                    onNavigateToDatabaseManager = { bottomBarNavController.naviguerUneFois("database_manager") },
+                    onNavigateToAliasBancaires = { bottomBarNavController.naviguerUneFois("alias_bancaires") },
+                    onNavigateToOperationsBancaires = { bottomBarNavController.naviguerUneFois("operations_bancaires") },
+                    onNavigateToHistory = { bottomBarNavController.naviguerUneFois(Screen.HistoriqueGeneral.route) }
                 )
             }
 
             // Route pour l'historique général
             composable(Screen.HistoriqueGeneral.route) {
                 HistoryScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
 
             // BANQ-03 : import bancaire dans une boîte de validation dédiée.
             composable("operations_bancaires") {
                 com.xburnsx.toutiebudget.ui.settings.OperationsBancairesScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
 
             // BANQ-02 : accès aux alias, uniquement depuis Paramètres.
             composable("alias_bancaires") {
                 com.xburnsx.toutiebudget.ui.settings.AliasBancairesScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
 
             // Route pour la gestion de la base de données
             composable("database_manager") {
                 com.xburnsx.toutiebudget.ui.settings.DatabaseManagerScreen(
-                    onBack = { bottomBarNavController.popBackStack() },
+                    onBack = { bottomBarNavController.retourSecurise() },
                     couleurTheme = couleurTheme
                 )
             }
@@ -593,7 +608,7 @@ fun MainAppScaffold(
             // Route pour la page des SyncJob
             composable("sync_jobs") {
                 SyncJobScreen(
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
             // Route archives
@@ -603,15 +618,15 @@ fun MainAppScaffold(
                 ArchivesScreen(
                     comptesViewModel = comptesVm,
                     categoriesViewModel = categoriesVm,
-                    onBack = { bottomBarNavController.popBackStack() },
+                    onBack = { bottomBarNavController.retourSecurise() },
                     onVoirHistoriqueCompte = { compteId, collectionCompte, nomCompte ->
-                        mainNavController.navigate(
-                            "historique_compte/${android.net.Uri.encode(compteId)}/${android.net.Uri.encode(collectionCompte)}/${android.net.Uri.encode(nomCompte)}"
+                        mainNavController.naviguerUneFois(
+                            Routes.historiqueCompte(compteId, collectionCompte, nomCompte)
                         )
                     },
                     onVoirHistoriqueEnveloppe = { enveloppeId, nomEnveloppe ->
-                        mainNavController.navigate(
-                            "historique_enveloppe/${android.net.Uri.encode(enveloppeId)}/${android.net.Uri.encode(nomEnveloppe)}"
+                        mainNavController.naviguerUneFois(
+                            Routes.historiqueEnveloppe(enveloppeId, nomEnveloppe)
                         )
                     }
                 )
@@ -622,18 +637,18 @@ fun MainAppScaffold(
                 ComptesScreen(
                     viewModel = viewModel,
                     onCompteClick = { compteId, collectionCompte, nomCompte ->
-                        mainNavController.navigate(
-                            "historique_compte/${android.net.Uri.encode(compteId)}/${android.net.Uri.encode(collectionCompte)}/${android.net.Uri.encode(nomCompte)}"
+                        mainNavController.naviguerUneFois(
+                            Routes.historiqueCompte(compteId, collectionCompte, nomCompte)
                         )
                     },
                     onCarteCreditLongClick = { carteCreditId ->
-                        mainNavController.navigate("gestion_carte_credit/$carteCreditId")
+                        mainNavController.naviguerUneFois(Routes.gestionCarteCredit(carteCreditId))
                     },
                     onDetteLongClick = { detteId ->
-                        mainNavController.navigate("gestion_dette/$detteId")
+                        mainNavController.naviguerUneFois(Routes.gestionDette(detteId))
                     },
                     onInvestissementLongClick = { compteId ->
-                        mainNavController.navigate("gestion_investissement/$compteId")
+                        mainNavController.naviguerUneFois(Routes.gestionInvestissement(compteId))
                     }
                 )
             }
@@ -649,7 +664,7 @@ fun MainAppScaffold(
                 val viewModel = AppModule.provideCategoriesEnveloppesViewModel()
                 CategoriesEnveloppesScreen(
                     viewModel = viewModel,
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
             composable(Screen.Statistiques.route) {
@@ -720,7 +735,7 @@ fun MainAppScaffold(
                 val viewModel = AppModule.providePretPersonnelViewModel()
                 com.xburnsx.toutiebudget.ui.pret_personnel.PretPersonnelScreen(
                     viewModel = viewModel,
-                    onBack = { bottomBarNavController.popBackStack() }
+                    onBack = { bottomBarNavController.retourSecurise() }
                 )
             }
             }
@@ -763,3 +778,28 @@ private fun <T : ViewModel> historiqueFactory(construire: () -> T): ViewModelPro
                 ?: throw IllegalArgumentException("Type de ViewModel historique inattendu.")
         }
     }
+
+/** NV10/NVA3 : vérifications des destinations — null si tout va bien, sinon un message utile. */
+private object VerificationsRoutes {
+    suspend fun compte(id: String, collection: String, actif: Boolean): String? {
+        if (!Routes.idValide(id)) return "Lien invalide : aucun compte indiqué."
+        val c = com.xburnsx.toutiebudget.di.AppModule.provideCompteRepository().getCompteById(id, collection)
+            ?: return "Ce compte n'existe plus sur cet appareil (supprimé, ou pas encore synchronisé)."
+        if (actif && c.estArchive) return "« ${c.nom} » est archivé : réactive-le dans Paramètres > Archives pour le gérer."
+        return null
+    }
+
+    suspend fun enveloppe(id: String): String? {
+        if (!Routes.idValide(id)) return "Lien invalide : aucune enveloppe indiquée."
+        val existe = com.xburnsx.toutiebudget.di.AppModule.provideEnveloppeRepository()
+            .recupererToutesLesEnveloppes().getOrThrow().any { it.id == id }
+        return if (existe) null else "Cette enveloppe n'existe plus sur cet appareil."
+    }
+
+    suspend fun transaction(id: String): String? {
+        if (!Routes.idValide(id)) return "Lien invalide : aucune transaction indiquée."
+        return com.xburnsx.toutiebudget.di.AppModule.provideTransactionRepository()
+            .recupererTransactionDeLaSession(id)
+            .fold({ null }, { "Cette transaction n'existe plus (supprimée ici ou sur un autre appareil)." })
+    }
+}

@@ -177,6 +177,40 @@ fun AjoutTransactionScreen(
                     .padding(paddingValues),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // NVA4 : une saisie interrompue est annoncée au retour ; l'utilisateur choisit de la reprendre ou de
+                // l'abandonner. Rien n'est jamais enregistré tant qu'il n'a pas appuyé sur Enregistrer.
+                var brouillonVerifie by remember { mutableStateOf(false) }
+                var brouillonAnnonce by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    if (!brouillonVerifie) {
+                        brouillonVerifie = true
+                        brouillonAnnonce = !uiState.estEnTrainDeSauvegarder &&
+                            ((uiState.montant.isNotBlank() && uiState.montant.trim('0', '.', ',').isNotEmpty()) ||
+                                uiState.tiersUtiliser.isNotBlank())
+                    }
+                }
+                if (brouillonAnnonce) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A))
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Saisie non terminée retrouvée" +
+                                    (uiState.tiersUtiliser.takeIf { it.isNotBlank() }?.let { " : $it" } ?: "") +
+                                    ". Rien n'a été enregistré.",
+                                color = Color.White, fontSize = 14.sp
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { brouillonAnnonce = false }) { Text("Reprendre") }
+                                TextButton(onClick = {
+                                    viewModel.nouvelleTransaction()
+                                    brouillonAnnonce = false
+                                }) { Text("Abandonner", color = Color(0xFFFF8A80)) }
+                            }
+                        }
+                    }
+                }
                 // Zone de défilement pour les champs de saisie
                 Column(
                     modifier = Modifier
